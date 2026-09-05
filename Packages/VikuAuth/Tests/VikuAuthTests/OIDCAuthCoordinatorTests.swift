@@ -25,4 +25,23 @@ struct OIDCAuthCoordinatorTests {
         #expect(request.redirectURL == redirectURI)
         #expect(request.responseType == OIDResponseTypeCode)
     }
+
+    @Test
+    func `recognizes appauth's user canceled error`() {
+        let error = NSError(domain: OIDGeneralErrorDomain, code: OIDErrorCode.userCanceledAuthorizationFlow.rawValue)
+
+        #expect(OIDCAuthCoordinator.isUserCanceled(error) == true)
+    }
+
+    @Test
+    func `does not treat other appauth errors as canceled`() {
+        let error = NSError(domain: OIDGeneralErrorDomain, code: OIDErrorCode.networkError.rawValue)
+
+        #expect(OIDCAuthCoordinator.isUserCanceled(error) == false)
+    }
+
+    @Test
+    func `does not treat A nil error as canceled`() {
+        #expect(OIDCAuthCoordinator.isUserCanceled(nil) == false)
+    }
 }
