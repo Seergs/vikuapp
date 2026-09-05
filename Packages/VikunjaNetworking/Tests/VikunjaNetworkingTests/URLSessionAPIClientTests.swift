@@ -506,6 +506,23 @@ struct URLSessionAPIClientTests {
     }
 
     @Test
+    func `password refresher also renews an expiring oidc account's token`() async throws {
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: #"{"token":"renewed-jwt"}"#)
+        let expiringJWT = PasswordRefresherFixtures.makeJWT(exp: Date().addingTimeInterval(10).timeIntervalSince1970)
+        let account = try PasswordRefresherFixtures.makeAccount(authMethod: .oidc)
+        let store = try PasswordRefresherFixtures.FakeAccountStore(
+            tokens: [account.id: PasswordRefresherFixtures.encode(accessToken: expiringJWT, refreshToken: nil)],
+        )
+        let refresher = PasswordSessionRefresher(accountStore: store, session: session)
+
+        let token = await refresher.validToken(for: account)
+
+        #expect(token == "renewed-jwt")
+        let request = try #require(await capture.lastRequest)
+        #expect(request.url?.path == "/api/v1/user/token")
+    }
+
+    @Test
     func `password refresher renews an expiring token with no refresh token via the bearer endpoint`() async throws {
         let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: #"{"token":"renewed-jwt"}"#)
         let expiringJWT = PasswordRefresherFixtures.makeJWT(exp: Date().addingTimeInterval(10).timeIntervalSince1970)

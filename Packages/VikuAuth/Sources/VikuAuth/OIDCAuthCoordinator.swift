@@ -5,18 +5,6 @@ import VikunjaCore
 import UIKit
 #endif
 
-public enum OIDCAuthError: Error, Sendable, Equatable {
-    /// No foreground window to present the authorization page from.
-    case noPresentingViewController
-    /// `ASWebAuthenticationSession` couldn't be started (e.g. Guided Access
-    /// is on).
-    case presentationUnavailable
-    case missingAuthorizationCode
-    /// This platform has no system browser session to present (the macOS
-    /// unit-test host).
-    case unsupportedPlatform
-}
-
 /// Presents an OIDC provider's authorization page in `ASWebAuthenticationSession`
 /// (via AppAuth) and returns the resulting authorization code. Never contacts
 /// a token endpoint itself — Vikunja's backend does that exchange server-side
@@ -49,6 +37,8 @@ public final class OIDCAuthCoordinator: OIDCAuthenticating {
                 self?.currentSession = nil
                 if let code = response?.authorizationCode {
                     continuation.resume(returning: code)
+                } else if Self.isUserCanceled(error) {
+                    continuation.resume(throwing: OIDCAuthError.canceled)
                 } else {
                     continuation.resume(throwing: error ?? OIDCAuthError.missingAuthorizationCode)
                 }
@@ -78,6 +68,15 @@ public final class OIDCAuthCoordinator: OIDCAuthenticating {
             .rootViewController
     }
     #endif
+
+    /// Whether `error` is AppAuth's own "user tapped Cancel in the browser
+    /// session" signal, as opposed to a real failure (network, malformed
+    /// response, the provider itself rejecting the request).
+    nonisolated static func isUserCanceled(_ error: Error?) -> Bool {
+        guard let error = error as? NSError else { return false }
+        return error.domain == OIDGeneralErrorDomain
+            && error.code == OIDErrorCode.userCanceledAuthorizationFlow.rawValue
+    }
 
     /// Pulled out of `authenticate` so it's testable without UIKit —
     /// `OIDAuthorizationRequest`/`OIDServiceConfiguration` come from

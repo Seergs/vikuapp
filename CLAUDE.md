@@ -64,9 +64,11 @@ by the compiler, not just convention:
 - **`VikunjaCore`** — pure Swift, no networking, no UI, no dependencies.
   - `Domain/` — domain models (`VikunjaTask`, `Project`, `User`, `Label`,
     `TaskRelation`, `RelationKind`, `TaskComment`, `InstanceAccount`,
-    `InstanceURL`, `ToastStyle`). `InstanceAccount` holds only
-    id/displayName/baseURL/createdAt — no `authMethod` field, since only API
-    token auth is modeled today. `InstanceURL.normalize(_:)` turns a bare
+    `InstanceURL`, `ToastStyle`). `InstanceAccount` holds
+    id/displayName/baseURL/createdAt plus `authMethod: AuthMethod`
+    (`.apiToken`/`.password`/`.oidc`) — which login method produced the
+    credential stored (opaque, keyed by the account's `id`) behind
+    `AccountStoreProtocol`, never the credential itself. `InstanceURL.normalize(_:)` turns a bare
     domain or full URL the user typed into the scheme+host `URL` the
     networking layer expects as `baseURL`. `TaskRelation` is a thin
     id/title/isDone/projectID summary (not a full recursive `VikunjaTask`) used
@@ -91,7 +93,19 @@ by the compiler, not just convention:
     `TaskCommentRepositoryProtocol`, `TaskAttachmentRepositoryProtocol`,
     `AuthServiceProtocol`,
     `AccountStoreProtocol`, `InstanceClientFactoryProtocol`,
-    `ToastPresenting`). `TaskRepositoryProtocol` and `ProjectRepositoryProtocol`
+    `ToastPresenting`, `OIDCAuthenticating`).
+    `AuthServiceProtocol` covers all three login methods —
+    `login(_:)` (username/password, `LoginCredentials`), `loginWithAPIToken(_:)`,
+    and `loginWithOIDC(provider:code:redirectURI:)` — every one returning an
+    `AuthSession` whose `token` is an opaque, persisted-credential blob for
+    password/OIDC (never the raw JWT; see `VikunjaNetworking`'s
+    `PasswordSessionCredential`) or the API token string itself.
+    `OIDCAuthenticating` is the one-method contract for driving a provider's
+    login page in a system browser session (`VikuAuth`'s `OIDCAuthCoordinator`
+    is the only implementation) — declared here rather than in `VikuAuth` so
+    a Feature can pattern-match its `OIDCAuthError.canceled` case without
+    importing `VikuAuth`, the same relationship `VikunjaError` has to
+    `VikunjaNetworking`. `TaskRepositoryProtocol` and `ProjectRepositoryProtocol`
     now cover full CRUD; `TaskRepositoryProtocol` also has
     `searchTasks(query:)` (account-wide, not project-scoped — for the relation
     picker). `LabelRepositoryProtocol` covers label CRUD plus attach/detach
@@ -105,7 +119,12 @@ by the compiler, not just convention:
     `removeAccount`/`setActiveAccount`/`token(forAccountID:)`), not just a
     single saved connection.
   - `Capabilities/` — `VikunjaServerInfo`, `CapabilityProvider`, `VikunjaFeature`:
-    the runtime feature-detection layer (see below).
+    the runtime feature-detection layer (see below). `VikunjaFeature.localAuth`/
+    `.openIDConnect` gate the password/OIDC credential modes; `VikunjaServerInfo`
+    carries `localAuthEnabled` and `oidcProviders: [OIDCProvider]`.
+    `OIDCProvider` (key/name/authURL/clientID/scope) mirrors one entry of
+    `/info`'s `auth.openid_connect.providers` — everything a client needs to
+    build an OIDC authorization request itself, without a discovery document.
   - `Errors/` — `VikunjaError`, the domain-level error type everything surfaces.
 
 - **`VikunjaNetworking`** — the only module that knows Vikunja speaks HTTP/JSON.
@@ -120,7 +139,12 @@ by the compiler, not just convention:
     endpoint that serves raw bytes rather than JSON (an attachment download).
   - `Endpoints/VikunjaEndpoints.swift` — the single file that knows Vikunja's actual
     REST routes (`/api/v1/...`). This is where a real API change gets fixed.
-    Covers `/info`, login, full task + project CRUD (**create is `PUT`**, update
+    Covers `/info`, login (username/password and the OIDC callback exchange —
+    `oidcCallback(providerKey:code:scope:redirectURL:)`,
+    `POST /api/v1/auth/openid/{provider}/callback`, mirroring Vikunja's Go
+    `openid.Callback` struct; `redirectURL` must exactly match the URI used in
+    the authorization request that produced `code`, since Vikunja forwards it
+    verbatim to the provider's token endpoint), full task + project CRUD (**create is `PUT`**, update
     is `POST` — Vikunja's convention, not a typo), label CRUD plus task/label
     association (`/tasks/{id}/labels`), task relation add/remove
     (`/tasks/{id}/relations`), task comment CRUD (`/tasks/{id}/comments`),
@@ -175,8 +199,19 @@ by the compiler, not just convention:
     into Features. `VikunjaInstanceClientFactory` builds one of these per
     screen call — see `InstanceClientFactoryProtocol` — from a `baseURL` plus
     a `tokenProvider` closure; there's no long-lived per-account client.
+    `PasswordSessionRefresher` (also here, not `AccountStoreProtocol`-conforming
+    itself) is the `tokenProvider` every factory call actually passes: a
+    drop-in for `AccountStoreProtocol.token(forAccountID:)` that passes an
+    API-token account straight through, and for a password *or* OIDC account
+    decodes the stored opaque `PasswordSessionCredential`, checks its JWT's
+    `exp`, and refreshes it (via whichever of Vikunja's two renewal endpoints
+    the account's server supports, detected from whether a refresh token was
+    captured at login) before it expires — single-flighted per account so
+    concurrent callers don't race duplicate refreshes.
 
-- **`VikuAuth`** — multi-account/instance storage. Depends on `VikunjaCore`.
+- **`VikuAuth`** — multi-account/instance storage plus OIDC browser
+  authentication. Depends on `VikunjaCore` and `openid/AppAuth-iOS` (the
+  project's first third-party dependency).
   - `KeychainAccountStore` — implements `AccountStoreProtocol`: the account list,
     each account's bearer token (keyed by account id, in its own Keychain item so
     removing one account never touches another's secret), and the active-account
@@ -185,6 +220,22 @@ by the compiler, not just convention:
     removing one deletes both its metadata and its token item.
   - `Keychain` — internal `Security`-framework wrapper (generic password items);
     not part of the module's public API.
+  - `OIDCAuthCoordinator` — implements `OIDCAuthenticating`. Presents a
+    provider's authorization page via `ASWebAuthenticationSession` (AppAuth's
+    `OIDExternalUserAgentIOS`) and returns only the raw authorization `code` —
+    it never contacts a token endpoint itself, since Vikunja's backend does
+    that exchange server-side (`AuthServiceProtocol.loginWithOIDC`), so
+    `OIDServiceConfiguration`'s required `tokenEndpoint` is filled with a
+    value that's never dereferenced. Translates AppAuth's user-cancel error
+    (`OIDErrorCodeUserCanceledAuthorizationFlow`) into `OIDCAuthError.canceled`
+    so callers can treat a dismissed browser session as "nothing happened"
+    rather than a failure. The request-building logic is a `nonisolated
+    static` function so it's unit-testable without UIKit; the whole class
+    body besides that is `#if canImport(UIKit)`-gated (an inert
+    `.unsupportedPlatform` throw otherwise), same pattern as
+    `HapticFeedbackCenter` — `swift test` alone only exercises the macOS-host
+    no-op branch, so changes here need a real `xcodebuild`
+    iOS-Simulator build (or a device run) to actually compile-check.
 
 - **`VikuNavigation`** — pure SwiftUI/Observation, no networking, no
   dependencies. The shared navigation primitive every Feature's `Navigation/`
@@ -281,15 +332,48 @@ by the compiler, not just convention:
       (or the `condition:` overload), a thin wrapper over `.sensoryFeedback`
       that reuses `HapticStyle` — no injection needed.
 
+`AppContainer` owns the single `OIDCAuthCoordinator` instance too
+(`container.oidcAuthCoordinator`, typed `OIDCAuthenticating`) plus
+`container.oidcRedirectURI` — derived from the app's *existing*
+`viku://`/`viku-dev://` deep-link scheme (`VikuWidgetConfig.urlScheme`), so
+OIDC needed no separate URL-scheme registration. Both are passed into
+`makeInstanceSetupViewModel()`/`makeConnectionFormViewModel(...)` alongside
+the other constructor-injected dependencies.
+
 - **`Features/Onboarding`** — the "connect to your instance" screen. Depends on
   `VikunjaCore` + `VikuDesignSystem`.
   - `ViewModels/InstanceSetupViewModel.swift` — `@Observable`, `@MainActor`.
     Normalizes the typed URL via `InstanceURL`, probes it via
     `InstanceClientFactoryProtocol.makeCapabilityProvider(baseURL:).serverInfo()`
     (confirms it's a real Vikunja instance; the API token itself isn't validated
-    against the server yet), then persists via `AccountStoreProtocol`. Takes both
-    protocols by constructor injection — no concrete `VikunjaNetworking`/
-    `VikuAuth` types.
+    against the server yet), then persists via `AccountStoreProtocol`. Takes
+    `AccountStoreProtocol` + `InstanceClientFactoryProtocol` +
+    `OIDCAuthenticating` + an `oidcRedirectURI: URL` by constructor injection —
+    no concrete `VikunjaNetworking`/`VikuAuth` types. Three ways to connect:
+    - **API token** (`credentialMode == .apiToken`) — the default, always
+      available.
+    - **Username/password** (`.password`, plus TOTP retry) — enabled only once
+      a debounced probe (`checkLocalAuthAvailability()`, fired from the view as
+      the user types the URL) confirms `CapabilityProvider.supports(.localAuth)`;
+      snaps back to `.apiToken` if it stops being available mid-edit
+      (`updateLocalAuthAvailable`). Login goes through `PasswordLoginCoordinator`
+      (`VikunjaCore/Support/`), a small state machine
+      (`.idle/.authenticating/.awaitingTOTP/.success/.failure`) shared with
+      `Settings`' `ConnectionFormViewModel`.
+    - **OIDC** (`oidcProviders: [OIDCProvider]`, populated by that same probe) —
+      renders as a separate "or continue with…" section below
+      `CredentialModePicker` rather than a third segment (the picker is
+      hardcoded to exactly two — see `VikuDesignSystem`), since there can be
+      several providers at once. `credentialMode` itself never becomes
+      `.oidc`; tapping a provider button calls `signInWithOIDC(_:)` directly,
+      bypassing `canSave`/`saveConnection()` entirely. That method calls
+      `OIDCAuthenticating.authenticate(provider:redirectURI:)` for a code,
+      then `AuthServiceProtocol.loginWithOIDC` to exchange it, then persists
+      the account with `authMethod: .oidc` — same shape as the password path.
+      `OIDCAuthError.canceled` (the user dismissed the browser) resets to
+      `.idle` with no error banner; other `OIDCAuthError` cases get a friendly
+      message via a private `message(for:)` overload, same pattern as
+      `VikunjaError`.
   - `Models/InstanceSetupValidationState.swift` — view-specific state
     (`idle`/`validating`/`success`/`failure(message)`), not a domain model.
   - `Views/InstanceSetupView.swift` — the onboarding form; reports the saved
@@ -336,11 +420,16 @@ by the compiler, not just convention:
     an `onActiveAccountChanged` callback. Tapping an account (or a toolbar
     "+") pushes `ConnectionFormView`/`ConnectionFormViewModel` in `.edit`/
     `.create` mode (`ConnectionFormMode`) — the same normalize-URL-then-probe-
-    `/api/v1/info` flow as `Onboarding`'s `InstanceSetupViewModel`, plus
+    `/api/v1/info` flow, and the same API-token/password/OIDC credential
+    choice, as `Onboarding`'s `InstanceSetupViewModel` (`signInWithOIDC(_:)`
+    here switches on `mode` to either `addAccount` or `updateAccount` — the
+    latter lets an existing connection switch its `authMethod`, e.g. an
+    API-token account moving to OIDC), plus
     `deleteConnection()` (refuses, with a toast, to delete the last remaining
     account) and, in `.edit` mode, an async `load()` that fills in the
-    existing token from the Keychain after the name/URL render immediately.
-    Saving or deleting fires `onActiveAccountChanged` too, since either can
+    existing token from the Keychain after the name/URL render immediately
+    (API-token accounts only — a password/OIDC account's stored credential is
+    opaque). Saving or deleting fires `onActiveAccountChanged` too, since either can
     change which account is active or edit the active one's own address.
     `SettingsView` also has a "Manage Labels" row that pushes
     `ManageLabelsView`/`ManageLabelsViewModel` (route `.manageLabels`): the

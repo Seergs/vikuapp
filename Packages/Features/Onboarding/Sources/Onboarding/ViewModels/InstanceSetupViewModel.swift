@@ -145,6 +145,12 @@ public final class InstanceSetupViewModel {
             let account = InstanceAccount(displayName: trimmedDisplayName, baseURL: baseURL, authMethod: .oidc)
             try await accountStore.addAccount(account, token: session.token)
             await finishSaving(account)
+        } catch OIDCAuthError.canceled {
+            // The user dismissed the browser session — back to idle, no
+            // error banner for what isn't really a failure.
+            validationState = .idle
+        } catch let error as OIDCAuthError {
+            validationState = .failure(Self.message(for: error))
         } catch let error as VikunjaError {
             validationState = .failure(Self.message(for: error))
         } catch {
@@ -265,6 +271,18 @@ public final class InstanceSetupViewModel {
         awaitingTOTP = false
         credentialMode = .apiToken
         oidcProviders = []
+    }
+
+    private static func message(for error: OIDCAuthError) -> String {
+        switch error {
+        case .canceled:
+            "" // Handled by the caller before this is ever reached.
+        case .noPresentingViewController, .presentationUnavailable, .unsupportedPlatform:
+            "Couldn't open the sign-in page. Try again."
+        case .missingAuthorizationCode:
+            "Sign-in didn't complete. Make sure this app's redirect URI is allowed on your identity"
+                + " provider, then try again."
+        }
     }
 
     private static func message(for error: VikunjaError) -> String {
