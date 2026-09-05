@@ -86,6 +86,18 @@ final class FakeAuthService: AuthServiceProtocol, @unchecked Sendable {
     func logout() async {}
 }
 
+final class FakeOIDCAuthenticating: OIDCAuthenticating, @unchecked Sendable {
+    var result: Result<String, VikunjaError> = .failure(.network("not configured"))
+    private(set) var requestedProviders: [OIDCProvider] = []
+    private(set) var requestedRedirectURIs: [URL] = []
+
+    func authenticate(provider: OIDCProvider, redirectURI: URL) async throws -> String {
+        requestedProviders.append(provider)
+        requestedRedirectURIs.append(redirectURI)
+        return try result.get()
+    }
+}
+
 final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @unchecked Sendable {
     var result: Result<VikunjaServerInfo, VikunjaError> = .success(
         VikunjaServerInfo(version: "0.24.6", caldavEnabled: false, totpEnabled: false, registrationEnabled: false),
