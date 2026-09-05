@@ -8,8 +8,14 @@ struct InstanceSetupViewModelTests {
     private func makeViewModel(
         accountStore: FakeAccountStore = FakeAccountStore(),
         clientFactory: FakeInstanceClientFactory = FakeInstanceClientFactory(),
+        oidcAuthenticator: FakeOIDCAuthenticating = FakeOIDCAuthenticating(),
     ) -> InstanceSetupViewModel {
-        InstanceSetupViewModel(accountStore: accountStore, clientFactory: clientFactory)
+        InstanceSetupViewModel(
+            accountStore: accountStore,
+            clientFactory: clientFactory,
+            oidcAuthenticator: oidcAuthenticator,
+            oidcRedirectURI: URL(string: "viku://oidc-callback")!,
+        )
     }
 
     @Test
@@ -333,5 +339,83 @@ struct InstanceSetupViewModelTests {
 
         #expect(viewModel.validationState == .failure("That server rejected the request."))
         #expect(viewModel.savedAccount == nil)
+    }
+
+    private static let oidcProvider = OIDCProvider(
+        key: "authentik",
+        name: "Authentik",
+        authURL: URL(string: "https://auth.example.com/o/authorize/")!,
+        clientID: "vikunja-client-id",
+        scope: "openid email profile",
+    )
+
+    @Test
+    func `checking local auth availability also populates oidc providers`() async {
+        let clientFactory = FakeInstanceClientFactory()
+        clientFactory.result = .success(
+            VikunjaServerInfo(
+                version: "0.24.6",
+                caldavEnabled: false,
+                totpEnabled: false,
+                registrationEnabled: false,
+                oidcProviders: [Self.oidcProvider],
+            ),
+        )
+        let viewModel = makeViewModel(clientFactory: clientFactory)
+        viewModel.urlText = "tasks.example.com"
+
+        await viewModel.checkLocalAuthAvailability()
+
+        #expect(viewModel.oidcProviders == [Self.oidcProvider])
+    }
+
+    @Test
+    func `sign in with oidc authenticates then persists an oidc account`() async throws {
+        let accountStore = FakeAccountStore()
+        let clientFactory = FakeInstanceClientFactory()
+        let oidcAuthenticator = FakeOIDCAuthenticating()
+        oidcAuthenticator.result = .success("auth-code")
+        let session = AuthSession(token: "opaque-blob", user: User(id: 1, username: ""))
+        clientFactory.authService.loginResult = .success(session)
+        let viewModel = makeViewModel(
+            accountStore: accountStore,
+            clientFactory: clientFactory,
+            oidcAuthenticator: oidcAuthenticator,
+        )
+        viewModel.displayName = "Home"
+        viewModel.urlText = "tasks.example.com"
+
+        await viewModel.signInWithOIDC(Self.oidcProvider)
+
+        #expect(viewModel.validationState == .success)
+        #expect(accountStore.accounts.first?.authMethod == .oidc)
+        #expect(try accountStore.tokens[#require(accountStore.accounts.first?.id)] == "opaque-blob")
+        #expect(oidcAuthenticator.requestedProviders == [Self.oidcProvider])
+    }
+
+    @Test
+    func `sign in with oidc surfaces an authentication failure`() async {
+        let clientFactory = FakeInstanceClientFactory()
+        let oidcAuthenticator = FakeOIDCAuthenticating()
+        oidcAuthenticator.result = .failure(.unauthorized)
+        let viewModel = makeViewModel(clientFactory: clientFactory, oidcAuthenticator: oidcAuthenticator)
+        viewModel.displayName = "Home"
+        viewModel.urlText = "tasks.example.com"
+
+        await viewModel.signInWithOIDC(Self.oidcProvider)
+
+        #expect(viewModel.validationState == .failure("That server rejected the request."))
+        #expect(viewModel.savedAccount == nil)
+    }
+
+    @Test
+    func `sign in with oidc does nothing when the name or address is missing`() async {
+        let oidcAuthenticator = FakeOIDCAuthenticating()
+        let viewModel = makeViewModel(oidcAuthenticator: oidcAuthenticator)
+
+        await viewModel.signInWithOIDC(Self.oidcProvider)
+
+        #expect(oidcAuthenticator.requestedProviders.isEmpty)
+        #expect(viewModel.validationState == .idle)
     }
 }

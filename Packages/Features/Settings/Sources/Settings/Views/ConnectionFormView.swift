@@ -1,6 +1,7 @@
 import SwiftUI
 import VikuDesignSystem
 import VikuNavigation
+import VikunjaCore
 
 /// The add/edit connection screen: name, instance URL, API token, a "Test
 /// Connection" probe, and — only in edit mode — a "Delete Connection" action.
@@ -48,9 +49,14 @@ struct ConnectionFormView: View {
                     case .password:
                         passwordFields
                     case .oidc:
-                        // Unreachable until the OIDC flow is wired in —
-                        // `CredentialModePicker` has no segment for it yet.
+                        // Unreachable — `CredentialModePicker` has no
+                        // segment for it; OIDC sign-in renders as its own
+                        // section below instead.
                         EmptyView()
+                    }
+
+                    if !viewModel.oidcProviders.isEmpty {
+                        oidcProvidersSection
                     }
                 }
 
@@ -114,6 +120,42 @@ struct ConnectionFormView: View {
             }
             Button("Cancel", role: .cancel) {}
         }
+    }
+
+    private var oidcProvidersSection: some View {
+        VStack(spacing: VikuSpacing.sm) {
+            HStack(spacing: VikuSpacing.sm) {
+                Rectangle().fill(VikuColor.textTertiary.opacity(0.3)).frame(height: 1)
+                Text("or")
+                    .font(VikuFont.caption)
+                    .foregroundStyle(VikuColor.textTertiary)
+                Rectangle().fill(VikuColor.textTertiary.opacity(0.3)).frame(height: 1)
+            }
+
+            ForEach(viewModel.oidcProviders) { provider in
+                oidcProviderButton(provider)
+            }
+        }
+    }
+
+    private func oidcProviderButton(_ provider: OIDCProvider) -> some View {
+        Button {
+            Task { await viewModel.signInWithOIDC(provider) }
+        } label: {
+            Text("Continue with \(provider.name)")
+                .font(VikuFont.body)
+                .fontWeight(.semibold)
+                .foregroundStyle(Color.primary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, VikuSpacing.sm + VikuSpacing.xxs)
+                .background(
+                    VikuColor.Surface.field,
+                    in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous),
+                )
+        }
+        .buttonStyle(.plain)
+        .disabled(!viewModel.canSignInWithOIDC)
+        .opacity(viewModel.canSignInWithOIDC ? 1 : 0.5)
     }
 
     private var passwordFields: some View {

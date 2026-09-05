@@ -14,6 +14,7 @@ struct ConnectionFormViewModelTests {
         store: FakeAccountStore = FakeAccountStore(),
         factory: FakeInstanceClientFactory = FakeInstanceClientFactory(),
         toastPresenter: FakeToastPresenter = FakeToastPresenter(),
+        oidcAuthenticator: FakeOIDCAuthenticating = FakeOIDCAuthenticating(),
         onActiveAccountChanged: @escaping () -> Void = {},
     ) -> ConnectionFormViewModel {
         ConnectionFormViewModel(
@@ -21,6 +22,8 @@ struct ConnectionFormViewModelTests {
             accountStore: store,
             clientFactory: factory,
             toastPresenter: toastPresenter,
+            oidcAuthenticator: oidcAuthenticator,
+            oidcRedirectURI: URL(string: "viku://oidc-callback")!,
             onActiveAccountChanged: onActiveAccountChanged,
         )
     }
@@ -283,5 +286,100 @@ struct ConnectionFormViewModelTests {
         let updated = try await store.fetchAccounts().first { $0.id == account.id }
         #expect(updated?.authMethod == .password)
         #expect(try await store.token(forAccountID: account.id) == "opaque-blob")
+    }
+
+    // MARK: - oidc login
+
+    private static let oidcProvider = OIDCProvider(
+        key: "authentik",
+        name: "Authentik",
+        authURL: URL(string: "https://auth.example.com/o/authorize/")!,
+        clientID: "vikunja-client-id",
+        scope: "openid email profile",
+    )
+
+    @Test
+    func `checking local auth availability also populates oidc providers`() async {
+        let factory = FakeInstanceClientFactory()
+        factory.result = .success(
+            VikunjaServerInfo(
+                version: "0.24.6",
+                caldavEnabled: false,
+                totpEnabled: false,
+                registrationEnabled: false,
+                oidcProviders: [Self.oidcProvider],
+            ),
+        )
+        let viewModel = makeViewModel(mode: .create, factory: factory)
+        viewModel.urlText = "tasks.example.com"
+
+        await viewModel.checkLocalAuthAvailability()
+
+        #expect(viewModel.oidcProviders == [Self.oidcProvider])
+    }
+
+    @Test
+    func `signing in with oidc in create mode authenticates then persists an oidc account`() async throws {
+        let store = FakeAccountStore()
+        let factory = FakeInstanceClientFactory()
+        let oidcAuthenticator = FakeOIDCAuthenticating()
+        oidcAuthenticator.result = .success("auth-code")
+        let session = AuthSession(token: "opaque-blob", user: User(id: 1, username: ""))
+        factory.authService.loginResult = .success(session)
+        let viewModel = makeViewModel(
+            mode: .create,
+            store: store,
+            factory: factory,
+            oidcAuthenticator: oidcAuthenticator,
+        )
+        viewModel.displayName = "Home"
+        viewModel.urlText = "tasks.example.com"
+
+        await viewModel.signInWithOIDC(Self.oidcProvider)
+
+        #expect(viewModel.validationState == .success)
+        let accounts = try await store.fetchAccounts()
+        #expect(accounts.first?.authMethod == .oidc)
+        #expect(try await store.token(forAccountID: #require(accounts.first?.id)) == "opaque-blob")
+    }
+
+    @Test
+    func `signing in with oidc in edit mode switches the existing account's auth method`() async throws {
+        let store = FakeAccountStore()
+        let account = makeAccount()
+        try await store.addAccount(account, token: "old-token")
+        let factory = FakeInstanceClientFactory()
+        let oidcAuthenticator = FakeOIDCAuthenticating()
+        oidcAuthenticator.result = .success("auth-code")
+        let session = AuthSession(token: "opaque-blob", user: User(id: 1, username: ""))
+        factory.authService.loginResult = .success(session)
+        let viewModel = makeViewModel(
+            mode: .edit(account),
+            store: store,
+            factory: factory,
+            oidcAuthenticator: oidcAuthenticator,
+        )
+
+        await viewModel.signInWithOIDC(Self.oidcProvider)
+
+        #expect(viewModel.validationState == .success)
+        let updated = try await store.fetchAccounts().first { $0.id == account.id }
+        #expect(updated?.authMethod == .oidc)
+        #expect(try await store.token(forAccountID: account.id) == "opaque-blob")
+    }
+
+    @Test
+    func `signing in with oidc surfaces an authentication failure`() async {
+        let factory = FakeInstanceClientFactory()
+        let oidcAuthenticator = FakeOIDCAuthenticating()
+        oidcAuthenticator.result = .failure(.unauthorized)
+        let viewModel = makeViewModel(mode: .create, factory: factory, oidcAuthenticator: oidcAuthenticator)
+        viewModel.displayName = "Home"
+        viewModel.urlText = "tasks.example.com"
+
+        await viewModel.signInWithOIDC(Self.oidcProvider)
+
+        #expect(viewModel.validationState == .failure("That server rejected the request."))
+        #expect(viewModel.savedAccount == nil)
     }
 }

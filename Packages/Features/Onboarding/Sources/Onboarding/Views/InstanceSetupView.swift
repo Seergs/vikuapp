@@ -91,11 +91,49 @@ public struct InstanceSetupView: View {
             case .password:
                 passwordFields
             case .oidc:
-                // Unreachable until the OIDC flow is wired in —
-                // `CredentialModePicker` has no segment for it yet.
+                // Unreachable — `CredentialModePicker` has no segment for
+                // it; OIDC sign-in renders as its own section below instead.
                 EmptyView()
             }
+
+            if !viewModel.oidcProviders.isEmpty {
+                oidcProvidersSection
+            }
         }
+    }
+
+    private var oidcProvidersSection: some View {
+        VStack(spacing: VikuSpacing.sm) {
+            HStack(spacing: VikuSpacing.sm) {
+                Rectangle().fill(VikuColor.textTertiary.opacity(0.3)).frame(height: 1)
+                Text("or")
+                    .font(VikuFont.caption)
+                    .foregroundStyle(VikuColor.textTertiary)
+                Rectangle().fill(VikuColor.textTertiary.opacity(0.3)).frame(height: 1)
+            }
+
+            ForEach(viewModel.oidcProviders) { provider in
+                oidcProviderButton(provider)
+            }
+        }
+    }
+
+    private func oidcProviderButton(_ provider: OIDCProvider) -> some View {
+        Button {
+            Task { await viewModel.signInWithOIDC(provider) }
+        } label: {
+            Text("Continue with \(provider.name)")
+                .font(VikuFont.subheadline)
+                .fontWeight(.semibold)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, VikuSpacing.md)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.primary)
+        .background(VikuColor.Surface.field, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
+        .opacity(viewModel.canSignInWithOIDC ? 1 : 0.5)
+        .disabled(!viewModel.canSignInWithOIDC)
     }
 
     private var apiTokenField: some View {
