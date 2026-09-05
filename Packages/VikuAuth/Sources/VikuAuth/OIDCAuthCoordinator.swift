@@ -81,6 +81,17 @@ public final class OIDCAuthCoordinator: OIDCAuthenticating {
     /// Pulled out of `authenticate` so it's testable without UIKit —
     /// `OIDAuthorizationRequest`/`OIDServiceConfiguration` come from
     /// `AppAuthCore`, which has no platform gating.
+    ///
+    /// Deliberately **not** using AppAuth's convenience initializers, which
+    /// generate a PKCE code challenge automatically: Vikunja's backend does
+    /// the code-for-token exchange itself (`AuthServiceProtocol.loginWithOIDC`
+    /// → `POST /auth/openid/{provider}/callback`) using a plain confidential-
+    /// client exchange — its `Callback` request body has no `code_verifier`
+    /// field, so it can never complete a PKCE-bound exchange. Sending a
+    /// `code_challenge` the server can't answer makes a PKCE-enforcing
+    /// provider (e.g. PocketID) reject the exchange outright, surfacing as a
+    /// 400 from Vikunja. `state` is still generated for its own sake, even
+    /// though Vikunja's callback doesn't read it back.
     nonisolated static func makeAuthorizationRequest(provider: OIDCProvider, redirectURI: URL) -> OIDAuthorizationRequest {
         let configuration = OIDServiceConfiguration(
             authorizationEndpoint: provider.authURL,
@@ -89,9 +100,15 @@ public final class OIDCAuthCoordinator: OIDCAuthenticating {
         return OIDAuthorizationRequest(
             configuration: configuration,
             clientId: provider.clientID,
-            scopes: provider.scope.split(separator: " ").map(String.init),
+            clientSecret: nil,
+            scope: provider.scope,
             redirectURL: redirectURI,
             responseType: OIDResponseTypeCode,
+            state: OIDAuthorizationRequest.generateState(),
+            nonce: nil,
+            codeVerifier: nil,
+            codeChallenge: nil,
+            codeChallengeMethod: nil,
             additionalParameters: nil,
         )
     }
