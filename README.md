@@ -25,8 +25,15 @@ You can find this app in the App Store
 
 ### Setup
 
-1. Create an API Token in Vikunja. See the [required scopes](#required-permissions)
-2. Connect to your Vikunja Instance in the app using the token
+Connect to your Vikunja instance using whichever method it supports:
+
+- **API Token** — create one in Vikunja. See the [required scopes](#required-permissions).
+- **Username & Password** — available when your instance has local auth enabled.
+- **Single Sign-On (OIDC)** — available when your instance has an OpenID Connect
+  provider configured. See [OIDC Setup](#oidc-setup) below before your first sign-in.
+
+The app detects which of these your instance supports as you type its address,
+and only shows the ones that are actually available.
 
 ## Features
 
@@ -86,6 +93,26 @@ so it covers the parts of the API that matter for day-to-day mobile use
 - Kanban, Gantt, table views
 - Team and permission management, instance settings
 - Bulk editing
+
+## OIDC Setup
+
+If your Vikunja instance has an OpenID Connect provider configured (Authentik,
+Keycloak, Authelia, Google, ...), you can sign in with it directly instead of
+using an API token or a username and password.
+
+Before your first sign-in, ask your instance admin to add this app's redirect
+URI as an **additional** allowed redirect URI on the provider's client
+configuration, alongside the one already used by Vikunja's own web frontend:
+
+```
+viku://oidc-callback
+```
+
+This is a one-time change on the identity provider's side, not something each
+user has to do — most providers (Authentik, Keycloak, Authelia, Google, ...)
+let a single client have more than one allowed redirect URI. Without it, the
+provider will refuse the app's sign-in request even though the same login
+works fine from a browser.
 
 ## Required Permissions
 
