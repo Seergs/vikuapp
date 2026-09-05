@@ -2,15 +2,17 @@ import Foundation
 import VikunjaCore
 
 /// Resolves a currently-valid bearer credential for any saved account,
-/// transparently refreshing a password-based session's JWT before it
-/// expires. Drop-in replacement for `AccountStoreProtocol.token
+/// transparently refreshing a password- or OIDC-based session's JWT before
+/// it expires. Drop-in replacement for `AccountStoreProtocol.token
 /// (forAccountID:)` inside every `tokenProvider` closure — an API-token
-/// account passes straight through with no behavior change; a password
-/// account's stored credential (an opaque, JSON-encoded
-/// `PasswordSessionCredential`) is decoded, checked against its JWT's `exp`,
-/// and refreshed via whichever of Vikunja's two renewal endpoints its
-/// server actually supports (detected from whether a refresh token was
-/// captured at login — see `VikunjaAuthService`).
+/// account passes straight through with no behavior change; a password or
+/// OIDC account's stored credential (an opaque, JSON-encoded
+/// `PasswordSessionCredential` — the same shape either way, since Vikunja
+/// issues an identical JWT/refresh-cookie session regardless of which login
+/// method produced it) is decoded, checked against its JWT's `exp`, and
+/// refreshed via whichever of Vikunja's two renewal endpoints its server
+/// actually supports (detected from whether a refresh token was captured at
+/// login — see `VikunjaAuthService`).
 ///
 /// Refresh is single-flighted per account: concurrent callers for the same
 /// account await the same in-progress attempt instead of racing duplicate
@@ -31,7 +33,7 @@ public actor PasswordSessionRefresher {
     }
 
     public func validToken(for account: InstanceAccount) async -> String? {
-        guard account.authMethod == .password else {
+        guard account.authMethod != .apiToken else {
             return try? await accountStore.token(forAccountID: account.id)
         }
         guard let stored = try? await accountStore.token(forAccountID: account.id),
