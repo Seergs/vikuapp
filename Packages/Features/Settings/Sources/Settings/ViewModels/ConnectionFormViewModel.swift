@@ -37,6 +37,11 @@ public final class ConnectionFormViewModel {
     /// types the address); defaults to `false` so the password option starts
     /// disabled rather than hidden.
     public private(set) var localAuthAvailable = false
+    /// OIDC providers the probed server has configured — known only after a
+    /// probe has resolved, same timing as `localAuthAvailable`. Empty hides
+    /// the "or continue with…" section entirely rather than showing it
+    /// disabled, since unlike password there's no single toggle to disable.
+    public private(set) var oidcProviders: [OIDCProvider] = []
     /// Set when a password login was rejected pending a TOTP code — the view
     /// reveals a code field and `save()` retries with it filled in.
     public private(set) var awaitingTOTP = false
@@ -61,8 +66,9 @@ public final class ConnectionFormViewModel {
         case .password:
             return awaitingTOTP ? !trimmedTOTP.isEmpty : (!trimmedUsername.isEmpty && !trimmedPassword.isEmpty)
         case .oidc:
-            // Not selectable from this screen yet — no UI sets `credentialMode`
-            // to `.oidc` until the OIDC flow is wired in.
+            // `credentialMode` itself never becomes `.oidc` — OIDC sign-in
+            // is a separate action (`signInWithOIDC`), not routed through
+            // this switch or `CredentialModePicker`.
             return false
         }
     }
@@ -71,9 +77,18 @@ public final class ConnectionFormViewModel {
         !trimmedURLText.isEmpty && !isSaving
     }
 
+    /// Whether a provider button in `oidcProviders` should be enabled —
+    /// mirrors `canSave`'s name/address gating, minus the credential fields
+    /// which OIDC sign-in doesn't use.
+    public var canSignInWithOIDC: Bool {
+        !trimmedDisplayName.isEmpty && !trimmedURLText.isEmpty && !isSaving
+    }
+
     private let accountStore: AccountStoreProtocol
     private let clientFactory: InstanceClientFactoryProtocol
     private let toastPresenter: ToastPresenting
+    private let oidcAuthenticator: OIDCAuthenticating
+    private let oidcRedirectURI: URL
     /// Fired after a save/delete that may have changed which account is
     /// active, or edited the active account's own address — either way the
     /// app target needs to rebuild the main tab shell. See
@@ -85,12 +100,16 @@ public final class ConnectionFormViewModel {
         accountStore: AccountStoreProtocol,
         clientFactory: InstanceClientFactoryProtocol,
         toastPresenter: ToastPresenting,
+        oidcAuthenticator: OIDCAuthenticating,
+        oidcRedirectURI: URL,
         onActiveAccountChanged: @escaping () -> Void,
     ) {
         self.mode = mode
         self.accountStore = accountStore
         self.clientFactory = clientFactory
         self.toastPresenter = toastPresenter
+        self.oidcAuthenticator = oidcAuthenticator
+        self.oidcRedirectURI = oidcRedirectURI
         self.onActiveAccountChanged = onActiveAccountChanged
 
         if case let .edit(account) = mode {
@@ -119,8 +138,9 @@ public final class ConnectionFormViewModel {
     public func checkLocalAuthAvailability() async {
         guard !trimmedURLText.isEmpty, let baseURL = try? InstanceURL.normalize(urlText) else { return }
         let provider = clientFactory.makeCapabilityProvider(baseURL: baseURL)
-        guard await (try? provider.serverInfo()) != nil else { return }
+        guard let info = try? await provider.serverInfo() else { return }
         await updateLocalAuthAvailable(provider.supports(.localAuth))
+        oidcProviders = info.oidcProviders
     }
 
     /// Probes the typed address without persisting anything — backs a
@@ -131,9 +151,46 @@ public final class ConnectionFormViewModel {
         do {
             let baseURL = try InstanceURL.normalize(urlText)
             let provider = clientFactory.makeCapabilityProvider(baseURL: baseURL)
-            _ = try await provider.serverInfo()
+            let info = try await provider.serverInfo()
             await updateLocalAuthAvailable(provider.supports(.localAuth))
+            oidcProviders = info.oidcProviders
             validationState = .success
+        } catch let error as VikunjaError {
+            validationState = .failure(error.displayMessage)
+        } catch {
+            validationState = .failure(error.localizedDescription)
+        }
+    }
+
+    /// Signs in via `provider`'s own login page, presented in a system
+    /// browser session. Bypasses `credentialMode`/`canSave` entirely —
+    /// tapping a provider button commits directly, there's nothing else on
+    /// screen to fill in first.
+    public func signInWithOIDC(_ provider: OIDCProvider) async {
+        guard canSignInWithOIDC else { return }
+        validationState = .validating
+
+        do {
+            let baseURL = try InstanceURL.normalize(urlText)
+            let code = try await oidcAuthenticator.authenticate(provider: provider, redirectURI: oidcRedirectURI)
+            let session = try await clientFactory.makeAuthService(baseURL: baseURL).loginWithOIDC(
+                provider: provider,
+                code: code,
+                redirectURI: oidcRedirectURI,
+            )
+            switch mode {
+            case .create:
+                let account = InstanceAccount(displayName: trimmedDisplayName, baseURL: baseURL, authMethod: .oidc)
+                try await accountStore.addAccount(account, token: session.token)
+                finishSaving(account, toast: "Connection added")
+            case let .edit(original):
+                var account = original
+                account.displayName = trimmedDisplayName
+                account.baseURL = baseURL
+                account.authMethod = .oidc
+                try await accountStore.updateAccount(account, token: session.token)
+                finishSaving(account, toast: "Connection updated")
+            }
         } catch let error as VikunjaError {
             validationState = .failure(error.displayMessage)
         } catch {
@@ -160,8 +217,8 @@ public final class ConnectionFormViewModel {
             case .password:
                 await savePasswordAccount(baseURL: baseURL)
             case .oidc:
-                // Unreachable until the OIDC flow is wired in — `canSave`
-                // already refuses to reach this branch.
+                // Unreachable — `canSave` refuses this branch since OIDC
+                // sign-in goes through `signInWithOIDC` instead.
                 break
             }
         } catch let error as VikunjaError {
