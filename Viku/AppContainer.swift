@@ -57,6 +57,20 @@ final class AppContainer {
     /// once per launch by `refreshDefaultProject(account:)` and read
     /// synchronously by `makeQuickAddTaskViewModel`.
     let defaultProjectStore = DefaultProjectStore()
+    /// The app's single OIDC browser-authentication coordinator — see
+    /// `OIDCAuthCoordinator`. Pass this as `OIDCAuthenticating` to any
+    /// ViewModel that offers OIDC sign-in.
+    let oidcAuthCoordinator: OIDCAuthenticating = OIDCAuthCoordinator()
+    /// The redirect URI OIDC providers must be configured to allow, alongside
+    /// each instance's own web frontend — reuses the app's existing
+    /// `viku://`/`viku-dev://` deep-link scheme, so no separate URL scheme
+    /// registration is needed.
+    let oidcRedirectURI: URL = {
+        guard let url = URL(string: "\(VikuWidgetConfig.urlScheme)://oidc-callback") else {
+            fatalError("oidc redirect URI scheme is invalid")
+        }
+        return url
+    }()
 
     init(
         accountStore: AccountStoreProtocol = KeychainAccountStore(
@@ -117,7 +131,12 @@ final class AppContainer {
     }
 
     func makeInstanceSetupViewModel() -> InstanceSetupViewModel {
-        InstanceSetupViewModel(accountStore: accountStore, clientFactory: clientFactory)
+        InstanceSetupViewModel(
+            accountStore: accountStore,
+            clientFactory: clientFactory,
+            oidcAuthenticator: oidcAuthCoordinator,
+            oidcRedirectURI: oidcRedirectURI,
+        )
     }
 
     func makeTodayViewModel(account: InstanceAccount) -> TodayViewModel {
@@ -284,6 +303,8 @@ final class AppContainer {
             accountStore: accountStore,
             clientFactory: clientFactory,
             toastPresenter: toastCenter,
+            oidcAuthenticator: oidcAuthCoordinator,
+            oidcRedirectURI: oidcRedirectURI,
             onActiveAccountChanged: onActiveAccountChanged,
         )
     }
