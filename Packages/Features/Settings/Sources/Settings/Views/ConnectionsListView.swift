@@ -188,6 +188,11 @@ private struct ConnectionRow: View {
 
                     Spacer(minLength: 0)
 
+                    Image(systemName: account.authMethod.badgeSystemImage)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(VikuColor.textTertiary)
+                        .accessibilityLabel(account.authMethod.badgeAccessibilityLabel)
+
                     if let serverVersion {
                         Text(serverVersion.hasPrefix("v") ? serverVersion : "v\(serverVersion)")
                             .font(.system(size: 11, weight: .medium))
