@@ -106,7 +106,7 @@ final class FakeAuthService: AuthServiceProtocol, @unchecked Sendable {
 }
 
 final class FakeOIDCAuthenticating: OIDCAuthenticating, @unchecked Sendable {
-    var result: Result<String, VikunjaError> = .failure(.network("not configured"))
+    var result: Result<String, Error> = .failure(VikunjaError.network("not configured"))
     private(set) var requestedProviders: [OIDCProvider] = []
     private(set) var requestedRedirectURIs: [URL] = []
 

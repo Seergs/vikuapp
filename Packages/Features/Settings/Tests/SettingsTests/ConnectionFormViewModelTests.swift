@@ -372,7 +372,7 @@ struct ConnectionFormViewModelTests {
     func `signing in with oidc surfaces an authentication failure`() async {
         let factory = FakeInstanceClientFactory()
         let oidcAuthenticator = FakeOIDCAuthenticating()
-        oidcAuthenticator.result = .failure(.unauthorized)
+        oidcAuthenticator.result = .failure(VikunjaError.unauthorized)
         let viewModel = makeViewModel(mode: .create, factory: factory, oidcAuthenticator: oidcAuthenticator)
         viewModel.displayName = "Home"
         viewModel.urlText = "tasks.example.com"
@@ -380,6 +380,20 @@ struct ConnectionFormViewModelTests {
         await viewModel.signInWithOIDC(Self.oidcProvider)
 
         #expect(viewModel.validationState == .failure("That server rejected the request."))
+        #expect(viewModel.savedAccount == nil)
+    }
+
+    @Test
+    func `signing in with oidc returns to idle without an error banner when canceled`() async {
+        let oidcAuthenticator = FakeOIDCAuthenticating()
+        oidcAuthenticator.result = .failure(OIDCAuthError.canceled)
+        let viewModel = makeViewModel(mode: .create, oidcAuthenticator: oidcAuthenticator)
+        viewModel.displayName = "Home"
+        viewModel.urlText = "tasks.example.com"
+
+        await viewModel.signInWithOIDC(Self.oidcProvider)
+
+        #expect(viewModel.validationState == .idle)
         #expect(viewModel.savedAccount == nil)
     }
 }

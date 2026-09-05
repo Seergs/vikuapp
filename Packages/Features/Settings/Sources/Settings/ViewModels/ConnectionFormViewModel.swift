@@ -191,6 +191,12 @@ public final class ConnectionFormViewModel {
                 try await accountStore.updateAccount(account, token: session.token)
                 finishSaving(account, toast: "Connection updated")
             }
+        } catch OIDCAuthError.canceled {
+            // The user dismissed the browser session — back to idle, no
+            // error banner for what isn't really a failure.
+            validationState = .idle
+        } catch let error as OIDCAuthError {
+            validationState = .failure(error.displayMessage)
         } catch let error as VikunjaError {
             validationState = .failure(error.displayMessage)
         } catch {
