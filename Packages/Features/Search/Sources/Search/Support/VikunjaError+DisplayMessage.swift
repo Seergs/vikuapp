@@ -13,6 +13,8 @@ extension VikunjaError {
             "Task not found."
         case .invalidInstanceURL:
             "Invalid instance URL."
+        case .insecureInstanceURL:
+            "That address uses an insecure http connection."
         case let .server(message, statusCode):
             message.isEmpty ? "Server error (\(statusCode))." : message
         case let .unsupportedServerVersion(minimumRequired, actual):

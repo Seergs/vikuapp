@@ -5,8 +5,13 @@ import Foundation
 /// scheme+host `URL` the networking layer expects as `baseURL`: no path, no
 /// trailing slash, no query/fragment, so `Endpoint.path` (which already starts
 /// with `/api/v1/...`) appends onto it cleanly.
+///
+/// HTTPS is the only scheme accepted by default: a bare domain is assumed
+/// `https://`, and an explicit `http://` address is rejected with
+/// `VikunjaError.insecureInstanceURL` unless `allowInsecureHTTP` is `true`
+/// (the connection form's opt-in "insecure connection" toggle).
 public enum InstanceURL {
-    public static func normalize(_ rawValue: String) throws -> URL {
+    public static func normalize(_ rawValue: String, allowInsecureHTTP: Bool = false) throws -> URL {
         let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw VikunjaError.invalidInstanceURL }
 
@@ -20,6 +25,9 @@ public enum InstanceURL {
         }
         guard let host = components.host, !host.isEmpty else {
             throw VikunjaError.invalidInstanceURL
+        }
+        guard scheme == "https" || allowInsecureHTTP else {
+            throw VikunjaError.insecureInstanceURL
         }
 
         components.path = ""
