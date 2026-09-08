@@ -14,3 +14,12 @@ public extension ToastPresenting {
         show(message, style: .info)
     }
 }
+
+/// A `ToastPresenting` that does nothing. The default for previews and tests,
+/// and for a collaborator wired into a screen that surfaces no toasts of its
+/// own yet (the Calendar screen's `TaskListMutator`). Parallels
+/// `NoopHapticFeedback`.
+public struct NoopToastPresenter: ToastPresenting {
+    public init() {}
+    public func show(_ message: String, style: ToastStyle) {}
+}
