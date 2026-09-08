@@ -12,7 +12,7 @@ public final class SearchViewModel {
     private let taskRepository: TaskRepositoryProtocol
     private let projectRepository: ProjectRepositoryProtocol
     private let toastPresenter: ToastPresenting
-    private let hapticPresenter: HapticFeedbackPresenting
+    private let mutator: TaskListMutator
 
     var query = ""
     var state = ScreenLoadState<[VikunjaTask]>.idle
@@ -41,7 +41,12 @@ public final class SearchViewModel {
         self.taskRepository = taskRepository
         self.projectRepository = projectRepository
         self.toastPresenter = toastPresenter
-        self.hapticPresenter = hapticPresenter
+        self.mutator = TaskListMutator(
+            repository: taskRepository,
+            toastPresenter: toastPresenter,
+            hapticPresenter: hapticPresenter,
+            errorMessage: { ($0 as? VikunjaError)?.displayMessage ?? $0.localizedDescription },
+        )
     }
 
     /// Called on every change to `query`. Debounces, then searches.
@@ -108,36 +113,30 @@ public final class SearchViewModel {
         }
     }
 
+    /// Flips a task's completion state optimistically, persists it, and rolls
+    /// the flip back if the server rejects it — same semantics as every other
+    /// task-list screen (`TaskListMutator`). `state` is re-read after the
+    /// request so a search that landed new results mid-toggle isn't clobbered.
     public func toggleDone(_ task: VikunjaTask) async {
-        var updated = task
-        updated.isDone.toggle()
-        if updated.isDone {
-            hapticPresenter.play(.success)
-        }
+        guard case var .loaded(tasks) = state,
+              let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
+        var flipped = task
+        flipped.isDone.toggle()
+        tasks[index] = flipped
+        state = .loaded(tasks)
 
-        do {
-            let response = try await taskRepository.update(updated)
-            if case var .loaded(tasks) = state {
-                if let index = tasks.firstIndex(where: { $0.id == task.id }) {
-                    tasks[index] = response
-                    state = .loaded(tasks)
-                }
-            }
-        } catch {
-            toastPresenter.show((error as? VikunjaError)?.displayMessage ?? "Update failed", style: .error)
-        }
+        let resolved = await mutator.persistToggleDone(flipped: flipped, original: task)
+        guard case var .loaded(current) = state,
+              let currentIndex = current.firstIndex(where: { $0.id == task.id }) else { return }
+        current[currentIndex] = resolved
+        state = .loaded(current)
     }
 
     public func delete(_ task: VikunjaTask) async {
-        do {
-            try await taskRepository.delete(id: task.id)
-            if case var .loaded(tasks) = state {
-                tasks.removeAll { $0.id == task.id }
-                state = .loaded(tasks)
-            }
-            toastPresenter.show("Task deleted", style: .success)
-        } catch {
-            toastPresenter.show((error as? VikunjaError)?.displayMessage ?? "Delete failed", style: .error)
+        guard await mutator.delete(task) else { return }
+        if case var .loaded(tasks) = state {
+            tasks.removeAll { $0.id == task.id }
+            state = .loaded(tasks)
         }
     }
 

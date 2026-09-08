@@ -14,5 +14,6 @@ let package = Package(
     ],
     targets: [
         .target(name: "Search", dependencies: ["VikunjaCore", "VikuNavigation", "VikuDesignSystem"]),
+        .testTarget(name: "SearchTests", dependencies: ["Search"]),
     ],
 )
