@@ -71,9 +71,9 @@ public final class InstanceSetupViewModel {
         case .password:
             return awaitingTOTP ? !trimmedTOTP.isEmpty : (!trimmedUsername.isEmpty && !trimmedPassword.isEmpty)
         case .oidc:
-            // `credentialMode` itself never becomes `.oidc` — OIDC sign-in is
-            // a separate action (`signInWithOIDC`), not routed through this
-            // switch or `CredentialModePicker`.
+            // `credentialMode` is `.oidc` only while that card is expanded;
+            // OIDC sign-in is its own action (`signInWithOIDC`), and the view
+            // hides the save button entirely in this case.
             return false
         }
     }
@@ -99,11 +99,16 @@ public final class InstanceSetupViewModel {
     /// itself before the user ever taps "Test Connection". Any failure
     /// (unreachable host, still mid-type) just leaves it unavailable.
     public func checkLocalAuthAvailability() async {
-        guard !trimmedURLText.isEmpty, let baseURL = try? InstanceURL.normalize(urlText) else { return }
+        guard !trimmedURLText.isEmpty, let baseURL = try? InstanceURL.normalize(urlText) else {
+            await applyAvailability(localAuth: false, providers: [])
+            return
+        }
         let provider = clientFactory.makeCapabilityProvider(baseURL: baseURL)
-        guard let info = try? await provider.serverInfo() else { return }
-        await updateLocalAuthAvailable(provider.supports(.localAuth))
-        oidcProviders = info.oidcProviders
+        guard let info = try? await provider.serverInfo() else {
+            await applyAvailability(localAuth: false, providers: [])
+            return
+        }
+        await applyAvailability(localAuth: provider.supports(.localAuth), providers: info.oidcProviders)
     }
 
     /// Probes the typed address without persisting anything — backs a
@@ -116,8 +121,7 @@ public final class InstanceSetupViewModel {
             let baseURL = try InstanceURL.normalize(urlText)
             let provider = clientFactory.makeCapabilityProvider(baseURL: baseURL)
             let info = try await provider.serverInfo()
-            await updateLocalAuthAvailable(provider.supports(.localAuth))
-            oidcProviders = info.oidcProviders
+            await applyAvailability(localAuth: provider.supports(.localAuth), providers: info.oidcProviders)
             validationState = .success
         } catch let error as VikunjaError {
             validationState = .failure(Self.message(for: error))
@@ -180,8 +184,8 @@ public final class InstanceSetupViewModel {
             case .password:
                 await savePasswordAccount(baseURL: baseURL)
             case .oidc:
-                // Unreachable — `canSave` refuses this branch since OIDC
-                // sign-in goes through `signInWithOIDC` instead.
+                // `canSave` already refused this branch — OIDC sign-in goes
+                // through `signInWithOIDC` instead.
                 break
             }
         } catch let error as VikunjaError {
@@ -220,12 +224,17 @@ public final class InstanceSetupViewModel {
         }
     }
 
-    /// Snaps back to `.apiToken` if the currently-selected password mode
-    /// just became unavailable (e.g. the user edited the URL to point at a
-    /// different server) so the form never sits on a disabled option.
-    private func updateLocalAuthAvailable(_ available: Bool) {
-        localAuthAvailable = available
-        if !available, credentialMode == .password {
+    /// Records what the latest probe reported, and snaps the expanded card
+    /// back to `.apiToken` if it landed on an option the probe just ruled out
+    /// (e.g. the user edited the URL to point at a different server), so the
+    /// form never sits expanded on a disabled card.
+    private func applyAvailability(localAuth: Bool, providers: [OIDCProvider]) {
+        localAuthAvailable = localAuth
+        oidcProviders = providers
+        if credentialMode == .password, !localAuth {
+            credentialMode = .apiToken
+        }
+        if credentialMode == .oidc, providers.isEmpty {
             credentialMode = .apiToken
         }
     }
