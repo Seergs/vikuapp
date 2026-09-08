@@ -56,4 +56,51 @@ struct DueDateFormatterTests {
 
         #expect(DueDateFormatter.compact(nextYear, relativeTo: reference) == expected)
     }
+
+    // MARK: - dueLabel
+
+    /// Noon-anchored so adding hours in a test can't cross midnight (per CLAUDE.md).
+    private var noon: Date {
+        calendar.date(bySettingHour: 12, minute: 0, second: 0, of: reference) ?? reference
+    }
+
+    @Test
+    func `dueLabel spells out today with the time`() throws {
+        let afternoon = try #require(calendar.date(byAdding: .hour, value: 3, to: noon))
+        let expected = "Today, \(afternoon.formatted(date: .omitted, time: .shortened))"
+
+        #expect(DueDateFormatter.dueLabel(afternoon, relativeTo: noon) == expected)
+    }
+
+    @Test
+    func `dueLabel uses relative names for tomorrow and yesterday`() throws {
+        #expect(
+            try DueDateFormatter.dueLabel(
+                #require(calendar.date(byAdding: .day, value: 1, to: noon)),
+                relativeTo: noon,
+            ) == "Tomorrow",
+        )
+        #expect(
+            try DueDateFormatter.dueLabel(
+                #require(calendar.date(byAdding: .day, value: -1, to: noon)),
+                relativeTo: noon,
+            ) == "Yesterday",
+        )
+    }
+
+    @Test
+    func `dueLabel uses a wide weekday within a week`() throws {
+        let inThreeDays = try #require(calendar.date(byAdding: .day, value: 3, to: noon))
+        let expected = inThreeDays.formatted(.dateTime.weekday(.wide))
+
+        #expect(DueDateFormatter.dueLabel(inThreeDays, relativeTo: noon) == expected)
+    }
+
+    @Test
+    func `dueLabel falls back to an abbreviated date further out`() throws {
+        let inTwoMonths = try #require(calendar.date(byAdding: .day, value: 60, to: noon))
+        let expected = inTwoMonths.formatted(date: .abbreviated, time: .omitted)
+
+        #expect(DueDateFormatter.dueLabel(inTwoMonths, relativeTo: noon) == expected)
+    }
 }
