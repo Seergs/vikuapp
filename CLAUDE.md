@@ -126,6 +126,20 @@ by the compiler, not just convention:
     `/info`'s `auth.openid_connect.providers` — everything a client needs to
     build an OIDC authorization request itself, without a discovery document.
   - `Errors/` — `VikunjaError`, the domain-level error type everything surfaces.
+  - `Support/` — shared `@Observable`/plain collaborators that back more than
+    one feature's view models, so recurring behavior lives here instead of
+    being copied per screen. `ConnectionEditorCore` +
+    `PasswordLoginCoordinator` (the add/edit-connection flow, shared by
+    `Onboarding` and `Settings`). `AccountTaskLoader` — fetch every project
+    then every project's tasks concurrently, drop a failing project, return
+    `(tasks, projectsByID)`; used by the Today and Calendar screens.
+    `TaskListMutator` — the optimistic-with-rollback task-list mutations
+    (`persistToggleDone`, `delete`, `move`) with the success-toast wording and
+    the "haptic on completion" policy in one place; every task-list view model
+    (`TodayViewModel`, `CalendarViewModel`, `ProjectOverviewViewModel`,
+    `SearchViewModel`) composes one. Error copy stays per-feature: the mutator
+    takes an `errorMessage` closure so each feature keeps its own
+    `VikunjaError+DisplayMessage` phrasing.
 
 - **`VikunjaNetworking`** — the only module that knows Vikunja speaks HTTP/JSON.
   Depends on `VikunjaCore`.
