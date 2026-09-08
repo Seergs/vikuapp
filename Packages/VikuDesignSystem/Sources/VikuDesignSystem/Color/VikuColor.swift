@@ -1,4 +1,5 @@
 import SwiftUI
+import VikunjaCore
 
 /// Color tokens. Values that originate as `oklch(...)` in the design source are
 /// pre-converted to sRGB hex once here, rather than converting at runtime.
@@ -12,6 +13,19 @@ public enum VikuColor {
         /// color change doesn't silently change this token too.
         public static let medium = Color(hex: 0x196AFF)
         public static let low = Color(hex: 0x79818D)
+
+        /// The dot color for a task's priority, or `nil` when unset (no dot is
+        /// drawn in that case). Single source for the priority-to-color mapping
+        /// every compact task row needs.
+        public static func dot(for priority: VikunjaTask.Priority) -> Color? {
+            switch priority {
+            case .unset: nil
+            case .low: low
+            case .medium: medium
+            case .high: high
+            case .urgent, .doNow: urgent
+            }
+        }
     }
 
     /// Grouped-content backgrounds, one step apart in elevation. Backed by
