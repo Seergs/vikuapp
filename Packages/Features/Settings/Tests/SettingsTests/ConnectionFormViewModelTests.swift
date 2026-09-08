@@ -319,6 +319,33 @@ struct ConnectionFormViewModelTests {
     }
 
     @Test
+    func `checking local auth availability clears the options when the address turns invalid`() async {
+        let factory = FakeInstanceClientFactory()
+        factory.supportsLocalAuth = true
+        factory.result = .success(
+            VikunjaServerInfo(
+                version: "0.24.6",
+                caldavEnabled: false,
+                totpEnabled: false,
+                registrationEnabled: false,
+                oidcProviders: [Self.oidcProvider],
+            ),
+        )
+        let viewModel = makeViewModel(mode: .create, factory: factory)
+        viewModel.urlText = "tasks.example.com"
+        await viewModel.checkLocalAuthAvailability()
+        #expect(viewModel.localAuthAvailable == true)
+        #expect(viewModel.oidcProviders == [Self.oidcProvider])
+
+        factory.result = .failure(.network("unreachable"))
+        viewModel.urlText = "tasks.broken.example"
+        await viewModel.checkLocalAuthAvailability()
+
+        #expect(viewModel.localAuthAvailable == false)
+        #expect(viewModel.oidcProviders.isEmpty)
+    }
+
+    @Test
     func `signing in with oidc in create mode authenticates then persists an oidc account`() async throws {
         let store = FakeAccountStore()
         let factory = FakeInstanceClientFactory()
