@@ -83,6 +83,38 @@ struct ConnectionFormViewModelTests {
         #expect(viewModel.savedAccount == nil)
     }
 
+    @Test
+    func `saving an http address is rejected unless insecure connections are allowed`() async throws {
+        let store = FakeAccountStore()
+        let viewModel = makeViewModel(mode: .create, store: store)
+        viewModel.displayName = "Local"
+        viewModel.urlText = "http://localhost:3456"
+        viewModel.apiToken = "secret"
+
+        await viewModel.save()
+
+        #expect(viewModel.validationState == .failure(
+            "That address uses http. Turn on \"Allow insecure connection\" to connect over an unencrypted link.",
+        ))
+        let accounts = try await store.fetchAccounts()
+        #expect(accounts.isEmpty)
+    }
+
+    @Test
+    func `saving an http address succeeds once insecure connections are allowed`() async throws {
+        let store = FakeAccountStore()
+        let viewModel = makeViewModel(mode: .create, store: store)
+        viewModel.displayName = "Local"
+        viewModel.urlText = "http://localhost:3456"
+        viewModel.apiToken = "secret"
+        viewModel.allowInsecureConnection = true
+
+        await viewModel.save()
+
+        #expect(viewModel.validationState == .success)
+        #expect(try await store.fetchAccounts().first?.baseURL == URL(string: "http://localhost:3456")!)
+    }
+
     // MARK: - edit mode
 
     @Test
@@ -93,6 +125,15 @@ struct ConnectionFormViewModelTests {
         #expect(viewModel.displayName == "Home")
         #expect(viewModel.urlText == "https://tasks.example.com")
         #expect(viewModel.isEditing == true)
+        #expect(viewModel.allowInsecureConnection == false)
+    }
+
+    @Test
+    func `edit mode pre-enables the insecure toggle for an http account`() {
+        let account = makeAccount(displayName: "Local", url: "http://localhost:3456")
+        let viewModel = makeViewModel(mode: .edit(account))
+
+        #expect(viewModel.allowInsecureConnection == true)
     }
 
     @Test

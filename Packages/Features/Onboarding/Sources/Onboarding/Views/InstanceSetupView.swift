@@ -87,6 +87,11 @@ public struct InstanceSetupView: View {
                 .autocorrectionDisabled()
                 .keyboardTypeURL()
 
+            if viewModel.urlUsesInsecureScheme {
+                insecureConnectionToggle
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
             AuthMethodAccordion(
                 expanded: $viewModel.credentialMode,
                 isPasswordEnabled: viewModel.localAuthAvailable,
@@ -96,6 +101,31 @@ public struct InstanceSetupView: View {
                 oidc: { oidcProvidersSection },
             )
         }
+        .animation(.smooth(duration: 0.28), value: viewModel.urlUsesInsecureScheme)
+    }
+
+    private var insecureConnectionToggle: some View {
+        VStack(alignment: .leading, spacing: VikuSpacing.xs) {
+            Toggle(isOn: $viewModel.allowInsecureConnection) {
+                Text("Allow insecure connection")
+                    .font(VikuFont.footnote)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(VikuColor.textSecondary)
+            }
+            .tint(VikuColor.brandPrimary)
+
+            if viewModel.allowInsecureConnection {
+                HStack(alignment: .firstTextBaseline, spacing: VikuSpacing.xs) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                    Text("Traffic to this instance won't be encrypted. Only use http on a trusted local network.")
+                }
+                .font(VikuFont.caption)
+                .fontWeight(.medium)
+                .foregroundStyle(VikuColor.Semantic.dangerText)
+                .transition(.opacity)
+            }
+        }
+        .animation(.smooth(duration: 0.2), value: viewModel.allowInsecureConnection)
     }
 
     private var oidcProvidersSection: some View {

@@ -7,6 +7,8 @@ extension VikunjaError {
         switch self {
         case .invalidInstanceURL:
             "That doesn't look like a valid instance address."
+        case .insecureInstanceURL:
+            "That address uses http. Turn on \"Allow insecure connection\" to connect over an unencrypted link."
         case .network:
             "Couldn't reach that server. Check the address and your connection."
         case .notFound, .decoding:
