@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "VikunjaCore",
-    platforms: [.iOS(.v17), .macOS(.v13)],
+    platforms: [.iOS(.v17), .macOS(.v14)],
     products: [
         .library(name: "VikunjaCore", targets: ["VikunjaCore"]),
     ],
