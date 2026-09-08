@@ -38,29 +38,20 @@ struct ConnectionFormView: View {
                         #endif
                         .autocorrectionDisabled()
 
-                    CredentialModePicker(
-                        selection: $viewModel.credentialMode,
+                    AuthMethodAccordion(
+                        expanded: $viewModel.credentialMode,
                         isPasswordEnabled: viewModel.localAuthAvailable,
+                        isOIDCEnabled: !viewModel.oidcProviders.isEmpty,
+                        currentMethod: viewModel.currentMethod,
+                        apiToken: { tokenField },
+                        password: { passwordFields },
+                        oidc: { oidcProvidersSection },
                     )
-
-                    switch viewModel.credentialMode {
-                    case .apiToken:
-                        tokenField
-                    case .password:
-                        passwordFields
-                    case .oidc:
-                        // Unreachable — `CredentialModePicker` has no
-                        // segment for it; OIDC sign-in renders as its own
-                        // section below instead.
-                        EmptyView()
-                    }
-
-                    if !viewModel.oidcProviders.isEmpty {
-                        oidcProvidersSection
-                    }
                 }
 
-                testConnectionButton
+                if viewModel.credentialMode != .oidc {
+                    testConnectionButton
+                }
 
                 if case let .failure(message) = viewModel.validationState {
                     StatusBanner(style: .danger, message: message)
@@ -71,7 +62,9 @@ struct ConnectionFormView: View {
                     )
                 }
 
-                saveButton
+                if viewModel.credentialMode != .oidc {
+                    saveButton
+                }
 
                 if viewModel.isEditing {
                     Button(role: .destructive) {
@@ -123,14 +116,10 @@ struct ConnectionFormView: View {
     }
 
     private var oidcProvidersSection: some View {
-        VStack(spacing: VikuSpacing.sm) {
-            HStack(spacing: VikuSpacing.sm) {
-                Rectangle().fill(VikuColor.textTertiary.opacity(0.3)).frame(height: 1)
-                Text("or")
-                    .font(VikuFont.caption)
-                    .foregroundStyle(VikuColor.textTertiary)
-                Rectangle().fill(VikuColor.textTertiary.opacity(0.3)).frame(height: 1)
-            }
+        VStack(alignment: .leading, spacing: VikuSpacing.sm) {
+            Text("You'll be redirected to your provider's sign-in page to finish.")
+                .font(VikuFont.caption)
+                .foregroundStyle(VikuColor.textSecondary)
 
             ForEach(viewModel.oidcProviders) { provider in
                 oidcProviderButton(provider)
