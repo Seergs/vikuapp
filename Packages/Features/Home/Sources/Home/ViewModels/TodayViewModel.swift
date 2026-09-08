@@ -23,10 +23,9 @@ public final class TodayViewModel {
         loadState == .loading
     }
 
-    private let taskRepository: TaskRepositoryProtocol
+    private let taskLoader: AccountTaskLoader
+    private let mutator: TaskListMutator
     private let projectRepository: ProjectRepositoryProtocol
-    private let toastPresenter: ToastPresenting
-    private let hapticPresenter: HapticFeedbackPresenting
 
     public init(
         taskRepository: TaskRepositoryProtocol,
@@ -34,10 +33,17 @@ public final class TodayViewModel {
         toastPresenter: ToastPresenting,
         hapticPresenter: HapticFeedbackPresenting = NoopHapticFeedback(),
     ) {
-        self.taskRepository = taskRepository
+        self.taskLoader = AccountTaskLoader(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository,
+        )
+        self.mutator = TaskListMutator(
+            repository: taskRepository,
+            toastPresenter: toastPresenter,
+            hapticPresenter: hapticPresenter,
+            errorMessage: { ($0 as? VikunjaError)?.displayMessage ?? $0.localizedDescription },
+        )
         self.projectRepository = projectRepository
-        self.toastPresenter = toastPresenter
-        self.hapticPresenter = hapticPresenter
     }
 
     /// Skips the `.loading` transition when there's already loaded content
@@ -49,9 +55,9 @@ public final class TodayViewModel {
             loadState = .loading
         }
         do {
-            let projects = try await projectRepository.fetchProjects()
-            projectsByID = Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0) })
-            tasks = await Self.fetchAllTasks(projects: projects, repository: taskRepository)
+            let result = try await taskLoader.loadAllTasks()
+            projectsByID = result.projectsByID
+            tasks = result.tasks
             loadState = .loaded
         } catch let error as VikunjaError {
             loadState = .failure(error.displayMessage)
@@ -60,43 +66,15 @@ public final class TodayViewModel {
         }
     }
 
-    /// Fetches every project's tasks concurrently and flattens them into one
-    /// list. A project whose fetch fails is dropped rather than failing the
-    /// whole screen — mirrors `ProjectOverviewViewModel.fetchSubprojectSummaries`.
-    private static func fetchAllTasks(
-        projects: [Project],
-        repository: TaskRepositoryProtocol,
-    ) async -> [VikunjaTask] {
-        await withTaskGroup(of: [VikunjaTask].self) { group in
-            for project in projects {
-                group.addTask {
-                    await (try? repository.fetchTasks(projectID: project.id)) ?? []
-                }
-            }
-            var allTasks: [VikunjaTask] = []
-            for await tasks in group {
-                allTasks.append(contentsOf: tasks)
-            }
-            return allTasks
-        }
-    }
-
     /// Flips a task's completion state, persists the change, and rolls the
     /// local flip back if the server rejects it — so a failed request never
     /// leaves the row showing a state the server doesn't actually have.
     public func toggleDone(_ task: VikunjaTask) async {
         guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
-        var updated = task
-        updated.isDone.toggle()
-        tasks[index] = updated
-        if updated.isDone {
-            hapticPresenter.play(.success)
-        }
-        do {
-            tasks[index] = try await taskRepository.update(updated)
-        } catch {
-            tasks[index] = task
-        }
+        var flipped = task
+        flipped.isDone.toggle()
+        tasks[index] = flipped
+        tasks[index] = await mutator.persistToggleDone(flipped: flipped, original: task)
     }
 
     /// Deletes a task from the server and drops it from the local list on
@@ -104,14 +82,8 @@ public final class TodayViewModel {
     /// the delete to subtasks/relations, so nothing else in the tree needs
     /// updating here.
     public func delete(_ task: VikunjaTask) async {
-        do {
-            try await taskRepository.delete(id: task.id)
+        if await mutator.delete(task) {
             tasks.removeAll { $0.id == task.id }
-            toastPresenter.show("Task deleted", style: .success)
-        } catch let error as VikunjaError {
-            toastPresenter.show(error.displayMessage, style: .error)
-        } catch {
-            toastPresenter.show(error.localizedDescription, style: .error)
         }
     }
 
@@ -124,16 +96,8 @@ public final class TodayViewModel {
     /// Moves `task` to `destination` and drops it from the local list on
     /// success — it no longer belongs to the Today view after the move.
     public func move(_ task: VikunjaTask, to destination: Project) async {
-        var updated = task
-        updated.projectID = destination.id
-        do {
-            _ = try await taskRepository.update(updated)
+        if await mutator.move(task, to: destination) {
             tasks.removeAll { $0.id == task.id }
-            toastPresenter.show("Task moved to \(destination.title)", style: .success)
-        } catch let error as VikunjaError {
-            toastPresenter.show(error.displayMessage, style: .error)
-        } catch {
-            toastPresenter.show(error.localizedDescription, style: .error)
         }
     }
 }
