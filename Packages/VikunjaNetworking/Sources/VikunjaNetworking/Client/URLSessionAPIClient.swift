@@ -97,7 +97,7 @@ public actor URLSessionAPIClient: APIClient {
         case 200 ... 299:
             return (data, httpResponse)
         case 401:
-            Self.logResponseBody(data, statusCode: 401, endpoint: endpoint)
+            Self.logFailedResponse(data, statusCode: 401, endpoint: endpoint)
             throw VikunjaError.unauthorized
         case 404:
             throw VikunjaError.notFound
@@ -105,18 +105,30 @@ public actor URLSessionAPIClient: APIClient {
             throw VikunjaError.totpRequired
         default:
             let message = String(data: data, encoding: .utf8) ?? "Unknown error"
-            Self.logResponseBody(data, statusCode: httpResponse.statusCode, endpoint: endpoint)
+            Self.logFailedResponse(data, statusCode: httpResponse.statusCode, endpoint: endpoint)
             throw VikunjaError.server(message: message, statusCode: httpResponse.statusCode)
         }
     }
 
-    /// Surfaces the server's raw error body in the Xcode console / Console.app
-    /// (filter by subsystem `dev.sergiosuarez.vikunja`) — `VikunjaError` itself
-    /// deliberately shows the user a generic, friendly message instead of the
-    /// raw response, so this is the only place that body is visible.
-    private static func logResponseBody(_ data: Data, statusCode: Int, endpoint: Endpoint) {
-        let body = String(data: data, encoding: .utf8) ?? "<non-UTF8 body, \(data.count) bytes>"
-        apiLogger.error("\(endpoint.method.rawValue, privacy: .public) \(endpoint.path, privacy: .public) → \(statusCode, privacy: .public): \(body, privacy: .public)")
+    /// Logs a failed request for diagnostics (filter Console.app by subsystem
+    /// `dev.sergiosuarez.vikunja`). The response body and the request path are
+    /// treated as sensitive: Vikunja's error/validation bodies echo back
+    /// submitted task content, and task-scoped paths embed task IDs, both of
+    /// which count as PII under the project's logging rules. The body is
+    /// therefore emitted only in DEBUG builds, and the path is always marked
+    /// `.private` so OSLog redacts it off-device. Auth failures (401/403)
+    /// never log a body at all, since those responses can carry account
+    /// context. `VikunjaError` still surfaces a generic message to the user.
+    private static func logFailedResponse(_ data: Data, statusCode: Int, endpoint: Endpoint) {
+        let method = endpoint.method.rawValue
+        #if DEBUG
+        if statusCode != 401, statusCode != 403 {
+            let body = String(data: data, encoding: .utf8) ?? "<non-UTF8 body, \(data.count) bytes>"
+            apiLogger.error("\(method, privacy: .public) \(endpoint.path, privacy: .private) → \(statusCode, privacy: .public): \(body, privacy: .private)")
+            return
+        }
+        #endif
+        apiLogger.error("\(method, privacy: .public) \(endpoint.path, privacy: .private) → \(statusCode, privacy: .public)")
     }
 
     private func makeURL(for endpoint: Endpoint) -> URL? {
