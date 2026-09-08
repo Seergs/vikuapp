@@ -38,6 +38,11 @@ struct ConnectionFormView: View {
                         #endif
                         .autocorrectionDisabled()
 
+                    if viewModel.urlUsesInsecureScheme {
+                        insecureConnectionToggle
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+
                     AuthMethodAccordion(
                         expanded: $viewModel.credentialMode,
                         isPasswordEnabled: viewModel.localAuthAvailable,
@@ -48,6 +53,7 @@ struct ConnectionFormView: View {
                         oidc: { oidcProvidersSection },
                     )
                 }
+                .animation(.smooth(duration: 0.28), value: viewModel.urlUsesInsecureScheme)
 
                 if viewModel.credentialMode != .oidc {
                     testConnectionButton
@@ -113,6 +119,27 @@ struct ConnectionFormView: View {
             }
             Button("Cancel", role: .cancel) {}
         }
+    }
+
+    private var insecureConnectionToggle: some View {
+        VStack(alignment: .leading, spacing: VikuSpacing.sm - VikuSpacing.xxs) {
+            Toggle(isOn: $viewModel.allowInsecureConnection) {
+                FieldLabel("Allow Insecure Connection")
+            }
+            .tint(VikuColor.brandPrimary)
+
+            if viewModel.allowInsecureConnection {
+                HStack(alignment: .firstTextBaseline, spacing: VikuSpacing.xs) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                    Text("Traffic to this instance won't be encrypted. Only use http on a trusted local network.")
+                }
+                .font(VikuFont.caption)
+                .fontWeight(.medium)
+                .foregroundStyle(VikuColor.Semantic.dangerText)
+                .transition(.opacity)
+            }
+        }
+        .animation(.smooth(duration: 0.2), value: viewModel.allowInsecureConnection)
     }
 
     private var oidcProvidersSection: some View {

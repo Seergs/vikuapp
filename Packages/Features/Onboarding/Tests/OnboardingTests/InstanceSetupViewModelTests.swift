@@ -63,6 +63,54 @@ struct InstanceSetupViewModelTests {
     }
 
     @Test
+    func `url uses insecure scheme only for an explicit http address`() {
+        let viewModel = makeViewModel()
+        #expect(viewModel.urlUsesInsecureScheme == false)
+
+        viewModel.urlText = "tasks.example.com"
+        #expect(viewModel.urlUsesInsecureScheme == false)
+
+        viewModel.urlText = "https://tasks.example.com"
+        #expect(viewModel.urlUsesInsecureScheme == false)
+
+        viewModel.urlText = "HTTP://localhost:3456"
+        #expect(viewModel.urlUsesInsecureScheme == true)
+    }
+
+    @Test
+    func `saving an http address is rejected unless insecure connections are allowed`() async {
+        let accountStore = FakeAccountStore()
+        let viewModel = makeViewModel(accountStore: accountStore)
+        viewModel.displayName = "Local"
+        viewModel.urlText = "http://localhost:3456"
+        viewModel.apiToken = "a-token"
+
+        await viewModel.saveConnection()
+
+        #expect(viewModel.validationState == .failure(
+            "That address uses http. Turn on \"Allow insecure connection\" to connect over an unencrypted link.",
+        ))
+        #expect(accountStore.accounts.isEmpty)
+    }
+
+    @Test
+    func `saving an http address succeeds once insecure connections are allowed`() async throws {
+        let accountStore = FakeAccountStore()
+        let clientFactory = FakeInstanceClientFactory()
+        let viewModel = makeViewModel(accountStore: accountStore, clientFactory: clientFactory)
+        viewModel.displayName = "Local"
+        viewModel.urlText = "http://localhost:3456"
+        viewModel.apiToken = "a-token"
+        viewModel.allowInsecureConnection = true
+
+        await viewModel.saveConnection()
+
+        #expect(viewModel.validationState == .success)
+        #expect(try clientFactory.requestedBaseURLs == [#require(URL(string: "http://localhost:3456"))])
+        #expect(accountStore.accounts.first?.baseURL == URL(string: "http://localhost:3456")!)
+    }
+
+    @Test
     func `saving A valid connection exposes the saved account`() async {
         let viewModel = makeViewModel()
         viewModel.displayName = "Home"

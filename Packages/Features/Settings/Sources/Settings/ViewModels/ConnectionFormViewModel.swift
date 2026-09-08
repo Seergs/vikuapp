@@ -25,6 +25,12 @@ public final class ConnectionFormViewModel {
     public var username: String = ""
     public var password: String = ""
     public var totpPasscode: String = ""
+    /// Opt-in to an `http://` instance address. Off by default — HTTPS is
+    /// required unless the user explicitly turns this on for a local or
+    /// trusted-network instance, and the view shows an "insecure connection"
+    /// warning while it's on. Pre-enabled in `.edit` mode when the saved
+    /// connection's address is already `http://`.
+    public var allowInsecureConnection: Bool = false
 
     public private(set) var validationState: ConnectionValidationState = .idle
     /// The account `save()` most recently persisted — distinct from
@@ -88,6 +94,14 @@ public final class ConnectionFormViewModel {
         !trimmedURLText.isEmpty && !isSaving
     }
 
+    /// Whether the address as typed explicitly uses an `http://` scheme — the
+    /// only case where the "Allow insecure connection" toggle is relevant (a
+    /// bare domain or `https://` always resolves to HTTPS). The view reveals
+    /// the toggle only while this is true.
+    public var urlUsesInsecureScheme: Bool {
+        trimmedURLText.lowercased().hasPrefix("http://")
+    }
+
     /// Whether a provider button in `oidcProviders` should be enabled —
     /// mirrors `canSave`'s name/address gating, minus the credential fields
     /// which OIDC sign-in doesn't use.
@@ -127,6 +141,7 @@ public final class ConnectionFormViewModel {
             self.displayName = account.displayName
             self.urlText = account.baseURL.absoluteString
             self.credentialMode = account.authMethod
+            self.allowInsecureConnection = account.baseURL.scheme?.lowercased() == "http"
         }
     }
 
@@ -147,7 +162,9 @@ public final class ConnectionFormViewModel {
     /// itself before the user ever taps "Test Connection". Any failure
     /// (unreachable host, still mid-type) just leaves it unavailable.
     public func checkLocalAuthAvailability() async {
-        guard !trimmedURLText.isEmpty, let baseURL = try? InstanceURL.normalize(urlText) else {
+        guard !trimmedURLText.isEmpty,
+              let baseURL = try? InstanceURL.normalize(urlText, allowInsecureHTTP: allowInsecureConnection)
+        else {
             await applyAvailability(localAuth: false, providers: [])
             return
         }
@@ -165,7 +182,7 @@ public final class ConnectionFormViewModel {
         guard canTestConnection else { return }
         validationState = .validating
         do {
-            let baseURL = try InstanceURL.normalize(urlText)
+            let baseURL = try InstanceURL.normalize(urlText, allowInsecureHTTP: allowInsecureConnection)
             let provider = clientFactory.makeCapabilityProvider(baseURL: baseURL)
             let info = try await provider.serverInfo()
             await applyAvailability(localAuth: provider.supports(.localAuth), providers: info.oidcProviders)
@@ -186,7 +203,7 @@ public final class ConnectionFormViewModel {
         validationState = .validating
 
         do {
-            let baseURL = try InstanceURL.normalize(urlText)
+            let baseURL = try InstanceURL.normalize(urlText, allowInsecureHTTP: allowInsecureConnection)
             let code = try await oidcAuthenticator.authenticate(provider: provider, redirectURI: oidcRedirectURI)
             let session = try await clientFactory.makeAuthService(baseURL: baseURL).loginWithOIDC(
                 provider: provider,
@@ -227,7 +244,7 @@ public final class ConnectionFormViewModel {
         // filled in the matching fields for), so a flaky re-probe result
         // must not silently switch `credentialMode` out from under it.
         do {
-            let baseURL = try InstanceURL.normalize(urlText)
+            let baseURL = try InstanceURL.normalize(urlText, allowInsecureHTTP: allowInsecureConnection)
             let provider = clientFactory.makeCapabilityProvider(baseURL: baseURL)
             _ = try await provider.serverInfo()
             localAuthAvailable = await provider.supports(.localAuth)
