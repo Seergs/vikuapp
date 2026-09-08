@@ -19,18 +19,25 @@ public final class CalendarViewModel {
         loadState == .loading
     }
 
-    private let taskRepository: TaskRepositoryProtocol
-    private let projectRepository: ProjectRepositoryProtocol
-    private let hapticPresenter: HapticFeedbackPresenting
+    private let taskLoader: AccountTaskLoader
+    private let mutator: TaskListMutator
 
     public init(
         taskRepository: TaskRepositoryProtocol,
         projectRepository: ProjectRepositoryProtocol,
         hapticPresenter: HapticFeedbackPresenting = NoopHapticFeedback(),
     ) {
-        self.taskRepository = taskRepository
-        self.projectRepository = projectRepository
-        self.hapticPresenter = hapticPresenter
+        self.taskLoader = AccountTaskLoader(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository,
+        )
+        // The Calendar screen surfaces no toasts of its own yet — only
+        // `persistToggleDone` is used, which never toasts.
+        self.mutator = TaskListMutator(
+            repository: taskRepository,
+            toastPresenter: NoopToastPresenter(),
+            hapticPresenter: hapticPresenter,
+        )
     }
 
     /// Skips the `.loading` transition when content is already loaded (a
@@ -41,9 +48,9 @@ public final class CalendarViewModel {
             loadState = .loading
         }
         do {
-            let projects = try await projectRepository.fetchProjects()
-            projectsByID = Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0) })
-            tasks = await Self.fetchAllTasks(projects: projects, repository: taskRepository)
+            let result = try await taskLoader.loadAllTasks()
+            projectsByID = result.projectsByID
+            tasks = result.tasks
             loadState = .loaded
         } catch let error as VikunjaError {
             loadState = .failure(error.displayMessage)
@@ -52,42 +59,14 @@ public final class CalendarViewModel {
         }
     }
 
-    /// Fetches every project's tasks concurrently and flattens them into one
-    /// list. A project whose fetch fails is dropped rather than failing the
-    /// whole screen — mirrors `TodayViewModel.fetchAllTasks`.
-    private static func fetchAllTasks(
-        projects: [Project],
-        repository: TaskRepositoryProtocol,
-    ) async -> [VikunjaTask] {
-        await withTaskGroup(of: [VikunjaTask].self) { group in
-            for project in projects {
-                group.addTask {
-                    await (try? repository.fetchTasks(projectID: project.id)) ?? []
-                }
-            }
-            var allTasks: [VikunjaTask] = []
-            for await tasks in group {
-                allTasks.append(contentsOf: tasks)
-            }
-            return allTasks
-        }
-    }
-
     /// Flips a task's completion state, persists it, and rolls the local flip
     /// back if the server rejects it — so a failed request never leaves a row
     /// showing a state the server doesn't have.
     public func toggleDone(_ task: VikunjaTask) async {
         guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
-        var updated = task
-        updated.isDone.toggle()
-        tasks[index] = updated
-        if updated.isDone {
-            hapticPresenter.play(.success)
-        }
-        do {
-            tasks[index] = try await taskRepository.update(updated)
-        } catch {
-            tasks[index] = task
-        }
+        var flipped = task
+        flipped.isDone.toggle()
+        tasks[index] = flipped
+        tasks[index] = await mutator.persistToggleDone(flipped: flipped, original: task)
     }
 }

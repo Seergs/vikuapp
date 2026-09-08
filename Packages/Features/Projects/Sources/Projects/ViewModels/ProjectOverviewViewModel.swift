@@ -30,8 +30,7 @@ public final class ProjectOverviewViewModel {
 
     private let repository: TaskRepositoryProtocol
     private let projectRepository: ProjectRepositoryProtocol
-    private let toastPresenter: ToastPresenting
-    private let hapticPresenter: HapticFeedbackPresenting
+    private let mutator: TaskListMutator
     /// Set by `AppContainer` so this screen can tell the globally-presented
     /// quick-add sheet which project to default to while it's on screen.
     /// Optional so tests and any caller that doesn't care can skip it.
@@ -50,8 +49,12 @@ public final class ProjectOverviewViewModel {
         self.subprojects = subprojects
         self.repository = repository
         self.projectRepository = projectRepository
-        self.toastPresenter = toastPresenter
-        self.hapticPresenter = hapticPresenter
+        self.mutator = TaskListMutator(
+            repository: repository,
+            toastPresenter: toastPresenter,
+            hapticPresenter: hapticPresenter,
+            errorMessage: { ($0 as? VikunjaError)?.displayMessage ?? $0.localizedDescription },
+        )
         self.quickAddContext = quickAddContext
     }
 
@@ -120,17 +123,10 @@ public final class ProjectOverviewViewModel {
     /// leaves the row showing a state the server doesn't actually have.
     public func toggleDone(_ task: VikunjaTask) async {
         guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
-        var updated = task
-        updated.isDone.toggle()
-        tasks[index] = updated
-        if updated.isDone {
-            hapticPresenter.play(.success)
-        }
-        do {
-            tasks[index] = try await repository.update(updated)
-        } catch {
-            tasks[index] = task
-        }
+        var flipped = task
+        flipped.isDone.toggle()
+        tasks[index] = flipped
+        tasks[index] = await mutator.persistToggleDone(flipped: flipped, original: task)
     }
 
     /// Deletes a task from the server and drops it from the local list on
@@ -138,14 +134,8 @@ public final class ProjectOverviewViewModel {
     /// the delete to subtasks/relations, so nothing else in the tree needs
     /// updating here.
     public func delete(_ task: VikunjaTask) async {
-        do {
-            try await repository.delete(id: task.id)
+        if await mutator.delete(task) {
             tasks.removeAll { $0.id == task.id }
-            toastPresenter.show("Task deleted", style: .success)
-        } catch let error as VikunjaError {
-            toastPresenter.show(error.displayMessage, style: .error)
-        } catch {
-            toastPresenter.show(error.localizedDescription, style: .error)
         }
     }
 
@@ -161,16 +151,8 @@ public final class ProjectOverviewViewModel {
     /// success — it no longer belongs to this project's screen, mirroring
     /// `delete(_:)`.
     public func move(_ task: VikunjaTask, to destination: Project) async {
-        var updated = task
-        updated.projectID = destination.id
-        do {
-            _ = try await repository.update(updated)
+        if await mutator.move(task, to: destination) {
             tasks.removeAll { $0.id == task.id }
-            toastPresenter.show("Task moved to \(destination.title)", style: .success)
-        } catch let error as VikunjaError {
-            toastPresenter.show(error.displayMessage, style: .error)
-        } catch {
-            toastPresenter.show(error.localizedDescription, style: .error)
         }
     }
 }
