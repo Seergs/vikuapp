@@ -22,6 +22,12 @@ struct ProjectOverviewView: View {
     @State private var filter: ProjectTaskFilter = .all
     @State private var taskPendingDelete: VikunjaTask?
     @State private var taskPendingMove: VikunjaTask?
+    @AppStorage("taskSort.field") private var sortField: TaskSort.Field = .dueDate
+    @AppStorage("taskSort.direction") private var sortDirection: TaskSort.Direction = .ascending
+
+    private var sort: TaskSort {
+        TaskSort(field: sortField, direction: sortDirection)
+    }
 
     var body: some View {
         content
@@ -31,6 +37,9 @@ struct ProjectOverviewView: View {
             .refreshable { await viewModel.load() }
             .navigationTitle(viewModel.project.title)
             .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    TaskSortMenu(field: $sortField, direction: $sortDirection)
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         onEditProject(viewModel.project)
@@ -145,7 +154,7 @@ struct ProjectOverviewView: View {
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
 
-        let visible = ProjectTaskSection.sections(from: viewModel.tasks, filter: filter)
+        let visible = ProjectTaskSection.sections(from: viewModel.tasks, filter: filter, sort: sort)
         if visible.isEmpty {
             ProjectOverviewStatusView(
                 systemImage: "checkmark.circle",
@@ -397,6 +406,51 @@ private struct FilterChip: View {
     }
 }
 
+/// Toolbar menu for choosing the task list's sort field and direction.
+/// Backed by `@AppStorage` in the host view, so the choice persists globally
+/// across projects and launches.
+private struct TaskSortMenu: View {
+    @Binding var field: TaskSort.Field
+    @Binding var direction: TaskSort.Direction
+
+    var body: some View {
+        Menu {
+            Picker("Sort By", selection: $field) {
+                ForEach(TaskSort.Field.allCases, id: \.self) { field in
+                    Text(field.menuTitle).tag(field)
+                }
+            }
+            Picker("Order", selection: $direction) {
+                ForEach(TaskSort.Direction.allCases, id: \.self) { direction in
+                    Text(direction.menuTitle).tag(direction)
+                }
+            }
+        } label: {
+            Image(systemName: "arrow.up.arrow.down")
+        }
+        .pickerStyle(.inline)
+    }
+}
+
+private extension TaskSort.Field {
+    var menuTitle: String {
+        switch self {
+        case .dueDate: "Due Date"
+        case .priority: "Priority"
+        case .title: "Alphabetical"
+        }
+    }
+}
+
+private extension TaskSort.Direction {
+    var menuTitle: String {
+        switch self {
+        case .ascending: "Ascending"
+        case .descending: "Descending"
+        }
+    }
+}
+
 /// One status grouping of tasks within the filtered list — mirrors the
 /// design's "Overdue" / "Pending" / "Completed" sections, only showing the
 /// ones the current filter and data actually produce.
@@ -407,7 +461,11 @@ private struct ProjectTaskSection: Identifiable {
         title
     }
 
-    static func sections(from tasks: [VikunjaTask], filter: ProjectTaskFilter) -> [ProjectTaskSection] {
+    static func sections(
+        from tasks: [VikunjaTask],
+        filter: ProjectTaskFilter,
+        sort: TaskSort,
+    ) -> [ProjectTaskSection] {
         let now = Date()
         func isOverdue(_ task: VikunjaTask) -> Bool {
             guard let dueDate = task.dueDate, !task.isDone else { return false }
@@ -421,32 +479,14 @@ private struct ProjectTaskSection: Identifiable {
         case .completed: tasks.filter(\.isDone)
         }
 
-        func sortedByDueDate(_ tasks: [VikunjaTask]) -> [VikunjaTask] {
-            tasks.sorted { lhs, rhs in
-                switch (lhs.dueDate, rhs.dueDate) {
-                case let (lhsDate?, rhsDate?):
-                    if lhsDate != rhsDate {
-                        return lhsDate < rhsDate
-                    }
-                    return lhs.id < rhs.id
-                case (nil, nil):
-                    return lhs.id < rhs.id
-                case (nil, _):
-                    return false
-                case (_, nil):
-                    return true
-                }
-            }
-        }
-
         let overdue = filtered.filter(isOverdue)
         let pending = filtered.filter { !$0.isDone && !isOverdue($0) }
         let completed = filtered.filter(\.isDone)
 
         return [
-            overdue.isEmpty ? nil : ProjectTaskSection(title: "Overdue", tasks: sortedByDueDate(overdue)),
-            pending.isEmpty ? nil : ProjectTaskSection(title: "Pending", tasks: sortedByDueDate(pending)),
-            completed.isEmpty ? nil : ProjectTaskSection(title: "Completed", tasks: sortedByDueDate(completed)),
+            overdue.isEmpty ? nil : ProjectTaskSection(title: "Overdue", tasks: sort.sorted(overdue)),
+            pending.isEmpty ? nil : ProjectTaskSection(title: "Pending", tasks: sort.sorted(pending)),
+            completed.isEmpty ? nil : ProjectTaskSection(title: "Completed", tasks: sort.sorted(completed)),
         ].compactMap(\.self)
     }
 }
