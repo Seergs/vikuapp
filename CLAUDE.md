@@ -289,6 +289,25 @@ by the compiler, not just convention:
     (internal, unit-tested) builds the tree, does search filtering, and handles
     `excludingSubtreeOf:` — this replaced the two-level `ProjectGroup` grouping
     that used to be recomputed on five separate view models.
+  - **Task row** (`Components/`) — `VikuTaskRow`, the one compact task row
+    every list screen uses (`Features/Home`'s Today, `Features/Projects`'
+    overview, `Features/Search`). Circular completion checkbox, strikethrough
+    title, a one-line metadata row (project dot + name, due date or an
+    "Overdue" label, a `link` glyph when the task `hasRelations`), up to two
+    label pills + a "+N" overflow pill, trailing priority dot. Takes a
+    `VikunjaTask` + its `Project?` + `onToggle`/`onOpen` + a `@ViewBuilder
+    contextMenu` (its items differ per screen). `showsProjectBadge: false`
+    (a project's own overview passes this) drops the dot + name, keeping just
+    the color for the checkbox; in that mode a relations-only task moves its
+    `link` glyph up beside the title so it isn't stranded on an otherwise
+    empty metadata line. `.vikuCardRow(index:count:)` (`Components/CardList.swift`)
+    is the matching modifier for the "run of rows reads as one rounded card"
+    recipe inside a `.plain` `List` (inner padding, card background,
+    hand-drawn dividers, per-position corner rounding, stripped list-row
+    insets/separator/background). `VikuColor.Priority.dot(for:)` is the single
+    priority-to-color mapping these rows use. `Features/Calendar` still keeps
+    its own trimmed copy (`CalendarTaskRow`) for now — it renders outside a
+    `List`.
   - **Toasts** (`Toast/`) — the app-wide toast system. `ToastCenter` is an
     `@Observable`/`@MainActor` queue (one toast on screen at a time; a second
     `show` while one is up waits its turn) that implements `VikunjaCore`'s
