@@ -184,57 +184,33 @@ struct ProjectOverviewView: View {
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
 
-                // Each task is its own `List` row (rather than all of them
-                // sharing one row inside a `VStack`, as a single card) so a
-                // long-press's highlight and `.contextMenu` only ever target
-                // the one row under the finger — packed into a shared row,
-                // `List` highlights the whole row, i.e. every task in the
-                // section at once. The rounded "card" look is recreated by
-                // hand across these now-separate rows: only the first row
-                // rounds its top corners, only the last rounds its bottom
-                // corners, and a manual divider (not `List`'s own, hidden via
-                // `.listRowSeparator`) sits between adjacent ones.
                 ForEach(Array(section.tasks.enumerated()), id: \.element.id) { index, task in
-                    ProjectTaskRow(task: task, projectColor: swatchColor) {
-                        Task { await viewModel.toggleDone(task) }
-                    } onOpen: {
-                        onSelectTask(task)
-                    } onMove: {
-                        taskPendingMove = task
-                    } onDelete: {
-                        taskPendingDelete = task
-                    }
-                    .padding(.horizontal, VikuSpacing.md)
-                    .padding(.vertical, VikuSpacing.sm)
-                    .background(VikuColor.Surface.card)
-                    .overlay(alignment: .bottom) {
-                        if index < section.tasks.count - 1 {
-                            Divider().padding(.leading, VikuSpacing.md)
-                        }
-                    }
-                    .clipShape(
-                        UnevenRoundedRectangle(
-                            topLeadingRadius: index == 0 ? VikuRadius.lg : 0,
-                            bottomLeadingRadius: index == section.tasks.count - 1 ? VikuRadius.lg : 0,
-                            bottomTrailingRadius: index == section.tasks.count - 1 ? VikuRadius.lg : 0,
-                            topTrailingRadius: index == 0 ? VikuRadius.lg : 0,
-                            style: .continuous,
-                        ),
+                    // `showsProjectBadge: false` — the project is already this
+                    // screen's navigation title, so the row only needs its
+                    // color for the checkbox tint.
+                    VikuTaskRow(
+                        task: task,
+                        project: viewModel.project,
+                        showsProjectBadge: false,
+                        onToggle: { Task { await viewModel.toggleDone(task) } },
+                        onOpen: { onSelectTask(task) },
+                        contextMenu: {
+                            Button("Move to Project", systemImage: "folder") {
+                                taskPendingMove = task
+                            }
+                            // `role: .destructive` alone renders blue here: the
+                            // tab bar's tint leaks into the context menu and
+                            // overrides it. Pin it back to danger.
+                            Button("Delete Task", systemImage: "trash", role: .destructive) {
+                                taskPendingDelete = task
+                            }
+                            .tint(VikuColor.Semantic.danger)
+                        },
                     )
-                    // Only the card itself gets breathing room from the
-                    // screen edges — the label above it stays flush with
-                    // the title, matching everything else on this screen.
-                    .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xs)
-                    .listRowInsets(EdgeInsets())
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
+                    .vikuCardRow(index: index, count: section.tasks.count)
                 }
             }
         }
-    }
-
-    private var swatchColor: Color {
-        Color(vikuHex: viewModel.project.hexColor) ?? VikuColor.brandPrimary
     }
 }
 
@@ -491,157 +467,13 @@ private struct ProjectTaskSection: Identifiable {
     }
 }
 
-private struct ProjectTaskRow: View {
-    static let labelDisplayLimit = 2
-
-    let task: VikunjaTask
-    let projectColor: Color
-    let onToggle: () -> Void
-    let onOpen: () -> Void
-    let onMove: () -> Void
-    let onDelete: () -> Void
-
-    private var isOverdue: Bool {
-        guard let dueDate = task.dueDate, !task.isDone else { return false }
-        return dueDate < Date()
-    }
-
-    private var priorityColor: Color? {
-        switch task.priority {
-        case .unset: nil
-        case .low: VikuColor.Priority.low
-        case .medium: VikuColor.Priority.medium
-        case .high: VikuColor.Priority.high
-        case .urgent, .doNow: VikuColor.Priority.urgent
-        }
-    }
-
-    var body: some View {
-        HStack(alignment: .top, spacing: VikuSpacing.sm + VikuSpacing.xxs) {
-            Button(action: onToggle) {
-                Circle()
-                    .strokeBorder(task.isDone ? Color.clear : projectColor, lineWidth: 2)
-                    .background(Circle().fill(task.isDone ? projectColor : Color.clear))
-                    .frame(width: 24, height: 24)
-                    .overlay {
-                        if task.isDone {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundStyle(.white)
-                        }
-                    }
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 1)
-
-            VStack(alignment: .leading, spacing: VikuSpacing.xs + VikuSpacing.xxs) {
-                Text(task.title)
-                    .font(VikuFont.body)
-                    .fontWeight(.medium)
-                    .strikethrough(task.isDone)
-                    .foregroundStyle(task.isDone ? VikuColor.textTertiary : Color.primary)
-
-                HStack(spacing: VikuSpacing.xs + VikuSpacing.xxs) {
-                    if let dueDate = task.dueDate {
-                        Text(DueDateFormatter.compact(dueDate))
-                            .font(.system(size: 12.5, weight: .regular))
-                            .foregroundStyle(isOverdue ? VikuColor.Semantic.dangerText : VikuColor.textSecondary)
-                    }
-
-                    if task.hasRelations {
-                        if task.dueDate == nil {
-                            HStack(spacing: VikuSpacing.xxs) {
-                                Image(systemName: "link")
-                                    .font(.system(size: 11, weight: .regular))
-                                Text("Related tasks")
-                                    .font(.system(size: 12.5, weight: .regular))
-                            }
-                            .foregroundStyle(VikuColor.textTertiary)
-                        } else {
-                            Image(systemName: "link")
-                                .font(.system(size: 11, weight: .regular))
-                                .foregroundStyle(VikuColor.textTertiary)
-                        }
-                    }
-                }
-                .lineLimit(1)
-
-                if !task.labels.isEmpty {
-                    HStack(spacing: VikuSpacing.xs + VikuSpacing.xxs) {
-                        ForEach(task.labels.prefix(Self.labelDisplayLimit)) { label in
-                            LabelPill(label: label)
-                        }
-
-                        let remainingLabelCount = task.labels.count - Self.labelDisplayLimit
-                        if remainingLabelCount > 0 {
-                            ExtraLabelsPill(count: remainingLabelCount)
-                        }
-                    }
-                }
-            }
-
-            Spacer(minLength: VikuSpacing.sm)
-
-            if let priorityColor {
-                Circle()
-                    .fill(priorityColor)
-                    .frame(width: 8, height: 8)
-                    .padding(.top, VikuSpacing.xs)
-            }
-        }
-        // The checkbox is its own `Button` above, so a tap landing on it is
-        // handled there instead of bubbling up to this one — this only
-        // catches taps on the rest of the row (title, due date, labels...).
-        .contentShape(Rectangle())
-        .onTapGesture(perform: onOpen)
-        .contextMenu {
-            Button("Move to Project", systemImage: "folder", action: onMove)
-            // `role: .destructive` alone renders blue here, not red: the tab
-            // bar's `.tint(VikuColor.brandPrimary)` leaks into the context
-            // menu and overrides the role's tint. Pin it back to danger.
-            Button("Delete Task", systemImage: "trash", role: .destructive, action: onDelete)
-                .tint(VikuColor.Semantic.danger)
-        }
-    }
-}
-
-private struct LabelPill: View {
-    let label: VikunjaCore.Label
-
-    private var color: Color {
-        Color(vikuHex: label.hexColor) ?? VikuColor.textSecondary
-    }
-
-    var body: some View {
-        Text(label.title)
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(color)
-            .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
-            .padding(.vertical, VikuSpacing.xxs)
-            .background(Capsule().fill(color.opacity(0.14)))
-    }
-}
-
-private struct ExtraLabelsPill: View {
-    let count: Int
-
-    var body: some View {
-        Text("+\(count)")
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(VikuColor.textTertiary)
-            .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
-            .padding(.vertical, VikuSpacing.xxs)
-            .background(Capsule().fill(VikuColor.textSecondary.opacity(0.14)))
-    }
-}
-
 private extension View {
     /// `.plain`, not `.insetGrouped`: `.insetGrouped` always floats its
     /// "card" content in from the screen edges by a fixed system margin,
     /// independent of any `listRowInsets` override — which is exactly what
     /// kept every row on this screen sitting to the right of
     /// `.navigationTitle` no matter how that override was tuned. `.plain`
-    /// rows are flush by default, matching the title; `ProjectTaskRow`
+    /// rows are flush by default, matching the title; `.vikuCardRow(index:count:)`
     /// recreates the rounded "card" look by hand (per-row corner rounding)
     /// instead of relying on the list style to do it.
     func projectsListStyle() -> some View {
