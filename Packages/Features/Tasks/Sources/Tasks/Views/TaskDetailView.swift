@@ -366,7 +366,7 @@ public struct TaskDetailView: View {
                     systemImage: "calendar",
                     iconColor: task.dueDate == nil ? VikuColor.textTertiary : VikuColor.textSecondary,
                     title: "Due",
-                    value: task.dueDate.map(TaskDueDateFormatter.string(for:)) ?? "Set due date",
+                    value: task.dueDate.map { DueDateFormatter.dueLabel($0) } ?? "Set due date",
                     valueColor: task.dueDate == nil
                         ? VikuColor.textTertiary
                         : (isOverdue(task) ? VikuColor.Semantic.dangerText : nil),
@@ -712,51 +712,6 @@ private struct LabelPill: View {
             .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
             .padding(.vertical, VikuSpacing.xxs)
             .background(Capsule().fill(color.opacity(0.14)))
-    }
-}
-
-/// Simple wrapping row layout for labels — SwiftUI has no built-in flow
-/// layout, and labels can't be forced onto a single scrollable row here the
-/// way `ProjectOverviewView`'s filter chips are.
-private struct FlowLayout: Layout {
-    var spacing: CGFloat
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
-        let maxWidth = proposal.width ?? .infinity
-        var rowWidth: CGFloat = 0
-        var totalHeight: CGFloat = 0
-        var rowHeight: CGFloat = 0
-
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if rowWidth + size.width > maxWidth, rowWidth > 0 {
-                totalHeight += rowHeight + spacing
-                rowWidth = 0
-                rowHeight = 0
-            }
-            rowWidth += size.width + (rowWidth > 0 ? spacing : 0)
-            rowHeight = max(rowHeight, size.height)
-        }
-        totalHeight += rowHeight
-        return CGSize(width: maxWidth == .infinity ? rowWidth : maxWidth, height: totalHeight)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal _: ProposedViewSize, subviews: Subviews, cache _: inout ()) {
-        var x = bounds.minX
-        var y = bounds.minY
-        var rowHeight: CGFloat = 0
-
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if x + size.width > bounds.maxX, x > bounds.minX {
-                x = bounds.minX
-                y += rowHeight + spacing
-                rowHeight = 0
-            }
-            subview.place(at: CGPoint(x: x, y: y), proposal: .unspecified)
-            x += size.width + spacing
-            rowHeight = max(rowHeight, size.height)
-        }
     }
 }
 
@@ -1521,7 +1476,7 @@ private struct AttachmentRow: View {
 
     private var subtitle: String {
         let size = AttachmentSizeFormatter.string(for: attachment.sizeBytes)
-        let date = CommentTimeFormatter.string(for: attachment.created)
+        let date = RelativeTimeFormatter.string(for: attachment.created)
         return "\(size) · \(date)"
     }
 
@@ -1675,7 +1630,7 @@ private struct CommentRow: View {
                     Text(displayName)
                         .font(.system(size: 13.5, weight: .bold))
                         .foregroundStyle(Color.primary)
-                    Text(CommentTimeFormatter.string(for: comment.created))
+                    Text(RelativeTimeFormatter.string(for: comment.created))
                         .font(.system(size: 12))
                         .foregroundStyle(VikuColor.textTertiary)
                 }
@@ -1792,42 +1747,5 @@ private struct EditCommentSheet: View {
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
-    }
-}
-
-@MainActor
-private enum CommentTimeFormatter {
-    private static let formatter: RelativeDateTimeFormatter = {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter
-    }()
-
-    static func string(for date: Date) -> String {
-        formatter.localizedString(for: date, relativeTo: Date())
-    }
-}
-
-/// Formats a due date the way the design mirrors relative-day phrasing
-/// (today/tomorrow/yesterday/weekday) before falling back to an absolute date.
-private enum TaskDueDateFormatter {
-    static func string(for date: Date) -> String {
-        let calendar = Calendar.current
-        if calendar.isDateInToday(date) {
-            return "Today, \(date.formatted(date: .omitted, time: .shortened))"
-        }
-        if calendar.isDateInTomorrow(date) {
-            return "Tomorrow"
-        }
-        if calendar.isDateInYesterday(date) {
-            return "Yesterday"
-        }
-        let days = calendar.dateComponents(
-            [.day], from: calendar.startOfDay(for: Date()), to: calendar.startOfDay(for: date),
-        ).day ?? 0
-        if abs(days) <= 6 {
-            return date.formatted(.dateTime.weekday(.wide))
-        }
-        return date.formatted(date: .abbreviated, time: .omitted)
     }
 }
