@@ -281,8 +281,7 @@ public struct TaskDetailView: View {
 
     private func openAttachment(_ attachment: TaskAttachment) {
         Task {
-            guard let data = await viewModel.attachmentData(for: attachment) else { return }
-            attachmentPreviewURL = AttachmentPreviewFile.write(data, named: attachment.fileName)
+            attachmentPreviewURL = await viewModel.attachmentPreviewURL(for: attachment)
         }
     }
 
@@ -983,17 +982,7 @@ private struct AttachmentActionsModifier: ViewModifier {
                 allowsMultipleSelection: false,
             ) { result in
                 guard case let .success(urls) = result, let url = urls.first else { return }
-                guard let picked = PickedFile(url: url) else {
-                    viewModel.reportAttachmentReadFailure()
-                    return
-                }
-                Task {
-                    await viewModel.uploadAttachment(
-                        data: picked.data,
-                        fileName: picked.fileName,
-                        mimeType: picked.mimeType,
-                    )
-                }
+                Task { await viewModel.attachFile(at: url) }
             }
             .quickLookPreview($previewURL)
             .confirmationDialog(
@@ -1032,31 +1021,6 @@ private struct AddAttachmentButton: View {
         }
         .buttonStyle(.plain)
         .textCase(nil)
-    }
-}
-
-/// One file the user picked through `.fileImporter`, read into memory with
-/// its name and MIME type resolved — `nil` if the bytes can't be read (a
-/// security-scoped URL that won't open).
-private struct PickedFile {
-    let data: Data
-    let fileName: String
-    let mimeType: String
-
-    init?(url: URL) {
-        let scoped = url.startAccessingSecurityScopedResource()
-        defer {
-            if scoped {
-                url.stopAccessingSecurityScopedResource()
-            }
-        }
-
-        guard let data = try? Data(contentsOf: url) else { return nil }
-        self.data = data
-        self.fileName = url.lastPathComponent
-        let resolved = (try? url.resourceValues(forKeys: [.contentTypeKey]))?.contentType
-            ?? UTType(filenameExtension: url.pathExtension)
-        self.mimeType = resolved?.preferredMIMEType ?? "application/octet-stream"
     }
 }
 
@@ -1631,27 +1595,6 @@ private enum AttachmentIcon {
 private enum AttachmentSizeFormatter {
     static func string(for bytes: Int) -> String {
         Int64(bytes).formatted(.byteCount(style: .file))
-    }
-}
-
-/// Writes downloaded attachment bytes to a temp file so QuickLook can preview
-/// it — the download is bearer-authed, so its remote URL can't be handed to
-/// QuickLook directly. Files land in a dedicated subfolder that's cleared on
-/// each write to keep only the most recent preview around.
-private enum AttachmentPreviewFile {
-    static func write(_ data: Data, named fileName: String) -> URL? {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("attachment-previews", isDirectory: true)
-        try? FileManager.default.removeItem(at: directory)
-        do {
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            let sanitized = fileName.replacingOccurrences(of: "/", with: "_")
-            let url = directory.appendingPathComponent(sanitized.isEmpty ? "attachment" : sanitized)
-            try data.write(to: url, options: .atomic)
-            return url
-        } catch {
-            return nil
-        }
     }
 }
 
