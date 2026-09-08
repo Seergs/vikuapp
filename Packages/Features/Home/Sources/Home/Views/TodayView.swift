@@ -130,43 +130,28 @@ struct TodayView: View {
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
 
-                // Each task is its own `List` row so a long-press/tap only
-                // ever targets the one row under the finger — see
-                // `ProjectOverviewView`'s equivalent comment for the full
-                // reasoning behind this per-row card recipe.
                 ForEach(Array(section.tasks.enumerated()), id: \.element.id) { index, task in
-                    TodayTaskRow(task: task, project: viewModel.projectsByID[task.projectID]) {
-                        Task { await viewModel.toggleDone(task) }
-                    } onOpen: {
-                        if let project = viewModel.projectsByID[task.projectID] {
-                            router.push(.taskDetail(task, project))
-                        }
-                    } onMove: {
-                        taskPendingMove = task
-                    } onDelete: {
-                        taskPendingDelete = task
-                    }
-                    .padding(.horizontal, VikuSpacing.md)
-                    .padding(.vertical, VikuSpacing.sm)
-                    .background(VikuColor.Surface.card)
-                    .overlay(alignment: .bottom) {
-                        if index < section.tasks.count - 1 {
-                            Divider().padding(.leading, VikuSpacing.md)
-                        }
-                    }
-                    .clipShape(
-                        UnevenRoundedRectangle(
-                            topLeadingRadius: index == 0 ? VikuRadius.lg : 0,
-                            bottomLeadingRadius: index == section.tasks.count - 1 ? VikuRadius.lg : 0,
-                            bottomTrailingRadius: index == section.tasks.count - 1 ? VikuRadius.lg : 0,
-                            topTrailingRadius: index == 0 ? VikuRadius.lg : 0,
-                            style: .continuous,
-                        ),
+                    let project = viewModel.projectsByID[task.projectID]
+                    VikuTaskRow(
+                        task: task,
+                        project: project,
+                        onToggle: { Task { await viewModel.toggleDone(task) } },
+                        onOpen: {
+                            if let project {
+                                router.push(.taskDetail(task, project))
+                            }
+                        },
+                        contextMenu: {
+                            Button("Move to Project", systemImage: "folder") {
+                                taskPendingMove = task
+                            }
+                            Button("Delete Task", systemImage: "trash", role: .destructive) {
+                                taskPendingDelete = task
+                            }
+                            .tint(VikuColor.Semantic.danger)
+                        },
                     )
-                    .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xs)
-                    .listRowInsets(EdgeInsets())
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
+                    .vikuCardRow(index: index, count: section.tasks.count)
                 }
             }
         }
@@ -272,166 +257,6 @@ struct TodaySection: Identifiable {
         return buckets.compactMap { title, tasks in
             tasks.isEmpty ? nil : TodaySection(title: title, tasks: tasks)
         }
-    }
-}
-
-private struct TodayTaskRow: View {
-    static let labelDisplayLimit = 2
-
-    let task: VikunjaTask
-    let project: Project?
-    let onToggle: () -> Void
-    let onOpen: () -> Void
-    let onMove: () -> Void
-    let onDelete: () -> Void
-
-    private var projectColor: Color {
-        project.flatMap { Color(vikuHex: $0.hexColor) } ?? VikuColor.brandPrimary
-    }
-
-    private var isOverdue: Bool {
-        guard let dueDate = task.dueDate, !task.isDone else { return false }
-        return dueDate < Date()
-    }
-
-    private var priorityColor: Color? {
-        switch task.priority {
-        case .unset: nil
-        case .low: VikuColor.Priority.low
-        case .medium: VikuColor.Priority.medium
-        case .high: VikuColor.Priority.high
-        case .urgent, .doNow: VikuColor.Priority.urgent
-        }
-    }
-
-    var body: some View {
-        HStack(alignment: .top, spacing: VikuSpacing.sm + VikuSpacing.xxs) {
-            Button(action: onToggle) {
-                Circle()
-                    .strokeBorder(task.isDone ? Color.clear : projectColor, lineWidth: 2)
-                    .background(Circle().fill(task.isDone ? projectColor : Color.clear))
-                    .frame(width: 24, height: 24)
-                    .overlay {
-                        if task.isDone {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundStyle(.white)
-                        }
-                    }
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 1)
-
-            VStack(alignment: .leading, spacing: VikuSpacing.xs + VikuSpacing.xxs) {
-                Text(task.title)
-                    .font(VikuFont.body)
-                    .fontWeight(.medium)
-                    .strikethrough(task.isDone)
-                    .foregroundStyle(task.isDone ? VikuColor.textTertiary : Color.primary)
-
-                HStack(spacing: VikuSpacing.xs + VikuSpacing.xxs) {
-                    if let project {
-                        HStack(spacing: VikuSpacing.xs) {
-                            RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                .fill(projectColor)
-                                .frame(width: 6, height: 6)
-                            Text(project.title)
-                                .font(.system(size: 12.5, weight: .regular))
-                                .foregroundStyle(VikuColor.textSecondary)
-                                .truncationMode(.tail)
-                        }
-                    }
-
-                    if project != nil, task.dueDate != nil {
-                        Text("·")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(VikuColor.textSecondary)
-                    }
-
-                    // Due date / "Overdue" and the relations glyph stay at
-                    // their natural width so a long project name is what
-                    // truncates, never the date — the whole row is one line.
-                    Group {
-                        if isOverdue {
-                            Text("Overdue")
-                                .font(.system(size: 12.5, weight: .semibold))
-                                .foregroundStyle(VikuColor.Semantic.dangerText)
-                        } else if let dueDate = task.dueDate {
-                            Text(DueDateFormatter.compact(dueDate))
-                                .font(.system(size: 12.5, weight: .regular))
-                                .foregroundStyle(VikuColor.textSecondary)
-                        }
-
-                        if task.hasRelations {
-                            Image(systemName: "link")
-                                .font(.system(size: 11, weight: .regular))
-                                .foregroundStyle(VikuColor.textTertiary)
-                        }
-                    }
-                    .fixedSize(horizontal: true, vertical: false)
-                }
-                .lineLimit(1)
-
-                if !task.labels.isEmpty {
-                    HStack(spacing: VikuSpacing.xs + VikuSpacing.xxs) {
-                        ForEach(task.labels.prefix(Self.labelDisplayLimit)) { label in
-                            TodayLabelPill(label: label)
-                        }
-
-                        let remainingLabelCount = task.labels.count - Self.labelDisplayLimit
-                        if remainingLabelCount > 0 {
-                            TodayExtraLabelsPill(count: remainingLabelCount)
-                        }
-                    }
-                }
-            }
-
-            Spacer(minLength: VikuSpacing.sm)
-
-            if let priorityColor {
-                Circle()
-                    .fill(priorityColor)
-                    .frame(width: 8, height: 8)
-                    .padding(.top, VikuSpacing.xs)
-            }
-        }
-        .contentShape(Rectangle())
-        .onTapGesture(perform: onOpen)
-        .contextMenu {
-            Button("Move to Project", systemImage: "folder", action: onMove)
-            Button("Delete Task", systemImage: "trash", role: .destructive, action: onDelete)
-                .tint(VikuColor.Semantic.danger)
-        }
-    }
-}
-
-private struct TodayLabelPill: View {
-    let label: VikunjaCore.Label
-
-    private var color: Color {
-        Color(vikuHex: label.hexColor) ?? VikuColor.textSecondary
-    }
-
-    var body: some View {
-        Text(label.title)
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(color)
-            .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
-            .padding(.vertical, VikuSpacing.xxs)
-            .background(Capsule().fill(color.opacity(0.14)))
-    }
-}
-
-private struct TodayExtraLabelsPill: View {
-    let count: Int
-
-    var body: some View {
-        Text("+\(count)")
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(VikuColor.textTertiary)
-            .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
-            .padding(.vertical, VikuSpacing.xxs)
-            .background(Capsule().fill(VikuColor.textSecondary.opacity(0.14)))
     }
 }
 
