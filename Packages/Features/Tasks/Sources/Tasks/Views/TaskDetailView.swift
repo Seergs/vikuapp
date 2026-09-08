@@ -1105,6 +1105,7 @@ private struct RelationKindPickerSheet: View {
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(VikuColor.textTertiary)
                     }
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
