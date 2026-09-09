@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import VikunjaCore
+import VikuUI
 
 /// Drives the projects list screen: loads the flat project list from the
 /// server and arranges it into a parent/child tree by `parentProjectID`,
@@ -9,7 +10,7 @@ import VikunjaCore
 @Observable
 public final class ProjectsListViewModel {
     public private(set) var rootNodes: [ProjectNode] = []
-    public private(set) var loadState: ScreenLoadState = .idle
+    public private(set) var loadState: ScreenLoadState<Void> = .idle
     /// Each project's own task-completion tally, keyed by project id, for the
     /// per-row progress indicator. Populated after the tree itself loads (a
     /// separate request per project), so a row simply shows no progress bar

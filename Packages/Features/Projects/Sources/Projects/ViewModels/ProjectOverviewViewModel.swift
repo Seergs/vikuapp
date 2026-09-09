@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import VikunjaCore
+import VikuUI
 
 /// Drives a single project's overview screen: loads that project's tasks
 /// from the server. `project` is fixed at construction — a different project
@@ -14,7 +15,7 @@ public final class ProjectOverviewViewModel {
     /// than fetched again here.
     public let subprojects: [ProjectNode]
     public private(set) var tasks: [VikunjaTask] = []
-    public private(set) var loadState: ScreenLoadState = .idle
+    public private(set) var loadState: ScreenLoadState<Void> = .idle
     /// Each subproject's own task completion count, keyed by project id, for
     /// the "Subprojects" cards. Fetched alongside this project's own tasks
     /// since `ProjectNode` only carries project metadata, not tasks.

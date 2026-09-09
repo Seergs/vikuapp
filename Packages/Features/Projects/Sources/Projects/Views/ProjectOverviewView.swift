@@ -1,6 +1,7 @@
 import SwiftUI
 import VikuDesignSystem
 import VikunjaCore
+import VikuUI
 
 /// A single project's overview: its subprojects (if any), a status filter,
 /// and its own tasks grouped by overdue/pending/completed.
@@ -94,7 +95,7 @@ struct ProjectOverviewView: View {
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
             case let .failure(message):
-                ProjectOverviewStatusView(
+                VikuStatusView(
                     systemImage: "exclamationmark.triangle.fill",
                     title: "Couldn't load this project",
                     message: message,
@@ -130,7 +131,7 @@ struct ProjectOverviewView: View {
                         Text("\(viewModel.subprojects.count)")
                             .fontWeight(.regular)
                     }
-                    .overviewSectionLabelStyle()
+                    .vikuSectionHeader()
                     .padding(.horizontal, VikuSpacing.md)
 
                     SubprojectScrollRow(
@@ -156,7 +157,7 @@ struct ProjectOverviewView: View {
 
         let visible = ProjectTaskSection.sections(from: viewModel.tasks, filter: filter, sort: sort)
         if visible.isEmpty {
-            ProjectOverviewStatusView(
+            VikuStatusView(
                 systemImage: "checkmark.circle",
                 title: viewModel.tasks.isEmpty ? "No tasks yet" : "Nothing here",
                 message: viewModel.tasks.isEmpty
@@ -176,7 +177,7 @@ struct ProjectOverviewView: View {
                     Text("\(section.tasks.count)")
                         .fontWeight(.regular)
                 }
-                .overviewSectionLabelStyle()
+                .vikuSectionHeader()
                 .padding(.horizontal, VikuSpacing.md)
                 .padding(.top, VikuSpacing.md + VikuSpacing.xs)
                 .padding(.bottom, VikuSpacing.sm)
@@ -478,51 +479,5 @@ private extension View {
     /// instead of relying on the list style to do it.
     func projectsListStyle() -> some View {
         listStyle(.plain)
-    }
-}
-
-/// Shared look for the "Subprojects" label and the Overdue/Pending/Completed
-/// task-status headers: small, bold, uppercase, and legible against
-/// `VikuColor.textSecondary` rather than the system header's faint gray.
-private extension View {
-    func overviewSectionLabelStyle() -> some View {
-        font(VikuFont.footnote)
-            .fontWeight(.bold)
-            .foregroundStyle(VikuColor.textSecondary)
-            .textCase(.uppercase)
-            .kerning(0.3)
-    }
-}
-
-/// Shared empty/error state layout, matching `ProjectsView`'s.
-private struct ProjectOverviewStatusView: View {
-    let systemImage: String
-    let title: String
-    let message: String
-    var iconSize: CGFloat = 40
-    var retryAction: (() -> Void)?
-
-    var body: some View {
-        VStack(spacing: VikuSpacing.sm) {
-            Image(systemName: systemImage)
-                .font(.system(size: iconSize))
-                .foregroundStyle(VikuColor.textTertiary)
-
-            Text(title)
-                .font(VikuFont.headline)
-
-            Text(message)
-                .font(VikuFont.subheadline)
-                .foregroundStyle(VikuColor.textSecondary)
-                .multilineTextAlignment(.center)
-
-            if let retryAction {
-                Button("Try Again", action: retryAction)
-                    .buttonStyle(.bordered)
-                    .padding(.top, VikuSpacing.xs)
-            }
-        }
-        .padding(VikuSpacing.lg)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

@@ -1,5 +1,6 @@
 import Observation
 import VikunjaCore
+import VikuUI
 
 @MainActor
 @Observable
@@ -8,7 +9,7 @@ public final class EditProjectViewModel {
     public var hexColor: String = ""
     public var parentProjectID: Int?
     public private(set) var projects: [Project] = []
-    public private(set) var loadState: ScreenLoadState = .idle
+    public private(set) var loadState: ScreenLoadState<Void> = .idle
     public private(set) var isSaving: Bool = false
     public private(set) var saveErrorMessage: String?
 
