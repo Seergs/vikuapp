@@ -7,8 +7,11 @@ let package = Package(
     products: [
         .library(name: "VikuNavigation", targets: ["VikuNavigation"]),
     ],
+    dependencies: [
+        .package(path: "../VikunjaCore"),
+    ],
     targets: [
-        .target(name: "VikuNavigation"),
+        .target(name: "VikuNavigation", dependencies: ["VikunjaCore"]),
         .testTarget(name: "VikuNavigationTests", dependencies: ["VikuNavigation"]),
     ],
 )
