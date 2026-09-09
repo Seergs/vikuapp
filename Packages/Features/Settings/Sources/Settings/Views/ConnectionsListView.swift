@@ -2,6 +2,7 @@ import SwiftUI
 import VikuDesignSystem
 import VikuNavigation
 import VikunjaCore
+import VikuUI
 
 /// Lists every saved instance connection: tap a row to make it the active
 /// one, the pencil to edit it. Deleting a connection only happens from
@@ -53,7 +54,7 @@ struct ConnectionsListView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.top, VikuSpacing.xxl)
         case let .failure(message):
-            ConnectionsStatusView(
+            VikuStatusView(
                 systemImage: "exclamationmark.triangle.fill",
                 title: "Couldn't load connections",
                 message: message,
@@ -218,37 +219,5 @@ private struct ConnectionRow: View {
             .accessibilityLabel("Edit \(account.displayName)")
         }
         .padding(.vertical, VikuSpacing.sm)
-    }
-}
-
-/// Shared empty/error state layout for the connections list.
-private struct ConnectionsStatusView: View {
-    let systemImage: String
-    let title: String
-    let message: String
-    var retryAction: (() -> Void)?
-
-    var body: some View {
-        VStack(spacing: VikuSpacing.sm) {
-            Image(systemName: systemImage)
-                .font(.system(size: 40))
-                .foregroundStyle(VikuColor.textTertiary)
-
-            Text(title)
-                .font(VikuFont.headline)
-
-            Text(message)
-                .font(VikuFont.subheadline)
-                .foregroundStyle(VikuColor.textSecondary)
-                .multilineTextAlignment(.center)
-
-            if let retryAction {
-                Button("Try Again", action: retryAction)
-                    .buttonStyle(.bordered)
-                    .padding(.top, VikuSpacing.xs)
-            }
-        }
-        .padding(VikuSpacing.lg)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import VikunjaCore
+import VikuUI
 
 /// Drives the "Manage Labels" screen: the account-wide list of labels, plus
 /// create / rename+recolor / delete. Unlike `Features/Tasks`' label picker,
@@ -11,7 +12,7 @@ import VikunjaCore
 @Observable
 public final class ManageLabelsViewModel {
     public private(set) var labels: [Label] = []
-    public private(set) var loadState: ScreenLoadState = .idle
+    public private(set) var loadState: ScreenLoadState<Void> = .idle
 
     public var isLoading: Bool {
         loadState == .loading

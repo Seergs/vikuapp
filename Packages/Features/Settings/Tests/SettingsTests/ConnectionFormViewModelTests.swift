@@ -93,9 +93,7 @@ struct ConnectionFormViewModelTests {
 
         await viewModel.save()
 
-        #expect(viewModel.validationState == .failure(
-            "That address uses http. Turn on \"Allow insecure connection\" to connect over an unencrypted link.",
-        ))
+        #expect(viewModel.validationState == .failure("That address uses an insecure http connection."))
         let accounts = try await store.fetchAccounts()
         #expect(accounts.isEmpty)
     }
