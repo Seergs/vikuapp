@@ -32,6 +32,16 @@ struct MainTabView: View {
 
     @State private var selection: AppTab = .home
 
+    // One `AppRouter` per tab stack: the tab's `NavigationStack` binds to its
+    // `path` and it's placed in that stack's environment, so any screen inside
+    // - across feature module boundaries - navigates by pushing an `AppRoute`.
+    // Held in `@State` (stable across `body` re-evaluation, like the view
+    // models below) and rebuilt on account switch via `.id(connectedAccount)`.
+    @State private var homeRouter = AppRouter()
+    @State private var projectsRouter = AppRouter()
+    @State private var calendarRouter = AppRouter()
+    @State private var searchRouter = AppRouter()
+
     // Each tab's root view model is built once, here, and held for the life of
     // this shell (which is itself keyed `.id(connectedAccount)`, so switching
     // account still rebuilds them). Building them inside `body` instead meant a
@@ -56,33 +66,38 @@ struct MainTabView: View {
     var body: some View {
         TabView(selection: $selection) {
             Tab(AppTab.home.title, systemImage: AppTab.home.systemImage, value: .home) {
-                HomeRootView(
-                    viewModel: todayViewModel,
-                    taskDetailDestination: taskDetailDestination,
-                )
+                NavigationStack(path: $homeRouter.path) {
+                    HomeRootView(viewModel: todayViewModel)
+                        .appDestinations(container: container, account: account)
+                }
+                .environment(homeRouter)
             }
 
             Tab(AppTab.projects.title, systemImage: AppTab.projects.systemImage, value: .projects) {
-                ProjectsRootView(
-                    viewModel: projectsViewModel,
-                    makeOverviewViewModel: { node in
-                        container.makeProjectOverviewViewModel(node: node, account: account)
-                    },
-                    makeCreateProjectViewModel: {
-                        container.makeCreateProjectViewModel(account: account)
-                    },
-                    makeEditProjectViewModel: { project in
-                        container.makeEditProjectViewModel(project: project, account: account)
-                    },
-                    taskDetailDestination: taskDetailDestination,
-                )
+                NavigationStack(path: $projectsRouter.path) {
+                    ProjectsRootView(
+                        viewModel: projectsViewModel,
+                        makeOverviewViewModel: { node in
+                            container.makeProjectOverviewViewModel(node: node, account: account)
+                        },
+                        makeCreateProjectViewModel: {
+                            container.makeCreateProjectViewModel(account: account)
+                        },
+                        makeEditProjectViewModel: { project in
+                            container.makeEditProjectViewModel(project: project, account: account)
+                        },
+                    )
+                    .appDestinations(container: container, account: account)
+                }
+                .environment(projectsRouter)
             }
 
             Tab(AppTab.calendar.title, systemImage: AppTab.calendar.systemImage, value: .calendar) {
-                CalendarRootView(
-                    viewModel: calendarViewModel,
-                    taskDetailDestination: taskDetailDestination,
-                )
+                NavigationStack(path: $calendarRouter.path) {
+                    CalendarRootView(viewModel: calendarViewModel)
+                        .appDestinations(container: container, account: account)
+                }
+                .environment(calendarRouter)
             }
 
             Tab(AppTab.settings.title, systemImage: AppTab.settings.systemImage, value: .settings) {
@@ -102,10 +117,11 @@ struct MainTabView: View {
             }
 
             Tab(value: AppTab.search, role: .search) {
-                SearchRootView(
-                    viewModel: searchViewModel,
-                    onTaskSelected: taskDetailDestination,
-                )
+                NavigationStack(path: $searchRouter.path) {
+                    SearchRootView(viewModel: searchViewModel)
+                        .appDestinations(container: container, account: account)
+                }
+                .environment(searchRouter)
             }
         }
         .tabBarMinimizeBehavior(.onScrollDown)
@@ -136,42 +152,6 @@ struct MainTabView: View {
                 .padding(.trailing, VikuSpacing.md)
                 .padding(.bottom, VikuSpacing.xxl + VikuSpacing.lg)
         }
-    }
-
-    /// Builds a `Tasks.TaskDetailView` for the given task, type-erased so
-    /// neither `Home` nor `Projects` needs to import `Tasks` directly — both
-    /// tabs pass this same closure straight through as their own
-    /// `taskDetailDestination`. Mutually recursive with `projectDestination`
-    /// below: tapping a task's project pill pushes a project overview that
-    /// can itself push back into a task's detail screen.
-    private func taskDetailDestination(task: VikunjaTask, project: Project) -> AnyView {
-        AnyView(
-            TaskDetailView(
-                viewModel: container.makeTaskDetailViewModel(task: task, project: project, account: account),
-                projectDestination: projectDestination,
-            ),
-        )
-    }
-
-    /// Builds the `Projects.ProjectOverviewRootView` pushed when a task
-    /// detail screen's project pill is tapped — `Features/Tasks` can't import
-    /// `Projects` directly, so this closure (built here, where both are
-    /// already imported) stands in for that push, the same way
-    /// `taskDetailDestination` above stands in for `Projects`/`Home` pushing
-    /// into `Tasks`.
-    private func projectDestination(project: Project) -> AnyView {
-        AnyView(
-            ProjectOverviewRootView(
-                viewModel: container.makeProjectOverviewViewModel(project: project, account: account),
-                makeOverviewViewModel: { node in
-                    container.makeProjectOverviewViewModel(node: node, account: account)
-                },
-                makeEditProjectViewModel: { project in
-                    container.makeEditProjectViewModel(project: project, account: account)
-                },
-                taskDetailDestination: taskDetailDestination,
-            ),
-        )
     }
 }
 
