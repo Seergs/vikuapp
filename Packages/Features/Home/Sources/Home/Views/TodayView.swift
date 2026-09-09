@@ -9,7 +9,7 @@ import VikuUI
 /// inside their own project.
 struct TodayView: View {
     @Bindable var viewModel: TodayViewModel
-    let router: Router<HomeRoute>
+    @Environment(AppRouter.self) private var router
     @State private var filter: TodayFilter = .all
     @State private var taskPendingDelete: VikunjaTask?
     @State private var taskPendingMove: VikunjaTask?
