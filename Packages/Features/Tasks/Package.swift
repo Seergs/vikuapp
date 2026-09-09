@@ -10,9 +10,10 @@ let package = Package(
     dependencies: [
         .package(path: "../../VikunjaCore"),
         .package(path: "../../VikuDesignSystem"),
+        .package(path: "../../VikuUI"),
     ],
     targets: [
-        .target(name: "Tasks", dependencies: ["VikunjaCore", "VikuDesignSystem"]),
+        .target(name: "Tasks", dependencies: ["VikunjaCore", "VikuDesignSystem", "VikuUI"]),
         .testTarget(name: "TasksTests", dependencies: ["Tasks"]),
     ],
 )

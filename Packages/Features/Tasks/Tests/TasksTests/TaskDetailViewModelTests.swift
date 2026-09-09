@@ -2,6 +2,7 @@ import Foundation
 @testable import Tasks
 import Testing
 import VikunjaCore
+import VikuUI
 
 @MainActor
 struct TaskDetailViewModelTests {
@@ -853,7 +854,9 @@ struct TaskDetailViewModelTests {
 
         await viewModel.loadComments()
 
-        let unreachable = ScreenLoadState.failure("Couldn't reach that server. Check the address and your connection.")
+        let unreachable = ScreenLoadState<Void>.failure(
+            "Couldn't reach that server. Check the address and your connection.",
+        )
         #expect(viewModel.commentsLoadState == unreachable)
     }
 
@@ -907,7 +910,9 @@ struct TaskDetailViewModelTests {
 
         await viewModel.loadAttachments()
 
-        let unreachable = ScreenLoadState.failure("Couldn't reach that server. Check the address and your connection.")
+        let unreachable = ScreenLoadState<Void>.failure(
+            "Couldn't reach that server. Check the address and your connection.",
+        )
         #expect(viewModel.attachmentsLoadState == unreachable)
     }
 

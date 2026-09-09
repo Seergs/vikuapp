@@ -1,5 +1,6 @@
 import Observation
 import VikunjaCore
+import VikuUI
 
 /// Drives the quick-add sheet: title + project + priority only, matching the
 /// design mockup's `AddTaskSheet` (no due date/labels/assignee yet). The sheet
@@ -19,7 +20,7 @@ public final class QuickAddTaskViewModel {
     private let accountDefaultProjectID: Int?
     public var priority: VikunjaTask.Priority = .unset
     public private(set) var projects: [Project] = []
-    public private(set) var loadState: ScreenLoadState = .idle
+    public private(set) var loadState: ScreenLoadState<Void> = .idle
     public private(set) var isSaving: Bool = false
     public private(set) var saveErrorMessage: String?
 

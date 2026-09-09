@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import VikunjaCore
+import VikuUI
 
 /// Drives the "duplicate task" sheet.
 ///
@@ -26,7 +27,7 @@ public final class DuplicateTaskViewModel {
     public var copyRelations: Bool = true
 
     public private(set) var projects: [Project] = []
-    public private(set) var loadState: ScreenLoadState = .idle
+    public private(set) var loadState: ScreenLoadState<Void> = .idle
     public private(set) var isSaving: Bool = false
     public private(set) var saveErrorMessage: String?
 

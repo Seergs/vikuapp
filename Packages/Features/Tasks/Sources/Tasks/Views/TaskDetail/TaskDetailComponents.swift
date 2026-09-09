@@ -181,27 +181,3 @@ struct LabelsWrap: View {
         }
     }
 }
-
-struct TaskDetailStatusView: View {
-    let message: String
-    let retryAction: () -> Void
-
-    var body: some View {
-        VStack(spacing: VikuSpacing.sm) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 40))
-                .foregroundStyle(VikuColor.textTertiary)
-            Text("Couldn't load this task")
-                .font(VikuFont.headline)
-            Text(message)
-                .font(VikuFont.subheadline)
-                .foregroundStyle(VikuColor.textSecondary)
-                .multilineTextAlignment(.center)
-            Button("Try Again", action: retryAction)
-                .buttonStyle(.bordered)
-                .padding(.top, VikuSpacing.xs)
-        }
-        .padding(VikuSpacing.lg)
-        .frame(maxWidth: .infinity)
-    }
-}
