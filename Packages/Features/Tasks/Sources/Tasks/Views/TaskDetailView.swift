@@ -1,5 +1,6 @@
 import SwiftUI
 import VikuDesignSystem
+import VikuNavigation
 import VikunjaCore
 import VikuUI
 
@@ -13,11 +14,11 @@ import VikuUI
 /// shared building blocks live in `TaskDetail/TaskDetailComponents.swift`.
 public struct TaskDetailView: View {
     @Bindable var viewModel: TaskDetailViewModel
-    /// Type-erased, like `Features/Projects`' and `Features/Home`'s own
-    /// `taskDetailDestination` closures — this package can't import
-    /// `Projects` directly, so `AppContainer` supplies the actual
-    /// `ProjectOverviewRootView` to push when the project pill is tapped.
-    private let projectDestination: (Project) -> AnyView
+    /// The hosting stack's router. A tapped relation, the project pill, and a
+    /// just-created duplicate all navigate by pushing an `AppRoute` onto it,
+    /// resolved by the app target's `.appDestinations(...)` - this package
+    /// never imports `Projects` or knows what screen a route resolves to.
+    @Environment(AppRouter.self) private var router
     @Environment(\.dismiss) private var dismiss
     @State private var isShowingDueDatePicker = false
     @State private var isShowingLabelPicker = false
@@ -30,8 +31,6 @@ public struct TaskDetailView: View {
     @State private var isShowingFileImporter = false
     @State private var attachmentPendingDeletion: TaskAttachment?
     @State private var attachmentPreviewURL: URL?
-    @State private var relatedTaskDestination: RelatedTaskDestination?
-    @State private var projectDestinationBox: ProjectDestinationBox?
     @State private var isEditingTitle = false
     @State private var titleDraft = ""
     @State private var isEditingDescription = false
@@ -43,9 +42,8 @@ public struct TaskDetailView: View {
         case description
     }
 
-    public init(viewModel: TaskDetailViewModel, projectDestination: @escaping (Project) -> AnyView) {
+    public init(viewModel: TaskDetailViewModel) {
         self.viewModel = viewModel
-        self.projectDestination = projectDestination
     }
 
     public var body: some View {
@@ -154,7 +152,7 @@ public struct TaskDetailView: View {
         .sheet(isPresented: $isShowingDuplicateSheet) {
             DuplicateTaskSheetView(viewModel: viewModel.makeDuplicateTaskViewModel()) { task, project in
                 // Reuses the same push path a tapped relation row takes.
-                relatedTaskDestination = RelatedTaskDestination(task: task, project: project)
+                router.push(.taskDetail(task, project))
             }
         }
         .confirmationDialog(
@@ -219,19 +217,6 @@ public struct TaskDetailView: View {
                 }
             }
         }
-        .navigationDestination(item: $relatedTaskDestination) { destination in
-            TaskDetailView(
-                viewModel: viewModel.makeDetailViewModel(task: destination.task, project: destination.project),
-                projectDestination: projectDestination,
-            )
-        }
-        // The `AnyView` is built once, at tap time, and stashed in
-        // `projectDestinationBox` rather than called fresh inside this
-        // closure — see `ProjectDestinationBox`'s doc comment for why that
-        // distinction matters here.
-        .navigationDestination(item: $projectDestinationBox) { box in
-            box.content
-        }
         .onChange(of: focusedField) { previous, current in
             if previous == .title, current != .title {
                 commitTitleEdit()
@@ -282,7 +267,7 @@ public struct TaskDetailView: View {
     private func openRelation(_ relation: TaskRelation) {
         Task {
             if let (task, project) = await viewModel.loadRelatedTask(relation) {
-                relatedTaskDestination = RelatedTaskDestination(task: task, project: project)
+                router.push(.taskDetail(task, project))
             }
         }
     }
@@ -299,7 +284,7 @@ public struct TaskDetailView: View {
         let project = viewModel.project
 
         Button {
-            projectDestinationBox = ProjectDestinationBox(id: project.id, content: projectDestination(project))
+            router.push(.projectOverview(project))
         } label: {
             ProjectPill(project: project)
         }
