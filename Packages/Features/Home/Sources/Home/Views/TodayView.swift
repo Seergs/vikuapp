@@ -2,6 +2,7 @@ import SwiftUI
 import VikuDesignSystem
 import VikuNavigation
 import VikunjaCore
+import VikuUI
 
 /// The Today screen: every project's tasks, grouped by due date into
 /// Overdue/Today/Upcoming. Tasks without a due date never appear here — only
@@ -64,7 +65,7 @@ struct TodayView: View {
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
             case let .failure(message):
-                TodayStatusView(
+                VikuStatusView(
                     systemImage: "exclamationmark.triangle.fill",
                     title: "Couldn't load your tasks",
                     message: message,
@@ -102,7 +103,7 @@ struct TodayView: View {
 
         let visible = TodaySection.sections(from: viewModel.tasks, filter: filter)
         if visible.isEmpty {
-            TodayStatusView(
+            VikuStatusView(
                 systemImage: "checkmark.circle",
                 title: datedTaskCount == 0 ? "Nothing due" : "Nothing here",
                 message: datedTaskCount == 0
@@ -122,7 +123,7 @@ struct TodayView: View {
                     Text("\(section.tasks.count)")
                         .fontWeight(.regular)
                 }
-                .overviewSectionLabelStyle()
+                .vikuSectionHeader()
                 .padding(.horizontal, VikuSpacing.md)
                 .padding(.top, VikuSpacing.md + VikuSpacing.xs)
                 .padding(.bottom, VikuSpacing.sm)
@@ -266,47 +267,5 @@ private extension View {
     /// edges by a fixed system margin that can't be tuned away.
     func todayListStyle() -> some View {
         listStyle(.plain)
-    }
-}
-
-private extension View {
-    func overviewSectionLabelStyle() -> some View {
-        font(VikuFont.footnote)
-            .fontWeight(.bold)
-            .foregroundStyle(VikuColor.textSecondary)
-            .textCase(.uppercase)
-            .kerning(0.3)
-    }
-}
-
-private struct TodayStatusView: View {
-    let systemImage: String
-    let title: String
-    let message: String
-    var iconSize: CGFloat = 40
-    var retryAction: (() -> Void)?
-
-    var body: some View {
-        VStack(spacing: VikuSpacing.sm) {
-            Image(systemName: systemImage)
-                .font(.system(size: iconSize))
-                .foregroundStyle(VikuColor.textTertiary)
-
-            Text(title)
-                .font(VikuFont.headline)
-
-            Text(message)
-                .font(VikuFont.subheadline)
-                .foregroundStyle(VikuColor.textSecondary)
-                .multilineTextAlignment(.center)
-
-            if let retryAction {
-                Button("Try Again", action: retryAction)
-                    .buttonStyle(.bordered)
-                    .padding(.top, VikuSpacing.xs)
-            }
-        }
-        .padding(VikuSpacing.lg)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

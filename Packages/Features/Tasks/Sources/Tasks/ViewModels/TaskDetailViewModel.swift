@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import VikunjaCore
+import VikuUI
 
 /// Drives a single task's detail screen. `task` starts as whatever was passed
 /// in at navigation time (so the screen shows content immediately, no
@@ -10,7 +11,7 @@ import VikunjaCore
 public final class TaskDetailViewModel {
     public let project: Project
     public private(set) var task: VikunjaTask
-    public private(set) var loadState: ScreenLoadState = .idle
+    public private(set) var loadState: ScreenLoadState<Void> = .idle
     /// Every label on the instance, for the label picker sheet to offer —
     /// loaded lazily via `loadAllLabels()` rather than alongside `load()`,
     /// since most task views are never opened.
@@ -28,12 +29,12 @@ public final class TaskDetailViewModel {
     /// kicks both off together, but keeping them separate means a comments
     /// failure doesn't block the rest of the screen from showing.
     public private(set) var comments: [TaskComment] = []
-    public private(set) var commentsLoadState: ScreenLoadState = .idle
+    public private(set) var commentsLoadState: ScreenLoadState<Void> = .idle
     /// This task's file attachments, in Vikunja's order (oldest first).
     /// Loaded via `loadAttachments()` on its own load state — same reasoning
     /// as `comments`: a failure here shouldn't blank the rest of the screen.
     public private(set) var attachments: [TaskAttachment] = []
-    public private(set) var attachmentsLoadState: ScreenLoadState = .idle
+    public private(set) var attachmentsLoadState: ScreenLoadState<Void> = .idle
     /// `true` while an upload request is in flight — the view disables the
     /// add affordance and shows a progress row.
     public private(set) var isUploadingAttachment = false

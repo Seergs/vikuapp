@@ -1,6 +1,7 @@
 import SwiftUI
 import VikuDesignSystem
 import VikunjaCore
+import VikuUI
 
 /// A single task's detail screen: completion, due date, priority, labels,
 /// subtasks, and dependencies. Pushed as a leaf screen inside whichever
@@ -52,7 +53,12 @@ public struct TaskDetailView: View {
             VStack(alignment: .leading, spacing: 0) {
                 switch viewModel.loadState {
                 case let .failure(message):
-                    TaskDetailStatusView(message: message) {
+                    VikuStatusView(
+                        systemImage: "exclamationmark.triangle.fill",
+                        title: "Couldn't load this task",
+                        message: message,
+                        fillsHeight: false,
+                    ) {
                         Task { await viewModel.load() }
                     }
                     .padding(.top, VikuSpacing.xxl)

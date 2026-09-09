@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import VikunjaCore
+import VikuUI
 
 /// Drives the Calendar screen: the account's tasks across every project, which
 /// `CalendarView` lays out on a month grid by due date. Like the Today screen,
@@ -13,7 +14,7 @@ public final class CalendarViewModel {
     /// Looked up per row/dot for the project color, since a task only carries
     /// its `projectID`.
     public private(set) var projectsByID: [Int: Project] = [:]
-    public private(set) var loadState: ScreenLoadState = .idle
+    public private(set) var loadState: ScreenLoadState<Void> = .idle
 
     public var isLoading: Bool {
         loadState == .loading

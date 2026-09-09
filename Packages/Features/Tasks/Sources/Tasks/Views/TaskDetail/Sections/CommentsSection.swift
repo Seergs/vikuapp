@@ -1,6 +1,7 @@
 import SwiftUI
 import VikuDesignSystem
 import VikunjaCore
+import VikuUI
 
 /// The Comments section: the task's comment thread (oldest first, matching
 /// Vikunja's order) plus the composer to post a new one. A failure loading
@@ -28,7 +29,7 @@ struct CommentsSection: View {
 
 private struct CommentsList: View {
     let comments: [TaskComment]
-    let loadState: ScreenLoadState
+    let loadState: ScreenLoadState<Void>
     let onSubmit: (String) -> Void
     let onEdit: (TaskComment) -> Void
     let onDelete: (TaskComment) -> Void

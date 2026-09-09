@@ -1,5 +1,6 @@
 import Observation
 import VikunjaCore
+import VikuUI
 
 /// Drives the "create project" sheet: title, color, and parent project
 /// (defaulting to "None" — a root-level project). `parentProjectID` starts at
@@ -14,7 +15,7 @@ public final class CreateProjectViewModel {
     public var hexColor: String = ""
     public var parentProjectID: Int?
     public private(set) var projects: [Project] = []
-    public private(set) var loadState: ScreenLoadState = .idle
+    public private(set) var loadState: ScreenLoadState<Void> = .idle
     public private(set) var isSaving: Bool = false
     public private(set) var saveErrorMessage: String?
 

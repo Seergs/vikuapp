@@ -1,9 +1,7 @@
-import VikunjaCore
-
-/// User-facing copy for the errors a load can surface, kept per-feature so the
-/// wording stays consistent within this screen even as other features phrase
-/// their own.
-extension VikunjaError {
+public extension VikunjaError {
+    /// The canonical user-facing copy for each error case, shared by every
+    /// screen that surfaces a `VikunjaError`. This is domain-level text about a
+    /// domain error, so it lives here rather than being re-derived per feature.
     var displayMessage: String {
         switch self {
         case .invalidInstanceURL:

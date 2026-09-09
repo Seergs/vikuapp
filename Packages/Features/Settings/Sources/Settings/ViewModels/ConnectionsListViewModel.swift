@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import VikunjaCore
+import VikuUI
 
 /// Drives the "Connections" screen: lists every saved instance and lets the
 /// user switch which one is active. Deleting a connection happens from
@@ -11,7 +12,7 @@ import VikunjaCore
 public final class ConnectionsListViewModel {
     public private(set) var accounts: [InstanceAccount] = []
     public private(set) var activeAccountID: InstanceAccount.ID?
-    public private(set) var loadState: ScreenLoadState = .idle
+    public private(set) var loadState: ScreenLoadState<Void> = .idle
     /// The Vikunja server version reported by each account's own `/info`,
     /// keyed by account id. Fetched best-effort, one probe per account,
     /// after the account list itself loads; a missing entry just means the

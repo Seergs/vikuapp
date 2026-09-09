@@ -1,6 +1,7 @@
 import SwiftUI
 import VikuDesignSystem
 import VikunjaCore
+import VikuUI
 
 /// The Attachments section: the task's uploaded files, an upload-in-progress
 /// row, or an empty/error placeholder. The header's "+ Add" button opens the
@@ -33,7 +34,7 @@ struct AttachmentsSection: View {
 
 private struct AttachmentsList: View {
     let attachments: [TaskAttachment]
-    let loadState: ScreenLoadState
+    let loadState: ScreenLoadState<Void>
     var isUploading = false
     let onOpen: (TaskAttachment) -> Void
     let onDelete: (TaskAttachment) -> Void

@@ -25,6 +25,7 @@ server; offline support is a later phase).
 **Implementation status**: `VikunjaCore`, `VikunjaNetworking`, `VikuAuth`,
 `VikuNavigation`, `VikuDesignSystem` (colors — brand/priority/surface/
 semantic/swatch — plus typography, spacing, radius, and the toast system),
+`VikuUI` (`ScreenLoadState`, `VikuStatusView`, section-header style),
 `Features/Onboarding`, the `AppContainer` composition root, and the top-level
 navigation shell (onboarding → floating tab bar, one `NavigationStack` per tab)
 are built (see `Packages/` and `Viku/`). `Features/Projects` is built end to
@@ -107,6 +108,11 @@ vikunja-ios/
     │       ├── Toast/             # ToastCenter (implements Core's ToastPresenting), ToastView, toastHost(_:)
     │       └── Haptics/           # HapticFeedbackCenter (implements Core's HapticFeedbackPresenting), View.vikuHaptic(_:trigger:)
     │
+    ├── VikuUI/                 # shared non-token view primitives; depends only on VikuDesignSystem
+    │   └── Sources/VikuUI/
+    │       ├── ViewState/        # ScreenLoadState<Value> (idle/loading/loaded(Value)/failure)
+    │       └── Components/       # VikuStatusView (empty/error state), View.vikuSectionHeader()
+    │
     └── Features/
         ├── Onboarding/            # "connect to your instance" — built end to end
         ├── Home/                  # "Today" tab — built end to end (every project's tasks, by due date)
@@ -131,11 +137,13 @@ This is what protects the app when Vikunja's API changes:
   can take a toast or haptic dependency via constructor injection without
   importing `VikuDesignSystem` or SwiftUI. Every other token in the package
   stays dependency-free.
+- `VikuUI` → depends only on `VikuDesignSystem` (its `VikuStatusView` uses the
+  tokens). Holds the cross-feature view primitives that aren't tokens
+  (`ScreenLoadState<Value>`, `VikuStatusView`, `View.vikuSectionHeader()`), so
+  they live in one place instead of being copied per feature.
 - `Features/*` → depend on `VikunjaCore` (protocols + models), `VikuNavigation`,
-  and `VikuDesignSystem` as each needs — every feature with real content
-  (`Onboarding`, `Home`, `Projects`, `Settings`, `Tasks`) pulls `VikunjaCore` +
-  `VikuDesignSystem`; the still-placeholder `Search` depends only on
-  `VikuNavigation`. None **ever** import `VikunjaNetworking` directly.
+  `VikuDesignSystem`, and `VikuUI` as each needs. None **ever** import
+  `VikunjaNetworking` directly.
   Views use `VikuDesignSystem` tokens (`VikuColor`, `VikuFont`,
   `VikuSpacing`, `VikuRadius`) instead of hardcoding colors, fonts,
   spacing, or corner radii — that's what keeps the app visually consistent as
@@ -171,9 +179,11 @@ Features/Tasks/Sources/Tasks/
 
 - **Model**: comes from `VikunjaCore.Domain` (e.g. `VikunjaTask`, `Project`). No
   network models here — those are DTOs and stay locked inside `VikunjaNetworking`.
-  A feature that also needs view-only state (a request-lifecycle enum, error
-  copy) keeps it in its own `Models/` (`ScreenLoadState`) / `Support/`
-  (`VikunjaError+DisplayMessage`) — never a domain model.
+  A feature that also needs view-only state keeps *feature-specific* state in its
+  own `Models/` — never a domain model. State primitives shared across features
+  are not copied per feature: the request-lifecycle enum is `VikuUI`'s
+  `ScreenLoadState<Value>`, and user-facing error copy is `VikunjaCore`'s
+  canonical `VikunjaError.displayMessage`.
 - **ViewModel**: `@Observable` (or `ObservableObject` if the iOS minimum requires
   it), receives a protocol via **constructor injection**, never a concrete
   networking class:

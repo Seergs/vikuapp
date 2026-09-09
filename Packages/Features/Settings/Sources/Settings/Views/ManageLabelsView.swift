@@ -2,6 +2,7 @@ import SwiftUI
 import VikuDesignSystem
 import VikuNavigation
 import VikunjaCore
+import VikuUI
 
 /// Lists every label on the active account, with a swatch + title per row.
 /// Tap a row to rename/recolor it, the toolbar "+" to create one, swipe to
@@ -78,7 +79,7 @@ struct ManageLabelsView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.top, VikuSpacing.xxl)
         case let .failure(message):
-            LabelsStatusView(
+            VikuStatusView(
                 systemImage: "exclamationmark.triangle.fill",
                 title: "Couldn't load labels",
                 message: message,
@@ -88,7 +89,7 @@ struct ManageLabelsView: View {
             .padding(.top, VikuSpacing.xxl)
         case .loaded:
             if viewModel.labels.isEmpty {
-                LabelsStatusView(
+                VikuStatusView(
                     systemImage: "tag",
                     title: "No labels yet",
                     message: "Create a label to organize tasks across every project.",
@@ -142,39 +143,6 @@ private struct LabelRow: View {
         }
         .padding(.vertical, VikuSpacing.xxs)
         .contentShape(Rectangle())
-    }
-}
-
-/// Shared empty/error state layout for the labels screen — mirrors
-/// `ConnectionsListView`'s own status view.
-private struct LabelsStatusView: View {
-    let systemImage: String
-    let title: String
-    let message: String
-    var retryAction: (() -> Void)?
-
-    var body: some View {
-        VStack(spacing: VikuSpacing.sm) {
-            Image(systemName: systemImage)
-                .font(.system(size: 40))
-                .foregroundStyle(VikuColor.textTertiary)
-
-            Text(title)
-                .font(VikuFont.headline)
-
-            Text(message)
-                .font(VikuFont.subheadline)
-                .foregroundStyle(VikuColor.textSecondary)
-                .multilineTextAlignment(.center)
-
-            if let retryAction {
-                Button("Try Again", action: retryAction)
-                    .buttonStyle(.bordered)
-                    .padding(.top, VikuSpacing.xs)
-            }
-        }
-        .padding(VikuSpacing.lg)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

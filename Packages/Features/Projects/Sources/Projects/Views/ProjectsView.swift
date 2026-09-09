@@ -2,6 +2,7 @@ import SwiftUI
 import VikuDesignSystem
 import VikuNavigation
 import VikunjaCore
+import VikuUI
 
 /// The Projects tab's list screen: a flattened, indented rendering of
 /// `ProjectsListViewModel.rootNodes` (a parent/child tree keyed by
@@ -81,7 +82,7 @@ struct ProjectsView: View {
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
             case let .failure(message):
-                ProjectsStatusView(
+                VikuStatusView(
                     systemImage: "exclamationmark.triangle.fill",
                     title: "Couldn't load projects",
                     message: message,
@@ -92,7 +93,7 @@ struct ProjectsView: View {
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
             case .loaded where viewModel.rootNodes.isEmpty:
-                ProjectsStatusView(
+                VikuStatusView(
                     systemImage: "folder.badge.plus",
                     title: "No projects yet",
                     message: "Projects you create on your Vikunja instance will show up here.",
@@ -310,37 +311,5 @@ private extension View {
         #else
         self
         #endif
-    }
-}
-
-/// Shared empty/error state layout for the projects list.
-private struct ProjectsStatusView: View {
-    let systemImage: String
-    let title: String
-    let message: String
-    var retryAction: (() -> Void)?
-
-    var body: some View {
-        VStack(spacing: VikuSpacing.sm) {
-            Image(systemName: systemImage)
-                .font(.system(size: 40))
-                .foregroundStyle(VikuColor.textTertiary)
-
-            Text(title)
-                .font(VikuFont.headline)
-
-            Text(message)
-                .font(VikuFont.subheadline)
-                .foregroundStyle(VikuColor.textSecondary)
-                .multilineTextAlignment(.center)
-
-            if let retryAction {
-                Button("Try Again", action: retryAction)
-                    .buttonStyle(.bordered)
-                    .padding(.top, VikuSpacing.xs)
-            }
-        }
-        .padding(VikuSpacing.lg)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
