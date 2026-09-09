@@ -391,6 +391,18 @@ public final class TaskDetailViewModel {
         }
     }
 
+    /// Reads the file the user picked through `.fileImporter` off disk and
+    /// uploads it. Owning the URL-to-bytes step here (rather than in the view)
+    /// keeps the view passive — a read failure surfaces the same toast as any
+    /// other unreadable pick, and the upload never starts.
+    public func attachFile(at url: URL) async {
+        guard let picked = PickedFile(contentsOf: url) else {
+            reportAttachmentReadFailure()
+            return
+        }
+        await uploadAttachment(data: picked.data, fileName: picked.fileName, mimeType: picked.mimeType)
+    }
+
     /// Uploads one file and appends the server's created attachment(s) to
     /// `attachments` (their real id/size/uploader only exist once stored, so
     /// there's no optimistic placeholder — same reasoning as `addComment(_:)`).
@@ -431,6 +443,16 @@ public final class TaskDetailViewModel {
             toastPresenter.show(error.localizedDescription, style: .error)
             return nil
         }
+    }
+
+    /// Downloads an attachment's bytes and stages them to a temp file for
+    /// QuickLook, returning the file URL the view presents. The bearer-authed
+    /// download can't be handed to QuickLook as a remote URL, so the bytes and
+    /// the disk write both belong here, not in the view. Returns `nil` (and the
+    /// download surfaces its own toast) if either step fails.
+    public func attachmentPreviewURL(for attachment: TaskAttachment) async -> URL? {
+        guard let data = await attachmentData(for: attachment) else { return nil }
+        return AttachmentPreviewFile.write(data, named: attachment.fileName)
     }
 
     /// Deletes `attachment`, optimistically removing it and restoring the
