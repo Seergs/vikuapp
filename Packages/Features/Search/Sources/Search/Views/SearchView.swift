@@ -1,13 +1,13 @@
 import SwiftUI
 import VikuDesignSystem
+import VikuNavigation
 import VikunjaCore
 import VikuUI
 
 struct SearchView: View {
     @State var viewModel: SearchViewModel
-    var onTaskSelected: ((VikunjaTask, Project) -> AnyView)?
+    @Environment(AppRouter.self) private var router
     @State private var taskPendingDelete: VikunjaTask?
-    @State private var selectedTaskPair: SearchTaskPair?
 
     var body: some View {
         searchContent
@@ -17,11 +17,6 @@ struct SearchView: View {
             .scrollContentBackground(.hidden)
             .background(VikuColor.Surface.page)
             .navigationTitle("Search")
-            .navigationDestination(item: $selectedTaskPair) { item in
-                if let onTaskSelected {
-                    onTaskSelected(item.task, item.project)
-                }
-            }
             .confirmationDialog(
                 "This permanently deletes the task.",
                 isPresented: Binding(
@@ -113,7 +108,7 @@ struct SearchView: View {
                     project: project,
                     onToggle: { Task { await viewModel.toggleDone(task) } },
                     onOpen: {
-                        selectedTaskPair = SearchTaskPair(task: task, project: project)
+                        router.push(.taskDetail(task, project))
                     },
                     contextMenu: {
                         Button("Delete", systemImage: "trash", role: .destructive) {
@@ -135,14 +130,7 @@ struct SearchView: View {
             projectRepository: PreviewProjectRepository(),
             toastPresenter: PreviewToastPresenter(),
         ))
-    }
-}
-
-private struct SearchTaskPair: Identifiable, Hashable {
-    let task: VikunjaTask
-    let project: Project
-    var id: Int {
-        task.id
+        .environment(AppRouter())
     }
 }
 
