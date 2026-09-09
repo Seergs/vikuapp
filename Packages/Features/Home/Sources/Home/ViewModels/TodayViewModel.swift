@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import VikunjaCore
+import VikuUI
 
 /// Drives the Today screen: the account's tasks across every project,
 /// grouped/filtered by due date in `TodayView`. Unlike `Projects`' screens,
@@ -13,7 +14,7 @@ public final class TodayViewModel {
     /// Looked up per row for the project color dot + name, since a task only
     /// carries its `projectID`.
     public private(set) var projectsByID: [Int: Project] = [:]
-    public private(set) var loadState: ScreenLoadState = .idle
+    public private(set) var loadState: ScreenLoadState<Void> = .idle
     /// Every project on the instance, for the "Move to Project" picker —
     /// loaded lazily via `loadMoveCandidates()` rather than alongside
     /// `load()`, since most visits to this screen never open that picker.
