@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import VikunjaCore
+import VikuUI
 
 @Observable
 @MainActor

@@ -1,6 +1,7 @@
 import SwiftUI
 import VikuDesignSystem
 import VikunjaCore
+import VikuUI
 
 struct SearchView: View {
     @State var viewModel: SearchViewModel
@@ -46,9 +47,13 @@ struct SearchView: View {
         List {
             switch viewModel.state {
             case .idle:
-                emptyState
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
+                VikuStatusView(
+                    systemImage: "magnifyingglass",
+                    title: "Search Tasks",
+                    message: "Type a query to search all your tasks",
+                )
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
 
             case .loading:
                 ProgressView()
@@ -59,27 +64,24 @@ struct SearchView: View {
 
             case let .loaded(tasks):
                 if tasks.isEmpty {
-                    emptySearchResultsState
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
+                    VikuStatusView(
+                        systemImage: "magnifyingglass",
+                        title: "No Results",
+                        message: "No tasks match your search",
+                    )
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
                 } else {
                     loadedContent(tasks)
                 }
 
             case let .failure(message):
-                VStack(spacing: VikuSpacing.sm) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 28))
-                        .foregroundStyle(.orange)
-                    Text("Search Error")
-                        .font(VikuFont.headline)
-                    Text(message)
-                        .font(VikuFont.subheadline)
-                        .foregroundStyle(VikuColor.textSecondary)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(VikuSpacing.lg)
-                .frame(maxWidth: .infinity)
+                VikuStatusView(
+                    systemImage: "exclamationmark.triangle.fill",
+                    title: "Search Error",
+                    message: message,
+                    fillsHeight: false,
+                )
                 .padding(.top, VikuSpacing.lg)
                 .listRowInsets(EdgeInsets())
                 .listRowSeparator(.hidden)
@@ -96,7 +98,7 @@ struct SearchView: View {
             Text("\(tasks.count)")
                 .fontWeight(.regular)
         }
-        .searchSectionLabelStyle()
+        .vikuSectionHeader()
         .padding(.horizontal, VikuSpacing.md)
         .padding(.top, VikuSpacing.md + VikuSpacing.xs)
         .padding(.bottom, VikuSpacing.sm)
@@ -124,36 +126,6 @@ struct SearchView: View {
             }
         }
     }
-
-    private var emptyState: some View {
-        VStack(spacing: VikuSpacing.lg) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
-            Text("Search Tasks")
-                .font(VikuFont.headline)
-            Text("Type a query to search all your tasks")
-                .font(VikuFont.subheadline)
-                .foregroundStyle(VikuColor.textSecondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(VikuSpacing.lg)
-    }
-
-    private var emptySearchResultsState: some View {
-        VStack(spacing: VikuSpacing.lg) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
-            Text("No Results")
-                .font(VikuFont.headline)
-            Text("No tasks match your search")
-                .font(VikuFont.subheadline)
-                .foregroundStyle(VikuColor.textSecondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(VikuSpacing.lg)
-    }
 }
 
 #Preview {
@@ -177,16 +149,6 @@ private struct SearchTaskPair: Identifiable, Hashable {
 private extension View {
     func searchListStyle() -> some View {
         listStyle(.plain)
-    }
-}
-
-private extension View {
-    func searchSectionLabelStyle() -> some View {
-        font(VikuFont.footnote)
-            .fontWeight(.bold)
-            .foregroundStyle(VikuColor.textSecondary)
-            .textCase(.uppercase)
-            .kerning(0.3)
     }
 }
 
