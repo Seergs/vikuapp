@@ -125,7 +125,10 @@ by the compiler, not just convention:
     `OIDCProvider` (key/name/authURL/clientID/scope) mirrors one entry of
     `/info`'s `auth.openid_connect.providers` — everything a client needs to
     build an OIDC authorization request itself, without a discovery document.
-  - `Errors/` — `VikunjaError`, the domain-level error type everything surfaces.
+  - `Errors/` — `VikunjaError`, the domain-level error type everything surfaces,
+    plus `VikunjaError+DisplayMessage.swift`: the single canonical user-facing
+    copy for every case, shared by every screen (and by `ConnectionEditorCore`
+    itself). Adding a case is a one-file edit here.
   - `Support/` — shared `@Observable`/plain collaborators that back more than
     one feature's view models, so recurring behavior lives here instead of
     being copied per screen. `ConnectionEditorCore` +
@@ -137,9 +140,10 @@ by the compiler, not just convention:
     (`persistToggleDone`, `delete`, `move`) with the success-toast wording and
     the "haptic on completion" policy in one place; every task-list view model
     (`TodayViewModel`, `CalendarViewModel`, `ProjectOverviewViewModel`,
-    `SearchViewModel`) composes one. Error copy stays per-feature: the mutator
-    takes an `errorMessage` closure so each feature keeps its own
-    `VikunjaError+DisplayMessage` phrasing.
+    `SearchViewModel`) composes one. It takes an `errorMessage` closure for
+    turning a thrown error into user copy; every feature passes the same
+    `{ ($0 as? VikunjaError)?.displayMessage ?? $0.localizedDescription }`,
+    routed through the canonical `VikunjaError.displayMessage`.
 
 - **`VikunjaNetworking`** — the only module that knows Vikunja speaks HTTP/JSON.
   Depends on `VikunjaCore`.
@@ -365,6 +369,20 @@ by the compiler, not just convention:
       (or the `condition:` overload), a thin wrapper over `.sensoryFeedback`
       that reuses `HapticStyle` — no injection needed.
 
+- **`VikuUI`** — pure SwiftUI, depends only on `VikuDesignSystem`. The shared
+  view primitives every Feature builds on that aren't design tokens:
+  - `ScreenLoadState<Value>` — the request-lifecycle enum
+    (`idle`/`loading`/`loaded(Value)`/`failure(String)`) every screen's view
+    model exposes. Content-in-view-model screens use `ScreenLoadState<Void>`
+    (`.loaded` shorthand, phase-based `Equatable`); `Search` carries its
+    results in `ScreenLoadState<[VikunjaTask]>`. `isLoading`/`isLoaded`/
+    `value`/`failureMessage` helpers.
+  - `VikuStatusView(systemImage:title:message:iconSize:fillsHeight:retry:)` —
+    the one empty/error state (icon + title + message + optional "Try Again")
+    every list screen and the task-detail screen render.
+  - `View.vikuSectionHeader()` — the small/bold/uppercase list section-label
+    style ("SUBPROJECTS", "OVERDUE", "RESULTS").
+
 `AppContainer` owns the single `OIDCAuthCoordinator` instance too
 (`container.oidcAuthCoordinator`, typed `OIDCAuthenticating`) plus
 `container.oidcRedirectURI` — derived from the app's *existing*
@@ -422,11 +440,10 @@ the other constructor-injected dependencies.
   point — owns a `NavigationStack` bound to its own `Router<FeatureRoute>`),
   and `Navigation/<Name>Route.swift` (an empty route enum until the feature has
   a screen to push). Only `<Name>RootView` is public; the content view stays
-  internal to the package. `Home`, `Projects`, `Settings`, and `Tasks` also have
-  a `Models/ScreenLoadState.swift` (a shared `idle`/`loading`/`loaded`/
-  `failure(String)` request-lifecycle enum, not a domain model) and a
-  `Support/VikunjaError+DisplayMessage.swift` (per-feature user-facing error
-  copy).
+  internal to the package. Every feature's view models track their request
+  lifecycle with `VikuUI`'s shared `ScreenLoadState<Void>` and surface error
+  copy through `VikunjaCore`'s canonical `VikunjaError.displayMessage` (both
+  used to be per-feature copies under `Models/` / `Support/`).
   - `Home` is the "Today" screen, fully built: `TodayViewModel` fetches every
     project (`ProjectRepositoryProtocol.fetchProjects`) and then every
     project's tasks concurrently (`TaskRepositoryProtocol.fetchTasks`,
