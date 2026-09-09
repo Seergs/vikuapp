@@ -111,9 +111,7 @@ struct ConnectionEditorCoreTests {
 
         await core.save()
 
-        #expect(core.phase == .failure(
-            "That address uses http. Turn on \"Allow insecure connection\" to connect over an unencrypted link.",
-        ))
+        #expect(core.phase == .failure("That address uses an insecure http connection."))
         #expect(store.accounts.isEmpty)
     }
 
