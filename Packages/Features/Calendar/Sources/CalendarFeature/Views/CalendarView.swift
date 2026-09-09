@@ -2,6 +2,7 @@ import SwiftUI
 import VikuDesignSystem
 import VikuNavigation
 import VikunjaCore
+import VikuUI
 
 /// The Calendar screen: every project's dated tasks laid out on a month grid,
 /// with the tapped day's tasks listed below. Tasks with no due date never
@@ -29,7 +30,7 @@ struct CalendarView: View {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case let .failure(message):
-            CalendarStatusView(
+            VikuStatusView(
                 systemImage: "exclamationmark.triangle.fill",
                 title: "Couldn't load your tasks",
                 message: message,
@@ -395,33 +396,5 @@ private struct CalendarLabelPill: View {
             .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
             .padding(.vertical, VikuSpacing.xxs)
             .background(Capsule().fill(color.opacity(0.14)))
-    }
-}
-
-private struct CalendarStatusView: View {
-    let systemImage: String
-    let title: String
-    let message: String
-    var retryAction: (() -> Void)?
-
-    var body: some View {
-        VStack(spacing: VikuSpacing.sm) {
-            Image(systemName: systemImage)
-                .font(.system(size: 40))
-                .foregroundStyle(VikuColor.textTertiary)
-            Text(title)
-                .font(VikuFont.headline)
-            Text(message)
-                .font(VikuFont.subheadline)
-                .foregroundStyle(VikuColor.textSecondary)
-                .multilineTextAlignment(.center)
-            if let retryAction {
-                Button("Try Again", action: retryAction)
-                    .buttonStyle(.bordered)
-                    .padding(.top, VikuSpacing.xs)
-            }
-        }
-        .padding(VikuSpacing.lg)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
