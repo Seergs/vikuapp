@@ -320,31 +320,11 @@ public final class TaskDetailViewModel {
         return (relatedTask, relatedProject)
     }
 
-    /// Builds a `TaskDetailViewModel` for a related task, reusing this
-    /// view model's own dependencies — lets `TaskDetailView` push another
-    /// instance of itself for a tapped relation without the app target's
-    /// `AppContainer` needing to know about the recursion.
-    public func makeDetailViewModel(task: VikunjaTask, project: Project) -> TaskDetailViewModel {
-        TaskDetailViewModel(
-            task: task,
-            project: project,
-            repository: repository,
-            labelRepository: labelRepository,
-            relationRepository: relationRepository,
-            commentRepository: commentRepository,
-            attachmentRepository: attachmentRepository,
-            projectRepository: projectRepository,
-            toastPresenter: toastPresenter,
-            quickAddContext: quickAddContext,
-        )
-    }
-
     /// Builds a `DuplicateTaskViewModel` for the current task, reusing this
     /// view model's own repositories — lets `TaskDetailView` present the
     /// duplicate sheet without the app target's `AppContainer` needing a
-    /// factory for it (same pattern as `makeDetailViewModel(task:project:)`).
-    /// `task` is whatever `load()` last refreshed, so its labels and
-    /// relations are current.
+    /// factory for it. `task` is whatever `load()` last refreshed, so its
+    /// labels and relations are current.
     public func makeDuplicateTaskViewModel() -> DuplicateTaskViewModel {
         DuplicateTaskViewModel(
             source: task,

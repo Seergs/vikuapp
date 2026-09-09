@@ -7,14 +7,11 @@ import VikuUI
 /// and its own tasks grouped by overdue/pending/completed.
 ///
 /// Takes plain closures for its two further pushes (a subproject, a task)
-/// rather than a `Router<ProjectsRoute>` directly: `ProjectsRootView` (its own
-/// tab's stack) implements them via `router.push(_:)`, but
-/// `ProjectOverviewRootView` (pushed cross-feature from `Features/Tasks`'
-/// project pill) has no `Router` of its own — it chains further
-/// `.navigationDestination`s onto whatever ambient stack is already hosting
-/// it instead. Owning a second `NavigationStack` there to back a `Router`
-/// would nest one `NavigationStack` inside another's push destination, which
-/// on iOS immediately pops the pushed screen back off.
+/// rather than reading `AppRouter` directly: it's the shared component behind
+/// both entry points, and each wires the closures to the right route -
+/// `ProjectsRootView` pushes a feature-local `ProjectsRoute` (keeping the
+/// `ProjectNode` subtree), while `ProjectOverviewRootView` (reached
+/// cross-feature) pushes an `AppRoute`.
 struct ProjectOverviewView: View {
     @Bindable var viewModel: ProjectOverviewViewModel
     let onSelectSubproject: (ProjectNode) -> Void

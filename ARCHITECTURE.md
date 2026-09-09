@@ -100,7 +100,8 @@ vikunja-ios/
     │
     ├── VikuNavigation/         # pure SwiftUI/Observation, no networking, no deps
     │   └── Sources/VikuNavigation/
-    │       ├── Router.swift       # generic Router<Route: Hashable>, wraps NavigationPath
+    │       ├── AppRouter.swift    # AppRouter (one per tab stack, in the environment) + AppRoute
+    │       ├── Router.swift       # generic Router<Route: Hashable>, wraps NavigationPath (intra-feature)
     │       └── DeepLink.swift     # DeepLink enum + DeepLinkRouter (external entry points — §2c)
     │
     ├── VikuDesignSystem/       # color/typography/spacing/radius tokens; toast + haptics systems (growing set)
@@ -128,7 +129,8 @@ vikunja-ios/
 This is what protects the app when Vikunja's API changes:
 
 - `VikunjaCore` → depends on nothing.
-- `VikuNavigation` → depends on nothing (pure SwiftUI/Observation).
+- `VikuNavigation` → depends only on `VikunjaCore` (its `AppRoute` cases carry
+  domain values); pure SwiftUI/Observation otherwise.
 - `VikunjaNetworking` and `VikuAuth` → depend on `VikunjaCore` (they implement
   its protocols), but **nothing else depends on them except the composition root**.
 - `VikuDesignSystem` → depends on `VikunjaCore` too, for the same reason:
@@ -170,11 +172,12 @@ Features/Tasks/Sources/Tasks/
 ├── ViewModels/
 │   └── TaskListViewModel.swift
 ├── Views/
-│   ├── TasksRootView.swift   # public: owns the NavigationStack + Router
-│   ├── TaskListView.swift    # internal: content, no navigation knowledge
+│   ├── TasksRootView.swift   # public: the tab's root content + any
+│   │                         #   .navigationDestination(for: TasksRoute.self)
+│   ├── TaskListView.swift    # internal: content, reads @Environment(AppRouter.self)
 │   └── TaskRowView.swift
 └── Navigation/
-    └── TasksRoute.swift      # private route enum
+    └── TasksRoute.swift      # feature-local route enum (feature-private payload only)
 ```
 
 - **Model**: comes from `VikunjaCore.Domain` (e.g. `VikunjaTask`, `Project`). No
@@ -206,32 +209,43 @@ Features/Tasks/Sources/Tasks/
 
 - **View**: pure SwiftUI, only reads state from the ViewModel and sends it
   intents. Zero business logic, zero networking knowledge.
-- **Navigation**: `VikuNavigation.Router<Route>` — a generic
-  `@Observable`/`@MainActor` wrapper around `NavigationPath`
-  (`push`/`pop`/`popToRoot`) — typed to a private `Route` enum per feature. The
-  feature's only public view, `<Name>RootView`, owns one `@State` `Router`
-  instance, wraps its content in `NavigationStack(path: router.path)`, and
-  declares `.navigationDestination(for: Route.self)`. Nothing outside the
-  package ever sees the route enum or touches `NavigationPath` directly — this
-  keeps Views from coupling to each other via direct
-  `NavigationLink(destination:)`, and keeps each tab's navigation state
-  independent of the others (see §2b).
+- **Navigation**: one mechanism for anything that crosses a feature boundary,
+  one for anything that doesn't (architecture audit F-12 collapsed five ad-hoc
+  styles into these two).
+  - **Cross-feature**: `VikuNavigation.AppRoute` — an app-wide `Hashable` enum
+    (`taskDetail(VikunjaTask, Project)`, `projectOverview(Project)`; cases
+    carry `VikunjaCore` domain values only) — pushed onto
+    `VikuNavigation.AppRouter`, an `@Observable`/`@MainActor` wrapper around
+    one tab's `NavigationPath`. The app target creates one `AppRouter` per tab,
+    binds the tab's `NavigationStack(path:)` to it, and puts it in that stack's
+    environment; any screen — however deep, across module boundaries — reads
+    `@Environment(AppRouter.self)` and calls `push`. A single
+    `.appDestinations(...)` modifier in the app target (`Viku/Navigation/
+    AppDestinations.swift`) is the only place an `AppRoute` resolves to a
+    concrete screen. Because `.navigationDestination(for:)` keys off the stable
+    value in the path, the pushed screen and its view model survive re-renders
+    — this replaced the `(T) -> AnyView` destination closures and the
+    `...DestinationBox` identity workarounds.
+  - **Intra-feature**: `VikuNavigation.Router<Route>` — the same generic
+    `@Observable`/`@MainActor` `NavigationPath` wrapper — typed to a `Route`
+    enum for destinations whose payload is feature-private (e.g. `Projects`'
+    `ProjectsRoute.projectOverview(ProjectNode)` carries the loaded subtree) or
+    whose whole stack is self-contained (`Settings`). A feature-local route is
+    still pushed onto the tab's `AppRouter` path (`push(_ route: some Hashable)`)
+    and resolved by that feature's own `.navigationDestination(for: Route.self)`
+    on the same stack; `Settings` keeps its own `NavigationStack` + `Router`.
 
 This keeps "V" and "VM" cleanly separated from "M", and the Model never knows HTTP
 exists — only `VikunjaNetworking` does.
 
-**Exception — a feature with no top-level screen of its own**: `Features/Tasks`
-as actually built is a task-detail screen (always pushed as a leaf onto
-whichever feature's stack opened it — `Features/Home` or `Features/Projects`,
-today) plus a quick-add sheet (presented as a `.sheet` by `MainTabView`'s
-FAB). Neither owns
-push navigation, so the package skips `Navigation/`/`Router` entirely and
-exposes plain public views; the feature that pushes the leaf screen takes a
-type-erased `(VikunjaTask, Project) -> AnyView` closure (built by
-`AppContainer`) instead of importing it, so the pushing feature still never
-imports another Feature's package. (`TaskDetailView` does push a nested copy of
-itself for a tapped relation — intra-feature, onto the host stack, so still no
-`Router` needed.)
+**A feature with no top-level screen of its own**: `Features/Tasks` as actually
+built is a task-detail screen (always pushed as a leaf onto whichever feature's
+stack opened it) plus a quick-add sheet (presented as a `.sheet` by
+`MainTabView`'s FAB). It owns no `NavigationStack`/`Router`; `TaskDetailView`
+navigates to a related task, its project pill, or a just-created duplicate by
+pushing an `AppRoute` onto the hosting stack's `AppRouter` — it never imports
+`Projects` or knows what screen a route resolves to. No feature ever imports
+another feature's package.
 
 ---
 
@@ -255,34 +269,40 @@ comes back `nil` and `RootView` falls back to onboarding.
 
 `MainTabView` (`Viku/Navigation/MainTabView.swift`) is the floating, Liquid
 Glass bottom tab bar — the default rendering for `TabView` built with the modern
-`Tab(value:)` API on iOS 26+, no extra styling code required. One `Tab` per
-`AppTab` case, each hosting a different Feature's `<Name>RootView`, so every tab
-keeps its own independent `NavigationStack`/`Router` — switching tabs never
-resets where you were in another one (the same pattern Apple's own Music/App
-Store apps use):
+`Tab(value:)` API on iOS 26+, no extra styling code required. It owns one
+`NavigationStack` + `AppRouter` per tab (held in `@State`, so switching tabs
+never resets where you were in another one — the same pattern Apple's own
+Music/App Store apps use — and rebuilt on account switch via
+`.id(connectedAccount)`), each hosting a Feature's stack-less `<Name>RootView`
+and the shared `.appDestinations(...)` resolver. `Settings` is the exception:
+`SettingsRootView` still owns its own `NavigationStack` + `Router<SettingsRoute>`
+(a fully self-contained stack).
 
 ```swift
 TabView(selection: $selection) {
     Tab(AppTab.home.title, systemImage: AppTab.home.systemImage, value: .home) {
-        HomeRootView(
-            viewModel: container.makeTodayViewModel(account: account),
-            taskDetailDestination: { task, project in
-                AnyView(TaskDetailView(viewModel: container.makeTaskDetailViewModel(task:project:account:)))
-            }
-        )
+        NavigationStack(path: $homeRouter.path) {
+            HomeRootView(viewModel: todayViewModel)
+                .appDestinations(container: container, account: account)
+        }
+        .environment(homeRouter)
     }
     Tab(AppTab.projects.title, systemImage: AppTab.projects.systemImage, value: .projects) {
-        ProjectsRootView(/* view-model + destination closures from AppContainer */)
+        NavigationStack(path: $projectsRouter.path) {
+            ProjectsRootView(/* view-model + make…ViewModel closures from AppContainer */)
+                .appDestinations(container: container, account: account)
+        }
+        .environment(projectsRouter)
     }
     Tab(AppTab.settings.title, systemImage: AppTab.settings.systemImage, value: .settings) {
-        SettingsRootView(
-            account: account,
-            makeConnectionsListViewModel: { container.makeConnectionsListViewModel(onActiveAccountChanged: onAccountsChanged) },
-            makeConnectionFormViewModel: { mode in container.makeConnectionFormViewModel(mode: mode, onActiveAccountChanged: onAccountsChanged) }
-        )
+        SettingsRootView(/* account + make…ViewModel closures from AppContainer */)
     }
     Tab(value: AppTab.search, role: .search) {   // separated glass pill, iOS 26 search role
-        SearchRootView()
+        NavigationStack(path: $searchRouter.path) {
+            SearchRootView(viewModel: searchViewModel)
+                .appDestinations(container: container, account: account)
+        }
+        .environment(searchRouter)
     }
 }
 .tabBarMinimizeBehavior(.onScrollDown)
@@ -347,7 +367,7 @@ knowing how to drive navigation, they all converge on one small primitive.
 dependency-free enum of external destinations (`.quickAdd(projectID:)` today).
 `DeepLinkRouter` is an `@Observable`/`@MainActor` box holding one pending
 `DeepLink` — set by whoever received the external trigger, drained by the screen
-that acts on it. It lives in `VikuNavigation` (next to `Router<Route>`) for
+that acts on it. It lives in `VikuNavigation` (next to `AppRouter`) for
 two reasons: it's a navigation primitive, and `VikuWidgetKit` has to import
 it so a widget-side App Intent can construct a `DeepLink` without depending on
 the app target.

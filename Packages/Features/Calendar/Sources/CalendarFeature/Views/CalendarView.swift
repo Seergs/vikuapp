@@ -9,7 +9,7 @@ import VikuUI
 /// appear here — only inside their own project (same rule as Today).
 struct CalendarView: View {
     @Bindable var viewModel: CalendarViewModel
-    let router: Router<CalendarRoute>
+    @Environment(AppRouter.self) private var router
 
     private let calendar = Calendar.current
     @State private var monthAnchor: Date = Calendar.current.startOfMonth(for: Date())

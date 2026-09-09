@@ -1,32 +1,26 @@
 import SwiftUI
-import VikuNavigation
 import VikunjaCore
 
+/// Search's entry point for the app target: the search screen's root content,
+/// including its `.searchable` field. The hosting `NavigationStack` and its
+/// `AppRouter` are owned by the app target (`MainTabView`); this view reaches
+/// navigation through `@Environment(AppRouter.self)` like every other screen.
 public struct SearchRootView: View {
-    @State private var router = Router<SearchRoute>()
     @State private var viewModel: SearchViewModel
 
-    private let onTaskSelected: ((VikunjaTask, Project) -> AnyView)?
-
-    public init(
-        viewModel: SearchViewModel,
-        onTaskSelected: ((VikunjaTask, Project) -> AnyView)? = nil,
-    ) {
+    public init(viewModel: SearchViewModel) {
         _viewModel = State(initialValue: viewModel)
-        self.onTaskSelected = onTaskSelected
     }
 
     public var body: some View {
-        NavigationStack(path: $router.path) {
-            SearchView(viewModel: viewModel, onTaskSelected: onTaskSelected)
-                .searchable(
-                    text: $viewModel.query,
-                    placement: .automatic,
-                    prompt: "Search tasks",
-                )
-                .onChange(of: viewModel.query) { _, _ in
-                    viewModel.queryChanged()
-                }
-        }
+        SearchView(viewModel: viewModel)
+            .searchable(
+                text: $viewModel.query,
+                placement: .automatic,
+                prompt: "Search tasks",
+            )
+            .onChange(of: viewModel.query) { _, _ in
+                viewModel.queryChanged()
+            }
     }
 }

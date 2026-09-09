@@ -255,13 +255,33 @@ by the compiler, not just convention:
     no-op branch, so changes here need a real `xcodebuild`
     iOS-Simulator build (or a device run) to actually compile-check.
 
-- **`VikuNavigation`** — pure SwiftUI/Observation, no networking, no
-  dependencies. The shared navigation primitive every Feature's `Navigation/`
-  folder builds on.
-  - `Router<Route: Hashable>` — `@Observable`, `@MainActor`. Wraps a
-    `NavigationPath` with `push(_:)`/`pop()`/`popToRoot()`. Each Feature
-    instantiates its own `Router<FeatureRoute>` typed to a private route enum,
-    so navigation state stays local to that feature.
+- **`VikuNavigation`** — pure SwiftUI/Observation, depends only on
+  `VikunjaCore` (for the domain values `AppRoute` carries). The shared
+  navigation primitives. Two mechanisms, one per concern (architecture audit
+  F-12 collapsed five ad-hoc styles into these):
+  - `AppRoute` — an app-wide `Hashable` enum of the destinations that cross a
+    feature boundary: `taskDetail(VikunjaTask, Project)`,
+    `projectOverview(Project)`. Cases carry `VikunjaCore` domain values only.
+  - `AppRouter` — `@Observable`, `@MainActor`, wraps one tab's
+    `NavigationPath` (`push(_ route: AppRoute)` / `push(_ route: some Hashable)`
+    for a feature-local route on the same path / `pop` / `popToRoot`). The app
+    target (`MainTabView`) creates one per tab, binds the tab's
+    `NavigationStack(path:)` to it, and puts it in that stack's environment;
+    any screen — however deep, across module boundaries — reads
+    `@Environment(AppRouter.self)` and calls `push`. An `AppRoute` resolves to
+    a concrete screen in exactly one place: the app target's
+    `.appDestinations(...)` modifier (`Viku/Navigation/AppDestinations.swift`),
+    applied once per tab stack. Because `.navigationDestination(for:)` keys off
+    the stable value in the path, the pushed screen and its view model survive
+    re-renders — this replaced the `(T) -> AnyView` destination closures and
+    the `...DestinationBox` identity workarounds.
+  - `Router<Route: Hashable>` — the same generic `NavigationPath` wrapper,
+    kept for intra-feature routes whose payload is feature-private (`Projects`'
+    `ProjectsRoute.projectOverview(ProjectNode)` carries the loaded subtree —
+    pushed onto the tab's `AppRouter` path, resolved by `ProjectsRootView`'s
+    own `.navigationDestination(for: ProjectsRoute.self)`) or whose whole stack
+    is self-contained (`Settings` still owns its `NavigationStack` +
+    `Router<SettingsRoute>`).
 
 - **`VikuDesignSystem`** — pure SwiftUI, depends only on `VikunjaCore` (for
   `ToastStyle`/`ToastPresenting` — see `ToastCenter` below; every other token
@@ -432,15 +452,18 @@ the other constructor-injected dependencies.
     happens next.
 
 - **`Features/Home`, `Features/Projects`, `Features/Search`, `Features/Settings`**
-  — one per main tab. `Search` still depends only on `VikuNavigation`
-  (bare placeholder — takes no domain types); `Home`, `Projects`, and
-  `Settings` all depend on `VikunjaCore` + `VikuNavigation` +
+  — one per main tab. All depend on `VikunjaCore` + `VikuNavigation` +
   `VikuDesignSystem`, with real content behind each. Each follows the same
   shape: `Views/<Name>View.swift`, `Views/<Name>RootView.swift` (public entry
-  point — owns a `NavigationStack` bound to its own `Router<FeatureRoute>`),
-  and `Navigation/<Name>Route.swift` (an empty route enum until the feature has
-  a screen to push). Only `<Name>RootView` is public; the content view stays
-  internal to the package. Every feature's view models track their request
+  point). For `Home`/`Calendar`/`Search` the hosting `NavigationStack` +
+  `AppRouter` live in the app target (`MainTabView`) and the `RootView` is just
+  the tab's root content — a `HomeRoute`/`CalendarRoute`/`SearchRoute` enum is
+  no longer needed and was deleted. `Projects` keeps `Navigation/ProjectsRoute.swift`
+  (`projectOverview(ProjectNode)` — a feature-private payload) and its
+  `RootView` applies the matching `.navigationDestination(for:)`; `Settings`
+  keeps its own `NavigationStack` + `Router<SettingsRoute>`. Only `<Name>RootView`
+  is public; the content view stays internal to the package. Every feature's
+  view models track their request
   lifecycle with `VikuUI`'s shared `ScreenLoadState<Void>` and surface error
   copy through `VikunjaCore`'s canonical `VikunjaError.displayMessage` (both
   used to be per-feature copies under `Models/` / `Support/`).
@@ -458,9 +481,9 @@ the other constructor-injected dependencies.
     only carries its `projectID`), an "Overdue" label or due date, a link
     icon when the task `hasRelations`, and up to two label pills. The
     completion toggle is optimistic with rollback
-    (`TodayViewModel.toggleDone`); tapping a row pushes `Features/Tasks`'
-    `TaskDetailView` via the same type-erased closure pattern `Projects` uses
-    (see below). Supports pull-to-refresh.
+    (`TodayViewModel.toggleDone`); tapping a row calls
+    `router.push(.taskDetail(task, project))` on the `AppRouter` from the
+    environment (see the `VikuNavigation` section). Supports pull-to-refresh.
   - `Settings` is fully built as multi-account management, not just a
     single reset action: `SettingsView` is a landing screen showing the
     active connection's name with a "Connections" row that pushes
@@ -502,8 +525,10 @@ the other constructor-injected dependencies.
     completion indicator; `ProjectsView` renders the tree as an indented,
     per-project expand/collapsible list (rows start **collapsed** —
     `expandedProjectIDs` is empty until the user taps a disclosure chevron,
-    nothing auto-expands on load) inside a `Router<ProjectsRoute>`-driven
-    `NavigationStack`. A toolbar "+" opens
+    nothing auto-expands on load). `ProjectsRootView` applies
+    `.navigationDestination(for: ProjectsRoute.self)` (`projectOverview(ProjectNode)`,
+    carrying the loaded subtree) onto the tab's app-owned `NavigationStack`.
+    A toolbar "+" opens
     `CreateProjectSheetView`/`CreateProjectViewModel` — a compact sheet for
     title + color swatch + parent project (parent defaults to "None"/root, or
     is preset when opened from within a project), creating via
@@ -516,24 +541,31 @@ the other constructor-injected dependencies.
     toggle persists optimistically; a long-press context menu offers
     "Delete", which goes through a confirmation dialog to
     `ProjectOverviewViewModel.delete` (`TaskRepositoryProtocol.delete` +
-    toast). Selecting a task pushes into `Features/Tasks`'s `TaskDetailView`
-    (see below) via a type-erased `(VikunjaTask, Project) -> AnyView` closure
-    supplied by `ProjectsRootView`'s initializer — `Projects` never imports
-    `Tasks` directly; the app target's `AppContainer` is what actually
-    supplies that closure (and the `CreateProjectViewModel` factory), keeping
-    the cross-feature navigation and repository wiring decoupled the same
-    way networking is. `Home` reuses this exact same closure pattern for its
-    own push into `TaskDetailView`.
+    toast). Selecting a task calls `router.push(.taskDetail(task, project))` on
+    the environment `AppRouter`; the app target's `.appDestinations(...)`
+    resolves it to `Features/Tasks`' `TaskDetailView` (built via
+    `AppContainer.makeTaskDetailViewModel`). `Projects` never imports `Tasks`.
+    `CreateProjectViewModel` is still supplied as a factory closure by
+    `AppContainer`, keeping repository wiring decoupled the same way networking
+    is. `Home`, `Calendar`, and `Search` navigate to `TaskDetailView` the same
+    way.
 
 - **`Features/Tasks`** — a single task's detail screen
   (`TaskDetailView`/`TaskDetailViewModel`), the quick-add task flow
   (`QuickAddSheetView`/`QuickAddTaskViewModel`), and the duplicate-task sheet
   (`DuplicateTaskSheetView`/`DuplicateTaskViewModel`). Depends on `VikunjaCore` +
-  `VikuDesignSystem` only — no `VikuNavigation` of its own, since none of
-  these views own push navigation: `TaskDetailView` is always pushed as a leaf
-  screen onto whichever feature's stack opened it (`Home` or `Projects`, today),
-  and both sheets are `.sheet`s (quick-add from whoever owns the FAB —
-  `MainTabView`; duplicate from `TaskDetailView`'s own menu).
+  `VikuDesignSystem` + `VikuNavigation` (for `AppRouter`/`AppRoute` — see
+  below); it owns no `NavigationStack`/`Router`. `TaskDetailView` is always
+  pushed as a leaf screen onto whichever feature's stack opened it, and both
+  sheets are `.sheet`s (quick-add from whoever owns the FAB — `MainTabView`;
+  duplicate from `TaskDetailView`'s own menu). A tapped relation, the project
+  pill, and a just-created duplicate all navigate by
+  `router.push(...)` on the `@Environment(AppRouter.self)` — pushing
+  `AppRoute.taskDetail` / `AppRoute.projectOverview` onto the hosting stack,
+  resolved by the app target's `.appDestinations(...)`. This replaced the
+  `projectDestination: (Project) -> AnyView` closure, the two
+  `.navigationDestination(item:)` blocks, and the `ProjectDestinationBox`
+  wrapper (architecture audit F-12).
   - **Detail screen**: an inline-editable title and description (see below),
     completion toggle, due date, priority, labels, subtasks (read-only
     checklist), a combined "Relations" section covering `dependsOn`/`blocks`
@@ -559,9 +591,10 @@ the other constructor-injected dependencies.
     (`TaskRepositoryProtocol.searchTasks`) and, before the user types,
     suggests the current task's own project's other tasks (most relations are
     intra-project). Tapping an existing relation row resolves the full task +
-    its project (`loadRelatedTask`) and pushes another `TaskDetailView` for it
-    — `makeDetailViewModel` reuses this view model's own dependencies so the
-    recursion needs nothing from `AppContainer`.
+    its project (`loadRelatedTask`) then `router.push(.taskDetail(...))` — the
+    app target's `.appDestinations(...)` builds the nested `TaskDetailView`
+    (via `AppContainer.makeTaskDetailViewModel`), so the recursion goes through
+    one shared resolver instead of a per-VM factory.
   - **Comments**: `loadComments()` runs alongside `load()` but reports into
     its own `commentsLoadState`, so a comments-fetch failure doesn't block the
     rest of the screen. `addComment(_:)` posts via
@@ -633,14 +666,13 @@ the other constructor-injected dependencies.
     **not** subtasks — via `TaskRelationRepositoryProtocol.addRelation`;
     comments and attachments aren't copied. Built by
     `TaskDetailViewModel.makeDuplicateTaskViewModel()`, which reuses the
-    detail view model's own repositories (same pattern as
-    `makeDetailViewModel(task:project:)`), so `AppContainer` needs no factory
+    detail view model's own repositories, so `AppContainer` needs no factory
     for it. `duplicate()` returns the created task **and its project** (from
     the loaded list, falling back to the source task's own project);
     `DuplicateTaskSheetView`'s `onDuplicated` callback hands that back to the
-    host, and `TaskDetailView` pushes the new task's own `TaskDetailView`
-    down the same `.navigationDestination(item:)` a tapped relation row uses
-    (`relatedTaskDestination`). Success plays a `.success` haptic + toast.
+    host, and `TaskDetailView` navigates to the new task by
+    `router.push(.taskDetail(...))` — the same path a tapped relation row
+    takes. Success plays a `.success` haptic + toast.
 
 Features should only ever import `VikunjaCore`/`VikuNavigation`/
 `VikuDesignSystem` and depend on `VikunjaCore`'s protocols — never import
@@ -734,8 +766,12 @@ old `baseURL` in place. Deleting the last saved account surfaces here too:
 the re-read comes back `nil` and `RootView` falls back to onboarding.
 `MainTabView` is the floating, Liquid Glass tab bar —
 the default look for `TabView` on iOS 26+ — with one `Tab` per `AppTab` case
-(`.home`, `.projects`, `.settings`, plus `.search` using iOS 26's dedicated
-`.search` tab role, which renders as a separated glass pill) and a
+(`.home`, `.projects`, `.calendar`, `.settings`, plus `.search` using iOS 26's
+dedicated `.search` tab role, which renders as a separated glass pill). Each
+tab except `Settings` wraps its feature `<Name>RootView` in an app-owned
+`NavigationStack(path:)` bound to a per-tab `@State` `AppRouter` (placed in
+that stack's environment) plus the shared `.appDestinations(container:account:)`
+resolver; `Settings` keeps its own stack + `Router<SettingsRoute>`. Also a
 `QuickAddOverlay` (owning a `QuickAddButton` — a bare circular FAB matching the
 design mockup — and its `.sheet`) placed via
 a plain `.overlay(alignment: .bottomTrailing)`, not `.tabViewBottomAccessory`:
@@ -745,8 +781,9 @@ corner. `QuickAddOverlay` is a child view specifically so the FAB/sheet
 `@State` never re-evaluates `MainTabView`'s body — doing so rebuilds every
 tab's `NavigationStack` + view models and blanks the screen behind the sheet.
 For the same reason the per-tab root view models (`todayViewModel`/
-`projectsViewModel`/`searchViewModel`) are `@State`, built once in
-`MainTabView.init`, not inside `body`: `body` *does* re-run on every tab switch
+`projectsViewModel`/`calendarViewModel`/`searchViewModel`) and the per-tab
+`AppRouter`s are `@State`, built once in `MainTabView.init` (view models) or as
+initializers (routers), not inside `body`: `body` *does* re-run on every tab switch
 (anything that reads `selection` — e.g. the `.onChange` haptic tick — makes it),
 and rebuilding a view model there would hand each tab a fresh empty one and
 flash a spinner on switch. `MainTabView` is keyed `.id(connectedAccount)`, so an
@@ -796,20 +833,20 @@ behind each one.
   user-facing feedback. Views contain no business logic and no networking
   knowledge.
 - **Each `Features/<Name>` module follows the same internal shape**:
-  `Models/` (view-specific state only), `ViewModels/`, `Views/`, `Navigation/`
-  (a per-feature `Router<Route>` from `VikuNavigation`, typed to a private
-  route enum — no direct cross-feature `NavigationLink(destination:)`). The
-  package's only public view is `<Name>RootView`, which owns the
-  `NavigationStack`/`Router` pair; the app target never touches a feature's
-  route enum or `NavigationPath` directly. Exception: a feature whose screens
-  are only ever pushed as a leaf onto another feature's stack or presented as a
-  `.sheet` (`Features/Tasks` today — `TaskDetailView` and `QuickAddSheetView`)
-  has no `Navigation/`/`Router` of its own — it exposes plain public views
-  instead, and the feature that pushes a leaf screen supplies a type-erased
-  `AnyView`-returning closure (built by `AppContainer`) rather than importing
-  it directly. (`TaskDetailView` does push a nested copy of *itself* for a
-  tapped relation, via `navigationDestination(item:)` onto the host stack —
-  that's intra-feature, so no new `Router` is needed.)
+  `Models/` (view-specific state only), `ViewModels/`, `Views/`, and
+  `Navigation/` only when the feature has a route with feature-private payload
+  or a self-contained stack (`ProjectsRoute`, `SettingsRoute`).
+- **Navigation is exactly two mechanisms, never a third (architecture audit
+  F-12).** Anything crossing a feature boundary is an `AppRoute` case pushed
+  via `@Environment(AppRouter.self)` and resolved only by the app target's
+  `.appDestinations(...)`. Anything staying inside one feature is a
+  `Router<Route>` / `.navigationDestination(for: Route.self)` on that feature's
+  stack. **No `(T) -> AnyView` destination closures, no `AnyView`-keyed
+  `.navigationDestination(item:)`, no per-feature `NavigationLink(destination:)`
+  into another feature.** A new cross-feature destination means a new `AppRoute`
+  case + a new branch in `AppDestinations.swift` — nowhere else. `MainTabView`
+  owns the per-tab `NavigationStack` + `AppRouter` (`Settings` is the one
+  feature that still owns its own stack).
 - **No third-party DI framework.** Dependency wiring is a plain `AppContainer`
   with constructor injection.
 - **Credentials (JWT, API tokens) live in the Keychain, never `UserDefaults`.**
