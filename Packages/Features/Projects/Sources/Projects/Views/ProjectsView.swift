@@ -9,7 +9,7 @@ import VikuUI
 /// `parentProjectID`), with per-project expand/collapse.
 struct ProjectsView: View {
     @Bindable var viewModel: ProjectsListViewModel
-    let router: Router<ProjectsRoute>
+    @Environment(AppRouter.self) private var router
     let makeCreateProjectViewModel: () -> CreateProjectViewModel
     let makeEditProjectViewModel: (Project) -> EditProjectViewModel
     @State private var expandedProjectIDs: Set<Int> = []
@@ -110,7 +110,7 @@ struct ProjectsView: View {
                             level: row.level,
                             hasChildren: !row.node.children.isEmpty,
                             isExpanded: expandedProjectIDs.contains(row.node.id),
-                            onSelect: { router.push(.projectOverview(row.node)) },
+                            onSelect: { router.push(ProjectsRoute.projectOverview(row.node)) },
                             onToggleExpand: { toggleExpanded(row.node.id) },
                             onEdit: { editingProject = $0 },
                             onDelete: { projectPendingDelete = row.node },
