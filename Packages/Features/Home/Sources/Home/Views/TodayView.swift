@@ -87,7 +87,7 @@ struct TodayView: View {
         // flush with `.navigationTitle` by default — see `ProjectOverviewView`
         // for the same reasoning.
         VStack(alignment: .leading, spacing: VikuSpacing.md) {
-            Text(pendingSubtitle)
+            Text(viewModel.pendingSubtitle)
                 .font(VikuFont.subheadline)
                 .fontWeight(.medium)
                 .foregroundStyle(VikuColor.textSecondary)
@@ -105,8 +105,8 @@ struct TodayView: View {
         if visible.isEmpty {
             VikuStatusView(
                 systemImage: "checkmark.circle",
-                title: datedTaskCount == 0 ? "Nothing due" : "Nothing here",
-                message: datedTaskCount == 0
+                title: viewModel.datedTaskCount == 0 ? "Nothing due" : "Nothing here",
+                message: viewModel.datedTaskCount == 0
                     ? "Tasks with a due date will show up here."
                     : "No tasks match this filter.",
                 iconSize: 28,
@@ -156,15 +156,6 @@ struct TodayView: View {
                 }
             }
         }
-    }
-
-    private var datedTaskCount: Int {
-        viewModel.tasks.filter { $0.dueDate != nil }.count
-    }
-
-    private var pendingSubtitle: String {
-        let pending = viewModel.tasks.filter { $0.dueDate != nil && !$0.isDone }.count
-        return pending == 1 ? "1 task pending" : "\(pending) tasks pending"
     }
 }
 
