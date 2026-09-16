@@ -12,6 +12,7 @@ struct ProjectOverviewViewModelTests {
             repository: FakeTaskRepository(),
             projectRepository: FakeProjectRepository(),
             toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
             quickAddContext: context,
         )
 
@@ -31,6 +32,7 @@ struct ProjectOverviewViewModelTests {
             repository: FakeTaskRepository(),
             projectRepository: FakeProjectRepository(),
             toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
             quickAddContext: context,
         )
 
@@ -54,6 +56,7 @@ struct ProjectOverviewViewModelTests {
             repository: repository,
             projectRepository: FakeProjectRepository(),
             toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
         )
 
         await viewModel.load()
@@ -71,6 +74,7 @@ struct ProjectOverviewViewModelTests {
             repository: repository,
             projectRepository: FakeProjectRepository(),
             toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
         )
 
         await viewModel.load()
@@ -89,6 +93,7 @@ struct ProjectOverviewViewModelTests {
             repository: repository,
             projectRepository: FakeProjectRepository(),
             toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
         )
 
         #expect(viewModel.subprojects.map(\.project.id) == [2])
@@ -113,6 +118,7 @@ struct ProjectOverviewViewModelTests {
             repository: repository,
             projectRepository: FakeProjectRepository(),
             toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
         )
 
         await viewModel.load()
@@ -132,6 +138,7 @@ struct ProjectOverviewViewModelTests {
             repository: repository,
             projectRepository: FakeProjectRepository(),
             toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
         )
 
         await viewModel.load()
@@ -152,6 +159,7 @@ struct ProjectOverviewViewModelTests {
             repository: repository,
             projectRepository: FakeProjectRepository(),
             toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
         )
         await viewModel.load()
 
@@ -169,6 +177,7 @@ struct ProjectOverviewViewModelTests {
             repository: repository,
             projectRepository: FakeProjectRepository(),
             toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
         )
         await viewModel.load()
         repository.updateError = .network("offline")
@@ -189,6 +198,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             toastPresenter: FakeToastPresenter(),
             hapticPresenter: haptics,
+            taskSortStore: FakeTaskSortStore(),
         )
         await viewModel.load()
 
@@ -212,6 +222,7 @@ struct ProjectOverviewViewModelTests {
             repository: repository,
             projectRepository: FakeProjectRepository(),
             toastPresenter: toastPresenter,
+            taskSortStore: FakeTaskSortStore(),
         )
         await viewModel.load()
 
@@ -233,6 +244,7 @@ struct ProjectOverviewViewModelTests {
             repository: repository,
             projectRepository: FakeProjectRepository(),
             toastPresenter: toastPresenter,
+            taskSortStore: FakeTaskSortStore(),
         )
         await viewModel.load()
 
@@ -255,6 +267,7 @@ struct ProjectOverviewViewModelTests {
             repository: repository,
             projectRepository: FakeProjectRepository(),
             toastPresenter: toastPresenter,
+            taskSortStore: FakeTaskSortStore(),
         )
         await viewModel.load()
         let destination = Project(id: 2, title: "Personal")
@@ -278,6 +291,7 @@ struct ProjectOverviewViewModelTests {
             repository: repository,
             projectRepository: FakeProjectRepository(),
             toastPresenter: toastPresenter,
+            taskSortStore: FakeTaskSortStore(),
         )
         await viewModel.load()
 
@@ -300,6 +314,7 @@ struct ProjectOverviewViewModelTests {
             repository: FakeTaskRepository(),
             projectRepository: projectRepository,
             toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
         )
 
         await viewModel.loadMoveCandidates()
