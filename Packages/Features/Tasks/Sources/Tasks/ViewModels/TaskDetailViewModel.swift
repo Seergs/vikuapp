@@ -55,6 +55,7 @@ public final class TaskDetailViewModel {
     /// screen defaults to the task's project. Optional so tests and any
     /// caller that doesn't care can skip it.
     private let quickAddContext: QuickAddContextTracking?
+    private var cachedRelatedTaskIDs: Set<Int> = []
 
     public init(
         task: VikunjaTask,
@@ -80,6 +81,7 @@ public final class TaskDetailViewModel {
         self.toastPresenter = toastPresenter
         self.hapticPresenter = hapticPresenter
         self.quickAddContext = quickAddContext
+        updateRelatedTaskIDsCache()
     }
 
     /// Call from the view's `onAppear`/`onDisappear`: while this task is the
@@ -99,6 +101,7 @@ public final class TaskDetailViewModel {
         }
         do {
             task = try await repository.fetchTask(id: task.id)
+            updateRelatedTaskIDsCache()
             loadState = .loaded
         } catch let error as VikunjaError {
             loadState = .failure(error.displayMessage)
@@ -518,13 +521,18 @@ public final class TaskDetailViewModel {
 
     /// Every task id already related to this one, across `subtasks`,
     /// `dependsOn`, `blocks`, and every kind in `otherRelations` — used to
-    /// exclude already-related tasks from the relation search results.
+    /// exclude already-related tasks from the relation search results. Cached
+    /// on demand and updated whenever relations change.
     private var relatedTaskIDs: Set<Int> {
+        cachedRelatedTaskIDs
+    }
+
+    private func updateRelatedTaskIDsCache() {
         var ids = Set((task.subtasks + task.dependsOn + task.blocks).map(\.id))
         for relations in task.otherRelations.values {
             ids.formUnion(relations.map(\.id))
         }
-        return ids
+        cachedRelatedTaskIDs = ids
     }
 
     /// Routes `relation` into whichever of `task`'s relation properties
@@ -537,6 +545,7 @@ public final class TaskDetailViewModel {
         case .blocking: task.blocks.append(relation)
         default: task.otherRelations[kind, default: []].append(relation)
         }
+        updateRelatedTaskIDsCache()
     }
 
     private func deleteRelation(_ relation: TaskRelation, kind: RelationKind) {
@@ -550,6 +559,7 @@ public final class TaskDetailViewModel {
                 task.otherRelations[kind] = nil
             }
         }
+        updateRelatedTaskIDsCache()
     }
 
     /// Persists the currently-staged `task` edit, rolling back to `previous`
