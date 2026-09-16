@@ -24,6 +24,15 @@ public final class TodayViewModel {
         loadState == .loading
     }
 
+    public var datedTaskCount: Int {
+        tasks.filter { $0.dueDate != nil }.count
+    }
+
+    public var pendingSubtitle: String {
+        let pending = tasks.filter { $0.dueDate != nil && !$0.isDone }.count
+        return pending == 1 ? "1 task pending" : "\(pending) tasks pending"
+    }
+
     private let taskLoader: AccountTaskLoader
     private let mutator: TaskListMutator
     private let projectRepository: ProjectRepositoryProtocol
