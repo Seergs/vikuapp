@@ -8,6 +8,8 @@
 
 **This is not an official Vikunja Client app**
 
+> ⚠️ Beta. Bugs are expected. Don't point it at a production Vikunja instance without a tested backup.
+
 This is an opinionated mobile client for Vikunja, not a full port of the web app. 
 Vikunja already has an official PWA and a [capable third-party one](https://github.com/Bassey240/vikunja-pwa), 
 and both aim to mirror the web experience feature for feature. This app takes a different position.
