@@ -6,21 +6,13 @@ import VikunjaCore
 /// `AppRouter` are owned by the app target (`MainTabView`); this view reaches
 /// navigation through `@Environment(AppRouter.self)` like every other screen.
 public struct SearchRootView: View {
-    @State private var viewModel: SearchViewModel
+    @Bindable public var viewModel: SearchViewModel
 
     public init(viewModel: SearchViewModel) {
-        _viewModel = State(initialValue: viewModel)
+        self.viewModel = viewModel
     }
 
     public var body: some View {
         SearchView(viewModel: viewModel)
-            .searchable(
-                text: $viewModel.query,
-                placement: .automatic,
-                prompt: "Search tasks",
-            )
-            .onChange(of: viewModel.query) { _, _ in
-                viewModel.queryChanged()
-            }
     }
 }

@@ -29,9 +29,20 @@ public final class ProjectOverviewViewModel {
         loadState == .loading
     }
 
+    public var sortField: TaskSort.Field {
+        get { taskSortStore.taskSort.field }
+        set { taskSortStore.setTaskSort(TaskSort(field: newValue, direction: sortDirection)) }
+    }
+
+    public var sortDirection: TaskSort.Direction {
+        get { taskSortStore.taskSort.direction }
+        set { taskSortStore.setTaskSort(TaskSort(field: sortField, direction: newValue)) }
+    }
+
     private let repository: TaskRepositoryProtocol
     private let projectRepository: ProjectRepositoryProtocol
     private let mutator: TaskListMutator
+    private let taskSortStore: TaskSortStore
     /// Set by `AppContainer` so this screen can tell the globally-presented
     /// quick-add sheet which project to default to while it's on screen.
     /// Optional so tests and any caller that doesn't care can skip it.
@@ -44,12 +55,14 @@ public final class ProjectOverviewViewModel {
         projectRepository: ProjectRepositoryProtocol,
         toastPresenter: ToastPresenting,
         hapticPresenter: HapticFeedbackPresenting = NoopHapticFeedback(),
+        taskSortStore: TaskSortStore,
         quickAddContext: QuickAddContextTracking? = nil,
     ) {
         self.project = project
         self.subprojects = subprojects
         self.repository = repository
         self.projectRepository = projectRepository
+        self.taskSortStore = taskSortStore
         self.mutator = TaskListMutator(
             repository: repository,
             toastPresenter: toastPresenter,

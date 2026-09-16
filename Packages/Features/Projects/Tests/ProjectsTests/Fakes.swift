@@ -125,3 +125,12 @@ final class FakeQuickAddContext: QuickAddContextTracking {
         }
     }
 }
+
+@MainActor
+final class FakeTaskSortStore: TaskSortStore, @unchecked Sendable {
+    private(set) var taskSort: TaskSort = .init(field: .dueDate, direction: .ascending)
+
+    func setTaskSort(_ sort: TaskSort) {
+        taskSort = sort
+    }
+}

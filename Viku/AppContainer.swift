@@ -72,6 +72,10 @@ final class AppContainer {
         return url
     }()
 
+    /// The app's single task sort preference store, read/written by project
+    /// overview view models.
+    let taskSortStore: TaskSortStore = TaskSortCenter()
+
     init(
         accountStore: AccountStoreProtocol = KeychainAccountStore(
             service: VikuWidgetConfig.accountStoreService,
@@ -209,6 +213,7 @@ final class AppContainer {
             projectRepository: projectRepository,
             toastPresenter: toastCenter,
             hapticPresenter: hapticCenter,
+            taskSortStore: taskSortStore,
             quickAddContext: quickAddContext,
         )
     }

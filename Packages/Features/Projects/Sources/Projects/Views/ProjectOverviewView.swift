@@ -20,11 +20,9 @@ struct ProjectOverviewView: View {
     @State private var filter: ProjectTaskFilter = .all
     @State private var taskPendingDelete: VikunjaTask?
     @State private var taskPendingMove: VikunjaTask?
-    @AppStorage("taskSort.field") private var sortField: TaskSort.Field = .dueDate
-    @AppStorage("taskSort.direction") private var sortDirection: TaskSort.Direction = .ascending
 
     private var sort: TaskSort {
-        TaskSort(field: sortField, direction: sortDirection)
+        TaskSort(field: viewModel.sortField, direction: viewModel.sortDirection)
     }
 
     var body: some View {
@@ -36,7 +34,7 @@ struct ProjectOverviewView: View {
             .navigationTitle(viewModel.project.title)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    TaskSortMenu(field: $sortField, direction: $sortDirection)
+                    TaskSortMenu(field: $viewModel.sortField, direction: $viewModel.sortDirection)
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button {

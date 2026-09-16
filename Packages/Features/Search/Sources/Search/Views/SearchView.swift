@@ -5,7 +5,7 @@ import VikunjaCore
 import VikuUI
 
 struct SearchView: View {
-    @State var viewModel: SearchViewModel
+    @Bindable var viewModel: SearchViewModel
     @Environment(AppRouter.self) private var router
     @State private var taskPendingDelete: VikunjaTask?
 
@@ -16,6 +16,14 @@ struct SearchView: View {
             .searchListStyle()
             .scrollContentBackground(.hidden)
             .background(VikuColor.Surface.page)
+            .searchable(
+                text: $viewModel.query,
+                placement: .automatic,
+                prompt: "Search tasks",
+            )
+            .onChange(of: viewModel.query) { _, _ in
+                viewModel.queryChanged()
+            }
             .navigationTitle("Search")
             .confirmationDialog(
                 "This permanently deletes the task.",
