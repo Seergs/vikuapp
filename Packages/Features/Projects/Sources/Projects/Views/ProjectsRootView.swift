@@ -31,6 +31,7 @@ public struct ProjectsRootView: View {
     }
 
     @State private var editingProject: Project?
+    @State private var overviewViewModels: [Int: ProjectOverviewViewModel] = [:]
 
     public var body: some View {
         ProjectsView(
@@ -41,12 +42,16 @@ public struct ProjectsRootView: View {
         .navigationDestination(for: ProjectsRoute.self) { route in
             switch route {
             case let .projectOverview(node):
+                let vm = overviewViewModels[node.id] ?? makeOverviewViewModel(node)
                 ProjectOverviewView(
-                    viewModel: makeOverviewViewModel(node),
+                    viewModel: vm,
                     onSelectSubproject: { router.push(ProjectsRoute.projectOverview($0)) },
                     onSelectTask: { task in router.push(.taskDetail(task, node.project)) },
                     onEditProject: { editingProject = $0 },
                 )
+                .onAppear {
+                    overviewViewModels[node.id] = vm
+                }
             }
         }
         .sheet(item: $editingProject) { project in
