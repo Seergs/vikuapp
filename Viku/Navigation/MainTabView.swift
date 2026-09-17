@@ -29,6 +29,9 @@ struct MainTabView: View {
     /// the new one. Dropping the last connection surfaces here too: the
     /// re-read comes back `nil` and `RootView` falls back to onboarding.
     let onAccountsChanged: () -> Void
+    /// Requests `RootView` present `OnboardingPreviewView` — wired from
+    /// Settings' dev-only "Preview Onboarding" row.
+    let onPreviewOnboarding: () -> Void
 
     @State private var selection: AppTab = .home
 
@@ -53,10 +56,16 @@ struct MainTabView: View {
     @State private var calendarViewModel: CalendarViewModel
     @State private var searchViewModel: SearchViewModel
 
-    init(account: InstanceAccount, container: AppContainer, onAccountsChanged: @escaping () -> Void) {
+    init(
+        account: InstanceAccount,
+        container: AppContainer,
+        onAccountsChanged: @escaping () -> Void,
+        onPreviewOnboarding: @escaping () -> Void,
+    ) {
         self.account = account
         self.container = container
         self.onAccountsChanged = onAccountsChanged
+        self.onPreviewOnboarding = onPreviewOnboarding
         _todayViewModel = State(initialValue: container.makeTodayViewModel(account: account))
         _projectsViewModel = State(initialValue: container.makeProjectsListViewModel(account: account))
         _calendarViewModel = State(initialValue: container.makeCalendarViewModel(account: account))
@@ -106,6 +115,7 @@ struct MainTabView: View {
                     themeStore: container.themeCenter,
                     isDevBuild: BuildConfig.isDevBuild,
                     devBadgeStore: container.devToolsCenter,
+                    onPreviewOnboarding: onPreviewOnboarding,
                     makeConnectionsListViewModel: {
                         container.makeConnectionsListViewModel(onActiveAccountChanged: onAccountsChanged)
                     },

@@ -14,6 +14,9 @@ struct RootView: View {
 
     @State private var connectedAccount: InstanceAccount?
     @State private var hasCheckedForSavedAccount = false
+    /// Drives the dev-only "Preview Onboarding" row in Settings — see
+    /// `OnboardingPreviewView`. Session-only `@State`, not persisted.
+    @State private var isPreviewingOnboarding = false
 
     var body: some View {
         Group {
@@ -28,6 +31,7 @@ struct RootView: View {
                     account: connectedAccount,
                     container: container,
                     onAccountsChanged: { Task { await refreshActiveAccount() } },
+                    onPreviewOnboarding: { isPreviewingOnboarding = true },
                 )
                 .id(connectedAccount)
             } else if hasCheckedForSavedAccount {
@@ -73,6 +77,21 @@ struct RootView: View {
         // follows the user's theme preference. `nil` (the `.system` case)
         // leaves the view hierarchy following the device setting.
         .preferredColorScheme(container.themeCenter.colorScheme)
+        // Dev-only: lets a saved-in user look at the first-launch screen
+        // again without deleting their real connection. Saving a connection
+        // here still goes through the normal flow and switches the active
+        // account, exactly like real onboarding would.
+        .fullScreenCover(isPresented: $isPreviewingOnboarding) {
+            OnboardingPreviewView(
+                container: container,
+                onConnectionSaved: { account in
+                    connectedAccount = account
+                    isPreviewingOnboarding = false
+                    Task { await container.refreshDefaultProject(account: account) }
+                },
+                onClose: { isPreviewingOnboarding = false },
+            )
+        }
     }
 
     /// Re-reads the active account from the store and updates

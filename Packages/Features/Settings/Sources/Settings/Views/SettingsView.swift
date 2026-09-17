@@ -10,6 +10,7 @@ struct SettingsView: View {
     let themeStore: AppThemeStoring
     let isDevBuild: Bool
     let devBadgeStore: DevBadgeVisibilityStoring
+    let onPreviewOnboarding: () -> Void
     let router: Router<SettingsRoute>
 
     var body: some View {
@@ -62,6 +63,14 @@ struct SettingsView: View {
                             SettingsRowIcon(systemName: "ladybug")
                             Text("Show DEV Badge")
                         }
+                    }
+
+                    SettingsNavigationRow(
+                        icon: "arrow.counterclockwise",
+                        title: "Preview Onboarding",
+                        subtitle: "See the first-launch screen again",
+                    ) {
+                        onPreviewOnboarding()
                     }
                 } header: {
                     Text("Developer")

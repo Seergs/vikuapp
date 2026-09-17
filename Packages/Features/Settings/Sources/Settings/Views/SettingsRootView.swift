@@ -12,14 +12,15 @@ public struct SettingsRootView: View {
     private let themeStore: AppThemeStoring
     private let isDevBuild: Bool
     private let devBadgeStore: DevBadgeVisibilityStoring
+    private let onPreviewOnboarding: () -> Void
     private let makeConnectionsListViewModel: () -> ConnectionsListViewModel
     private let makeConnectionFormViewModel: (ConnectionFormMode) -> ConnectionFormViewModel
     private let makeManageLabelsViewModel: () -> ManageLabelsViewModel
 
     /// `account` is the currently active connection — shown on the landing
     /// screen's "Connections" row. `themeStore` backs the "Appearance" row.
-    /// `isDevBuild`/`devBadgeStore` back the Developer section's dev-badge
-    /// toggle, shown only in dev builds (see `BuildConfig.isDevBuild` in the
+    /// `isDevBuild`/`devBadgeStore`/`onPreviewOnboarding` back the Developer
+    /// section, shown only in dev builds (see `BuildConfig.isDevBuild` in the
     /// app target). `makeConnectionsListViewModel`/`makeConnectionFormViewModel`
     /// come from the app target's `AppContainer`, the only place allowed to
     /// know about the concrete `AccountStoreProtocol`/
@@ -29,6 +30,7 @@ public struct SettingsRootView: View {
         themeStore: AppThemeStoring,
         isDevBuild: Bool,
         devBadgeStore: DevBadgeVisibilityStoring,
+        onPreviewOnboarding: @escaping () -> Void,
         makeConnectionsListViewModel: @escaping () -> ConnectionsListViewModel,
         makeConnectionFormViewModel: @escaping (ConnectionFormMode) -> ConnectionFormViewModel,
         makeManageLabelsViewModel: @escaping () -> ManageLabelsViewModel,
@@ -37,6 +39,7 @@ public struct SettingsRootView: View {
         self.themeStore = themeStore
         self.isDevBuild = isDevBuild
         self.devBadgeStore = devBadgeStore
+        self.onPreviewOnboarding = onPreviewOnboarding
         self.makeConnectionsListViewModel = makeConnectionsListViewModel
         self.makeConnectionFormViewModel = makeConnectionFormViewModel
         self.makeManageLabelsViewModel = makeManageLabelsViewModel
@@ -49,6 +52,7 @@ public struct SettingsRootView: View {
                 themeStore: themeStore,
                 isDevBuild: isDevBuild,
                 devBadgeStore: devBadgeStore,
+                onPreviewOnboarding: onPreviewOnboarding,
                 router: router,
             )
             .navigationDestination(for: SettingsRoute.self) { route in
