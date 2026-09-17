@@ -51,6 +51,10 @@ struct ProjectOverviewView: View {
                 viewModel.markVisible()
             }
             .onDisappear { viewModel.markHidden() }
+            .onChange(of: viewModel.lastCreatedTaskForThisProject) { _, event in
+                guard event != nil else { return }
+                Task { await viewModel.load() }
+            }
             .confirmationDialog(
                 "This permanently deletes the task.",
                 isPresented: Binding(

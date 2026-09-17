@@ -47,6 +47,10 @@ public final class ProjectOverviewViewModel {
     /// quick-add sheet which project to default to while it's on screen.
     /// Optional so tests and any caller that doesn't care can skip it.
     private let quickAddContext: QuickAddContextTracking?
+    /// Set by `AppContainer` so this screen learns when the quick-add sheet
+    /// creates a task for it, to refresh live. Optional so tests and any
+    /// caller that doesn't care can skip it.
+    private let taskChangeBroadcaster: TaskChangeBroadcasting?
 
     public init(
         project: Project,
@@ -57,6 +61,7 @@ public final class ProjectOverviewViewModel {
         hapticPresenter: HapticFeedbackPresenting = NoopHapticFeedback(),
         taskSortStore: TaskSortStore,
         quickAddContext: QuickAddContextTracking? = nil,
+        taskChangeBroadcaster: TaskChangeBroadcasting? = nil,
     ) {
         self.project = project
         self.subprojects = subprojects
@@ -70,6 +75,16 @@ public final class ProjectOverviewViewModel {
             errorMessage: { ($0 as? VikunjaError)?.displayMessage ?? $0.localizedDescription },
         )
         self.quickAddContext = quickAddContext
+        self.taskChangeBroadcaster = taskChangeBroadcaster
+    }
+
+    /// Mirrors `taskChangeBroadcaster`'s most recent event, filtered to this
+    /// project. The view observes this via `.onChange(of:)` and reloads when
+    /// it changes, so a task created here through the quick-add sheet shows
+    /// up immediately instead of waiting for the next pull-to-refresh.
+    public var lastCreatedTaskForThisProject: TaskCreatedEvent? {
+        guard let event = taskChangeBroadcaster?.lastCreatedTask, event.projectID == project.id else { return nil }
+        return event
     }
 
     /// Call from the view's `onAppear`/`onDisappear`: while this project's

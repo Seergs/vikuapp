@@ -112,6 +112,23 @@ struct QuickAddTaskViewModelTests {
     }
 
     @Test
+    func `save broadcasts the created task's project`() async {
+        let broadcaster = FakeTaskChangeBroadcaster()
+        let viewModel = QuickAddTaskViewModel(
+            taskRepository: FakeTaskRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: FakeToastPresenter(),
+            taskChangeBroadcaster: broadcaster,
+        )
+        viewModel.title = "Buy milk"
+        viewModel.selectedProjectID = 7
+
+        _ = await viewModel.save()
+
+        #expect(broadcaster.lastCreatedTask?.projectID == 7)
+    }
+
+    @Test
     func `save does nothing when the form is incomplete`() async {
         let taskRepository = FakeTaskRepository()
         let viewModel = QuickAddTaskViewModel(

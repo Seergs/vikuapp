@@ -45,6 +45,10 @@ final class AppContainer {
     /// Tracks which project (if any) the visible screen represents, so the
     /// tab-bar quick-add sheet defaults to it — see `QuickAddContext`.
     let quickAddContext = QuickAddContext()
+    /// Broadcasts "a task was created" so a project-scoped screen can refresh
+    /// live when the quick-add sheet creates a task for it — see
+    /// `TaskChangeCenter`.
+    let taskChangeCenter = TaskChangeCenter()
     /// The app's single theme preference (light/dark/automatic), read
     /// directly by `RootView` to drive `.preferredColorScheme(_:)` and passed
     /// to `Settings` as `AppThemeStoring` so it can offer the picker.
@@ -215,6 +219,7 @@ final class AppContainer {
             hapticPresenter: hapticCenter,
             taskSortStore: taskSortStore,
             quickAddContext: quickAddContext,
+            taskChangeBroadcaster: taskChangeCenter,
         )
     }
 
@@ -279,6 +284,7 @@ final class AppContainer {
                 tokenProvider: tokenProvider,
             ),
             toastPresenter: toastCenter,
+            taskChangeBroadcaster: taskChangeCenter,
         )
     }
 
