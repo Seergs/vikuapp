@@ -127,6 +127,15 @@ final class FakeQuickAddContext: QuickAddContextTracking {
     }
 }
 
+@MainActor
+final class FakeTaskChangeBroadcaster: TaskChangeBroadcasting {
+    private(set) var lastCreatedTask: TaskCreatedEvent?
+
+    func taskCreated(projectID: Int) {
+        lastCreatedTask = TaskCreatedEvent(projectID: projectID)
+    }
+}
+
 final class FakeLabelRepository: LabelRepositoryProtocol, @unchecked Sendable {
     var labels: [Label] = []
     var addedLabelIDs: [(labelID: Int, taskID: Int)] = []

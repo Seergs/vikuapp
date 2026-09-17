@@ -40,6 +40,11 @@ public final class QuickAddTaskViewModel {
     private let taskRepository: TaskRepositoryProtocol
     private let projectRepository: ProjectRepositoryProtocol
     private let toastPresenter: ToastPresenting
+    /// Notified on a successful save so a project-scoped screen elsewhere
+    /// (e.g. that project's overview) can refresh live instead of waiting for
+    /// the next pull-to-refresh. Optional so tests and any caller that
+    /// doesn't care can skip it.
+    private let taskChangeBroadcaster: TaskChangeBroadcasting?
 
     /// - Parameters:
     ///   - preselectedProjectID: the project to start on when the sheet was
@@ -53,6 +58,7 @@ public final class QuickAddTaskViewModel {
         taskRepository: TaskRepositoryProtocol,
         projectRepository: ProjectRepositoryProtocol,
         toastPresenter: ToastPresenting,
+        taskChangeBroadcaster: TaskChangeBroadcasting? = nil,
     ) {
         self.preselectedProjectID = preselectedProjectID
         self.accountDefaultProjectID = accountDefaultProjectID
@@ -60,6 +66,7 @@ public final class QuickAddTaskViewModel {
         self.taskRepository = taskRepository
         self.projectRepository = projectRepository
         self.toastPresenter = toastPresenter
+        self.taskChangeBroadcaster = taskChangeBroadcaster
     }
 
     public func load() async {
@@ -106,6 +113,7 @@ public final class QuickAddTaskViewModel {
                 ),
             )
             toastPresenter.show("Task created", style: .success)
+            taskChangeBroadcaster?.taskCreated(projectID: selectedProjectID)
             return created
         } catch let error as VikunjaError {
             saveErrorMessage = error.displayMessage

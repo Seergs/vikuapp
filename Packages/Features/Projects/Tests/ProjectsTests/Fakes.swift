@@ -127,6 +127,15 @@ final class FakeQuickAddContext: QuickAddContextTracking {
 }
 
 @MainActor
+final class FakeTaskChangeBroadcaster: TaskChangeBroadcasting {
+    private(set) var lastCreatedTask: TaskCreatedEvent?
+
+    func taskCreated(projectID: Int) {
+        lastCreatedTask = TaskCreatedEvent(projectID: projectID)
+    }
+}
+
+@MainActor
 final class FakeTaskSortStore: TaskSortStore, @unchecked Sendable {
     private(set) var taskSort: TaskSort = .init(field: .dueDate, direction: .ascending)
 

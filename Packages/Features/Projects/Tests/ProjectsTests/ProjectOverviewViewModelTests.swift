@@ -44,6 +44,25 @@ struct ProjectOverviewViewModelTests {
     }
 
     @Test
+    func `last created task for this project reflects only A matching broadcast`() {
+        let broadcaster = FakeTaskChangeBroadcaster()
+        let viewModel = ProjectOverviewViewModel(
+            project: Project(id: 7, title: "Work"),
+            repository: FakeTaskRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
+            taskChangeBroadcaster: broadcaster,
+        )
+
+        broadcaster.taskCreated(projectID: 99)
+        #expect(viewModel.lastCreatedTaskForThisProject == nil)
+
+        broadcaster.taskCreated(projectID: 7)
+        #expect(viewModel.lastCreatedTaskForThisProject?.projectID == 7)
+    }
+
+    @Test
     func `load fetches the projects tasks`() async {
         let repository = FakeTaskRepository()
         repository.tasks = [
