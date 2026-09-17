@@ -53,17 +53,44 @@ public extension ScreenLoadState where Value == Void {
 }
 
 extension ScreenLoadState: Equatable {
-    /// Phase equality: two `.loaded` values are equal regardless of payload
-    /// (content-in-view-model screens only ever ask "are we in the loaded
-    /// phase?", and Search never compares). `.failure` compares its message.
+    /// For content-in-view-model screens (`Value == Void`) this is phase
+    /// equality: two `.loaded` values are equal regardless of payload, since
+    /// those screens only ever ask "are we in the loaded phase?". For a
+    /// screen that keeps its loaded content inside the state itself (Search,
+    /// `Value == [VikunjaTask]`), the payload is compared too when `Value`
+    /// happens to be `Equatable` (checked dynamically since this conformance
+    /// can't be conditional on that — see below).
+    ///
+    /// The payload comparison matters because `@Observable`'s generated
+    /// setter skips its change notification when the old and new values
+    /// compare equal. A phase-only equality would make a view never re-render
+    /// when a second search lands new results while the state stays
+    /// `.loaded` — exactly Search's debounced-search-as-you-type case.
+    ///
+    /// Swift doesn't allow two conditional `Equatable` conformances for the
+    /// same type (`where Value == Void` and `where Value: Equatable` would
+    /// conflict even though the constraints are mutually exclusive), so this
+    /// single conformance dynamically checks for `Equatable` instead.
     public static func == (lhs: Self, rhs: Self) -> Bool {
         switch (lhs, rhs) {
-        case (.idle, .idle), (.loading, .loading), (.loaded, .loaded):
+        case (.idle, .idle), (.loading, .loading):
             true
+        case let (.loaded(lhsValue), .loaded(rhsValue)):
+            areEqual(lhsValue, rhsValue)
         case let (.failure(lhsMessage), .failure(rhsMessage)):
             lhsMessage == rhsMessage
         default:
             false
         }
     }
+}
+
+/// `true` when neither value is `Equatable` (phase-only equality, matching
+/// `Value == Void` screens) or when both are and compare equal.
+private func areEqual(_ lhs: some Any, _ rhs: some Any) -> Bool {
+    guard let lhsEquatable = lhs as? any Equatable else { return true }
+    func open<T: Equatable>(_ lhsValue: T) -> Bool {
+        (rhs as? T).map { lhsValue == $0 } ?? false
+    }
+    return open(lhsEquatable)
 }

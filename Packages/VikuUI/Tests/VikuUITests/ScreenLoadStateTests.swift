@@ -32,7 +32,18 @@ struct ScreenLoadStateTests {
     }
 
     @Test
-    func `loaded payloads compare equal regardless of value`() {
-        #expect(ScreenLoadState<[Int]>.loaded([1]) == .loaded([2]))
+    func `loaded payloads compare equal only when the value type is not Equatable`() {
+        // Void isn't Equatable, so content-in-view-model screens still get
+        // phase-only equality.
+        #expect(ScreenLoadState<Void>.loaded == .loaded)
+    }
+
+    @Test
+    func `loaded payloads compare by value when the value type is Equatable`() {
+        // Search keeps its results inside the state itself, so a landed
+        // search with different results must NOT compare equal to the
+        // previous one — @Observable relies on this to notify the view.
+        #expect(ScreenLoadState<[Int]>.loaded([1]) != .loaded([2]))
+        #expect(ScreenLoadState<[Int]>.loaded([1]) == .loaded([1]))
     }
 }
