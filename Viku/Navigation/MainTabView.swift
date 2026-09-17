@@ -104,6 +104,8 @@ struct MainTabView: View {
                 SettingsRootView(
                     account: account,
                     themeStore: container.themeCenter,
+                    isDevBuild: BuildConfig.isDevBuild,
+                    devBadgeStore: container.devToolsCenter,
                     makeConnectionsListViewModel: {
                         container.makeConnectionsListViewModel(onActiveAccountChanged: onAccountsChanged)
                     },
@@ -137,7 +139,7 @@ struct MainTabView: View {
             container.hapticCenter.play(.selection)
         }
         .overlay(alignment: .topTrailing) {
-            if BuildConfig.isDevBuild {
+            if BuildConfig.isDevBuild, container.devToolsCenter.isDevBadgeVisible {
                 Text("DEV")
                     .font(.caption2)
                     .fontWeight(.semibold)

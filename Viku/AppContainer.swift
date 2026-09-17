@@ -80,6 +80,12 @@ final class AppContainer {
     /// overview view models.
     let taskSortStore: TaskSortStore = TaskSortCenter()
 
+    /// Session-only dev-tools state (currently just whether the "DEV" badge
+    /// overlay is shown) — see `DevToolsCenter`. Passed to `Settings` as
+    /// `DevBadgeVisibilityStoring`, the same way `themeCenter` is passed as
+    /// `AppThemeStoring`.
+    let devToolsCenter = DevToolsCenter()
+
     init(
         accountStore: AccountStoreProtocol = KeychainAccountStore(
             service: VikuWidgetConfig.accountStoreService,

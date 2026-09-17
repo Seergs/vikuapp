@@ -8,6 +8,8 @@ import VikunjaCore
 struct SettingsView: View {
     let activeAccountName: String
     let themeStore: AppThemeStoring
+    let isDevBuild: Bool
+    let devBadgeStore: DevBadgeVisibilityStoring
     let router: Router<SettingsRoute>
 
     var body: some View {
@@ -50,6 +52,21 @@ struct SettingsView: View {
                     router.push(.about)
                 }
             }
+
+            // Dev-only tools, never shown in a release build — see
+            // `BuildConfig.isDevBuild`.
+            if isDevBuild {
+                Section {
+                    Toggle(isOn: devBadgeBinding) {
+                        HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
+                            SettingsRowIcon(systemName: "ladybug")
+                            Text("Show DEV Badge")
+                        }
+                    }
+                } header: {
+                    Text("Developer")
+                }
+            }
         }
         .settingsListStyle()
         .navigationTitle("Settings")
@@ -57,6 +74,10 @@ struct SettingsView: View {
 
     private var themeBinding: Binding<AppTheme> {
         Binding(get: { themeStore.theme }, set: { themeStore.setTheme($0) })
+    }
+
+    private var devBadgeBinding: Binding<Bool> {
+        Binding(get: { devBadgeStore.isDevBadgeVisible }, set: { devBadgeStore.setDevBadgeVisible($0) })
     }
 }
 
