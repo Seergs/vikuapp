@@ -114,15 +114,21 @@ final class AppContainer {
     /// un-provisioned build): they render these caches when they can't
     /// authenticate themselves. Call on launch and whenever the app backgrounds.
     func refreshWidgetSnapshots() async {
+        let sessionRefresher = sessionRefresher
+        let resolver: @Sendable (InstanceAccount) async -> String? = {
+            await sessionRefresher.validToken(for: $0)
+        }
         let todayLoader = TodaySnapshotLoader(
             accountStore: accountStore,
             clientFactory: clientFactory,
             cache: TodaySnapshotCache(appGroupIdentifier: VikuWidgetConfig.appGroupIdentifier),
+            tokenResolver: resolver,
         )
         let calendarLoader = CalendarSnapshotLoader(
             accountStore: accountStore,
             clientFactory: clientFactory,
             cache: CalendarSnapshotCache(appGroupIdentifier: VikuWidgetConfig.appGroupIdentifier),
+            tokenResolver: resolver,
         )
         _ = await todayLoader.loadState()
         _ = await calendarLoader.loadState()
