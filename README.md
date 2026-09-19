@@ -38,6 +38,7 @@ the web, where they belong.
 ### Installation
 
 The app is currently in Beta and can be installed via Testflight:
+
 [Join the beta →](https://testflight.apple.com/join/aby3Bh4d)
 
 ### Setup
