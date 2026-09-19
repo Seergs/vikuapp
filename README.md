@@ -118,8 +118,19 @@ works fine from a browser.
 
 ## Required Permissions
 
-This app requires an API Token with the following permissions to work:
+If you connect using an API Token instead of username/password or OIDC, make
+sure it has at least the following permissions:
 
+| Group | Permissions |
+|---|---|
+| `projects` | create, read all, read one, update, delete, tasks by index |
+| `tasks` | create, read one, read all, update, delete |
+| `tasks comments` | create, read all, update, delete |
+| `tasks attachments` | create, read all, read one, delete |
+| `tasks labels` | create, delete |
+| `tasks relations` | create, delete |
+| `labels` | create, read all, update, delete |
+| `other` | user |
 
 ## Philosophy & Scope
 
