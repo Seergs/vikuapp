@@ -19,6 +19,20 @@ fast, native view of what matters today, and a frictionless way to capture a
 task before you forget it. Planning, reorganizing, and deep project work stay on
 the web, where they belong.
 
+## Screenshots
+
+| Today | Projects | Task |
+|---|---|---|
+| ![Today](docs/screenshots/today.jpg) | ![Projects](docs/screenshots/projects.jpg) | ![Task](docs/screenshots/task.jpg) |
+
+| Project selector | New task | Calendar |
+|---|---|---|
+| ![Project selector](docs/screenshots/project-selector.jpg) | ![New task](docs/screenshots/new-task.jpg) | ![Calendar](docs/screenshots/calendar.jpg) |
+
+| Today widgets | Calendar widget |
+|---|---|
+| ![Today widgets](docs/screenshots/widgets-1.jpg) | ![Calendar widget](docs/screenshots/widgets-2.jpg) |
+
 ## How to Use
 
 ### Installation
