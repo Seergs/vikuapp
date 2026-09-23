@@ -530,16 +530,31 @@ struct URLSessionAPIClientTests {
     }
 
     @Test
-    func `update comment v2 PU ts to the comment endpoint`() async throws {
-        let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: Self.commentBody)
+    func `update comment v2 PU ts then re fetches since the write response is unreliable`() async throws {
+        // Simulates v2's real behavior on a live instance (tasks.sergiosuarez.dev):
+        // the PUT response comes back with `author: null` and a zero-value
+        // `created`, which would fail to decode as `CommentDTO` — the GET
+        // response that follows carries the real, trustworthy data.
+        let putResponse = #"""
+        {"id": 1, "comment": "Looks good", "author": null,
+         "created": "0001-01-01T00:00:00Z", "updated": "2026-09-23T18:43:51.011244355Z"}
+        """#
+        let (session, capture) = MockURLProtocol.makeSession(responses: [
+            (200, putResponse),
+            (200, Self.commentBody),
+        ])
         let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
         let repository = VikunjaTaskCommentRepositoryV2(client: client)
 
-        _ = try await repository.updateComment(1, text: "Looks good", onTask: 1)
+        let updated = try await repository.updateComment(1, text: "Looks good", onTask: 1)
 
-        let request = try #require(await capture.lastRequest)
-        #expect(request.httpMethod == "PUT")
-        #expect(request.url?.path == "/api/v2/tasks/1/comments/1")
+        #expect(updated.author.username == "alex")
+        let requests = await capture.requests
+        #expect(requests.count == 2)
+        #expect(requests[0].httpMethod == "PUT")
+        #expect(requests[0].url?.path == "/api/v2/tasks/1/comments/1")
+        #expect(requests[1].httpMethod == "GET")
+        #expect(requests[1].url?.path == "/api/v2/tasks/1/comments/1")
     }
 
     @Test

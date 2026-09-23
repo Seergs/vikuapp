@@ -25,9 +25,20 @@ public final class VikunjaTaskCommentRepositoryV2: TaskCommentRepositoryProtocol
         return CommentMapper.toDomain(dto)
     }
 
+    /// v2's `PUT .../comments/{id}` response is unreliable: on a real
+    /// instance it comes back with `author: null` and a zero-value
+    /// `created` (`0001-01-01T00:00:00Z`) — verified against
+    /// `tasks.sergiosuarez.dev`, and `author` being non-optional on
+    /// `CommentDTO` turns that `null` into a decode failure even though the
+    /// update itself succeeded server-side. v2's `GET` of the same comment
+    /// doesn't have this problem, so this sends the update, ignores its
+    /// body, and re-fetches to get a trustworthy result — same spirit as
+    /// `TaskMapper.merge`'s "don't trust an incomplete write response"
+    /// workaround, minus the merge since a plain re-fetch is enough here.
     public func updateComment(_ commentID: Int, text: String, onTask taskID: Int) async throws -> TaskComment {
         let endpoint = try VikunjaEndpoints.updateCommentV2(taskID: taskID, commentID: commentID, text: text)
-        let dto: CommentDTO = try await client.send(endpoint)
+        try await client.send(endpoint)
+        let dto: CommentDTO = try await client.send(VikunjaEndpoints.commentV2(taskID: taskID, commentID: commentID))
         return CommentMapper.toDomain(dto)
     }
 

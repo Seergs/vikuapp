@@ -29,6 +29,10 @@ extension VikunjaEndpoints {
         Endpoint(path: "/api/v2/tasks/\(taskID)/comments")
     }
 
+    static func commentV2(taskID: Int, commentID: Int) -> Endpoint {
+        Endpoint(path: "/api/v2/tasks/\(taskID)/comments/\(commentID)")
+    }
+
     static func createCommentV2(taskID: Int, text: String) throws -> Endpoint {
         try .encoding(
             path: "/api/v2/tasks/\(taskID)/comments",
