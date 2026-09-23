@@ -104,10 +104,23 @@ public actor URLSessionAPIClient: APIClient {
         case 412:
             throw VikunjaError.totpRequired
         default:
-            let message = String(data: data, encoding: .utf8) ?? "Unknown error"
+            let message = Self.errorMessage(data, response: httpResponse)
             Self.logFailedResponse(data, statusCode: httpResponse.statusCode, endpoint: endpoint)
             throw VikunjaError.server(message: message, statusCode: httpResponse.statusCode)
         }
+    }
+
+    /// Builds `VikunjaError.server`'s `message` from a failed response body —
+    /// v2's RFC 9457 `application/problem+json` errors get parsed into a
+    /// readable `title: detail (code)` line; everything else (v1's ad hoc
+    /// error bodies included) falls back to the raw body text.
+    private static func errorMessage(_ data: Data, response: HTTPURLResponse) -> String {
+        let isProblemJSON = response.value(forHTTPHeaderField: "Content-Type")?
+            .contains("application/problem+json") == true
+        if isProblemJSON, let message = ProblemDetailDTO.message(from: data) {
+            return message
+        }
+        return String(data: data, encoding: .utf8) ?? "Unknown error"
     }
 
     /// Logs a failed request for diagnostics (filter Console.app by subsystem

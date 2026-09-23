@@ -28,6 +28,50 @@ struct URLSessionAPIClientTests {
     }
 
     @Test
+    func `maps A v2 problem plus json error to A readable server message`() async throws {
+        let body = #"""
+        {"title":"Validation failed","status":422,"detail":"Title cannot be empty","code":"invalid_field"}
+        """#
+        let (session, _) = MockURLProtocol.makeSession(
+            statusCode: 422,
+            body: body,
+            headers: ["Content-Type": "application/problem+json"],
+        )
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+
+        await #expect(throws: VikunjaError.server(
+            message: "Validation failed: Title cannot be empty (invalid_field)",
+            statusCode: 422,
+        )) {
+            let _: ServerInfoDTO = try await client.send(VikunjaEndpoints.info())
+        }
+    }
+
+    @Test
+    func `falls back to raw body text when the content type is not problem plus json`() async throws {
+        let (session, _) = MockURLProtocol.makeSession(statusCode: 500, body: "internal server error")
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+
+        await #expect(throws: VikunjaError.server(message: "internal server error", statusCode: 500)) {
+            let _: ServerInfoDTO = try await client.send(VikunjaEndpoints.info())
+        }
+    }
+
+    @Test
+    func `falls back to raw body text when A problem plus json body fails to decode`() async throws {
+        let (session, _) = MockURLProtocol.makeSession(
+            statusCode: 500,
+            body: "not json",
+            headers: ["Content-Type": "application/problem+json"],
+        )
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+
+        await #expect(throws: VikunjaError.server(message: "not json", statusCode: 500)) {
+            let _: ServerInfoDTO = try await client.send(VikunjaEndpoints.info())
+        }
+    }
+
+    @Test
     func `attaches bearer token from provider`() async throws {
         let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: #"{"version":"0.24.6"}"#)
         let client = try URLSessionAPIClient(
