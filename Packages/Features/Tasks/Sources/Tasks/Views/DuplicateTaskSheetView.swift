@@ -10,7 +10,7 @@ import VikunjaCore
 /// Confirming creates the duplicate, hands it back through `onDuplicated`
 /// (the host pushes its detail screen), and dismisses.
 public struct DuplicateTaskSheetView: View {
-    @Bindable var viewModel: DuplicateTaskViewModel
+    @State private var viewModel: DuplicateTaskViewModel
     /// Called with the created task and its project right before the sheet
     /// dismisses, so the presenting screen can navigate to it. Optional — a
     /// caller that just wants the copy made can leave it off.
@@ -35,11 +35,21 @@ public struct DuplicateTaskSheetView: View {
         return height
     }
 
+    /// Takes a factory rather than an already-built view model: this sheet is
+    /// presented from `TaskDetailView`'s `.sheet(isPresented:)`, whose content
+    /// closure SwiftUI can re-invoke independently of this view's own
+    /// identity (see `ConnectionsListView`'s `init` doc comment in Settings
+    /// for the full mechanism — the same one that silently reset
+    /// `TaskDetailView` itself before `AppDestinations.swift` got this
+    /// treatment). Building the view model inside `@State`'s `init` means
+    /// SwiftUI only uses `makeViewModel()`'s result the first time this
+    /// sheet's identity is created, keeping that instance (and whatever the
+    /// user has typed) across any later re-invocation.
     public init(
-        viewModel: DuplicateTaskViewModel,
+        makeViewModel: @escaping () -> DuplicateTaskViewModel,
         onDuplicated: ((VikunjaTask, Project) -> Void)? = nil,
     ) {
-        self.viewModel = viewModel
+        _viewModel = State(initialValue: makeViewModel())
         self.onDuplicated = onDuplicated
     }
 

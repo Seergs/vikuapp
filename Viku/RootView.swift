@@ -37,7 +37,7 @@ struct RootView: View {
             } else if hasCheckedForSavedAccount {
                 NavigationStack {
                     InstanceSetupView(
-                        viewModel: container.makeInstanceSetupViewModel(),
+                        makeViewModel: container.makeInstanceSetupViewModel,
                         onConnectionSaved: { account in
                             connectedAccount = account
                             Task { await container.refreshDefaultProject(account: account) }

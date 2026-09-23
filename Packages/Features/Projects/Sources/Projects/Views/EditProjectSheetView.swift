@@ -6,7 +6,7 @@ import VikunjaCore
 /// `CreateProjectSheetView` (`NavigationStack` + inline title + toolbar
 /// `Cancel`/`Save`, single content-sized detent).
 public struct EditProjectSheetView: View {
-    @Bindable var viewModel: EditProjectViewModel
+    @State private var viewModel: EditProjectViewModel
     @Environment(\.dismiss) private var dismiss
     @FocusState private var isTitleFocused: Bool
     @State private var isShowingParentPicker = false
@@ -15,8 +15,16 @@ public struct EditProjectSheetView: View {
         viewModel.saveErrorMessage != nil ? Self.expandedHeight : Self.compactHeight
     }
 
-    public init(viewModel: EditProjectViewModel) {
-        self.viewModel = viewModel
+    /// Takes a factory rather than an already-built view model: this sheet is
+    /// presented from three different `.sheet(item:)` call sites
+    /// (`ProjectsRootView`, `ProjectOverviewRootView`, `ProjectsView`), each
+    /// of whose content closures SwiftUI can re-invoke independently of this
+    /// view's own identity (see `ConnectionsListView`'s `init` doc comment in
+    /// Settings for the full mechanism). Building the view model inside
+    /// `@State`'s `init` means SwiftUI only uses `makeViewModel()`'s result
+    /// the first time this sheet's identity is created.
+    public init(makeViewModel: @escaping () -> EditProjectViewModel) {
+        _viewModel = State(initialValue: makeViewModel())
     }
 
     public var body: some View {

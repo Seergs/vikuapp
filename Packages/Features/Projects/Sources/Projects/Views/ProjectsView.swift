@@ -41,12 +41,12 @@ struct ProjectsView: View {
             .sheet(isPresented: $isShowingCreateProject, onDismiss: {
                 Task { await viewModel.load() }
             }, content: {
-                CreateProjectSheetView(viewModel: makeCreateProjectViewModel())
+                CreateProjectSheetView(makeViewModel: makeCreateProjectViewModel)
             })
             .sheet(item: $editingProject, onDismiss: {
                 Task { await viewModel.load() }
             }, content: { project in
-                EditProjectSheetView(viewModel: makeEditProjectViewModel(project))
+                EditProjectSheetView(makeViewModel: { makeEditProjectViewModel(project) })
             })
             .confirmationDialog(
                 deleteConfirmationMessage,

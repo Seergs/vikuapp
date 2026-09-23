@@ -150,10 +150,13 @@ public struct TaskDetailView: View {
             .task { await viewModel.loadAllProjects() }
         }
         .sheet(isPresented: $isShowingDuplicateSheet) {
-            DuplicateTaskSheetView(viewModel: viewModel.makeDuplicateTaskViewModel()) { task, project in
-                // Reuses the same push path a tapped relation row takes.
-                router.push(.taskDetail(task, project))
-            }
+            DuplicateTaskSheetView(
+                makeViewModel: { viewModel.makeDuplicateTaskViewModel() },
+                onDuplicated: { task, project in
+                    // Reuses the same push path a tapped relation row takes.
+                    router.push(.taskDetail(task, project))
+                },
+            )
         }
         .confirmationDialog(
             "This permanently deletes the task.",
