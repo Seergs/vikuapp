@@ -95,6 +95,62 @@ struct TaskDetailViewModelTests {
     }
 
     @Test
+    func `a slower in-flight load does not clobber A priority edit issued after it`() async {
+        // Reproduces the reported bug: the screen's own initial `load()` is
+        // still in flight (slow network) when the user edits priority. The
+        // edit's own request finishes first and should win — `load()`'s
+        // later, stale response must not revert it.
+        let repository = FakeTaskRepository()
+        repository.tasks = [VikunjaTask(id: 1, title: "Write report", priority: .unset, projectID: 1)]
+        repository.fetchTaskDelay = .milliseconds(100)
+        let viewModel = TaskDetailViewModel(
+            task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
+            project: Project(id: 1, title: "Work"),
+            repository: repository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            commentRepository: FakeTaskCommentRepository(),
+            attachmentRepository: FakeTaskAttachmentRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: FakeToastPresenter(),
+        )
+
+        let loadTask = Task { await viewModel.load() }
+        try? await Task.sleep(for: .milliseconds(10))
+        await viewModel.setPriority(.urgent)
+        await loadTask.value
+
+        #expect(viewModel.task.priority == .urgent)
+    }
+
+    @Test
+    func `a slower in-flight load does not clobber A label toggle issued after it`() async {
+        let repository = FakeTaskRepository()
+        repository.tasks = [VikunjaTask(id: 1, title: "Write report", projectID: 1)]
+        repository.fetchTaskDelay = .milliseconds(100)
+        let labelRepository = FakeLabelRepository()
+        let label = Label(id: 1, title: "Design", hexColor: "8B5CF6")
+        let viewModel = TaskDetailViewModel(
+            task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
+            project: Project(id: 1, title: "Work"),
+            repository: repository,
+            labelRepository: labelRepository,
+            relationRepository: FakeTaskRelationRepository(),
+            commentRepository: FakeTaskCommentRepository(),
+            attachmentRepository: FakeTaskAttachmentRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: FakeToastPresenter(),
+        )
+
+        let loadTask = Task { await viewModel.load() }
+        try? await Task.sleep(for: .milliseconds(10))
+        await viewModel.toggleLabel(label)
+        await loadTask.value
+
+        #expect(viewModel.task.labels == [label])
+    }
+
+    @Test
     func `toggle done persists the flipped state through the repository`() async {
         let repository = FakeTaskRepository()
         let viewModel = TaskDetailViewModel(
@@ -1087,6 +1143,34 @@ struct TaskDetailViewModelTests {
 
         #expect(viewModel.attachments.map(\.id) == [1])
         #expect(toastPresenter.shownMessages.contains { $0.style == .error })
+    }
+
+    @Test
+    func `a slower in-flight load comments does not erase A comment posted after it`() async {
+        // Reproduces the reported bug: comments occasionally don't show up
+        // until the task is reopened. The screen's own initial
+        // `loadComments()` is still in flight when the user posts a
+        // comment; the post finishes first and should win.
+        let commentRepository = FakeTaskCommentRepository()
+        commentRepository.fetchCommentsDelay = .milliseconds(100)
+        let viewModel = TaskDetailViewModel(
+            task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
+            project: Project(id: 1, title: "Work"),
+            repository: FakeTaskRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            commentRepository: commentRepository,
+            attachmentRepository: FakeTaskAttachmentRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: FakeToastPresenter(),
+        )
+
+        let loadTask = Task { await viewModel.loadComments() }
+        try? await Task.sleep(for: .milliseconds(10))
+        await viewModel.addComment("Sounds good")
+        await loadTask.value
+
+        #expect(viewModel.comments.map(\.comment) == ["Sounds good"])
     }
 
     @Test
