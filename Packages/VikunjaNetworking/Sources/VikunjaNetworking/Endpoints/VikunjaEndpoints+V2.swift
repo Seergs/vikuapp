@@ -52,4 +52,32 @@ extension VikunjaEndpoints {
     static func deleteCommentV2(taskID: Int, commentID: Int) -> Endpoint {
         Endpoint(path: "/api/v2/tasks/\(taskID)/comments/\(commentID)", method: .delete)
     }
+
+    static func labelsV2() -> Endpoint {
+        Endpoint(path: "/api/v2/labels")
+    }
+
+    static func createLabelV2(dto: LabelDTO) throws -> Endpoint {
+        try .encoding(path: "/api/v2/labels", method: .post, body: dto)
+    }
+
+    static func updateLabelV2(id: Int, dto: LabelDTO) throws -> Endpoint {
+        try .encoding(path: "/api/v2/labels/\(id)", method: .put, body: dto)
+    }
+
+    static func deleteLabelV2(id: Int) -> Endpoint {
+        Endpoint(path: "/api/v2/labels/\(id)", method: .delete)
+    }
+
+    static func addLabelToTaskV2(taskID: Int, labelID: Int) throws -> Endpoint {
+        try .encoding(
+            path: "/api/v2/tasks/\(taskID)/labels",
+            method: .post,
+            body: TaskLabelDTO(labelId: labelID),
+        )
+    }
+
+    static func removeLabelFromTaskV2(taskID: Int, labelID: Int) -> Endpoint {
+        Endpoint(path: "/api/v2/tasks/\(taskID)/labels/\(labelID)", method: .delete)
+    }
 }
