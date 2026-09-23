@@ -1333,6 +1333,57 @@ struct URLSessionAPIClientTests {
         #expect(credential.refreshToken == "refresh-abc")
     }
 
+    // `VikunjaAuthServiceV2` and the v1/v2 parity for `AuthServiceProtocol`
+    // are tested here for the same reason as `VikunjaLabelRepository` above.
+
+    @Test
+    func `login v2 PO STs to the v2 login endpoint`() async throws {
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: #"{"token":"v2-jwt"}"#)
+        let baseURL = try #require(URL(string: "https://vikunja.example.com"))
+        let apiClient = URLSessionAPIClient(baseURL: baseURL, session: session)
+        let service = VikunjaAuthServiceV2(client: apiClient, baseURL: baseURL)
+
+        let authSession = try await service.login(LoginCredentials(username: "sergio", password: "hunter2"))
+
+        let credential = try JSONDecoder().decode(PasswordSessionCredential.self, from: Data(authSession.token.utf8))
+        #expect(credential.accessToken == "v2-jwt")
+        let request = try #require(await capture.lastRequest)
+        #expect(request.url?.path == "/api/v2/login")
+    }
+
+    @Test
+    func `login with oidc v2 PO STs to the v2 callback endpoint`() async throws {
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: #"{"token":"oidc-jwt"}"#)
+        let baseURL = try #require(URL(string: "https://vikunja.example.com"))
+        let apiClient = URLSessionAPIClient(baseURL: baseURL, session: session)
+        let service = VikunjaAuthServiceV2(client: apiClient, baseURL: baseURL)
+        let redirectURI = try #require(URL(string: "viku://oidc-callback"))
+
+        _ = try await service.loginWithOIDC(provider: Self.oidcProvider, code: "auth-code", redirectURI: redirectURI)
+
+        let request = try #require(await capture.lastRequest)
+        #expect(request.url?.path == "/api/v2/auth/openid/authentik/callback")
+    }
+
+    @Test
+    func `login returns the same domain result across v1 AND v2`() async throws {
+        for path in ["/api/v1/login", "/api/v2/login"] {
+            let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: #"{"token":"jwt"}"#)
+            let baseURL = try #require(URL(string: "https://vikunja.example.com"))
+            let apiClient = URLSessionAPIClient(baseURL: baseURL, session: session)
+            let service: AuthServiceProtocol = path.contains("v1")
+                ? VikunjaAuthService(client: apiClient, baseURL: baseURL)
+                : VikunjaAuthServiceV2(client: apiClient, baseURL: baseURL)
+
+            let authSession = try await service.login(LoginCredentials(username: "sergio", password: "hunter2"))
+
+            let credentialData = Data(authSession.token.utf8)
+            let credential = try JSONDecoder().decode(PasswordSessionCredential.self, from: credentialData)
+            #expect(credential.accessToken == "jwt")
+            #expect(await capture.lastRequest?.url?.path == path)
+        }
+    }
+
     @Test
     func `password refresher passes an api token account through with no refresh attempt`() async throws {
         let account = try PasswordRefresherFixtures.makeAccount(authMethod: .apiToken)
@@ -1420,6 +1471,28 @@ struct URLSessionAPIClientTests {
         let decoded = try PasswordRefresherFixtures.decode(updated)
         #expect(decoded.accessToken == "rotated-jwt")
         #expect(decoded.refreshToken == "rotated-refresh")
+    }
+
+    @Test
+    func `password refresher renews via v2 when the server supports apiV2`() async throws {
+        let (session, capture) = MockURLProtocol.makeSession(responses: [
+            (200, #"{"version":"2.4.0"}"#),
+            (200, #"{"token":"rotated-jwt"}"#),
+        ])
+        let expiringJWT = PasswordRefresherFixtures.makeJWT(exp: Date().addingTimeInterval(10).timeIntervalSince1970)
+        let account = try PasswordRefresherFixtures.makeAccount(authMethod: .password)
+        let credential = try PasswordRefresherFixtures.encode(accessToken: expiringJWT, refreshToken: "old-refresh")
+        let store = PasswordRefresherFixtures.FakeAccountStore(tokens: [account.id: credential])
+        let refresher = PasswordSessionRefresher(accountStore: store, session: session)
+
+        let token = await refresher.validToken(for: account)
+
+        #expect(token == "rotated-jwt")
+        let requests = await capture.requests
+        #expect(requests.count == 2)
+        #expect(requests[0].url?.path == "/api/v1/info")
+        #expect(requests[1].url?.path == "/api/v2/user/token/refresh")
+        #expect(requests[1].value(forHTTPHeaderField: "Cookie") == "vikunja_refresh_token=old-refresh")
     }
 
     @Test

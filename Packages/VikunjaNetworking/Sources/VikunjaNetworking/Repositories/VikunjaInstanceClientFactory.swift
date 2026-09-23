@@ -13,7 +13,12 @@ public struct VikunjaInstanceClientFactory: InstanceClientFactoryProtocol {
     }
 
     public func makeAuthService(baseURL: URL) -> AuthServiceProtocol {
-        VikunjaAuthService(client: URLSessionAPIClient(baseURL: baseURL), baseURL: baseURL)
+        let client = URLSessionAPIClient(baseURL: baseURL)
+        return VikunjaAuthServiceSwitch(
+            v1: VikunjaAuthService(client: client, baseURL: baseURL),
+            v2: VikunjaAuthServiceV2(client: client, baseURL: baseURL),
+            capabilityProvider: VikunjaCapabilityProvider(client: client),
+        )
     }
 
     public func makeProjectRepository(

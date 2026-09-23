@@ -141,4 +141,45 @@ extension VikunjaEndpoints {
     static func deleteTaskAttachmentV2(taskID: Int, attachmentID: Int) -> Endpoint {
         Endpoint(path: "/api/v2/tasks/\(taskID)/attachments/\(attachmentID)", method: .delete)
     }
+
+    /// Verified against a real instance with local auth enabled
+    /// (`vikunjademo.sergiosuarez.dev/api/v2/openapi.json` — the instance
+    /// used for every other v2 verification in this migration has local
+    /// auth disabled, so its spec omits this path entirely; Vikunja's
+    /// OpenAPI spec is generated per-instance from its enabled features).
+    /// Same request/response shape as v1's `/api/v1/login`.
+    static func loginV2(_ credentials: LoginCredentials) throws -> Endpoint {
+        try .encoding(
+            path: "/api/v2/login",
+            method: .post,
+            body: LoginRequestDTO(
+                username: credentials.username,
+                password: credentials.password,
+                totpPasscode: credentials.totpPasscode,
+                longToken: credentials.longToken,
+            ),
+        )
+    }
+
+    /// Same request/response shape as v1's OIDC callback, plus a new
+    /// optional `totp_passcode` (2FA on an OIDC account) this app doesn't
+    /// send yet — not a behavior change from v1, just an unused v2 addition.
+    static func oidcCallbackV2(providerKey: String, code: String, scope: String, redirectURL: URL) throws -> Endpoint {
+        try .encoding(
+            path: "/api/v2/auth/openid/\(providerKey)/callback",
+            method: .post,
+            body: OIDCCallbackRequestDTO(code: code, scope: scope, redirectURL: redirectURL.absoluteString),
+        )
+    }
+
+    /// Same request/response shape as v1's cookie-based refresh. Unlike
+    /// `userTokenRenew()` (`/user/token`), which v2 narrows to link-share
+    /// tokens only, this path keeps its v1 meaning in v2.
+    static func userTokenRefreshV2(refreshToken: String) -> Endpoint {
+        Endpoint(
+            path: "/api/v2/user/token/refresh",
+            method: .post,
+            additionalHeaders: ["Cookie": "vikunja_refresh_token=\(refreshToken)"],
+        )
+    }
 }
