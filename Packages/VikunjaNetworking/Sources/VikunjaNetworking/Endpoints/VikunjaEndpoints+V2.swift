@@ -93,4 +93,8 @@ extension VikunjaEndpoints {
     static func deleteTaskRelationV2(taskID: Int, kind: RelationKind, otherTaskID: Int) -> Endpoint {
         Endpoint(path: "/api/v2/tasks/\(taskID)/relations/\(kind.rawValue)/\(otherTaskID)", method: .delete)
     }
+
+    static func currentUserV2() -> Endpoint {
+        Endpoint(path: "/api/v2/user")
+    }
 }
