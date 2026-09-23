@@ -41,8 +41,11 @@ public struct VikunjaInstanceClientFactory: InstanceClientFactoryProtocol {
         baseURL: URL,
         tokenProvider: @escaping @Sendable () async -> String?,
     ) -> LabelRepositoryProtocol {
-        VikunjaLabelRepository(
-            client: URLSessionAPIClient(baseURL: baseURL, authTokenProvider: tokenProvider),
+        let client = URLSessionAPIClient(baseURL: baseURL, authTokenProvider: tokenProvider)
+        return VikunjaLabelRepositorySwitch(
+            v1: VikunjaLabelRepository(client: client),
+            v2: VikunjaLabelRepositoryV2(client: client),
+            capabilityProvider: VikunjaCapabilityProvider(client: client),
         )
     }
 

@@ -267,6 +267,122 @@ struct URLSessionAPIClientTests {
         #expect(request.url?.path == "/api/v1/tasks/1/labels/10")
     }
 
+    // `VikunjaLabelRepositoryV2` and the v1/v2 parity for
+    // `LabelRepositoryProtocol` are tested here for the same reason as
+    // `VikunjaLabelRepository` above.
+
+    @Test
+    func `fetch labels v2 unwraps the envelope`() async throws {
+        let body = #"""
+        {"items": [{"id":10,"title":"home","hex_color":"ff00ff"}],
+         "total": 1, "page": 1, "per_page": 50, "total_pages": 1}
+        """#
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: body)
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaLabelRepositoryV2(client: client)
+
+        let labels = try await repository.fetchLabels()
+
+        #expect(labels == [Label(id: 10, title: "home", hexColor: "ff00ff")])
+        let request = try #require(await capture.lastRequest)
+        #expect(request.url?.path == "/api/v2/labels")
+    }
+
+    @Test
+    func `create label v2 PO STs AND reads back the 201 response`() async throws {
+        let (session, capture) = MockURLProtocol.makeSession(
+            statusCode: 201,
+            body: #"{"id":11,"title":"work","hex_color":"00ff00"}"#,
+        )
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaLabelRepositoryV2(client: client)
+
+        let created = try await repository.create(Label(id: 0, title: "work", hexColor: "00ff00"))
+
+        #expect(created == Label(id: 11, title: "work", hexColor: "00ff00"))
+        let request = try #require(await capture.lastRequest)
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.path == "/api/v2/labels")
+    }
+
+    @Test
+    func `delete label v2 DELET es with an empty 204 response`() async throws {
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 204, body: "")
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaLabelRepositoryV2(client: client)
+
+        try await repository.delete(id: 11)
+
+        let request = try #require(await capture.lastRequest)
+        #expect(request.httpMethod == "DELETE")
+        #expect(request.url?.path == "/api/v2/labels/11")
+    }
+
+    @Test
+    func `add label v2 PO STs the label ID onto the tasks labels endpoint`() async throws {
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 201, body: "")
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaLabelRepositoryV2(client: client)
+
+        try await repository.addLabel(10, toTask: 1)
+
+        let request = try #require(await capture.lastRequest)
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.path == "/api/v2/tasks/1/labels")
+        let sentBody = try #require(request.httpBody)
+        let sentJSON = try #require(JSONSerialization.jsonObject(with: sentBody) as? [String: Any])
+        #expect(sentJSON["label_id"] as? Int == 10)
+    }
+
+    @Test
+    func `remove label v2 DELET es with an empty 204 response`() async throws {
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 204, body: "")
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaLabelRepositoryV2(client: client)
+
+        try await repository.removeLabel(10, fromTask: 1)
+
+        let request = try #require(await capture.lastRequest)
+        #expect(request.httpMethod == "DELETE")
+        #expect(request.url?.path == "/api/v2/tasks/1/labels/10")
+    }
+
+    @Test
+    func `create label returns the same domain result across v1 AND v2 despite different status codes`() async throws {
+        let cases = [
+            (200, "/api/v1/labels", "PUT"),
+            (201, "/api/v2/labels", "POST"),
+        ]
+        for (statusCode, path, method) in cases {
+            let body = #"{"id":11,"title":"work","hex_color":"00ff00"}"#
+            let (session, capture) = MockURLProtocol.makeSession(statusCode: statusCode, body: body)
+            let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+            let repository: LabelRepositoryProtocol = method == "PUT"
+                ? VikunjaLabelRepository(client: client)
+                : VikunjaLabelRepositoryV2(client: client)
+
+            let created = try await repository.create(Label(id: 0, title: "work", hexColor: "00ff00"))
+
+            #expect(created == Label(id: 11, title: "work", hexColor: "00ff00"))
+            let request = try #require(await capture.lastRequest)
+            #expect(request.httpMethod == method)
+            #expect(request.url?.path == path)
+        }
+    }
+
+    @Test
+    func `delete label succeeds across v1 AND v2 despite different response bodies`() async throws {
+        for (statusCode, path) in [(200, "/api/v1/labels/11"), (204, "/api/v2/labels/11")] {
+            let (session, _) = MockURLProtocol.makeSession(statusCode: statusCode, body: "")
+            let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+            let repository: LabelRepositoryProtocol = path.contains("v1")
+                ? VikunjaLabelRepository(client: client)
+                : VikunjaLabelRepositoryV2(client: client)
+
+            try await repository.delete(id: 11)
+        }
+    }
+
     // `VikunjaTaskRelationRepository` is tested here for the same reason as
     // `VikunjaLabelRepository` above.
 
