@@ -10,6 +10,10 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     var deleteError: VikunjaError?
     var searchError: VikunjaError?
     var searchResults: [VikunjaTask] = []
+    /// Artificial delay before `fetchTask(id:)` returns — lets tests simulate
+    /// a slower, earlier-issued `load()` that resolves after a faster edit
+    /// issued while it was still in flight.
+    var fetchTaskDelay: Duration?
     private var nextID = 1000
 
     func fetchTasks(projectID: Int) async throws -> [VikunjaTask] {
@@ -20,10 +24,22 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     }
 
     func fetchTask(id: Int) async throws -> VikunjaTask {
-        if let fetchError {
-            throw fetchError
+        // Snapshot before the delay, not after — mirrors a real slow request:
+        // the response body reflects server state as of when the server
+        // processed it, not whatever's changed by the time it reaches the
+        // client. Reading `tasks` after the sleep would let a same-second
+        // `update(_:)` from a concurrent edit "fix" this response, which
+        // isn't how the real race a delayed `fetchTask` is standing in for
+        // actually plays out.
+        let snapshotError = fetchError
+        let snapshotTask = tasks.first(where: { $0.id == id })
+        if let fetchTaskDelay {
+            try? await Task.sleep(for: fetchTaskDelay)
         }
-        guard let task = tasks.first(where: { $0.id == id }) else {
+        if let snapshotError {
+            throw snapshotError
+        }
+        guard let task = snapshotTask else {
             throw VikunjaError.notFound
         }
         return task
@@ -219,13 +235,25 @@ final class FakeTaskCommentRepository: TaskCommentRepositoryProtocol, @unchecked
     var addError: VikunjaError?
     var updateError: VikunjaError?
     var deleteError: VikunjaError?
+    /// Artificial delay before `fetchComments(taskID:)` returns — lets tests
+    /// simulate a slower, earlier-issued `loadComments()` that resolves after
+    /// a faster `addComment(_:)`/`deleteComment(_:)` issued while it was
+    /// still in flight.
+    var fetchCommentsDelay: Duration?
     private var nextID = 100
 
     func fetchComments(taskID _: Int) async throws -> [TaskComment] {
-        if let fetchError {
-            throw fetchError
+        // Snapshot before the delay — see `FakeTaskRepository.fetchTask`'s
+        // comment for why.
+        let snapshotError = fetchError
+        let snapshot = comments
+        if let fetchCommentsDelay {
+            try? await Task.sleep(for: fetchCommentsDelay)
         }
-        return comments
+        if let snapshotError {
+            throw snapshotError
+        }
+        return snapshot
     }
 
     func addComment(_ text: String, toTask _: Int) async throws -> TaskComment {

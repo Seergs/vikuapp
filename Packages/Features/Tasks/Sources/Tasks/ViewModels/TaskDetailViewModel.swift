@@ -57,6 +57,24 @@ public final class TaskDetailViewModel {
     private let quickAddContext: QuickAddContextTracking?
     private var cachedRelatedTaskIDs: Set<Int> = []
 
+    /// Bumped at the start of every operation that will eventually write
+    /// `task` back — `load()`, `persist(previous:)`, `toggleLabel(_:)`,
+    /// `addRelation`/`removeRelation`, and `move(to:)`. Each such operation
+    /// captures the token right after bumping it and only commits its result
+    /// if the token is still current by the time its request comes back.
+    /// Without this, a slower, earlier-issued request (e.g. the screen's own
+    /// initial `load()`, or a pull-to-refresh) can resolve after a faster,
+    /// later one (a due-date/priority/label edit) and silently overwrite it
+    /// with stale data — the edit looks like it didn't stick until the
+    /// screen is reopened, even though the server already has it.
+    private var taskWriteToken = 0
+    /// Same guard as `taskWriteToken`, scoped to `comments`/`commentsLoadState`
+    /// so a stale `loadComments()` can't erase a comment just posted, edited,
+    /// or deleted while it was still in flight.
+    private var commentsWriteToken = 0
+    /// Same guard as `taskWriteToken`, scoped to `attachments`/`attachmentsLoadState`.
+    private var attachmentsWriteToken = 0
+
     public init(
         task: VikunjaTask,
         project: Project,
@@ -96,16 +114,22 @@ public final class TaskDetailViewModel {
     }
 
     public func load() async {
+        taskWriteToken += 1
+        let token = taskWriteToken
         if loadState != .loaded {
             loadState = .loading
         }
         do {
-            task = try await repository.fetchTask(id: task.id)
+            let fetched = try await repository.fetchTask(id: task.id)
+            guard token == taskWriteToken else { return }
+            task = fetched
             updateRelatedTaskIDsCache()
             loadState = .loaded
         } catch let error as VikunjaError {
+            guard token == taskWriteToken else { return }
             loadState = .failure(error.displayMessage)
         } catch {
+            guard token == taskWriteToken else { return }
             loadState = .failure(error.localizedDescription)
         }
     }
@@ -166,11 +190,14 @@ public final class TaskDetailViewModel {
     /// the server rejects it — mirrors `toggleDone()`.
     public func toggleLabel(_ label: Label) async {
         let previous = task
+        taskWriteToken += 1
+        let token = taskWriteToken
         if task.labels.contains(label) {
             task.labels.removeAll { $0.id == label.id }
             do {
                 try await labelRepository.removeLabel(label.id, fromTask: task.id)
             } catch {
+                guard token == taskWriteToken else { return }
                 task = previous
             }
         } else {
@@ -178,6 +205,7 @@ public final class TaskDetailViewModel {
             do {
                 try await labelRepository.addLabel(label.id, toTask: task.id)
             } catch {
+                guard token == taskWriteToken else { return }
                 task = previous
             }
         }
@@ -202,11 +230,14 @@ public final class TaskDetailViewModel {
     /// create-relation response only echoes ids, not those fields.
     public func addRelation(_ relation: TaskRelation, kind: RelationKind) async {
         let previous = task
+        taskWriteToken += 1
+        let token = taskWriteToken
         insertRelation(relation, kind: kind)
         do {
             try await relationRepository.addRelation(kind: kind, otherTaskID: relation.id, toTask: task.id)
             toastPresenter.show("Relation added", style: .success)
         } catch {
+            guard token == taskWriteToken else { return }
             task = previous
         }
     }
@@ -215,10 +246,13 @@ public final class TaskDetailViewModel {
     /// back if the server rejects it — mirrors `toggleLabel(_:)`.
     public func removeRelation(_ relation: TaskRelation, kind: RelationKind) async {
         let previous = task
+        taskWriteToken += 1
+        let token = taskWriteToken
         deleteRelation(relation, kind: kind)
         do {
             try await relationRepository.removeRelation(kind: kind, otherTaskID: relation.id, fromTask: task.id)
         } catch {
+            guard token == taskWriteToken else { return }
             task = previous
         }
     }
@@ -268,6 +302,8 @@ public final class TaskDetailViewModel {
     /// `deleteTask()`.
     public func move(to newProject: Project) async -> Bool {
         let previous = task
+        taskWriteToken += 1
+        let token = taskWriteToken
         task.projectID = newProject.id
         do {
             var updated = try await repository.update(task)
@@ -275,15 +311,21 @@ public final class TaskDetailViewModel {
             updated.dependsOn = previous.dependsOn
             updated.blocks = previous.blocks
             updated.otherRelations = previous.otherRelations
-            task = updated
+            if token == taskWriteToken {
+                task = updated
+            }
             toastPresenter.show("Task moved to \(newProject.title)", style: .success)
             return true
         } catch let error as VikunjaError {
-            task = previous
+            if token == taskWriteToken {
+                task = previous
+            }
             toastPresenter.show(error.displayMessage, style: .error)
             return false
         } catch {
-            task = previous
+            if token == taskWriteToken {
+                task = previous
+            }
             toastPresenter.show(error.localizedDescription, style: .error)
             return false
         }
@@ -346,15 +388,21 @@ public final class TaskDetailViewModel {
     /// lazy load — comments are always-visible content on this screen, not a
     /// picker's suggestions, so a failure here is worth showing.
     public func loadComments() async {
+        commentsWriteToken += 1
+        let token = commentsWriteToken
         if commentsLoadState != .loaded {
             commentsLoadState = .loading
         }
         do {
-            comments = try await commentRepository.fetchComments(taskID: task.id)
+            let fetched = try await commentRepository.fetchComments(taskID: task.id)
+            guard token == commentsWriteToken else { return }
+            comments = fetched
             commentsLoadState = .loaded
         } catch let error as VikunjaError {
+            guard token == commentsWriteToken else { return }
             commentsLoadState = .failure(error.displayMessage)
         } catch {
+            guard token == commentsWriteToken else { return }
             commentsLoadState = .failure(error.localizedDescription)
         }
     }
@@ -362,15 +410,21 @@ public final class TaskDetailViewModel {
     /// Loads this task's attachments. Failures surface into
     /// `attachmentsLoadState`, the same as `loadComments()`.
     public func loadAttachments() async {
+        attachmentsWriteToken += 1
+        let token = attachmentsWriteToken
         if attachmentsLoadState != .loaded {
             attachmentsLoadState = .loading
         }
         do {
-            attachments = try await attachmentRepository.fetchAttachments(taskID: task.id)
+            let fetched = try await attachmentRepository.fetchAttachments(taskID: task.id)
+            guard token == attachmentsWriteToken else { return }
+            attachments = fetched
             attachmentsLoadState = .loaded
         } catch let error as VikunjaError {
+            guard token == attachmentsWriteToken else { return }
             attachmentsLoadState = .failure(error.displayMessage)
         } catch {
+            guard token == attachmentsWriteToken else { return }
             attachmentsLoadState = .failure(error.localizedDescription)
         }
     }
@@ -394,6 +448,7 @@ public final class TaskDetailViewModel {
     public func uploadAttachment(data: Data, fileName: String, mimeType: String) async {
         isUploadingAttachment = true
         defer { isUploadingAttachment = false }
+        attachmentsWriteToken += 1
         do {
             let created = try await attachmentRepository.uploadAttachment(
                 data: data,
@@ -401,7 +456,11 @@ public final class TaskDetailViewModel {
                 mimeType: mimeType,
                 toTask: task.id,
             )
-            attachments.append(contentsOf: created)
+            // Guards against a slower, in-flight `loadAttachments()` having
+            // already landed this same attachment by the time the upload
+            // response comes back.
+            let newAttachments = created.filter { new in !attachments.contains { $0.id == new.id } }
+            attachments.append(contentsOf: newAttachments)
             toastPresenter.show("Attachment added", style: .success)
         } catch let error as VikunjaError {
             toastPresenter.show(error.displayMessage, style: .error)
@@ -443,11 +502,14 @@ public final class TaskDetailViewModel {
     /// whole list if the server rejects it — mirrors `deleteComment(_:)`.
     public func deleteAttachment(_ attachment: TaskAttachment) async {
         let previous = attachments
+        attachmentsWriteToken += 1
+        let token = attachmentsWriteToken
         attachments.removeAll { $0.id == attachment.id }
         do {
             try await attachmentRepository.deleteAttachment(attachment.id, fromTask: task.id)
             toastPresenter.show("Attachment deleted", style: .success)
         } catch {
+            guard token == attachmentsWriteToken else { return }
             attachments = previous
             toastPresenter.show("Couldn't delete attachment", style: .error)
         }
@@ -467,9 +529,17 @@ public final class TaskDetailViewModel {
     public func addComment(_ text: String) async {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        commentsWriteToken += 1
         do {
             let created = try await commentRepository.addComment(trimmed, toTask: task.id)
-            comments.append(created)
+            // Bumping the token above means a slower, already in-flight
+            // `loadComments()` will drop its (now stale) response instead of
+            // overwriting `comments` and erasing this one. Guard the append
+            // itself against double-counting in the rarer case where that
+            // slower load actually already landed this same comment.
+            if !comments.contains(where: { $0.id == created.id }) {
+                comments.append(created)
+            }
         } catch {
             toastPresenter.show("Couldn't post comment", style: .error)
         }
@@ -484,9 +554,17 @@ public final class TaskDetailViewModel {
     public func editComment(_ comment: TaskComment, newText: String) async {
         let trimmed = newText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        guard let index = comments.firstIndex(where: { $0.id == comment.id }) else { return }
+        guard comments.contains(where: { $0.id == comment.id }) else { return }
+        commentsWriteToken += 1
         do {
-            comments[index] = try await commentRepository.updateComment(comment.id, text: trimmed, onTask: task.id)
+            let updated = try await commentRepository.updateComment(comment.id, text: trimmed, onTask: task.id)
+            // Re-resolve the index instead of reusing the one captured
+            // before the `await`: a concurrent `loadComments()` or
+            // `deleteComment(_:)` landing in between could have reshuffled
+            // or shrunk the array, making the earlier index stale (or
+            // out of bounds).
+            guard let index = comments.firstIndex(where: { $0.id == comment.id }) else { return }
+            comments[index] = updated
         } catch {
             toastPresenter.show("Couldn't update comment", style: .error)
         }
@@ -499,10 +577,13 @@ public final class TaskDetailViewModel {
     /// call, and a rejection just rolls back with a toast.
     public func deleteComment(_ comment: TaskComment) async {
         let previous = comments
+        commentsWriteToken += 1
+        let token = commentsWriteToken
         comments.removeAll { $0.id == comment.id }
         do {
             try await commentRepository.deleteComment(comment.id, fromTask: task.id)
         } catch {
+            guard token == commentsWriteToken else { return }
             comments = previous
             toastPresenter.show("Couldn't delete comment", style: .error)
         }
@@ -572,14 +653,18 @@ public final class TaskDetailViewModel {
     /// response as-is is what keeps those sections from disappearing after an
     /// edit.
     private func persist(previous: VikunjaTask) async {
+        taskWriteToken += 1
+        let token = taskWriteToken
         do {
             var updated = try await repository.update(task)
             updated.subtasks = previous.subtasks
             updated.dependsOn = previous.dependsOn
             updated.blocks = previous.blocks
             updated.otherRelations = previous.otherRelations
+            guard token == taskWriteToken else { return }
             task = updated
         } catch {
+            guard token == taskWriteToken else { return }
             task = previous
         }
     }
