@@ -416,6 +416,78 @@ struct URLSessionAPIClientTests {
         #expect(request.url?.path == "/api/v1/tasks/1/relations/blocked/3")
     }
 
+    // `VikunjaTaskRelationRepositoryV2` and the v1/v2 parity for
+    // `TaskRelationRepositoryProtocol` are tested here for the same reason
+    // as `VikunjaLabelRepository` above.
+
+    @Test
+    func `add relation v2 PO STs the relation kind and other task ID AND reads the 201 response`() async throws {
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 201, body: "")
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaTaskRelationRepositoryV2(client: client)
+
+        try await repository.addRelation(kind: .subtask, otherTaskID: 2, toTask: 1)
+
+        let request = try #require(await capture.lastRequest)
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.path == "/api/v2/tasks/1/relations")
+        let sentBody = try #require(request.httpBody)
+        let sentJSON = try #require(JSONSerialization.jsonObject(with: sentBody) as? [String: Any])
+        #expect(sentJSON["relation_kind"] as? String == "subtask")
+        #expect(sentJSON["other_task_id"] as? Int == 2)
+    }
+
+    @Test
+    func `remove relation v2 DELET es with an empty 204 response`() async throws {
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 204, body: "")
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaTaskRelationRepositoryV2(client: client)
+
+        try await repository.removeRelation(kind: .blocked, otherTaskID: 3, fromTask: 1)
+
+        let request = try #require(await capture.lastRequest)
+        #expect(request.httpMethod == "DELETE")
+        #expect(request.url?.path == "/api/v2/tasks/1/relations/blocked/3")
+    }
+
+    @Test
+    func `add relation succeeds across v1 AND v2 despite different status codes`() async throws {
+        let cases = [
+            (200, "/api/v1/tasks/1/relations", "PUT"),
+            (201, "/api/v2/tasks/1/relations", "POST"),
+        ]
+        for (statusCode, path, method) in cases {
+            let (session, capture) = MockURLProtocol.makeSession(statusCode: statusCode, body: "")
+            let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+            let repository: TaskRelationRepositoryProtocol = method == "PUT"
+                ? VikunjaTaskRelationRepository(client: client)
+                : VikunjaTaskRelationRepositoryV2(client: client)
+
+            try await repository.addRelation(kind: .subtask, otherTaskID: 2, toTask: 1)
+
+            let request = try #require(await capture.lastRequest)
+            #expect(request.httpMethod == method)
+            #expect(request.url?.path == path)
+        }
+    }
+
+    @Test
+    func `remove relation succeeds across v1 AND v2 despite different response bodies`() async throws {
+        let cases = [
+            (200, "/api/v1/tasks/1/relations/blocked/3"),
+            (204, "/api/v2/tasks/1/relations/blocked/3"),
+        ]
+        for (statusCode, path) in cases {
+            let (session, _) = MockURLProtocol.makeSession(statusCode: statusCode, body: "")
+            let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+            let repository: TaskRelationRepositoryProtocol = path.contains("v1")
+                ? VikunjaTaskRelationRepository(client: client)
+                : VikunjaTaskRelationRepositoryV2(client: client)
+
+            try await repository.removeRelation(kind: .blocked, otherTaskID: 3, fromTask: 1)
+        }
+    }
+
     @Test
     func `fetch current user GE ts the user and reads the nested default project`() async throws {
         let body = #"""
