@@ -6,12 +6,12 @@ struct ProblemDetailDTOTests {
     @Test
     func `builds A message from title detail AND code`() {
         let json = #"""
-        {"title":"Validation failed","status":422,"detail":"Title cannot be empty","code":"invalid_field"}
+        {"title":"Validation failed","status":422,"detail":"Title cannot be empty","code":4017}
         """#
 
         let message = ProblemDetailDTO.message(from: Data(json.utf8))
 
-        #expect(message == "Validation failed: Title cannot be empty (invalid_field)")
+        #expect(message == "Validation failed: Title cannot be empty (4017)")
     }
 
     @Test

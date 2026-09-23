@@ -30,7 +30,7 @@ struct URLSessionAPIClientTests {
     @Test
     func `maps A v2 problem plus json error to A readable server message`() async throws {
         let body = #"""
-        {"title":"Validation failed","status":422,"detail":"Title cannot be empty","code":"invalid_field"}
+        {"title":"Validation failed","status":422,"detail":"Title cannot be empty","code":4017}
         """#
         let (session, _) = MockURLProtocol.makeSession(
             statusCode: 422,
@@ -40,7 +40,7 @@ struct URLSessionAPIClientTests {
         let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
 
         await #expect(throws: VikunjaError.server(
-            message: "Validation failed: Title cannot be empty (invalid_field)",
+            message: "Validation failed: Title cannot be empty (4017)",
             statusCode: 422,
         )) {
             let _: ServerInfoDTO = try await client.send(VikunjaEndpoints.info())

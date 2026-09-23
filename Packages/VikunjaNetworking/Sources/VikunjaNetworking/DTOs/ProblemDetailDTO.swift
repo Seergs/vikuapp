@@ -3,11 +3,15 @@ import Foundation
 /// v2's RFC 9457 `application/problem+json` error body
 /// (`title`/`status`/`detail`/`code`). v1 has no equivalent — its error
 /// bodies are ad hoc and get surfaced as raw text instead.
+///
+/// Field shape verified against a real instance's `/api/v2/openapi.json`
+/// (`VikunjaErrorModel`): `code` is Vikunja's numeric error code
+/// (`https://vikunja.io/docs/errors/`), not a string.
 struct ProblemDetailDTO: Decodable {
     let title: String?
     let status: Int?
     let detail: String?
-    let code: String?
+    let code: Int?
 }
 
 extension ProblemDetailDTO {
