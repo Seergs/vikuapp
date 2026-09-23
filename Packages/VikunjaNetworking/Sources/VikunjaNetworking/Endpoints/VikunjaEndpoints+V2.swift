@@ -120,4 +120,25 @@ extension VikunjaEndpoints {
     static func searchTasksV2(query: String) -> Endpoint {
         Endpoint(path: "/api/v2/tasks", queryItems: [URLQueryItem(name: "q", value: query)])
     }
+
+    static func taskAttachmentsV2(taskID: Int) -> Endpoint {
+        Endpoint(path: "/api/v2/tasks/\(taskID)/attachments")
+    }
+
+    static func uploadTaskAttachmentV2(taskID: Int, form: MultipartFormData) -> Endpoint {
+        .multipart(path: "/api/v2/tasks/\(taskID)/attachments", method: .post, form: form)
+    }
+
+    static func downloadTaskAttachmentV2(
+        taskID: Int,
+        attachmentID: Int,
+        previewSize: AttachmentPreviewSize?,
+    ) -> Endpoint {
+        let queryItems = previewSize.map { [URLQueryItem(name: "preview_size", value: $0.rawValue)] } ?? []
+        return Endpoint(path: "/api/v2/tasks/\(taskID)/attachments/\(attachmentID)", queryItems: queryItems)
+    }
+
+    static func deleteTaskAttachmentV2(taskID: Int, attachmentID: Int) -> Endpoint {
+        Endpoint(path: "/api/v2/tasks/\(taskID)/attachments/\(attachmentID)", method: .delete)
+    }
 }
