@@ -1087,6 +1087,120 @@ struct URLSessionAPIClientTests {
         #expect(request.url?.path == "/api/v1/tasks/42/attachments/2")
     }
 
+    // `VikunjaTaskAttachmentRepositoryV2` and the v1/v2 parity for
+    // `TaskAttachmentRepositoryProtocol` are tested here for the same reason
+    // as `VikunjaLabelRepository` above.
+
+    private static let attachmentV2Body = #"""
+    {"id":1,"task_id":42,"created_by":{"id":7,"username":"alex"},
+     "file":{"id":100,"name":"a.pdf","mime":"application/pdf","size":10,"created":"2026-08-20T09:00:00Z"},
+     "created":"2026-08-20T09:00:00Z"}
+    """#
+
+    @Test
+    func `fetch attachments v2 unwraps the envelope`() async throws {
+        let body = "{\"items\": [" + Self.attachmentV2Body
+            + "], \"total\": 1, \"page\": 1, \"per_page\": 50, \"total_pages\": 1}"
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: body)
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaTaskAttachmentRepositoryV2(client: client)
+
+        let attachments = try await repository.fetchAttachments(taskID: 42)
+
+        #expect(attachments.map(\.fileName) == ["a.pdf"])
+        let request = try #require(await capture.lastRequest)
+        #expect(request.url?.path == "/api/v2/tasks/42/attachments")
+    }
+
+    @Test
+    func `upload attachment v2 PO STs A multipart body AND reads back the 201 response`() async throws {
+        let body = "{\"errors\": [], \"success\": [" + Self.attachmentV2Body + "]}"
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 201, body: body)
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaTaskAttachmentRepositoryV2(client: client)
+
+        let created = try await repository.uploadAttachment(
+            data: Data("hi".utf8), fileName: "a.pdf", mimeType: "application/pdf", toTask: 42,
+        )
+
+        #expect(created.map(\.id) == [1])
+        let request = try #require(await capture.lastRequest)
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.path == "/api/v2/tasks/42/attachments")
+        #expect(request.value(forHTTPHeaderField: "Content-Type")?.hasPrefix("multipart/form-data; boundary=") == true)
+        let bodyData = try #require(request.httpBody)
+        let sentBody = try #require(String(data: bodyData, encoding: .utf8))
+        #expect(sentBody.contains(#"name="files"; filename="a.pdf""#))
+    }
+
+    @Test
+    func `download attachment v2 GE ts the raw bytes with the preview size query`() async throws {
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: "RAWBYTES")
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaTaskAttachmentRepositoryV2(client: client)
+
+        let data = try await repository.downloadAttachment(2, fromTask: 42, previewSize: .sm)
+
+        #expect(data == Data("RAWBYTES".utf8))
+        let request = try #require(await capture.lastRequest)
+        #expect(request.url?.path == "/api/v2/tasks/42/attachments/2")
+        #expect(request.url?.query == "preview_size=sm")
+    }
+
+    @Test
+    func `delete attachment v2 DELET es with an empty 204 response`() async throws {
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 204, body: "")
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaTaskAttachmentRepositoryV2(client: client)
+
+        try await repository.deleteAttachment(2, fromTask: 42)
+
+        let request = try #require(await capture.lastRequest)
+        #expect(request.httpMethod == "DELETE")
+        #expect(request.url?.path == "/api/v2/tasks/42/attachments/2")
+    }
+
+    @Test
+    func `upload attachment succeeds across v1 AND v2 despite different verbs`() async throws {
+        let v1Body = #"{"errors":[],"success":[{"id":3,"task_id":42,"created_by":{"id":7,"username":"alex"},"#
+            + #""file":{"id":102,"name":"notes.txt","mime":"text/plain","size":2,"created":"2026-08-22T10:15:00Z"},"#
+            + #""created":"2026-08-22T10:15:00Z"}]}"#
+        let v2Body = "{\"errors\": [], \"success\": [" + Self.attachmentV2Body + "]}"
+        let cases = [
+            (200, v1Body, "/api/v1/tasks/42/attachments", "PUT"),
+            (201, v2Body, "/api/v2/tasks/42/attachments", "POST"),
+        ]
+        for (statusCode, body, path, method) in cases {
+            let (session, capture) = MockURLProtocol.makeSession(statusCode: statusCode, body: body)
+            let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+            let repository: TaskAttachmentRepositoryProtocol = method == "PUT"
+                ? VikunjaTaskAttachmentRepository(client: client)
+                : VikunjaTaskAttachmentRepositoryV2(client: client)
+
+            let created = try await repository.uploadAttachment(
+                data: Data("hi".utf8), fileName: "notes.txt", mimeType: "text/plain", toTask: 42,
+            )
+
+            #expect(!created.isEmpty)
+            let request = try #require(await capture.lastRequest)
+            #expect(request.httpMethod == method)
+            #expect(request.url?.path == path)
+        }
+    }
+
+    @Test
+    func `delete attachment succeeds across v1 AND v2 despite different response bodies`() async throws {
+        for (statusCode, path) in [(200, "/api/v1/tasks/42/attachments/2"), (204, "/api/v2/tasks/42/attachments/2")] {
+            let (session, _) = MockURLProtocol.makeSession(statusCode: statusCode, body: "")
+            let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+            let repository: TaskAttachmentRepositoryProtocol = path.contains("v1")
+                ? VikunjaTaskAttachmentRepository(client: client)
+                : VikunjaTaskAttachmentRepositoryV2(client: client)
+
+            try await repository.deleteAttachment(2, fromTask: 42)
+        }
+    }
+
     @Test
     func `sends the endpoints content type for A multipart body`() async throws {
         var form = MultipartFormData(boundary: "TESTBOUNDARY")

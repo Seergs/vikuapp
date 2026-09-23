@@ -92,8 +92,11 @@ public struct VikunjaInstanceClientFactory: InstanceClientFactoryProtocol {
         baseURL: URL,
         tokenProvider: @escaping @Sendable () async -> String?,
     ) -> TaskAttachmentRepositoryProtocol {
-        VikunjaTaskAttachmentRepository(
-            client: URLSessionAPIClient(baseURL: baseURL, authTokenProvider: tokenProvider),
+        let client = URLSessionAPIClient(baseURL: baseURL, authTokenProvider: tokenProvider)
+        return VikunjaTaskAttachmentRepositorySwitch(
+            v1: VikunjaTaskAttachmentRepository(client: client),
+            v2: VikunjaTaskAttachmentRepositoryV2(client: client),
+            capabilityProvider: VikunjaCapabilityProvider(client: client),
         )
     }
 }
