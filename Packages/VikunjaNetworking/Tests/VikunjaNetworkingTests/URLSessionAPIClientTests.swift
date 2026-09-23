@@ -41,6 +41,46 @@ struct URLSessionAPIClientTests {
         #expect(await capture.lastRequest?.value(forHTTPHeaderField: "Authorization") == "Bearer test-token")
     }
 
+    // `VikunjaCapabilityProvider.supports(.apiV2)` is tested here for the
+    // same reason as `VikunjaLabelRepository` below — it shares
+    // `MockURLProtocol`'s static state with this `.serialized` suite.
+
+    @Test
+    func `supports apiV2 when the server version is at the minimum`() async throws {
+        let (session, _) = MockURLProtocol.makeSession(statusCode: 200, body: #"{"version":"2.4.0"}"#)
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let provider = VikunjaCapabilityProvider(client: client)
+
+        #expect(await provider.supports(.apiV2) == true)
+    }
+
+    @Test
+    func `supports apiV2 when the server version is above the minimum`() async throws {
+        let (session, _) = MockURLProtocol.makeSession(statusCode: 200, body: #"{"version":"3.1.0"}"#)
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let provider = VikunjaCapabilityProvider(client: client)
+
+        #expect(await provider.supports(.apiV2) == true)
+    }
+
+    @Test
+    func `does not support apiV2 when the server version is below the minimum`() async throws {
+        let (session, _) = MockURLProtocol.makeSession(statusCode: 200, body: #"{"version":"2.3.9"}"#)
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let provider = VikunjaCapabilityProvider(client: client)
+
+        #expect(await provider.supports(.apiV2) == false)
+    }
+
+    @Test
+    func `does not support apiV2 when the server version is unparseable`() async throws {
+        let (session, _) = MockURLProtocol.makeSession(statusCode: 200, body: #"{"version":"unknown"}"#)
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let provider = VikunjaCapabilityProvider(client: client)
+
+        #expect(await provider.supports(.apiV2) == false)
+    }
+
     // `VikunjaTaskRepository.update(_:)`'s safe-update behavior is tested
     // here rather than in its own suite: it's driven by the same
     // `MockURLProtocol` shared static state, and `.serialized` only
