@@ -5,6 +5,14 @@ import VikunjaCore
 /// kept in a sibling file rather than growing `VikunjaEndpoints.swift` so a
 /// resource's v1 and v2 paths stay easy to tell apart at a glance.
 extension VikunjaEndpoints {
+    /// Not used by any resource switch directly: `VikunjaCapabilityProvider
+    /// .serverInfo()` only falls back to this from `/api/v1/info` on a 404,
+    /// so this can never be the first call for an account. See its doc
+    /// comment for why.
+    static func infoV2() -> Endpoint {
+        Endpoint(path: "/api/v2/info")
+    }
+
     static func projectsV2() -> Endpoint {
         Endpoint(path: "/api/v2/projects")
     }

@@ -16,10 +16,28 @@ public actor VikunjaCapabilityProvider: CapabilityProvider {
         if let cachedInfo {
             return cachedInfo
         }
-        let dto: ServerInfoDTO = try await client.send(VikunjaEndpoints.info())
-        let info = ServerInfoMapper.toDomain(dto)
+        let info = try await fetchServerInfo()
         cachedInfo = info
         return info
+    }
+
+    /// Tries v1 first, the one endpoint guaranteed to exist on every server
+    /// version this app has ever supported, including one too old for v2 at
+    /// all. Falls back to v2's `/info` only on a 404 from v1's, which can
+    /// only mean the server has removed `/api/v1/*` entirely (Vikunja's
+    /// 4.0). v2's `/info` reports the same core fields v1's does (see
+    /// `LocalAuthInfoDTO.registrationEnabled`'s doc comment for the one
+    /// field that moved). Any other failure (network error, 500, ...)
+    /// surfaces as-is rather than masking it behind a second,
+    /// likely-also-failing request.
+    private func fetchServerInfo() async throws -> VikunjaServerInfo {
+        do {
+            let dto: ServerInfoDTO = try await client.send(VikunjaEndpoints.info())
+            return ServerInfoMapper.toDomain(dto)
+        } catch VikunjaError.notFound {
+            let dto: ServerInfoDTO = try await client.send(VikunjaEndpoints.infoV2())
+            return ServerInfoMapper.toDomain(dto)
+        }
     }
 
     public func supports(_ feature: VikunjaFeature) async -> Bool {

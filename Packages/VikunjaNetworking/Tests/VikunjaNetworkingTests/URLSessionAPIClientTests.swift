@@ -125,6 +125,49 @@ struct URLSessionAPIClientTests {
         #expect(await provider.supports(.apiV2) == false)
     }
 
+    @Test
+    func `serverInfo falls back to v2 info when v1 info 404s`() async throws {
+        let (session, capture) = MockURLProtocol.makeSession(responses: [
+            (404, ""),
+            (200, #"{"version":"4.0.0","caldav_enabled":true,"totp_enabled":true,"max_file_size":"20MB"}"#),
+        ])
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let provider = VikunjaCapabilityProvider(client: client)
+
+        let info = try await provider.serverInfo()
+
+        #expect(info.version == "4.0.0")
+        #expect(info.caldavEnabled == true)
+        let requests = await capture.requests
+        #expect(requests.count == 2)
+        #expect(requests[0].url?.path == "/api/v1/info")
+        #expect(requests[1].url?.path == "/api/v2/info")
+    }
+
+    @Test
+    func `serverInfo never falls back to v2 info once v1 info succeeds`() async throws {
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: #"{"version":"0.24.6"}"#)
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let provider = VikunjaCapabilityProvider(client: client)
+
+        _ = try await provider.serverInfo()
+
+        let requests = await capture.requests
+        #expect(requests.count == 1)
+        #expect(requests[0].url?.path == "/api/v1/info")
+    }
+
+    @Test
+    func `serverInfo does not fall back to v2 info on A non 404 failure`() async throws {
+        let (session, _) = MockURLProtocol.makeSession(statusCode: 500, body: "")
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let provider = VikunjaCapabilityProvider(client: client)
+
+        await #expect(throws: VikunjaError.self) {
+            _ = try await provider.serverInfo()
+        }
+    }
+
     // `VikunjaTaskRepository.update(_:)`'s safe-update behavior is tested
     // here rather than in its own suite: it's driven by the same
     // `MockURLProtocol` shared static state, and `.serialized` only

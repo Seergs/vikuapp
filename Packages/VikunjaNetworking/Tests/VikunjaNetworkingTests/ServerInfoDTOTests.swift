@@ -20,6 +20,38 @@ struct ServerInfoDTOTests {
     }
 
     @Test
+    func `reads registrationEnabled from auth local when the top level key is absent`() throws {
+        // v2's /info shape — verified against a real instance's
+        // /api/v2/openapi.json: registration_enabled moved under auth.local.
+        let json = #"""
+        {
+          "version": "2.4.0",
+          "caldav_enabled": true,
+          "totp_enabled": true,
+          "max_file_size": "20MB",
+          "auth": { "local": { "enabled": true, "registration_enabled": true } }
+        }
+        """#
+        let dto = try JSONDecoder().decode(ServerInfoDTO.self, from: Data(json.utf8))
+
+        #expect(ServerInfoMapper.toDomain(dto).registrationEnabled == true)
+    }
+
+    @Test
+    func `prefers the top level registrationEnabled when both are present`() throws {
+        let json = #"""
+        {
+          "version": "0.24.6",
+          "registration_enabled": true,
+          "auth": { "local": { "enabled": true, "registration_enabled": false } }
+        }
+        """#
+        let dto = try JSONDecoder().decode(ServerInfoDTO.self, from: Data(json.utf8))
+
+        #expect(ServerInfoMapper.toDomain(dto).registrationEnabled == true)
+    }
+
+    @Test
     func `defaults localAuthEnabled to true when the auth key is absent`() throws {
         let url = try #require(Bundle.module.url(forResource: "server_info", withExtension: "json"))
         let dto = try JSONDecoder().decode(ServerInfoDTO.self, from: Data(contentsOf: url))
