@@ -31,7 +31,22 @@ public struct ProjectsRootView: View {
     }
 
     @State private var editingProject: Project?
-    @State private var overviewViewModels: [Int: ProjectOverviewViewModel] = [:]
+    /// A plain reference type, not `@State`, so filling the cache while
+    /// building a `navigationDestination` never mutates SwiftUI state mid-
+    /// render. It used to be `@State private var overviewViewModels: [Int:
+    /// ProjectOverviewViewModel]`, written from that destination's own
+    /// `.onAppear` - but that meant the *first* visit to a given project
+    /// mutated `@State` as a side effect of the same view-graph update that
+    /// was still settling the freshly-pushed `ProjectOverviewView`'s own
+    /// `.onAppear` (which calls `markVisible()` for quick-add's project
+    /// preselection). SwiftUI docs call mutating `@State` during a view
+    /// update undefined behavior, and in practice it could win the race and
+    /// clobber that mount before `markVisible()` ran, leaving quick-add
+    /// falling back to the account default even while visibly on the
+    /// project's page. Caching still exists to avoid losing a
+    /// `ProjectOverviewViewModel`'s loaded tasks on back-navigation (see
+    /// 451e893), it's just no longer state-driven.
+    @State private var overviewViewModelCache = OverviewViewModelCache()
 
     public var body: some View {
         ProjectsView(
@@ -42,16 +57,12 @@ public struct ProjectsRootView: View {
         .navigationDestination(for: ProjectsRoute.self) { route in
             switch route {
             case let .projectOverview(node):
-                let vm = overviewViewModels[node.id] ?? makeOverviewViewModel(node)
                 ProjectOverviewView(
-                    viewModel: vm,
+                    viewModel: cachedOverviewViewModel(for: node),
                     onSelectSubproject: { router.push(ProjectsRoute.projectOverview($0)) },
                     onSelectTask: { task in router.push(.taskDetail(task, node.project)) },
                     onEditProject: { editingProject = $0 },
                 )
-                .onAppear {
-                    overviewViewModels[node.id] = vm
-                }
             }
         }
         .sheet(item: $editingProject) { project in
@@ -59,4 +70,28 @@ public struct ProjectsRootView: View {
                 .presentationCompactAdaptation(.sheet)
         }
     }
+
+    /// Returns this project's cached `ProjectOverviewViewModel`, creating and
+    /// storing one on first visit. A plain function call (not a statement
+    /// mutating `@State` alongside building the destination view) so it's a
+    /// valid `ViewBuilder` expression and, more importantly, so filling the
+    /// cache never mutates SwiftUI state mid-render - see
+    /// `overviewViewModelCache`'s doc comment.
+    private func cachedOverviewViewModel(for node: ProjectNode) -> ProjectOverviewViewModel {
+        if let existing = overviewViewModelCache.storage[node.id] {
+            return existing
+        }
+        let vm = makeOverviewViewModel(node)
+        overviewViewModelCache.storage[node.id] = vm
+        return vm
+    }
+}
+
+/// Backs `ProjectsRootView.overviewViewModelCache`. A class rather than a
+/// struct so `@State` only needs to preserve *its identity* (one instance
+/// for the life of the screen) - mutating `storage` doesn't go through
+/// `@State`'s setter, so it never triggers a SwiftUI view update.
+@MainActor
+private final class OverviewViewModelCache {
+    var storage: [Int: ProjectOverviewViewModel] = [:]
 }
