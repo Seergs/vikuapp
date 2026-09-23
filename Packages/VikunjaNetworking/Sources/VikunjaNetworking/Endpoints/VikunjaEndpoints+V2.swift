@@ -96,4 +96,28 @@ extension VikunjaEndpoints {
     static func currentUserV2() -> Endpoint {
         Endpoint(path: "/api/v2/user")
     }
+
+    static func tasksV2(projectID: Int) -> Endpoint {
+        Endpoint(path: "/api/v2/projects/\(projectID)/tasks")
+    }
+
+    static func taskV2(id: Int) -> Endpoint {
+        Endpoint(path: "/api/v2/tasks/\(id)")
+    }
+
+    static func createTaskV2(projectID: Int, dto: TaskDTO) throws -> Endpoint {
+        try .encoding(path: "/api/v2/projects/\(projectID)/tasks", method: .post, body: dto)
+    }
+
+    static func updateTaskV2(id: Int, dto: TaskDTO) throws -> Endpoint {
+        try .encoding(path: "/api/v2/tasks/\(id)", method: .put, body: dto)
+    }
+
+    static func deleteTaskV2(id: Int) -> Endpoint {
+        Endpoint(path: "/api/v2/tasks/\(id)", method: .delete)
+    }
+
+    static func searchTasksV2(query: String) -> Endpoint {
+        Endpoint(path: "/api/v2/tasks", queryItems: [URLQueryItem(name: "q", value: query)])
+    }
 }
