@@ -168,6 +168,24 @@ struct URLSessionAPIClientTests {
         }
     }
 
+    @Test
+    func `serverInfo single flights concurrent first callers`() async throws {
+        // Reproduces AccountTaskLoader firing one apiV2 check per project,
+        // all at once via withTaskGroup, before any of them sees the cache
+        // populated.
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: #"{"version":"2.4.0"}"#)
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let provider = VikunjaCapabilityProvider(client: client)
+
+        async let first = provider.serverInfo()
+        async let second = provider.serverInfo()
+        async let third = provider.serverInfo()
+        let results = try await [first, second, third]
+
+        #expect(results.allSatisfy { $0.version == "2.4.0" })
+        #expect(await capture.requests.count == 1)
+    }
+
     // `VikunjaTaskRepository.update(_:)`'s safe-update behavior is tested
     // here rather than in its own suite: it's driven by the same
     // `MockURLProtocol` shared static state, and `.serialized` only

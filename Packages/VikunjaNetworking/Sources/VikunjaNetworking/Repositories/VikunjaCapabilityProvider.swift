@@ -7,6 +7,14 @@ public actor VikunjaCapabilityProvider: CapabilityProvider {
 
     private let client: APIClient
     private var cachedInfo: VikunjaServerInfo?
+    /// Coalesces concurrent first callers into one request. Actors are
+    /// reentrant across `await`, so without this, N concurrent callers that
+    /// all see `cachedInfo == nil` (e.g. `AccountTaskLoader` resolving
+    /// `.apiV2` once per project, all at once via `withTaskGroup`) would
+    /// each kick off their own `/api/v1/info` request instead of sharing
+    /// the one already in flight (same single-flight shape as
+    /// `PasswordSessionRefresher.coordinatedRefresh`).
+    private var inFlight: Task<VikunjaServerInfo, Error>?
 
     public init(client: APIClient) {
         self.client = client
@@ -16,7 +24,13 @@ public actor VikunjaCapabilityProvider: CapabilityProvider {
         if let cachedInfo {
             return cachedInfo
         }
-        let info = try await fetchServerInfo()
+        if let inFlight {
+            return try await inFlight.value
+        }
+        let task = Task { try await fetchServerInfo() }
+        inFlight = task
+        defer { inFlight = nil }
+        let info = try await task.value
         cachedInfo = info
         return info
     }
