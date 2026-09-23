@@ -1,4 +1,5 @@
 import Foundation
+import VikunjaCore
 
 /// v2 endpoint builders, added one resource at a time per
 /// `docs/API_V2_MIGRATION.md`'s migration order — kept in a sibling file
@@ -79,5 +80,17 @@ extension VikunjaEndpoints {
 
     static func removeLabelFromTaskV2(taskID: Int, labelID: Int) -> Endpoint {
         Endpoint(path: "/api/v2/tasks/\(taskID)/labels/\(labelID)", method: .delete)
+    }
+
+    static func createTaskRelationV2(taskID: Int, kind: RelationKind, otherTaskID: Int) throws -> Endpoint {
+        try .encoding(
+            path: "/api/v2/tasks/\(taskID)/relations",
+            method: .post,
+            body: CreateTaskRelationDTO(relationKind: kind.rawValue, otherTaskId: otherTaskID),
+        )
+    }
+
+    static func deleteTaskRelationV2(taskID: Int, kind: RelationKind, otherTaskID: Int) -> Endpoint {
+        Endpoint(path: "/api/v2/tasks/\(taskID)/relations/\(kind.rawValue)/\(otherTaskID)", method: .delete)
     }
 }

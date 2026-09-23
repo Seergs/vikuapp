@@ -53,8 +53,11 @@ public struct VikunjaInstanceClientFactory: InstanceClientFactoryProtocol {
         baseURL: URL,
         tokenProvider: @escaping @Sendable () async -> String?,
     ) -> TaskRelationRepositoryProtocol {
-        VikunjaTaskRelationRepository(
-            client: URLSessionAPIClient(baseURL: baseURL, authTokenProvider: tokenProvider),
+        let client = URLSessionAPIClient(baseURL: baseURL, authTokenProvider: tokenProvider)
+        return VikunjaTaskRelationRepositorySwitch(
+            v1: VikunjaTaskRelationRepository(client: client),
+            v2: VikunjaTaskRelationRepositoryV2(client: client),
+            capabilityProvider: VikunjaCapabilityProvider(client: client),
         )
     }
 
