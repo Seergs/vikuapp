@@ -24,4 +24,32 @@ extension VikunjaEndpoints {
     static func deleteProjectV2(id: Int) -> Endpoint {
         Endpoint(path: "/api/v2/projects/\(id)", method: .delete)
     }
+
+    static func commentsV2(taskID: Int) -> Endpoint {
+        Endpoint(path: "/api/v2/tasks/\(taskID)/comments")
+    }
+
+    static func commentV2(taskID: Int, commentID: Int) -> Endpoint {
+        Endpoint(path: "/api/v2/tasks/\(taskID)/comments/\(commentID)")
+    }
+
+    static func createCommentV2(taskID: Int, text: String) throws -> Endpoint {
+        try .encoding(
+            path: "/api/v2/tasks/\(taskID)/comments",
+            method: .post,
+            body: CommentRequestDTO(comment: text),
+        )
+    }
+
+    static func updateCommentV2(taskID: Int, commentID: Int, text: String) throws -> Endpoint {
+        try .encoding(
+            path: "/api/v2/tasks/\(taskID)/comments/\(commentID)",
+            method: .put,
+            body: CommentRequestDTO(comment: text),
+        )
+    }
+
+    static func deleteCommentV2(taskID: Int, commentID: Int) -> Endpoint {
+        Endpoint(path: "/api/v2/tasks/\(taskID)/comments/\(commentID)", method: .delete)
+    }
 }

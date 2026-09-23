@@ -491,6 +491,121 @@ struct URLSessionAPIClientTests {
         }
     }
 
+    // `VikunjaTaskCommentRepository`/`VikunjaTaskCommentRepositoryV2` and
+    // their v1/v2 parity are tested here for the same reason as
+    // `VikunjaLabelRepository` above.
+
+    private static let commentBody = #"""
+    {"id": 1, "comment": "Looks good", "author": {"id": 7, "username": "alex", "name": "Alex"},
+     "created": "2026-08-20T09:00:00Z", "updated": "2026-08-20T09:00:00Z"}
+    """#
+
+    @Test
+    func `fetch comments v2 unwraps the envelope`() async throws {
+        let body = "{\"items\": [" + Self.commentBody
+            + "], \"total\": 1, \"page\": 1, \"per_page\": 50, \"total_pages\": 1}"
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: body)
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaTaskCommentRepositoryV2(client: client)
+
+        let comments = try await repository.fetchComments(taskID: 1)
+
+        #expect(comments.map(\.comment) == ["Looks good"])
+        let request = try #require(await capture.lastRequest)
+        #expect(request.url?.path == "/api/v2/tasks/1/comments")
+    }
+
+    @Test
+    func `add comment v2 PO STs to the comments endpoint AND reads back the 201 response`() async throws {
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 201, body: Self.commentBody)
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaTaskCommentRepositoryV2(client: client)
+
+        let created = try await repository.addComment("Looks good", toTask: 1)
+
+        #expect(created.id == 1)
+        let request = try #require(await capture.lastRequest)
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.path == "/api/v2/tasks/1/comments")
+    }
+
+    @Test
+    func `update comment v2 PU ts then re fetches since the write response is unreliable`() async throws {
+        // Simulates v2's real behavior on a live instance (tasks.sergiosuarez.dev):
+        // the PUT response comes back with `author: null` and a zero-value
+        // `created`, which would fail to decode as `CommentDTO` — the GET
+        // response that follows carries the real, trustworthy data.
+        let putResponse = #"""
+        {"id": 1, "comment": "Looks good", "author": null,
+         "created": "0001-01-01T00:00:00Z", "updated": "2026-09-23T18:43:51.011244355Z"}
+        """#
+        let (session, capture) = MockURLProtocol.makeSession(responses: [
+            (200, putResponse),
+            (200, Self.commentBody),
+        ])
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaTaskCommentRepositoryV2(client: client)
+
+        let updated = try await repository.updateComment(1, text: "Looks good", onTask: 1)
+
+        #expect(updated.author.username == "alex")
+        let requests = await capture.requests
+        #expect(requests.count == 2)
+        #expect(requests[0].httpMethod == "PUT")
+        #expect(requests[0].url?.path == "/api/v2/tasks/1/comments/1")
+        #expect(requests[1].httpMethod == "GET")
+        #expect(requests[1].url?.path == "/api/v2/tasks/1/comments/1")
+    }
+
+    @Test
+    func `delete comment v2 DELET es with an empty 204 response`() async throws {
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 204, body: "")
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaTaskCommentRepositoryV2(client: client)
+
+        try await repository.deleteComment(1, fromTask: 1)
+
+        let request = try #require(await capture.lastRequest)
+        #expect(request.httpMethod == "DELETE")
+        #expect(request.url?.path == "/api/v2/tasks/1/comments/1")
+    }
+
+    @Test
+    func `add comment returns the same domain result across v1 AND v2 despite different status codes`() async throws {
+        let cases = [
+            (200, "/api/v1/tasks/1/comments", "PUT"),
+            (201, "/api/v2/tasks/1/comments", "POST"),
+        ]
+        for (statusCode, path, method) in cases {
+            let (session, capture) = MockURLProtocol.makeSession(statusCode: statusCode, body: Self.commentBody)
+            let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+            let repository: TaskCommentRepositoryProtocol = method == "PUT"
+                ? VikunjaTaskCommentRepository(client: client)
+                : VikunjaTaskCommentRepositoryV2(client: client)
+
+            let created = try await repository.addComment("Looks good", toTask: 1)
+
+            #expect(created.id == 1)
+            #expect(created.comment == "Looks good")
+            let request = try #require(await capture.lastRequest)
+            #expect(request.httpMethod == method)
+            #expect(request.url?.path == path)
+        }
+    }
+
+    @Test
+    func `delete comment succeeds across v1 AND v2 despite different response bodies`() async throws {
+        for (statusCode, path) in [(200, "/api/v1/tasks/1/comments/1"), (204, "/api/v2/tasks/1/comments/1")] {
+            let (session, _) = MockURLProtocol.makeSession(statusCode: statusCode, body: "")
+            let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+            let repository: TaskCommentRepositoryProtocol = path.contains("v1")
+                ? VikunjaTaskCommentRepository(client: client)
+                : VikunjaTaskCommentRepositoryV2(client: client)
+
+            try await repository.deleteComment(1, fromTask: 1)
+        }
+    }
+
     @Test
     func `data returns the response body untouched`() async throws {
         // A body that is not JSON — `data(_:)` must hand it back as-is
