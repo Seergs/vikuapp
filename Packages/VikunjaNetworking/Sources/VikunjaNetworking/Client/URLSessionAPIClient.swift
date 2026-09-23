@@ -93,6 +93,12 @@ public actor URLSessionAPIClient: APIClient {
             throw VikunjaError.network("Received a non-HTTP response from the server")
         }
 
+        NetworkRequestLogging.shared.log(
+            method: endpoint.method.rawValue,
+            path: endpoint.path,
+            statusCode: httpResponse.statusCode,
+        )
+
         switch httpResponse.statusCode {
         case 200 ... 299:
             return (data, httpResponse)
