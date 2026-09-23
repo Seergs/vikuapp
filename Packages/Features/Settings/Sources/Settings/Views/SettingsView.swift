@@ -10,6 +10,7 @@ struct SettingsView: View {
     let themeStore: AppThemeStoring
     let isDevBuild: Bool
     let devBadgeStore: DevBadgeVisibilityStoring
+    let networkLoggingStore: NetworkRequestLoggingStoring
     let onPreviewOnboarding: () -> Void
     let router: Router<SettingsRoute>
 
@@ -65,6 +66,13 @@ struct SettingsView: View {
                         }
                     }
 
+                    Toggle(isOn: networkLoggingBinding) {
+                        HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
+                            SettingsRowIcon(systemName: "network")
+                            Text("Log Network Requests")
+                        }
+                    }
+
                     SettingsNavigationRow(
                         icon: "arrow.counterclockwise",
                         title: "Preview Onboarding",
@@ -87,6 +95,13 @@ struct SettingsView: View {
 
     private var devBadgeBinding: Binding<Bool> {
         Binding(get: { devBadgeStore.isDevBadgeVisible }, set: { devBadgeStore.setDevBadgeVisible($0) })
+    }
+
+    private var networkLoggingBinding: Binding<Bool> {
+        Binding(
+            get: { networkLoggingStore.isNetworkRequestLoggingEnabled },
+            set: { networkLoggingStore.setNetworkRequestLoggingEnabled($0) },
+        )
     }
 }
 

@@ -12,6 +12,7 @@ public struct SettingsRootView: View {
     private let themeStore: AppThemeStoring
     private let isDevBuild: Bool
     private let devBadgeStore: DevBadgeVisibilityStoring
+    private let networkLoggingStore: NetworkRequestLoggingStoring
     private let onPreviewOnboarding: () -> Void
     private let makeConnectionsListViewModel: () -> ConnectionsListViewModel
     private let makeConnectionFormViewModel: (ConnectionFormMode) -> ConnectionFormViewModel
@@ -19,9 +20,10 @@ public struct SettingsRootView: View {
 
     /// `account` is the currently active connection — shown on the landing
     /// screen's "Connections" row. `themeStore` backs the "Appearance" row.
-    /// `isDevBuild`/`devBadgeStore`/`onPreviewOnboarding` back the Developer
-    /// section, shown only in dev builds (see `BuildConfig.isDevBuild` in the
-    /// app target). `makeConnectionsListViewModel`/`makeConnectionFormViewModel`
+    /// `isDevBuild`/`devBadgeStore`/`networkLoggingStore`/
+    /// `onPreviewOnboarding` back the Developer section, shown only in dev
+    /// builds (see `BuildConfig.isDevBuild` in the app target).
+    /// `makeConnectionsListViewModel`/`makeConnectionFormViewModel`
     /// come from the app target's `AppContainer`, the only place allowed to
     /// know about the concrete `AccountStoreProtocol`/
     /// `InstanceClientFactoryProtocol` these view models need.
@@ -30,6 +32,7 @@ public struct SettingsRootView: View {
         themeStore: AppThemeStoring,
         isDevBuild: Bool,
         devBadgeStore: DevBadgeVisibilityStoring,
+        networkLoggingStore: NetworkRequestLoggingStoring,
         onPreviewOnboarding: @escaping () -> Void,
         makeConnectionsListViewModel: @escaping () -> ConnectionsListViewModel,
         makeConnectionFormViewModel: @escaping (ConnectionFormMode) -> ConnectionFormViewModel,
@@ -39,6 +42,7 @@ public struct SettingsRootView: View {
         self.themeStore = themeStore
         self.isDevBuild = isDevBuild
         self.devBadgeStore = devBadgeStore
+        self.networkLoggingStore = networkLoggingStore
         self.onPreviewOnboarding = onPreviewOnboarding
         self.makeConnectionsListViewModel = makeConnectionsListViewModel
         self.makeConnectionFormViewModel = makeConnectionFormViewModel
@@ -52,6 +56,7 @@ public struct SettingsRootView: View {
                 themeStore: themeStore,
                 isDevBuild: isDevBuild,
                 devBadgeStore: devBadgeStore,
+                networkLoggingStore: networkLoggingStore,
                 onPreviewOnboarding: onPreviewOnboarding,
                 router: router,
             )
