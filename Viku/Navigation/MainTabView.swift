@@ -177,25 +177,40 @@ private struct QuickAddOverlay: View {
     let container: AppContainer
     let account: InstanceAccount
 
-    @State private var isShowingSheet = false
-    /// Snapshot of `container.quickAddContext.preselectedProjectID` taken in
-    /// the tap handler (not in `body`) so reading the `@Observable` context
-    /// doesn't rebuild the sheet's view model whenever a project screen's
-    /// scope enters or leaves the stack.
-    @State private var preselectedProjectID: Int?
+    /// Wraps an already-built `QuickAddTaskViewModel` so `.sheet(item:)` can
+    /// present it. Built once, synchronously, in the tap handler / deep-link
+    /// handler - never inside `.sheet`'s own content closure. That used to
+    /// read `container.quickAddContext.preselectedProjectID` (or a `@State`
+    /// snapshot of it) lazily from inside the content closure, but SwiftUI
+    /// can invoke that closure more than once for a single presentation; on
+    /// a second invocation it was observed reading the project id back as
+    /// `nil`, both losing quick-add's project preselection and - because the
+    /// second call built a brand new `QuickAddTaskViewModel` that silently
+    /// replaced the first one already bound to an already-mounted
+    /// `QuickAddSheetView` - leaving the sheet stuck on its loading spinner
+    /// forever (`QuickAddSheetView`'s `.task` doesn't refire just because
+    /// its `viewModel` property was swapped out from under it, only on a
+    /// real mount). Building the view model exactly once, up front, and
+    /// handing `.sheet(item:)` the finished value sidesteps both: there's
+    /// nothing left for a re-invoked closure to get wrong.
+    private struct PresentedQuickAdd: Identifiable {
+        let id = UUID()
+        let viewModel: QuickAddTaskViewModel
+    }
+
+    @State private var presented: PresentedQuickAdd?
 
     var body: some View {
         QuickAddButton {
-            preselectedProjectID = container.quickAddContext.preselectedProjectID
-            isShowingSheet = true
-        }
-        .sheet(isPresented: $isShowingSheet) {
-            QuickAddSheetView(
+            presented = PresentedQuickAdd(
                 viewModel: container.makeQuickAddTaskViewModel(
-                    preselectedProjectID: preselectedProjectID,
+                    preselectedProjectID: container.quickAddContext.preselectedProjectID,
                     account: account,
                 ),
             )
+        }
+        .sheet(item: $presented) { presented in
+            QuickAddSheetView(viewModel: presented.viewModel)
         }
         // A `viku://quick-add` deep link opens the same sheet. Handled
         // here, not in `MainTabView`, so reading the router doesn't rebuild
@@ -212,8 +227,12 @@ private struct QuickAddOverlay: View {
 
     private func handleDeepLink(_ link: DeepLink?) {
         guard case let .quickAdd(projectID) = link else { return }
-        preselectedProjectID = projectID ?? container.quickAddContext.preselectedProjectID
-        isShowingSheet = true
+        presented = PresentedQuickAdd(
+            viewModel: container.makeQuickAddTaskViewModel(
+                preselectedProjectID: projectID ?? container.quickAddContext.preselectedProjectID,
+                account: account,
+            ),
+        )
         container.deepLinkRouter.clear()
     }
 }
