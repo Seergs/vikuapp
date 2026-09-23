@@ -3,7 +3,7 @@ import VikunjaCore
 /// Routes each `TaskRelationRepositoryProtocol` call to the v1 or v2
 /// concrete repository based on `CapabilityProvider.supports(.apiV2)` — see
 /// `VikunjaProjectRepositorySwitch` for the full rationale (identical
-/// pattern, one per resource per `docs/API_V2_MIGRATION.md`'s Step 3).
+/// pattern, one per resource).
 final class VikunjaTaskRelationRepositorySwitch: TaskRelationRepositoryProtocol {
     private let v1: TaskRelationRepositoryProtocol
     private let v2: TaskRelationRepositoryProtocol

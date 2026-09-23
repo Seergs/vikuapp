@@ -4,8 +4,7 @@ import VikunjaCore
 /// repository based on `CapabilityProvider.supports(.apiV2)`, resolved fresh
 /// per call — `VikunjaCapabilityProvider`'s in-memory cache keeps that cheap
 /// after the first hit for as long as this switch instance lives. A small
-/// explicit wrapper rather than a generic one, per
-/// `docs/API_V2_MIGRATION.md`'s Step 3 recipe: `InstanceClientFactoryProtocol`
+/// explicit wrapper rather than a generic one: `InstanceClientFactoryProtocol`
 /// stays synchronous, so nothing outside `Repositories/` needs to change to
 /// check an async capability.
 final class VikunjaProjectRepositorySwitch: ProjectRepositoryProtocol {
