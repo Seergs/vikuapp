@@ -81,14 +81,21 @@ public actor PasswordSessionRefresher {
         }
     }
 
+    /// `/user/token/refresh` keeps its v1 meaning in v2 (see
+    /// `VikunjaEndpoints.userTokenRefreshV2`'s doc comment), so this checks
+    /// capability per call — same lazy, cache-backed pattern as every
+    /// resource switch, just inlined here since this method (not a whole
+    /// repository) is the only v1/v2-sensitive call site in this type.
     private func refreshViaCookie(
         _ refreshToken: String,
         client: URLSessionAPIClient,
         baseURL: URL,
     ) async throws -> PasswordSessionCredential {
-        let (dto, response): (AuthTokenDTO, HTTPURLResponse) = try await client.sendWithResponse(
-            VikunjaEndpoints.userTokenRefresh(refreshToken: refreshToken),
-        )
+        let supportsV2 = await VikunjaCapabilityProvider(client: client).supports(.apiV2)
+        let endpoint = supportsV2
+            ? VikunjaEndpoints.userTokenRefreshV2(refreshToken: refreshToken)
+            : VikunjaEndpoints.userTokenRefresh(refreshToken: refreshToken)
+        let (dto, response): (AuthTokenDTO, HTTPURLResponse) = try await client.sendWithResponse(endpoint)
         let rotatedRefreshToken = HTTPCookie.cookies(
             withResponseHeaderFields: (response.allHeaderFields as? [String: String]) ?? [:],
             for: baseURL,
@@ -96,6 +103,15 @@ public actor PasswordSessionRefresher {
         return PasswordSessionCredential(accessToken: dto.token, refreshToken: rotatedRefreshToken)
     }
 
+    /// v1 only, deliberately: this renews a user's session JWT via bearer
+    /// when no refresh token was ever captured — i.e. a pre-2.0 server
+    /// (see `VikunjaAuthService.login(_:)`'s doc comment). v2 requires
+    /// 2.4.0+, which is always well past 2.0 and therefore always sets a
+    /// refresh-token cookie at login, so this branch is unreachable for any
+    /// account this app would ever route to v2 — and v2 has no equivalent
+    /// endpoint for it anyway (`/user/token` is narrowed to link-share
+    /// tokens only in v2, see `VikunjaEndpoints.userTokenRefreshV2`'s doc
+    /// comment).
     private func renewViaBearer(_ accessToken: String, baseURL: URL) async throws -> PasswordSessionCredential {
         let bearerClient = URLSessionAPIClient(baseURL: baseURL, session: session, authTokenProvider: { accessToken })
         let dto: AuthTokenDTO = try await bearerClient.send(VikunjaEndpoints.userTokenRenew())
