@@ -506,6 +506,52 @@ struct URLSessionAPIClientTests {
         #expect(user.defaultProjectID == 6)
     }
 
+    // `VikunjaUserRepositoryV2` and the v1/v2 parity for
+    // `UserRepositoryProtocol` are tested here for the same reason as
+    // `VikunjaLabelRepository` above.
+
+    private static let userV2Body = #"""
+    {"id": 3, "username": "qa-user", "name": "QA User", "auth_provider": "local", "is_admin": false,
+     "settings": {"default_project_id": 6, "week_start": 0}}
+    """#
+
+    @Test
+    func `fetch current user v2 GE ts the user AND ignores v2 only fields`() async throws {
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: Self.userV2Body)
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaUserRepositoryV2(client: client)
+
+        let user = try await repository.fetchCurrentUser()
+
+        let request = try #require(await capture.lastRequest)
+        #expect(request.httpMethod == "GET")
+        #expect(request.url?.path == "/api/v2/user")
+        #expect(user.defaultProjectID == 6)
+    }
+
+    @Test
+    func `fetch current user returns the same domain result across v1 AND v2`() async throws {
+        let userV1Body = #"""
+        {"id": 3, "username": "qa-user", "name": "QA User", "settings": {"default_project_id": 6}}
+        """#
+        let cases = [
+            (userV1Body, "/api/v1/user"),
+            (Self.userV2Body, "/api/v2/user"),
+        ]
+        for (body, path) in cases {
+            let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: body)
+            let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+            let repository: UserRepositoryProtocol = path.contains("v1")
+                ? VikunjaUserRepository(client: client)
+                : VikunjaUserRepositoryV2(client: client)
+
+            let user = try await repository.fetchCurrentUser()
+
+            #expect(user == User(id: 3, username: "qa-user", name: "QA User", defaultProjectID: 6))
+            #expect(await capture.lastRequest?.url?.path == path)
+        }
+    }
+
     @Test
     func `delete project DELET es the project by ID`() async throws {
         let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: "")

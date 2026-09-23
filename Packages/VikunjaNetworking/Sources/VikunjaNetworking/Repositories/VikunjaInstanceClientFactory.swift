@@ -77,8 +77,11 @@ public struct VikunjaInstanceClientFactory: InstanceClientFactoryProtocol {
         baseURL: URL,
         tokenProvider: @escaping @Sendable () async -> String?,
     ) -> UserRepositoryProtocol {
-        VikunjaUserRepository(
-            client: URLSessionAPIClient(baseURL: baseURL, authTokenProvider: tokenProvider),
+        let client = URLSessionAPIClient(baseURL: baseURL, authTokenProvider: tokenProvider)
+        return VikunjaUserRepositorySwitch(
+            v1: VikunjaUserRepository(client: client),
+            v2: VikunjaUserRepositoryV2(client: client),
+            capabilityProvider: VikunjaCapabilityProvider(client: client),
         )
     }
 

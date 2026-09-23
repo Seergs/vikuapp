@@ -1,10 +1,9 @@
 import Foundation
 import VikunjaCore
 
-/// v2 endpoint builders, added one resource at a time per
-/// `docs/API_V2_MIGRATION.md`'s migration order — kept in a sibling file
-/// rather than growing `VikunjaEndpoints.swift` so a resource's v1 and v2
-/// paths stay easy to tell apart at a glance.
+/// v2 endpoint builders, added one resource at a time as each is migrated —
+/// kept in a sibling file rather than growing `VikunjaEndpoints.swift` so a
+/// resource's v1 and v2 paths stay easy to tell apart at a glance.
 extension VikunjaEndpoints {
     static func projectsV2() -> Endpoint {
         Endpoint(path: "/api/v2/projects")
@@ -92,5 +91,9 @@ extension VikunjaEndpoints {
 
     static func deleteTaskRelationV2(taskID: Int, kind: RelationKind, otherTaskID: Int) -> Endpoint {
         Endpoint(path: "/api/v2/tasks/\(taskID)/relations/\(kind.rawValue)/\(otherTaskID)", method: .delete)
+    }
+
+    static func currentUserV2() -> Endpoint {
+        Endpoint(path: "/api/v2/user")
     }
 }
