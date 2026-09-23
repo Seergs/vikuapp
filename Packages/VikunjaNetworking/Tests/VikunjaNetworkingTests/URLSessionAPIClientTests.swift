@@ -188,6 +188,154 @@ struct URLSessionAPIClientTests {
         #expect(sentJSON["cover_image_attachment_id"] as? Int == 42)
     }
 
+    // `VikunjaTaskRepositoryV2` and the v1/v2 parity for
+    // `TaskRepositoryProtocol` are tested here for the same reason as
+    // `VikunjaTaskRepository.update(_:)` above.
+
+    private static let taskV2Body = #"""
+    {"id": 1, "title": "Buy coffee", "description": "Whole beans", "done": false,
+     "due_date": "2026-08-30T00:00:00Z", "priority": 3, "project_id": 4}
+    """#
+
+    @Test
+    func `fetch tasks v2 unwraps the envelope`() async throws {
+        let body = "{\"items\": [" + Self.taskV2Body
+            + "], \"total\": 1, \"page\": 1, \"per_page\": 50, \"total_pages\": 1}"
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: body)
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaTaskRepositoryV2(client: client)
+
+        let tasks = try await repository.fetchTasks(projectID: 4)
+
+        #expect(tasks.map(\.title) == ["Buy coffee"])
+        let request = try #require(await capture.lastRequest)
+        #expect(request.url?.path == "/api/v2/projects/4/tasks")
+    }
+
+    @Test
+    func `create task v2 PO STs to the project tasks endpoint AND reads back the 201 response`() async throws {
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 201, body: Self.taskV2Body)
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaTaskRepositoryV2(client: client)
+
+        let created = try await repository.create(VikunjaTask(id: 0, title: "Buy coffee", projectID: 4))
+
+        #expect(created.id == 1)
+        let request = try #require(await capture.lastRequest)
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.path == "/api/v2/projects/4/tasks")
+    }
+
+    @Test
+    func `update task v2 fetches the current task first then PU ts A merged body`() async throws {
+        let getResponse = #"""
+        {
+          "id": 1, "title": "Buy coffee", "description": "Whole beans", "done": false,
+          "due_date": "2026-08-30T00:00:00Z", "priority": 3, "project_id": 4,
+          "percent_done": 0.5, "hex_color": "00ff00", "is_favorite": true,
+          "repeat_after": 604800, "repeat_mode": 1, "cover_image_attachment_id": 42
+        }
+        """#
+        let putResponse = #"""
+        {
+          "id": 1, "title": "Buy coffee", "description": "Whole beans", "done": true,
+          "due_date": "2026-08-30T00:00:00Z", "priority": 3, "project_id": 4
+        }
+        """#
+        let (session, capture) = MockURLProtocol.makeSession(responses: [
+            (200, getResponse),
+            (200, putResponse),
+        ])
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaTaskRepositoryV2(client: client)
+
+        let updated = try await repository.update(
+            VikunjaTask(
+                id: 1, title: "Buy coffee", description: "Whole beans",
+                isDone: true, priority: .high, projectID: 4,
+            ),
+        )
+
+        #expect(updated.isDone == true)
+
+        let requests = await capture.requests
+        #expect(requests.count == 2)
+        #expect(requests[0].httpMethod == "GET")
+        #expect(requests[0].url?.path == "/api/v2/tasks/1")
+        #expect(requests[1].httpMethod == "PUT")
+        #expect(requests[1].url?.path == "/api/v2/tasks/1")
+
+        let sentBody = try #require(requests[1].httpBody)
+        let sentJSON = try #require(JSONSerialization.jsonObject(with: sentBody) as? [String: Any])
+        #expect(sentJSON["percent_done"] as? Double == 0.5)
+        #expect(sentJSON["hex_color"] as? String == "00ff00")
+        #expect(sentJSON["repeat_after"] as? Int == 604_800)
+    }
+
+    @Test
+    func `delete task v2 DELET es with an empty 204 response`() async throws {
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 204, body: "")
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaTaskRepositoryV2(client: client)
+
+        try await repository.delete(id: 1)
+
+        let request = try #require(await capture.lastRequest)
+        #expect(request.httpMethod == "DELETE")
+        #expect(request.url?.path == "/api/v2/tasks/1")
+    }
+
+    @Test
+    func `search tasks v2 uses the q query parameter AND unwraps the envelope`() async throws {
+        let body = "{\"items\": [" + Self.taskV2Body
+            + "], \"total\": 1, \"page\": 1, \"per_page\": 50, \"total_pages\": 1}"
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: body)
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaTaskRepositoryV2(client: client)
+
+        let tasks = try await repository.searchTasks(query: "coffee")
+
+        #expect(tasks.map(\.title) == ["Buy coffee"])
+        let request = try #require(await capture.lastRequest)
+        #expect(request.url?.path == "/api/v2/tasks")
+        #expect(request.url?.query == "q=coffee")
+    }
+
+    @Test
+    func `create task returns the same domain result across v1 AND v2 despite different status codes`() async throws {
+        let cases = [
+            (200, "/api/v1/projects/4/tasks", "PUT"),
+            (201, "/api/v2/projects/4/tasks", "POST"),
+        ]
+        for (statusCode, path, method) in cases {
+            let (session, capture) = MockURLProtocol.makeSession(statusCode: statusCode, body: Self.taskV2Body)
+            let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+            let repository: TaskRepositoryProtocol = method == "PUT"
+                ? VikunjaTaskRepository(client: client)
+                : VikunjaTaskRepositoryV2(client: client)
+
+            let created = try await repository.create(VikunjaTask(id: 0, title: "Buy coffee", projectID: 4))
+
+            #expect(created.title == "Buy coffee")
+            let request = try #require(await capture.lastRequest)
+            #expect(request.httpMethod == method)
+            #expect(request.url?.path == path)
+        }
+    }
+
+    @Test
+    func `delete task succeeds across v1 AND v2 despite different response bodies`() async throws {
+        for (statusCode, path) in [(200, "/api/v1/tasks/1"), (204, "/api/v2/tasks/1")] {
+            let (session, _) = MockURLProtocol.makeSession(statusCode: statusCode, body: "")
+            let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+            let repository: TaskRepositoryProtocol = path.contains("v1")
+                ? VikunjaTaskRepository(client: client)
+                : VikunjaTaskRepositoryV2(client: client)
+
+            try await repository.delete(id: 1)
+        }
+    }
+
     // `VikunjaLabelRepository` is tested here rather than in its own suite
     // for the same reason as `VikunjaTaskRepository.update(_:)` above: it
     // shares `MockURLProtocol`'s static state with this suite, and only
