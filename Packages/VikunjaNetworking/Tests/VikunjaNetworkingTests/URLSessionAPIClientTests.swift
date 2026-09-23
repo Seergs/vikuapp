@@ -30,7 +30,7 @@ struct URLSessionAPIClientTests {
     @Test
     func `maps A v2 problem plus json error to A readable server message`() async throws {
         let body = #"""
-        {"title":"Validation failed","status":422,"detail":"Title cannot be empty","code":"invalid_field"}
+        {"title":"Validation failed","status":422,"detail":"Title cannot be empty","code":4017}
         """#
         let (session, _) = MockURLProtocol.makeSession(
             statusCode: 422,
@@ -40,7 +40,7 @@ struct URLSessionAPIClientTests {
         let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
 
         await #expect(throws: VikunjaError.server(
-            message: "Validation failed: Title cannot be empty (invalid_field)",
+            message: "Validation failed: Title cannot be empty (4017)",
             statusCode: 422,
         )) {
             let _: ServerInfoDTO = try await client.send(VikunjaEndpoints.info())
@@ -329,6 +329,166 @@ struct URLSessionAPIClientTests {
         let request = try #require(await capture.lastRequest)
         #expect(request.httpMethod == "DELETE")
         #expect(request.url?.path == "/api/v1/projects/7")
+    }
+
+    // `VikunjaProjectRepositoryV2` is tested here for the same reason as
+    // `VikunjaLabelRepository` above. Fixture bodies below include v2-only
+    // fields (`identifier`, `max_permission`, `owner`, `created`, `updated`)
+    // that `ProjectDTO` doesn't declare, verifying they're safely ignored
+    // rather than causing a decode failure.
+
+    private static let projectV2Body = #"""
+    {
+      "id": 1, "title": "Groceries", "description": "Weekly shop", "is_archived": false,
+      "is_favorite": true, "parent_project_id": 0, "position": 1, "hex_color": "00ff00",
+      "identifier": "GRO", "max_permission": 2, "owner": {"id": 3, "username": "sergio"},
+      "created": "2026-01-01T00:00:00Z", "updated": "2026-01-02T00:00:00Z"
+    }
+    """#
+
+    private static let projectV1Body = #"""
+    {
+      "id": 1, "title": "Groceries", "description": "Weekly shop", "is_archived": false,
+      "is_favorite": true, "parent_project_id": 0, "position": 1, "hex_color": "00ff00"
+    }
+    """#
+
+    @Test
+    func `fetch projects v2 unwraps the envelope AND ignores v2 only fields`() async throws {
+        let body = "{\"items\": [" + Self.projectV2Body
+            + "], \"total\": 1, \"page\": 1, \"per_page\": 50, \"total_pages\": 1}"
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: body)
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaProjectRepositoryV2(client: client)
+
+        let projects = try await repository.fetchProjects()
+
+        #expect(projects == [Project(
+            id: 1, title: "Groceries", description: "Weekly shop",
+            isArchived: false, isFavorite: true, parentProjectID: nil, position: 1, hexColor: "00ff00",
+        )])
+        let request = try #require(await capture.lastRequest)
+        #expect(request.url?.path == "/api/v2/projects")
+    }
+
+    @Test
+    func `create project v2 PO STs AND reads back the 201 response`() async throws {
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 201, body: Self.projectV2Body)
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaProjectRepositoryV2(client: client)
+
+        let created = try await repository.create(Project(id: 0, title: "Groceries"))
+
+        #expect(created.id == 1)
+        let request = try #require(await capture.lastRequest)
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.path == "/api/v2/projects")
+    }
+
+    @Test
+    func `update project v2 PU ts to the projects endpoint`() async throws {
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: Self.projectV2Body)
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaProjectRepositoryV2(client: client)
+
+        _ = try await repository.update(Project(id: 1, title: "Groceries"))
+
+        let request = try #require(await capture.lastRequest)
+        #expect(request.httpMethod == "PUT")
+        #expect(request.url?.path == "/api/v2/projects/1")
+    }
+
+    @Test
+    func `delete project v2 DELET es with an empty 204 response`() async throws {
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 204, body: "")
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaProjectRepositoryV2(client: client)
+
+        try await repository.delete(id: 7)
+
+        let request = try #require(await capture.lastRequest)
+        #expect(request.httpMethod == "DELETE")
+        #expect(request.url?.path == "/api/v2/projects/7")
+    }
+
+    // Parity test (migration recipe step 7): v1 and v2 must produce identical
+    // domain results and identical `VikunjaError` mapping for the same
+    // logical operation. No resource is considered migrated without this
+    // passing. Lives here for the same shared-`MockURLProtocol`-state reason
+    // as everything else in this suite.
+
+    @Test
+    func `fetch project is identical across v1 AND v2`() async throws {
+        for (body, path) in [(Self.projectV1Body, "/api/v1/projects/1"), (Self.projectV2Body, "/api/v2/projects/1")] {
+            let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: body)
+            let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+            let repository: ProjectRepositoryProtocol = path.contains("v1")
+                ? VikunjaProjectRepository(client: client)
+                : VikunjaProjectRepositoryV2(client: client)
+
+            let project = try await repository.fetchProject(id: 1)
+
+            #expect(project == Project(
+                id: 1, title: "Groceries", description: "Weekly shop",
+                isArchived: false, isFavorite: true, parentProjectID: nil, position: 1, hexColor: "00ff00",
+            ))
+            #expect(await capture.lastRequest?.url?.path == path)
+        }
+    }
+
+    @Test
+    func `create project returns the same domain result across v1 AND v2 despite different status codes`() async throws {
+        for (body, statusCode, path, method) in [
+            (Self.projectV1Body, 200, "/api/v1/projects", "PUT"),
+            (Self.projectV2Body, 201, "/api/v2/projects", "POST"),
+        ] {
+            let (session, capture) = MockURLProtocol.makeSession(statusCode: statusCode, body: body)
+            let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+            let repository: ProjectRepositoryProtocol = method == "PUT"
+                ? VikunjaProjectRepository(client: client)
+                : VikunjaProjectRepositoryV2(client: client)
+
+            let created = try await repository.create(Project(id: 0, title: "Groceries"))
+
+            #expect(created == Project(
+                id: 1, title: "Groceries", description: "Weekly shop",
+                isArchived: false, isFavorite: true, parentProjectID: nil, position: 1, hexColor: "00ff00",
+            ))
+            let request = try #require(await capture.lastRequest)
+            #expect(request.httpMethod == method)
+            #expect(request.url?.path == path)
+        }
+    }
+
+    @Test
+    func `delete project succeeds across v1 AND v2 despite different response bodies`() async throws {
+        for (statusCode, body, path) in [
+            (200, "", "/api/v1/projects/7"),
+            (204, "", "/api/v2/projects/7"),
+        ] {
+            let (session, _) = MockURLProtocol.makeSession(statusCode: statusCode, body: body)
+            let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+            let repository: ProjectRepositoryProtocol = path.contains("v1")
+                ? VikunjaProjectRepository(client: client)
+                : VikunjaProjectRepositoryV2(client: client)
+
+            try await repository.delete(id: 7)
+        }
+    }
+
+    @Test
+    func `fetch project maps A not found status identically across v1 AND v2`() async throws {
+        for path in ["/api/v1/projects/1", "/api/v2/projects/1"] {
+            let (session, _) = MockURLProtocol.makeSession(statusCode: 404, body: "")
+            let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+            let repository: ProjectRepositoryProtocol = path.contains("v1")
+                ? VikunjaProjectRepository(client: client)
+                : VikunjaProjectRepositoryV2(client: client)
+
+            await #expect(throws: VikunjaError.notFound) {
+                _ = try await repository.fetchProject(id: 1)
+            }
+        }
     }
 
     @Test

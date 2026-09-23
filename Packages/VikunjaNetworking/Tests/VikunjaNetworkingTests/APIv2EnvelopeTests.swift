@@ -37,4 +37,13 @@ struct APIv2EnvelopeTests {
 
         #expect(envelope.items.isEmpty)
     }
+
+    @Test
+    func `normalizes A null items array to empty`() throws {
+        let json = #"{"items": null, "total": 0, "page": 1, "per_page": 50, "total_pages": 0}"#
+
+        let envelope = try JSONDecoder().decode(APIv2Envelope<ItemDTO>.self, from: Data(json.utf8))
+
+        #expect(envelope.items.isEmpty)
+    }
 }
