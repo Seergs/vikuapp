@@ -35,6 +35,17 @@ struct AuthInfoDTO: Codable {
 
 struct LocalAuthInfoDTO: Codable {
     let enabled: Bool?
+    /// Only where v2's `/info` puts registration status (v1 reports it at
+    /// the top level instead, `ServerInfoDTO.registrationEnabled`).
+    /// Verified against a real instance's `/api/v2/openapi.json`
+    /// (`LocalAuthInfo`): the one field that actually moved between v1 and
+    /// v2's otherwise-identical `/info` shape.
+    let registrationEnabled: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case enabled
+        case registrationEnabled = "registration_enabled"
+    }
 }
 
 struct OpenIDAuthInfoDTO: Codable {

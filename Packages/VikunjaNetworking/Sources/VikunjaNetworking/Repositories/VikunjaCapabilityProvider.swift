@@ -7,6 +7,14 @@ public actor VikunjaCapabilityProvider: CapabilityProvider {
 
     private let client: APIClient
     private var cachedInfo: VikunjaServerInfo?
+    /// Coalesces concurrent first callers into one request. Actors are
+    /// reentrant across `await`, so without this, N concurrent callers that
+    /// all see `cachedInfo == nil` (e.g. `AccountTaskLoader` resolving
+    /// `.apiV2` once per project, all at once via `withTaskGroup`) would
+    /// each kick off their own `/api/v1/info` request instead of sharing
+    /// the one already in flight (same single-flight shape as
+    /// `PasswordSessionRefresher.coordinatedRefresh`).
+    private var inFlight: Task<VikunjaServerInfo, Error>?
 
     public init(client: APIClient) {
         self.client = client
@@ -16,10 +24,34 @@ public actor VikunjaCapabilityProvider: CapabilityProvider {
         if let cachedInfo {
             return cachedInfo
         }
-        let dto: ServerInfoDTO = try await client.send(VikunjaEndpoints.info())
-        let info = ServerInfoMapper.toDomain(dto)
+        if let inFlight {
+            return try await inFlight.value
+        }
+        let task = Task { try await fetchServerInfo() }
+        inFlight = task
+        defer { inFlight = nil }
+        let info = try await task.value
         cachedInfo = info
         return info
+    }
+
+    /// Tries v1 first, the one endpoint guaranteed to exist on every server
+    /// version this app has ever supported, including one too old for v2 at
+    /// all. Falls back to v2's `/info` only on a 404 from v1's, which can
+    /// only mean the server has removed `/api/v1/*` entirely (Vikunja's
+    /// 4.0). v2's `/info` reports the same core fields v1's does (see
+    /// `LocalAuthInfoDTO.registrationEnabled`'s doc comment for the one
+    /// field that moved). Any other failure (network error, 500, ...)
+    /// surfaces as-is rather than masking it behind a second,
+    /// likely-also-failing request.
+    private func fetchServerInfo() async throws -> VikunjaServerInfo {
+        do {
+            let dto: ServerInfoDTO = try await client.send(VikunjaEndpoints.info())
+            return ServerInfoMapper.toDomain(dto)
+        } catch VikunjaError.notFound {
+            let dto: ServerInfoDTO = try await client.send(VikunjaEndpoints.infoV2())
+            return ServerInfoMapper.toDomain(dto)
+        }
     }
 
     public func supports(_ feature: VikunjaFeature) async -> Bool {

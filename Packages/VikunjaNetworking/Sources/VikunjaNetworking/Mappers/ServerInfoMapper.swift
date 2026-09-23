@@ -7,7 +7,10 @@ enum ServerInfoMapper {
             version: dto.version,
             caldavEnabled: dto.caldavEnabled ?? false,
             totpEnabled: dto.totpEnabled ?? false,
-            registrationEnabled: dto.registrationEnabled ?? false,
+            // v1 reports this at the top level; v2 moved it under
+            // `auth.local` (see `LocalAuthInfoDTO.registrationEnabled`'s doc
+            // comment). Try both rather than assuming which shape sent it.
+            registrationEnabled: dto.registrationEnabled ?? dto.auth?.local?.registrationEnabled ?? false,
             maxFileSizeBytes: MaxFileSizeParser.bytes(from: dto.maxFileSize),
             localAuthEnabled: dto.auth?.local?.enabled ?? true,
             oidcProviders: oidcProviders(from: dto.auth?.openidConnect),
