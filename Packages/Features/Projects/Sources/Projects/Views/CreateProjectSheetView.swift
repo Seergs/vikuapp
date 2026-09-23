@@ -10,7 +10,7 @@ import VikunjaCore
 /// plain `.sheet` by whichever screen owns the trigger (`ProjectsView`'s
 /// toolbar button, today).
 public struct CreateProjectSheetView: View {
-    @Bindable var viewModel: CreateProjectViewModel
+    @State private var viewModel: CreateProjectViewModel
     @Environment(\.dismiss) private var dismiss
     @FocusState private var isTitleFocused: Bool
     @State private var isShowingParentPicker = false
@@ -22,8 +22,10 @@ public struct CreateProjectSheetView: View {
         viewModel.saveErrorMessage != nil ? Self.expandedHeight : Self.compactHeight
     }
 
-    public init(viewModel: CreateProjectViewModel) {
-        self.viewModel = viewModel
+    /// Takes a factory rather than an already-built view model — see
+    /// `EditProjectSheetView.init`'s doc comment for why.
+    public init(makeViewModel: @escaping () -> CreateProjectViewModel) {
+        _viewModel = State(initialValue: makeViewModel())
     }
 
     public var body: some View {

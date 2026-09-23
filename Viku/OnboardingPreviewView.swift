@@ -16,7 +16,7 @@ struct OnboardingPreviewView: View {
     var body: some View {
         NavigationStack {
             InstanceSetupView(
-                viewModel: container.makeInstanceSetupViewModel(),
+                makeViewModel: container.makeInstanceSetupViewModel,
                 onConnectionSaved: onConnectionSaved,
             )
             .overlay(alignment: .topLeading) {

@@ -6,13 +6,22 @@ import VikunjaCore
 /// and persistence live in `InstanceSetupViewModel`, so future UI-only changes
 /// (copy, styling, layout, button count) only ever touch this file.
 public struct InstanceSetupView: View {
-    @Bindable private var viewModel: InstanceSetupViewModel
+    @State private var viewModel: InstanceSetupViewModel
     @State private var isTokenVisible = false
     @State private var isPasswordVisible = false
     private let onConnectionSaved: (InstanceAccount) -> Void
 
-    public init(viewModel: InstanceSetupViewModel, onConnectionSaved: @escaping (InstanceAccount) -> Void) {
-        self.viewModel = viewModel
+    /// Takes a factory rather than an already-built view model — both call
+    /// sites (`RootView`, the dev-only `OnboardingPreviewView`) construct
+    /// this directly inside a plain `body` branch, which SwiftUI can
+    /// re-evaluate independently of this view's own identity (see
+    /// `ConnectionsListView`'s `init` doc comment in Settings for the full
+    /// mechanism). Building the view model inside `@State`'s `init` means
+    /// SwiftUI only uses `makeViewModel()`'s result the first time this
+    /// screen's identity is created, so a re-render mid-onboarding can't
+    /// silently reset whatever the person has typed.
+    public init(makeViewModel: @escaping () -> InstanceSetupViewModel, onConnectionSaved: @escaping (InstanceAccount) -> Void) {
+        _viewModel = State(initialValue: makeViewModel())
         self.onConnectionSaved = onConnectionSaved
     }
 

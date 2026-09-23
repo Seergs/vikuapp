@@ -66,7 +66,7 @@ public struct ProjectsRootView: View {
             }
         }
         .sheet(item: $editingProject) { project in
-            EditProjectSheetView(viewModel: makeEditProjectViewModel(project))
+            EditProjectSheetView(makeViewModel: { makeEditProjectViewModel(project) })
                 .presentationCompactAdaptation(.sheet)
         }
     }

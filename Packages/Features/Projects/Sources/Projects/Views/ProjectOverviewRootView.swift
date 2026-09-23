@@ -48,7 +48,7 @@ public struct ProjectOverviewRootView: View {
         // screen can present it without owning a `Router` - matching how
         // `ProjectsRootView` wires the same edit button.
         .sheet(item: $editingProject) { project in
-            EditProjectSheetView(viewModel: makeEditProjectViewModel(project))
+            EditProjectSheetView(makeViewModel: { makeEditProjectViewModel(project) })
                 .presentationCompactAdaptation(.sheet)
         }
     }
