@@ -73,5 +73,25 @@ public struct VikunjaTask: Identifiable, Equatable, Hashable, Sendable {
         case high = 3
         case urgent = 4
         case doNow = 5
+
+        /// Human-readable label for priority menus. `.doNow` reads as
+        /// "Urgent" - Vikunja's fifth priority level, but the app gives it
+        /// no UI treatment distinct from `.urgent`.
+        public var displayName: String {
+            switch self {
+            case .unset: "None"
+            case .low: "Low"
+            case .medium: "Medium"
+            case .high: "High"
+            case .urgent, .doNow: "Urgent"
+            }
+        }
+
+        /// Every case a priority-picker menu should offer, in order - all of
+        /// `allCases` except `.doNow`, which `displayName` already folds into
+        /// `.urgent` and which no picker lets a user choose directly.
+        public static var selectable: [Priority] {
+            allCases.filter { $0 != .doNow }
+        }
     }
 }
