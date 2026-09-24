@@ -98,6 +98,9 @@ public struct TaskDetailView: View {
                     ) {
                         Task { await viewModel.toggleDone() }
                     }
+                    Button("Due Date", systemImage: "calendar") {
+                        isShowingDueDatePicker = true
+                    }
                     Menu("Priority", systemImage: "flag") {
                         ForEach(VikunjaTask.Priority.selectable, id: \.self) { priority in
                             Button {

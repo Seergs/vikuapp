@@ -27,6 +27,7 @@ struct ProjectOverviewView: View {
     @State private var taskPendingDelete: VikunjaTask?
     @State private var taskPendingMove: VikunjaTask?
     @State private var taskPendingDuplicate: VikunjaTask?
+    @State private var taskPendingDueDateEdit: VikunjaTask?
 
     private var sort: TaskSort {
         TaskSort(field: viewModel.sortField, direction: viewModel.sortDirection)
@@ -98,6 +99,11 @@ struct ProjectOverviewView: View {
                     makeViewModel: { viewModel.makeDuplicateTaskViewModel(for: task) },
                     onDuplicated: onDuplicated,
                 )
+            }
+            .sheet(item: $taskPendingDueDateEdit) { task in
+                DueDatePickerSheet(initialDate: task.dueDate) { newDate in
+                    Task { await viewModel.setDueDate(task, to: newDate) }
+                }
             }
     }
 
@@ -217,6 +223,9 @@ struct ProjectOverviewView: View {
                                 systemImage: task.isDone ? "circle" : "checkmark.circle",
                             ) {
                                 Task { await viewModel.toggleDone(task) }
+                            }
+                            Button("Due Date", systemImage: "calendar") {
+                                taskPendingDueDateEdit = task
                             }
                             Menu("Priority", systemImage: "flag") {
                                 ForEach(VikunjaTask.Priority.selectable, id: \.self) { priority in

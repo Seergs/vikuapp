@@ -1,3 +1,4 @@
+import Foundation
 @testable import Home
 import Testing
 import VikunjaCore
@@ -157,6 +158,49 @@ struct TodayViewModelTests {
         await viewModel.setPriority(viewModel.tasks[0], to: .urgent)
 
         #expect(viewModel.tasks[0].priority == .low)
+    }
+
+    @Test
+    func `set due date persists the new due date through the repository`() async {
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 1, title: "Work")]
+        let taskRepository = FakeTaskRepository()
+        taskRepository.tasks = [VikunjaTask(id: 1, title: "Write report", projectID: 1)]
+        let viewModel = TodayViewModel(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            toastPresenter: FakeToastPresenter(),
+        )
+        await viewModel.load()
+        let newDate = Date(timeIntervalSince1970: 0)
+
+        await viewModel.setDueDate(viewModel.tasks[0], to: newDate)
+
+        #expect(viewModel.tasks[0].dueDate == newDate)
+    }
+
+    @Test
+    func `set due date reverts when the server rejects the update`() async {
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 1, title: "Work")]
+        let taskRepository = FakeTaskRepository()
+        let original = VikunjaTask(id: 1, title: "Write report", dueDate: Date(timeIntervalSince1970: 0), projectID: 1)
+        taskRepository.tasks = [original]
+        let viewModel = TodayViewModel(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            toastPresenter: FakeToastPresenter(),
+        )
+        await viewModel.load()
+        taskRepository.updateError = .network("offline")
+
+        await viewModel.setDueDate(viewModel.tasks[0], to: nil)
+
+        #expect(viewModel.tasks[0].dueDate == original.dueDate)
     }
 
     @Test

@@ -178,6 +178,17 @@ public final class ProjectOverviewViewModel {
         tasks[index] = await mutator.persistSetPriority(updated: updated, original: task)
     }
 
+    /// Sets (or clears, via `nil`) a task's due date, persists the change,
+    /// and rolls the local edit back if the server rejects it - mirrors
+    /// `setPriority(_:to:)`.
+    public func setDueDate(_ task: VikunjaTask, to dueDate: Date?) async {
+        guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
+        var updated = task
+        updated.dueDate = dueDate
+        tasks[index] = updated
+        tasks[index] = await mutator.persistSetDueDate(updated: updated, original: task)
+    }
+
     /// Deletes a task from the server and drops it from the local list on
     /// success. Vikunja soft-deletes tasks server-side rather than cascading
     /// the delete to subtasks/relations, so nothing else in the tree needs

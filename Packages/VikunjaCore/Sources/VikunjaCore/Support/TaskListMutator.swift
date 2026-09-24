@@ -67,6 +67,21 @@ public struct TaskListMutator {
         }
     }
 
+    /// Persists a due-date change (set or cleared) the caller has already
+    /// applied optimistically. Returns the task the list should show: the
+    /// server's copy on success, `original` on failure - a silent rollback,
+    /// mirroring `persistSetPriority`.
+    public func persistSetDueDate(
+        updated: VikunjaTask,
+        original: VikunjaTask,
+    ) async -> VikunjaTask {
+        do {
+            return try await repository.update(updated)
+        } catch {
+            return original
+        }
+    }
+
     /// Deletes `task`. Returns `true` (with a success toast) when the caller
     /// should drop it from the list, `false` (with an error toast) when the
     /// request failed and the row should stay.
