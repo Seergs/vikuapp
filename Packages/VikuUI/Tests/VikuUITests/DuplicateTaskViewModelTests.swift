@@ -1,6 +1,6 @@
-@testable import Tasks
 import Testing
 import VikunjaCore
+@testable import VikuUI
 
 @MainActor
 struct DuplicateTaskViewModelTests {

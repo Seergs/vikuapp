@@ -8,10 +8,11 @@ let package = Package(
         .library(name: "VikuUI", targets: ["VikuUI"]),
     ],
     dependencies: [
+        .package(path: "../VikunjaCore"),
         .package(path: "../VikuDesignSystem"),
     ],
     targets: [
-        .target(name: "VikuUI", dependencies: ["VikuDesignSystem"]),
-        .testTarget(name: "VikuUITests", dependencies: ["VikuUI"]),
+        .target(name: "VikuUI", dependencies: ["VikunjaCore", "VikuDesignSystem"]),
+        .testTarget(name: "VikuUITests", dependencies: ["VikuUI", "VikunjaCore"]),
     ],
 )
