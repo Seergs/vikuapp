@@ -62,6 +62,7 @@ public struct ProjectsRootView: View {
                     onSelectSubproject: { router.push(ProjectsRoute.projectOverview($0)) },
                     onSelectTask: { task in router.push(.taskDetail(task, node.project)) },
                     onEditProject: { editingProject = $0 },
+                    onDuplicated: { router.push(.taskDetail($0, $1)) },
                 )
             }
         }

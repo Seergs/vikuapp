@@ -41,8 +41,12 @@ public final class ProjectOverviewViewModel {
 
     private let repository: TaskRepositoryProtocol
     private let projectRepository: ProjectRepositoryProtocol
+    private let labelRepository: LabelRepositoryProtocol
+    private let relationRepository: TaskRelationRepositoryProtocol
     private let mutator: TaskListMutator
     private let taskSortStore: TaskSortStore
+    private let toastPresenter: ToastPresenting
+    private let hapticPresenter: HapticFeedbackPresenting
     /// Set by `AppContainer` so this screen can tell the globally-presented
     /// quick-add sheet which project to default to while it's on screen.
     /// Optional so tests and any caller that doesn't care can skip it.
@@ -57,6 +61,8 @@ public final class ProjectOverviewViewModel {
         subprojects: [ProjectNode] = [],
         repository: TaskRepositoryProtocol,
         projectRepository: ProjectRepositoryProtocol,
+        labelRepository: LabelRepositoryProtocol,
+        relationRepository: TaskRelationRepositoryProtocol,
         toastPresenter: ToastPresenting,
         hapticPresenter: HapticFeedbackPresenting = NoopHapticFeedback(),
         taskSortStore: TaskSortStore,
@@ -67,6 +73,8 @@ public final class ProjectOverviewViewModel {
         self.subprojects = subprojects
         self.repository = repository
         self.projectRepository = projectRepository
+        self.labelRepository = labelRepository
+        self.relationRepository = relationRepository
         self.taskSortStore = taskSortStore
         self.mutator = TaskListMutator(
             repository: repository,
@@ -74,6 +82,8 @@ public final class ProjectOverviewViewModel {
             hapticPresenter: hapticPresenter,
             errorMessage: { ($0 as? VikunjaError)?.displayMessage ?? $0.localizedDescription },
         )
+        self.toastPresenter = toastPresenter
+        self.hapticPresenter = hapticPresenter
         self.quickAddContext = quickAddContext
         self.taskChangeBroadcaster = taskChangeBroadcaster
     }
@@ -183,5 +193,21 @@ public final class ProjectOverviewViewModel {
         if await mutator.move(task, to: destination) {
             tasks.removeAll { $0.id == task.id }
         }
+    }
+
+    /// Builds a `DuplicateTaskViewModel` for `task`, seeded with this
+    /// screen's own `project` — every task in `tasks` belongs to it, mirroring
+    /// `TaskDetailViewModel.makeDuplicateTaskViewModel()`.
+    public func makeDuplicateTaskViewModel(for task: VikunjaTask) -> DuplicateTaskViewModel {
+        DuplicateTaskViewModel(
+            source: task,
+            sourceProject: project,
+            taskRepository: repository,
+            labelRepository: labelRepository,
+            relationRepository: relationRepository,
+            projectRepository: projectRepository,
+            toastPresenter: toastPresenter,
+            hapticPresenter: hapticPresenter,
+        )
     }
 }
