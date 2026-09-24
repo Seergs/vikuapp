@@ -3,21 +3,23 @@ import VikuDesignSystem
 
 /// Lets the user pick (or clear) a due date/time. A small sheet rather than
 /// an inline `DatePicker`, matching `QuickAddSheetView`'s pattern of pushing
-/// pickers into their own sheet — `TaskDetailView` has no toolbar of its own
-/// to host a "Done" button otherwise.
-struct DueDatePickerSheet: View {
+/// pickers into their own sheet. Lives in `VikuUI` rather than
+/// `Features/Tasks` so every screen that lists tasks (Today, a project's task
+/// list, the task detail overflow menu) can offer it without importing
+/// another feature - mirrors `DuplicateTaskSheetView`.
+public struct DueDatePickerSheet: View {
     @State private var date: Date
     @Environment(\.dismiss) private var dismiss
     private let hadInitialDate: Bool
     private let onSave: (Date?) -> Void
 
-    init(initialDate: Date?, onSave: @escaping (Date?) -> Void) {
+    public init(initialDate: Date?, onSave: @escaping (Date?) -> Void) {
         _date = State(initialValue: initialDate ?? Date())
         self.hadInitialDate = initialDate != nil
         self.onSave = onSave
     }
 
-    var body: some View {
+    public var body: some View {
         NavigationStack {
             ScrollView {
                 VStack {
