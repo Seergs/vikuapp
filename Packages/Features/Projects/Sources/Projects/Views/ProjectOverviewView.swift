@@ -212,6 +212,12 @@ struct ProjectOverviewView: View {
                         onToggle: { Task { await viewModel.toggleDone(task) } },
                         onOpen: { onSelectTask(task) },
                         contextMenu: {
+                            Button(
+                                task.isDone ? "Mark as Not Done" : "Mark as Done",
+                                systemImage: task.isDone ? "circle" : "checkmark.circle",
+                            ) {
+                                Task { await viewModel.toggleDone(task) }
+                            }
                             Button("Duplicate Task", systemImage: "plus.square.on.square") {
                                 taskPendingDuplicate = task
                             }
