@@ -27,7 +27,7 @@ public struct TaskDetailView: View {
     @State private var isShowingDeleteConfirmation = false
     @State private var commentPendingDeletion: TaskComment?
     @State private var commentPendingEdit: TaskComment?
-    @State private var relationSheetStep: RelationSheetStep?
+    @State private var relationEditStep: RelationEditStep?
     @State private var isShowingFileImporter = false
     @State private var attachmentPendingDeletion: TaskAttachment?
     @State private var attachmentPreviewURL: URL?
@@ -117,6 +117,9 @@ public struct TaskDetailView: View {
                     }
                     Button("Labels", systemImage: "tag") {
                         isShowingLabelPicker = true
+                    }
+                    Button("Relations", systemImage: "link") {
+                        relationEditStep = .pickKind(viewModel.task)
                     }
                     Button("Duplicate Task", systemImage: "plus.square.on.square") {
                         isShowingDuplicateSheet = true
@@ -237,21 +240,31 @@ public struct TaskDetailView: View {
                 previewURL: $attachmentPreviewURL,
             ),
         )
-        .sheet(item: $relationSheetStep) { step in
+        .sheet(item: $relationEditStep) { step in
             switch step {
-            case .pickKind:
+            case let .pickKind(task):
                 RelationKindPickerSheet { kind in
-                    relationSheetStep = .pickTask(kind)
+                    relationEditStep = .pickTask(task, kind)
                 }
-            case let .pickTask(kind):
-                RelationTaskPickerSheet(viewModel: viewModel, kind: kind) { candidate in
-                    let relation = TaskRelation(
-                        id: candidate.id, title: candidate.title,
-                        isDone: candidate.isDone, projectID: candidate.projectID,
-                    )
-                    Task { await viewModel.addRelation(relation, kind: kind) }
-                    relationSheetStep = nil
-                }
+            case let .pickTask(_, kind):
+                RelationTaskPickerSheet(
+                    kind: kind,
+                    results: viewModel.relationSearchResults,
+                    projectTitle: { candidate in viewModel.projectTitle(forProjectID: candidate.projectID) },
+                    onAppear: {
+                        await viewModel.loadAllProjects()
+                        await viewModel.loadRelationSuggestions()
+                    },
+                    onSearch: { query in await viewModel.searchTasksForRelation(query: query) },
+                    onSelect: { candidate in
+                        let relation = TaskRelation(
+                            id: candidate.id, title: candidate.title,
+                            isDone: candidate.isDone, projectID: candidate.projectID,
+                        )
+                        Task { await viewModel.addRelation(relation, kind: kind) }
+                        relationEditStep = nil
+                    },
+                )
             }
         }
         .onChange(of: focusedField) { previous, current in
@@ -370,7 +383,7 @@ public struct TaskDetailView: View {
 
         RelationsSection(
             viewModel: viewModel,
-            onAdd: { relationSheetStep = .pickKind },
+            onAdd: { relationEditStep = .pickKind(viewModel.task) },
             onOpenRelation: openRelation,
         )
 
