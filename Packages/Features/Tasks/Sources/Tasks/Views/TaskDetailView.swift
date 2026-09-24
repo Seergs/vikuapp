@@ -92,6 +92,12 @@ public struct TaskDetailView: View {
             }
             ToolbarItem(placement: .primaryAction) {
                 Menu {
+                    Button(
+                        viewModel.task.isDone ? "Mark as Not Done" : "Mark as Done",
+                        systemImage: viewModel.task.isDone ? "circle" : "checkmark.circle",
+                    ) {
+                        Task { await viewModel.toggleDone() }
+                    }
                     Button("Duplicate Task", systemImage: "plus.square.on.square") {
                         isShowingDuplicateSheet = true
                     }

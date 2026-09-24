@@ -119,6 +119,12 @@ struct SearchView: View {
                         router.push(.taskDetail(task, project))
                     },
                     contextMenu: {
+                        Button(
+                            task.isDone ? "Mark as Not Done" : "Mark as Done",
+                            systemImage: task.isDone ? "circle" : "checkmark.circle",
+                        ) {
+                            Task { await viewModel.toggleDone(task) }
+                        }
                         Button("Delete", systemImage: "trash", role: .destructive) {
                             taskPendingDelete = task
                         }
