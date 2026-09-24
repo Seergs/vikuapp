@@ -2,12 +2,17 @@ import SwiftUI
 import VikuNavigation
 import VikunjaCore
 
-/// Settings' entry point for the app target: owns the tab's own
-/// `NavigationStack` and `Router<SettingsRoute>`, so pushing a screen from
-/// inside Settings never needs the app target or another feature to know
-/// about it.
+/// Settings' entry point for the app target: hosts the tab's own
+/// `NavigationStack` around a `Router<SettingsRoute>`, so pushing a screen
+/// from inside Settings never needs another feature to know about it.
+///
+/// Unlike the other tabs, `router` is passed in rather than owned here
+/// (`@State` in `MainTabView`, alongside `homeRouter`/`projectsRouter`/etc.)
+/// — `MainTabView` needs to be able to push onto it itself, to jump straight
+/// to the reconnect screen when a session expires while the user is on a
+/// different tab.
 public struct SettingsRootView: View {
-    @State private var router = Router<SettingsRoute>()
+    private let router: Router<SettingsRoute>
     private let account: InstanceAccount
     private let themeStore: AppThemeStoring
     private let isDevBuild: Bool
@@ -18,9 +23,11 @@ public struct SettingsRootView: View {
     private let makeConnectionFormViewModel: (ConnectionFormMode) -> ConnectionFormViewModel
     private let makeManageLabelsViewModel: () -> ManageLabelsViewModel
 
-    /// `account` is the currently active connection — shown on the landing
-    /// screen's "Connections" row. `themeStore` backs the "Appearance" row.
-    /// `isDevBuild`/`devBadgeStore`/`networkLoggingStore`/
+    /// `router` is owned by the app target's `MainTabView`, alongside its
+    /// other tab routers, so it can push a reconnect screen onto this stack
+    /// itself. `account` is the currently active connection — shown on the
+    /// landing screen's "Connections" row. `themeStore` backs the
+    /// "Appearance" row. `isDevBuild`/`devBadgeStore`/`networkLoggingStore`/
     /// `onPreviewOnboarding` back the Developer section, shown only in dev
     /// builds (see `BuildConfig.isDevBuild` in the app target).
     /// `makeConnectionsListViewModel`/`makeConnectionFormViewModel`
@@ -28,6 +35,7 @@ public struct SettingsRootView: View {
     /// know about the concrete `AccountStoreProtocol`/
     /// `InstanceClientFactoryProtocol` these view models need.
     public init(
+        router: Router<SettingsRoute>,
         account: InstanceAccount,
         themeStore: AppThemeStoring,
         isDevBuild: Bool,
@@ -38,6 +46,7 @@ public struct SettingsRootView: View {
         makeConnectionFormViewModel: @escaping (ConnectionFormMode) -> ConnectionFormViewModel,
         makeManageLabelsViewModel: @escaping () -> ManageLabelsViewModel,
     ) {
+        self.router = router
         self.account = account
         self.themeStore = themeStore
         self.isDevBuild = isDevBuild
@@ -50,7 +59,12 @@ public struct SettingsRootView: View {
     }
 
     public var body: some View {
-        NavigationStack(path: $router.path) {
+        // `router` is a reference type owned outside this view (unlike the
+        // other tab roots, which get an `@State`-owned router and can use
+        // its `$`-projected binding directly) — this builds the same
+        // read/write binding by hand so `MainTabView` can still push onto
+        // the identical `NavigationPath` instance.
+        NavigationStack(path: Binding(get: { router.path }, set: { router.path = $0 })) {
             SettingsView(
                 activeAccountName: account.displayName,
                 themeStore: themeStore,
