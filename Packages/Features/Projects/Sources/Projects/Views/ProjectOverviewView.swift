@@ -286,7 +286,7 @@ struct ProjectOverviewView: View {
                             Button("Labels", systemImage: "tag") {
                                 taskPendingLabelEdit = task
                             }
-                            Button("Relations", systemImage: "link") {
+                            Button("Add Relation", systemImage: "link") {
                                 relationEditStep = .pickKind(task)
                             }
                             Button("Duplicate Task", systemImage: "plus.square.on.square") {

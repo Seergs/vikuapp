@@ -118,7 +118,7 @@ public struct TaskDetailView: View {
                     Button("Labels", systemImage: "tag") {
                         isShowingLabelPicker = true
                     }
-                    Button("Relations", systemImage: "link") {
+                    Button("Add Relation", systemImage: "link") {
                         relationEditStep = .pickKind(viewModel.task)
                     }
                     Button("Duplicate Task", systemImage: "plus.square.on.square") {
