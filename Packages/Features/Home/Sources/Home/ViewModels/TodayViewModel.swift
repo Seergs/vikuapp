@@ -35,11 +35,18 @@ public final class TodayViewModel {
 
     private let taskLoader: AccountTaskLoader
     private let mutator: TaskListMutator
+    private let taskRepository: TaskRepositoryProtocol
     private let projectRepository: ProjectRepositoryProtocol
+    private let labelRepository: LabelRepositoryProtocol
+    private let relationRepository: TaskRelationRepositoryProtocol
+    private let toastPresenter: ToastPresenting
+    private let hapticPresenter: HapticFeedbackPresenting
 
     public init(
         taskRepository: TaskRepositoryProtocol,
         projectRepository: ProjectRepositoryProtocol,
+        labelRepository: LabelRepositoryProtocol,
+        relationRepository: TaskRelationRepositoryProtocol,
         toastPresenter: ToastPresenting,
         hapticPresenter: HapticFeedbackPresenting = NoopHapticFeedback(),
     ) {
@@ -53,7 +60,12 @@ public final class TodayViewModel {
             hapticPresenter: hapticPresenter,
             errorMessage: { ($0 as? VikunjaError)?.displayMessage ?? $0.localizedDescription },
         )
+        self.taskRepository = taskRepository
         self.projectRepository = projectRepository
+        self.labelRepository = labelRepository
+        self.relationRepository = relationRepository
+        self.toastPresenter = toastPresenter
+        self.hapticPresenter = hapticPresenter
     }
 
     /// Skips the `.loading` transition when there's already loaded content
@@ -109,5 +121,23 @@ public final class TodayViewModel {
         if await mutator.move(task, to: destination) {
             tasks.removeAll { $0.id == task.id }
         }
+    }
+
+    /// Builds a `DuplicateTaskViewModel` for `task`, resolving its project
+    /// from `projectsByID` — falls back to a bare `Project` seeded from
+    /// `task.projectID` on the off chance the lookup misses (`load()` always
+    /// populates both from the same fetch, so this is only a defensive
+    /// fallback), mirroring `TaskDetailViewModel.makeDuplicateTaskViewModel()`.
+    public func makeDuplicateTaskViewModel(for task: VikunjaTask) -> DuplicateTaskViewModel {
+        DuplicateTaskViewModel(
+            source: task,
+            sourceProject: projectsByID[task.projectID] ?? Project(id: task.projectID, title: ""),
+            taskRepository: taskRepository,
+            labelRepository: labelRepository,
+            relationRepository: relationRepository,
+            projectRepository: projectRepository,
+            toastPresenter: toastPresenter,
+            hapticPresenter: hapticPresenter,
+        )
     }
 }

@@ -36,6 +36,7 @@ public struct ProjectOverviewRootView: View {
             onSelectSubproject: { router.push(.projectOverview($0.project)) },
             onSelectTask: { router.push(.taskDetail($0, viewModel.project)) },
             onEditProject: { editingProject = $0 },
+            onDuplicated: { router.push(.taskDetail($0, $1)) },
         )
         // Pushed from a `.inline`-titled screen (Tasks' `TaskDetailView`), a
         // pushed screen inherits that inline mode by default - force the large

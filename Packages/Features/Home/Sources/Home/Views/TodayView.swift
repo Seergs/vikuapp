@@ -13,6 +13,7 @@ struct TodayView: View {
     @State private var filter: TodayFilter = .all
     @State private var taskPendingDelete: VikunjaTask?
     @State private var taskPendingMove: VikunjaTask?
+    @State private var taskPendingDuplicate: VikunjaTask?
 
     var body: some View {
         content
@@ -52,6 +53,14 @@ struct TodayView: View {
                     Task { await viewModel.move(task, to: destination) }
                 }
                 .task { await viewModel.loadMoveCandidates() }
+            }
+            .sheet(item: $taskPendingDuplicate) { task in
+                DuplicateTaskSheetView(
+                    makeViewModel: { viewModel.makeDuplicateTaskViewModel(for: task) },
+                    onDuplicated: { task, project in
+                        router.push(.taskDetail(task, project))
+                    },
+                )
             }
     }
 
@@ -143,6 +152,9 @@ struct TodayView: View {
                             }
                         },
                         contextMenu: {
+                            Button("Duplicate Task", systemImage: "plus.square.on.square") {
+                                taskPendingDuplicate = task
+                            }
                             Button("Move to Project", systemImage: "folder") {
                                 taskPendingMove = task
                             }

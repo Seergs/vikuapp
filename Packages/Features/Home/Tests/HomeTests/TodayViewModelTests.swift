@@ -19,6 +19,8 @@ struct TodayViewModelTests {
         let viewModel = TodayViewModel(
             taskRepository: taskRepository,
             projectRepository: projectRepository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
             toastPresenter: FakeToastPresenter(),
         )
 
@@ -46,6 +48,8 @@ struct TodayViewModelTests {
         let viewModel = TodayViewModel(
             taskRepository: taskRepository,
             projectRepository: projectRepository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
             toastPresenter: FakeToastPresenter(),
         )
 
@@ -62,6 +66,8 @@ struct TodayViewModelTests {
         let viewModel = TodayViewModel(
             taskRepository: FakeTaskRepository(),
             projectRepository: projectRepository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
             toastPresenter: FakeToastPresenter(),
         )
 
@@ -80,6 +86,8 @@ struct TodayViewModelTests {
         let viewModel = TodayViewModel(
             taskRepository: taskRepository,
             projectRepository: projectRepository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
             toastPresenter: FakeToastPresenter(),
         )
         await viewModel.load()
@@ -98,6 +106,8 @@ struct TodayViewModelTests {
         let viewModel = TodayViewModel(
             taskRepository: taskRepository,
             projectRepository: projectRepository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
             toastPresenter: FakeToastPresenter(),
         )
         await viewModel.load()
@@ -118,6 +128,8 @@ struct TodayViewModelTests {
         let viewModel = TodayViewModel(
             taskRepository: taskRepository,
             projectRepository: projectRepository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
             toastPresenter: FakeToastPresenter(),
             hapticPresenter: haptics,
         )

@@ -2,13 +2,17 @@ import SwiftUI
 import VikuDesignSystem
 import VikunjaCore
 
-/// The "duplicate task" sheet, opened from `TaskDetailView`'s overflow menu.
-/// Same compact bottom-sheet language as `QuickAddSheetView` (shared
-/// controls in `TaskFormControls`), pre-filled from the source task: an
-/// editable title (defaulting to `"… (copy)"`), project, and priority, plus
-/// "Copy labels" / "Copy relations" toggles when the source has either.
-/// Confirming creates the duplicate, hands it back through `onDuplicated`
-/// (the host pushes its detail screen), and dismisses.
+/// The "duplicate task" sheet, opened from a task's overflow menu
+/// (`TaskDetailView`) or context menu (Today, a project's task list). Same
+/// compact bottom-sheet language as `QuickAddSheetView` in Features/Tasks
+/// (shared controls from `VikuDesignSystem`'s `TaskFormControls`),
+/// pre-filled from the source task: an editable title (defaulting to
+/// `"… (copy)"`), project, and priority, plus "Copy labels" / "Copy
+/// relations" toggles when the source has either. Confirming creates the
+/// duplicate, hands it back through `onDuplicated` (the host pushes its
+/// detail screen), and dismisses. Lives in `VikuUI` rather than
+/// `Features/Tasks` so every feature that lists tasks can offer it without
+/// importing another feature.
 public struct DuplicateTaskSheetView: View {
     @State private var viewModel: DuplicateTaskViewModel
     /// Called with the created task and its project right before the sheet
@@ -36,7 +40,7 @@ public struct DuplicateTaskSheetView: View {
     }
 
     /// Takes a factory rather than an already-built view model: this sheet is
-    /// presented from `TaskDetailView`'s `.sheet(isPresented:)`, whose content
+    /// presented from a host's `.sheet(isPresented:)`, whose content
     /// closure SwiftUI can re-invoke independently of this view's own
     /// identity (see `ConnectionsListView`'s `init` doc comment in Settings
     /// for the full mechanism — the same one that silently reset

@@ -1,22 +1,22 @@
 import SwiftUI
-import VikuDesignSystem
 import VikunjaCore
 
 // The small building blocks shared by the compact task sheets
-// (`QuickAddSheetView`, `DuplicateTaskSheetView`) so the two stay visually
-// identical — a field-group label, the collapsed "Project" row that opens a
-// picker, the priority chip row, and the save-error banner. Extracted here
-// rather than duplicated per sheet.
+// (`QuickAddSheetView` in Features/Tasks, `DuplicateTaskSheetView` in VikuUI)
+// so they stay visually identical — a field-group label, the collapsed
+// "Project" row that opens a picker, the priority chip row, and the
+// save-error banner. Public because those sheets live in different modules
+// (Tasks, VikuUI) that both already depend on VikuDesignSystem.
 
 /// A field-group caption ("Project", "Priority", ...).
-struct FieldLabel: View {
+public struct FieldLabel: View {
     let title: String
 
-    init(_ title: String) {
+    public init(_ title: String) {
         self.title = title
     }
 
-    var body: some View {
+    public var body: some View {
         Text(title)
             .font(VikuFont.footnote)
             .fontWeight(.semibold)
@@ -27,11 +27,16 @@ struct FieldLabel: View {
 /// The collapsed "Project" row: shows the current selection (or a
 /// placeholder when none is chosen yet) and runs `action` — typically
 /// opening a `ProjectPickerSheet` — on tap.
-struct ProjectField: View {
+public struct ProjectField: View {
     let project: Project?
     let action: () -> Void
 
-    var body: some View {
+    public init(project: Project?, action: @escaping () -> Void) {
+        self.project = project
+        self.action = action
+    }
+
+    public var body: some View {
         Button(action: action) {
             HStack(spacing: VikuSpacing.sm) {
                 if let project {
@@ -59,18 +64,18 @@ struct ProjectField: View {
     }
 }
 
-struct PriorityOption: Identifiable {
+public struct PriorityOption: Identifiable, Sendable {
     let priority: VikunjaTask.Priority
     let label: String
     let color: Color
 
-    var id: VikunjaTask.Priority {
+    public var id: VikunjaTask.Priority {
         priority
     }
 
     /// The four pickable priorities shown as chips (the sheets don't offer
     /// `.unset`/`.doNow`).
-    static let all: [PriorityOption] = [
+    public static let all: [PriorityOption] = [
         PriorityOption(priority: .low, label: "Low", color: VikuColor.Priority.low),
         PriorityOption(priority: .medium, label: "Medium", color: VikuColor.Priority.medium),
         PriorityOption(priority: .high, label: "High", color: VikuColor.Priority.high),
@@ -80,10 +85,14 @@ struct PriorityOption: Identifiable {
 
 /// The horizontal priority chip row. `selection` is a binding so tapping the
 /// active chip clears it back to `.unset`.
-struct PriorityChipRow: View {
+public struct PriorityChipRow: View {
     @Binding var selection: VikunjaTask.Priority
 
-    var body: some View {
+    public init(selection: Binding<VikunjaTask.Priority>) {
+        _selection = selection
+    }
+
+    public var body: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm - VikuSpacing.xxs) {
             FieldLabel("Priority")
             HStack(spacing: VikuSpacing.sm) {
@@ -127,10 +136,14 @@ private struct PriorityChip: View {
 /// Same tinted-card language as `TaskDetailView`'s `BlockedBanner` — a red
 /// card rather than plain inline text, so a save failure reads as clearly as
 /// every other error state in the app.
-struct SaveErrorBanner: View {
+public struct SaveErrorBanner: View {
     let message: String
 
-    var body: some View {
+    public init(message: String) {
+        self.message = message
+    }
+
+    public var body: some View {
         HStack(alignment: .center, spacing: VikuSpacing.sm - VikuSpacing.xxs) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 13))

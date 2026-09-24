@@ -17,9 +17,16 @@ struct ProjectOverviewView: View {
     let onSelectSubproject: (ProjectNode) -> Void
     let onSelectTask: (VikunjaTask) -> Void
     let onEditProject: (Project) -> Void
+    /// Called with the duplicate and its (possibly different) project right
+    /// before the sheet dismisses, so the caller can push its detail screen —
+    /// mirrors `onSelectTask`, but takes the project explicitly since the
+    /// duplicate can land in any project the sheet's picker offers, not just
+    /// this one.
+    let onDuplicated: (VikunjaTask, Project) -> Void
     @State private var filter: ProjectTaskFilter = .all
     @State private var taskPendingDelete: VikunjaTask?
     @State private var taskPendingMove: VikunjaTask?
+    @State private var taskPendingDuplicate: VikunjaTask?
 
     private var sort: TaskSort {
         TaskSort(field: viewModel.sortField, direction: viewModel.sortDirection)
@@ -85,6 +92,12 @@ struct ProjectOverviewView: View {
                     Task { await viewModel.move(task, to: destination) }
                 }
                 .task { await viewModel.loadMoveCandidates() }
+            }
+            .sheet(item: $taskPendingDuplicate) { task in
+                DuplicateTaskSheetView(
+                    makeViewModel: { viewModel.makeDuplicateTaskViewModel(for: task) },
+                    onDuplicated: onDuplicated,
+                )
             }
     }
 
@@ -199,6 +212,9 @@ struct ProjectOverviewView: View {
                         onToggle: { Task { await viewModel.toggleDone(task) } },
                         onOpen: { onSelectTask(task) },
                         contextMenu: {
+                            Button("Duplicate Task", systemImage: "plus.square.on.square") {
+                                taskPendingDuplicate = task
+                            }
                             Button("Move to Project", systemImage: "folder") {
                                 taskPendingMove = task
                             }

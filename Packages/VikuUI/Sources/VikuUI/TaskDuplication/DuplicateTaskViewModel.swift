@@ -1,7 +1,6 @@
 import Foundation
 import Observation
 import VikunjaCore
-import VikuUI
 
 /// Drives the "duplicate task" sheet.
 ///
