@@ -98,6 +98,20 @@ public struct TaskDetailView: View {
                     ) {
                         Task { await viewModel.toggleDone() }
                     }
+                    Menu("Priority", systemImage: "flag") {
+                        ForEach(VikunjaTask.Priority.selectable, id: \.self) { priority in
+                            Button {
+                                Task { await viewModel.setPriority(priority) }
+                            } label: {
+                                HStack {
+                                    Text(priority.displayName)
+                                    if viewModel.task.priority == priority {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                    }
                     Button("Duplicate Task", systemImage: "plus.square.on.square") {
                         isShowingDuplicateSheet = true
                     }
