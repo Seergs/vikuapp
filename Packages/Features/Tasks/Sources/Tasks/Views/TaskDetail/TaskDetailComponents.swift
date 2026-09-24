@@ -153,30 +153,13 @@ struct SectionHeaderButton: View {
     }
 }
 
-struct LabelPill: View {
-    let label: VikunjaCore.Label
-
-    private var color: Color {
-        Color(vikuHex: label.hexColor) ?? VikuColor.textSecondary
-    }
-
-    var body: some View {
-        Text(label.title)
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(color)
-            .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
-            .padding(.vertical, VikuSpacing.xxs)
-            .background(Capsule().fill(color.opacity(0.14)))
-    }
-}
-
 struct LabelsWrap: View {
     let labels: [VikunjaCore.Label]
 
     var body: some View {
         FlowLayout(spacing: VikuSpacing.sm - VikuSpacing.xxs) {
             ForEach(labels) { label in
-                LabelPill(label: label)
+                VikuLabelChip(label: label)
             }
         }
     }

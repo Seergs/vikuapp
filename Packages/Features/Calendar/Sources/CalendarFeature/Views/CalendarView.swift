@@ -353,7 +353,7 @@ private struct CalendarTaskRow: View {
                 if !task.labels.isEmpty {
                     HStack(spacing: VikuSpacing.xs + VikuSpacing.xxs) {
                         ForEach(task.labels.prefix(Self.labelDisplayLimit)) { label in
-                            CalendarLabelPill(label: label)
+                            VikuLabelChip(label: label)
                         }
                         let remaining = task.labels.count - Self.labelDisplayLimit
                         if remaining > 0 {
@@ -379,22 +379,5 @@ private struct CalendarTaskRow: View {
         }
         .contentShape(Rectangle())
         .onTapGesture(perform: onOpen)
-    }
-}
-
-private struct CalendarLabelPill: View {
-    let label: VikunjaCore.Label
-
-    private var color: Color {
-        Color(vikuHex: label.hexColor) ?? VikuColor.textSecondary
-    }
-
-    var body: some View {
-        Text(label.title)
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(color)
-            .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
-            .padding(.vertical, VikuSpacing.xxs)
-            .background(Capsule().fill(color.opacity(0.14)))
     }
 }

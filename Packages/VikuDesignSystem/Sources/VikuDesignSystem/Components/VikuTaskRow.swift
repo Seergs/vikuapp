@@ -183,7 +183,7 @@ public struct VikuTaskRow<Menu: View>: View {
     private var labelRow: some View {
         HStack(spacing: VikuSpacing.xs + VikuSpacing.xxs) {
             ForEach(task.labels.prefix(Self.labelDisplayLimit)) { label in
-                TaskRowLabelPill(label: label)
+                VikuLabelChip(label: label)
             }
 
             let remaining = task.labels.count - Self.labelDisplayLimit
@@ -191,23 +191,6 @@ public struct VikuTaskRow<Menu: View>: View {
                 TaskRowExtraLabelsPill(count: remaining)
             }
         }
-    }
-}
-
-private struct TaskRowLabelPill: View {
-    let label: VikunjaCore.Label
-
-    private var color: Color {
-        Color(vikuHex: label.hexColor) ?? VikuColor.textSecondary
-    }
-
-    var body: some View {
-        Text(label.title)
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(color)
-            .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
-            .padding(.vertical, VikuSpacing.xxs)
-            .background(Capsule().fill(color.opacity(0.14)))
     }
 }
 
