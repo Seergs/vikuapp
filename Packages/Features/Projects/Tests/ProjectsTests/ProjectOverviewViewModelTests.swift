@@ -404,6 +404,109 @@ struct ProjectOverviewViewModelTests {
     }
 
     @Test
+    func `add relation persists through the relation repository and shows A success toast`() async {
+        let repository = FakeTaskRepository()
+        repository.tasks = [VikunjaTask(id: 1, title: "Write report", projectID: 1)]
+        let relationRepository = FakeTaskRelationRepository()
+        let toastPresenter = FakeToastPresenter()
+        let viewModel = ProjectOverviewViewModel(
+            project: Project(id: 1, title: "Work"),
+            repository: repository,
+            projectRepository: FakeProjectRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: relationRepository,
+            toastPresenter: toastPresenter,
+            taskSortStore: FakeTaskSortStore(),
+        )
+        await viewModel.load()
+        let candidate = TaskRelation(id: 9, title: "Draft appendix", projectID: 1)
+
+        await viewModel.addRelation(candidate, kind: .related, to: viewModel.tasks[0])
+
+        #expect(relationRepository.addedRelations.map(\.kind) == [.related])
+        #expect(relationRepository.addedRelations.map(\.otherTaskID) == [9])
+        #expect(relationRepository.addedRelations.map(\.taskID) == [1])
+        #expect(toastPresenter.shownMessages.map(\.message) == ["Relation added"])
+    }
+
+    @Test
+    func `add relation shows an error toast when the server rejects it`() async {
+        let repository = FakeTaskRepository()
+        repository.tasks = [VikunjaTask(id: 1, title: "Write report", projectID: 1)]
+        let relationRepository = FakeTaskRelationRepository()
+        relationRepository.addError = .network("offline")
+        let toastPresenter = FakeToastPresenter()
+        let viewModel = ProjectOverviewViewModel(
+            project: Project(id: 1, title: "Work"),
+            repository: repository,
+            projectRepository: FakeProjectRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: relationRepository,
+            toastPresenter: toastPresenter,
+            taskSortStore: FakeTaskSortStore(),
+        )
+        await viewModel.load()
+
+        await viewModel.addRelation(
+            TaskRelation(id: 9, title: "Draft appendix", projectID: 1), kind: .related, to: viewModel.tasks[0],
+        )
+
+        #expect(toastPresenter.shownMessages.map(\.style) == [.error])
+    }
+
+    @Test
+    func `search tasks for relation excludes the task itself and already related tasks`() async {
+        let repository = FakeTaskRepository()
+        repository.tasks = [
+            VikunjaTask(
+                id: 1, title: "Write report", projectID: 1,
+                dependsOn: [TaskRelation(id: 3, title: "Approve brief", projectID: 1)],
+            ),
+            VikunjaTask(id: 3, title: "Approve brief", projectID: 1),
+            VikunjaTask(id: 9, title: "Draft appendix", projectID: 1),
+        ]
+        let viewModel = ProjectOverviewViewModel(
+            project: Project(id: 1, title: "Work"),
+            repository: repository,
+            projectRepository: FakeProjectRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
+        )
+        await viewModel.load()
+        let task = viewModel.tasks[0]
+
+        await viewModel.searchTasksForRelation(for: task, query: "a")
+
+        #expect(viewModel.relationSearchResults.map(\.id) == [9])
+    }
+
+    @Test
+    func `load relation suggestions populates from the tasks own project excluding self`() async {
+        let repository = FakeTaskRepository()
+        repository.tasks = [
+            VikunjaTask(id: 1, title: "Write report", projectID: 1),
+            VikunjaTask(id: 2, title: "Outline", projectID: 1),
+        ]
+        let viewModel = ProjectOverviewViewModel(
+            project: Project(id: 1, title: "Work"),
+            repository: repository,
+            projectRepository: FakeProjectRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
+        )
+        await viewModel.load()
+        let task = viewModel.tasks[0]
+
+        await viewModel.loadRelationSuggestions(for: task)
+
+        #expect(viewModel.relationSearchResults.map(\.id) == [2])
+    }
+
+    @Test
     func `completing a task plays a success haptic but un-completing does not`() async {
         let repository = FakeTaskRepository()
         repository.tasks = [VikunjaTask(id: 1, title: "Write report", isDone: false, projectID: 1)]

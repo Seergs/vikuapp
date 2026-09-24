@@ -22,6 +22,9 @@ public final class TodayViewModel {
     /// Every label on the instance, for the label picker sheet - loaded
     /// lazily via `loadAllLabels()`, mirroring `allProjects`.
     public private(set) var allLabels: [Label] = []
+    /// Candidates for the "add relation" task picker, from the most recent
+    /// `searchTasksForRelation(for:query:)` call.
+    public private(set) var relationSearchResults: [VikunjaTask] = []
 
     public var isLoading: Bool {
         loadState == .loading
@@ -161,6 +164,54 @@ public final class TodayViewModel {
         }
         allLabels.append(created)
         await toggleLabel(task, created)
+    }
+
+    /// Searches every task the account can see for the "add relation" task
+    /// picker, excluding `task` itself and anything it's already related to
+    /// - mirrors `TaskDetailViewModel.searchTasksForRelation(query:)`. An
+    /// empty or all-whitespace query falls back to
+    /// `loadRelationSuggestions(for:)` rather than clearing the results, so
+    /// the picker never shows a blank list just because the user cleared
+    /// their search. Failures leave `relationSearchResults` empty rather
+    /// than surfacing an error - the sheet just shows no candidates.
+    public func searchTasksForRelation(for task: VikunjaTask, query: String) async {
+        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            await loadRelationSuggestions(for: task)
+            return
+        }
+        let excludedIDs = relatedTaskIDs(of: task)
+        let results = await (try? taskRepository.searchTasks(query: query)) ?? []
+        relationSearchResults = results.filter { !excludedIDs.contains($0.id) }
+    }
+
+    /// Populates `relationSearchResults` with `task`'s own project's other
+    /// tasks before the user has typed anything - mirrors
+    /// `TaskDetailViewModel.loadRelationSuggestions()`.
+    public func loadRelationSuggestions(for task: VikunjaTask) async {
+        let excludedIDs = relatedTaskIDs(of: task)
+        let results = await (try? taskRepository.fetchTasks(projectID: task.projectID)) ?? []
+        relationSearchResults = results.filter { !excludedIDs.contains($0.id) }
+    }
+
+    /// `task`'s own id plus every relation it already carries, excluded from
+    /// the "add relation" search so the same task can't be picked twice.
+    /// Best-effort rather than exhaustive: unlike `TaskDetailViewModel`, this
+    /// screen's tasks come from a list fetch, which doesn't always carry a
+    /// task's relations.
+    private func relatedTaskIDs(of task: VikunjaTask) -> Set<Int> {
+        var ids = Set(task.dependsOn.map(\.id) + task.blocks.map(\.id))
+        for relations in task.otherRelations.values {
+            ids.formUnion(relations.map(\.id))
+        }
+        ids.insert(task.id)
+        return ids
+    }
+
+    /// Adds `relation` under `kind` to `task` - mirrors
+    /// `TaskDetailViewModel.addRelation(_:kind:)`, but this list doesn't
+    /// render relations, so there's nothing to update locally.
+    public func addRelation(_ relation: TaskRelation, kind: RelationKind, to task: VikunjaTask) async {
+        await mutator.persistAddRelation(relation, kind: kind, to: task, relationRepository: relationRepository)
     }
 
     /// Deletes a task from the server and drops it from the local list on

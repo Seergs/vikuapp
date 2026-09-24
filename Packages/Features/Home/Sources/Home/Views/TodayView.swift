@@ -16,6 +16,7 @@ struct TodayView: View {
     @State private var taskPendingDuplicate: VikunjaTask?
     @State private var taskPendingDueDateEdit: VikunjaTask?
     @State private var taskPendingLabelEdit: VikunjaTask?
+    @State private var relationEditStep: RelationEditStep?
 
     var body: some View {
         content
@@ -79,6 +80,35 @@ struct TodayView: View {
                         Task { await viewModel.createAndAddLabel(task, title: title, hexColor: hexColor) }
                     },
                 )
+            }
+            .sheet(item: $relationEditStep) { step in
+                switch step {
+                case let .pickKind(task):
+                    RelationKindPickerSheet { kind in
+                        relationEditStep = .pickTask(task, kind)
+                    }
+                case let .pickTask(task, kind):
+                    RelationTaskPickerSheet(
+                        kind: kind,
+                        results: viewModel.relationSearchResults,
+                        projectTitle: { candidate in
+                            viewModel.allProjects.first { $0.id == candidate.projectID }?.title
+                        },
+                        onAppear: {
+                            await viewModel.loadMoveCandidates()
+                            await viewModel.loadRelationSuggestions(for: task)
+                        },
+                        onSearch: { query in await viewModel.searchTasksForRelation(for: task, query: query) },
+                        onSelect: { candidate in
+                            let relation = TaskRelation(
+                                id: candidate.id, title: candidate.title,
+                                isDone: candidate.isDone, projectID: candidate.projectID,
+                            )
+                            Task { await viewModel.addRelation(relation, kind: kind, to: task) }
+                            relationEditStep = nil
+                        },
+                    )
+                }
             }
     }
 
@@ -195,6 +225,9 @@ struct TodayView: View {
                             }
                             Button("Labels", systemImage: "tag") {
                                 taskPendingLabelEdit = task
+                            }
+                            Button("Add Relation", systemImage: "link") {
+                                relationEditStep = .pickKind(task)
                             }
                             Button("Duplicate Task", systemImage: "plus.square.on.square") {
                                 taskPendingDuplicate = task
