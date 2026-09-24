@@ -218,6 +218,20 @@ struct ProjectOverviewView: View {
                             ) {
                                 Task { await viewModel.toggleDone(task) }
                             }
+                            Menu("Priority", systemImage: "flag") {
+                                ForEach(VikunjaTask.Priority.selectable, id: \.self) { priority in
+                                    Button {
+                                        Task { await viewModel.setPriority(task, to: priority) }
+                                    } label: {
+                                        HStack {
+                                            Text(priority.displayName)
+                                            if task.priority == priority {
+                                                Image(systemName: "checkmark")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                             Button("Duplicate Task", systemImage: "plus.square.on.square") {
                                 taskPendingDuplicate = task
                             }

@@ -227,6 +227,47 @@ struct ProjectOverviewViewModelTests {
     }
 
     @Test
+    func `set priority persists the new priority through the repository`() async {
+        let repository = FakeTaskRepository()
+        repository.tasks = [VikunjaTask(id: 1, title: "Write report", priority: .low, projectID: 1)]
+        let viewModel = ProjectOverviewViewModel(
+            project: Project(id: 1, title: "Work"),
+            repository: repository,
+            projectRepository: FakeProjectRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
+        )
+        await viewModel.load()
+
+        await viewModel.setPriority(viewModel.tasks[0], to: .urgent)
+
+        #expect(viewModel.tasks[0].priority == .urgent)
+    }
+
+    @Test
+    func `set priority reverts when the server rejects the update`() async {
+        let repository = FakeTaskRepository()
+        repository.tasks = [VikunjaTask(id: 1, title: "Write report", priority: .low, projectID: 1)]
+        let viewModel = ProjectOverviewViewModel(
+            project: Project(id: 1, title: "Work"),
+            repository: repository,
+            projectRepository: FakeProjectRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
+        )
+        await viewModel.load()
+        repository.updateError = .network("offline")
+
+        await viewModel.setPriority(viewModel.tasks[0], to: .urgent)
+
+        #expect(viewModel.tasks[0].priority == .low)
+    }
+
+    @Test
     func `completing a task plays a success haptic but un-completing does not`() async {
         let repository = FakeTaskRepository()
         repository.tasks = [VikunjaTask(id: 1, title: "Write report", isDone: false, projectID: 1)]
