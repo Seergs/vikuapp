@@ -117,49 +117,49 @@ final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @unchecked
 
     func makeProjectRepository(
         baseURL _: URL,
-        tokenProvider _: @escaping @Sendable () async -> String?,
+        tokenProvider _: @escaping @Sendable () async throws -> String?,
     ) -> ProjectRepositoryProtocol {
         fatalError("not exercised by Onboarding tests")
     }
 
     func makeTaskRepository(
         baseURL _: URL,
-        tokenProvider _: @escaping @Sendable () async -> String?,
+        tokenProvider _: @escaping @Sendable () async throws -> String?,
     ) -> TaskRepositoryProtocol {
         fatalError("not exercised by Onboarding tests")
     }
 
     func makeLabelRepository(
         baseURL _: URL,
-        tokenProvider _: @escaping @Sendable () async -> String?,
+        tokenProvider _: @escaping @Sendable () async throws -> String?,
     ) -> LabelRepositoryProtocol {
         fatalError("not exercised by Onboarding tests")
     }
 
     func makeTaskRelationRepository(
         baseURL _: URL,
-        tokenProvider _: @escaping @Sendable () async -> String?,
+        tokenProvider _: @escaping @Sendable () async throws -> String?,
     ) -> TaskRelationRepositoryProtocol {
         fatalError("not exercised by Onboarding tests")
     }
 
     func makeTaskCommentRepository(
         baseURL _: URL,
-        tokenProvider _: @escaping @Sendable () async -> String?,
+        tokenProvider _: @escaping @Sendable () async throws -> String?,
     ) -> TaskCommentRepositoryProtocol {
         fatalError("not exercised by Onboarding tests")
     }
 
     func makeTaskAttachmentRepository(
         baseURL _: URL,
-        tokenProvider _: @escaping @Sendable () async -> String?,
+        tokenProvider _: @escaping @Sendable () async throws -> String?,
     ) -> TaskAttachmentRepositoryProtocol {
         fatalError("not exercised by Onboarding tests")
     }
 
     func makeUserRepository(
         baseURL _: URL,
-        tokenProvider _: @escaping @Sendable () async -> String?,
+        tokenProvider _: @escaping @Sendable () async throws -> String?,
     ) -> UserRepositoryProtocol {
         fatalError("not exercised by Onboarding tests")
     }

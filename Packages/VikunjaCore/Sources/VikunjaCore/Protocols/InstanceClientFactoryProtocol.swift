@@ -16,36 +16,36 @@ public protocol InstanceClientFactoryProtocol: Sendable {
     ///   rotated or removed.
     func makeProjectRepository(
         baseURL: URL,
-        tokenProvider: @escaping @Sendable () async -> String?,
+        tokenProvider: @escaping @Sendable () async throws -> String?,
     ) -> ProjectRepositoryProtocol
 
     func makeTaskRepository(
         baseURL: URL,
-        tokenProvider: @escaping @Sendable () async -> String?,
+        tokenProvider: @escaping @Sendable () async throws -> String?,
     ) -> TaskRepositoryProtocol
 
     func makeLabelRepository(
         baseURL: URL,
-        tokenProvider: @escaping @Sendable () async -> String?,
+        tokenProvider: @escaping @Sendable () async throws -> String?,
     ) -> LabelRepositoryProtocol
 
     func makeTaskRelationRepository(
         baseURL: URL,
-        tokenProvider: @escaping @Sendable () async -> String?,
+        tokenProvider: @escaping @Sendable () async throws -> String?,
     ) -> TaskRelationRepositoryProtocol
 
     func makeTaskCommentRepository(
         baseURL: URL,
-        tokenProvider: @escaping @Sendable () async -> String?,
+        tokenProvider: @escaping @Sendable () async throws -> String?,
     ) -> TaskCommentRepositoryProtocol
 
     func makeTaskAttachmentRepository(
         baseURL: URL,
-        tokenProvider: @escaping @Sendable () async -> String?,
+        tokenProvider: @escaping @Sendable () async throws -> String?,
     ) -> TaskAttachmentRepositoryProtocol
 
     func makeUserRepository(
         baseURL: URL,
-        tokenProvider: @escaping @Sendable () async -> String?,
+        tokenProvider: @escaping @Sendable () async throws -> String?,
     ) -> UserRepositoryProtocol
 }

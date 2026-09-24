@@ -44,6 +44,17 @@ struct MainTabView: View {
     @State private var projectsRouter = AppRouter()
     @State private var calendarRouter = AppRouter()
     @State private var searchRouter = AppRouter()
+    /// Owned here rather than by `SettingsRootView` itself (see that type's
+    /// doc comment) so a session-expiry prompt on any tab can push straight
+    /// to the reconnect screen on this one.
+    @State private var settingsRouter = Router<SettingsRoute>()
+
+    /// Drives the "your session expired" alert — set either from
+    /// `account.needsReauthentication` already being true when this shell
+    /// appears (the account was flagged on a previous launch, before there
+    /// was a screen up to react live) or from `sessionExpiryCenter` firing
+    /// while this shell is already on screen.
+    @State private var isShowingSessionExpiredAlert = false
 
     // Each tab's root view model is built once, here, and held for the life of
     // this shell (which is itself keyed `.id(connectedAccount)`, so switching
@@ -111,6 +122,7 @@ struct MainTabView: View {
 
             Tab(AppTab.settings.title, systemImage: AppTab.settings.systemImage, value: .settings) {
                 SettingsRootView(
+                    router: settingsRouter,
                     account: account,
                     themeStore: container.themeCenter,
                     isDevBuild: BuildConfig.isDevBuild,
@@ -148,6 +160,29 @@ struct MainTabView: View {
         // `@State` rather than rebuilt inside `body`.
         .onChange(of: selection) { _, _ in
             container.hapticCenter.play(.selection)
+        }
+        // Covers the account already being flagged when this shell appears
+        // (set on a previous launch, or by a request that failed before this
+        // view existed) — `sessionExpiryCenter`'s `.onChange` below covers a
+        // refresh that fails while the shell is already up.
+        .onAppear {
+            if account.needsReauthentication {
+                isShowingSessionExpiredAlert = true
+            }
+        }
+        .onChange(of: container.sessionExpiryCenter.expiredAccountID) { _, expiredAccountID in
+            guard expiredAccountID == account.id else { return }
+            isShowingSessionExpiredAlert = true
+            container.sessionExpiryCenter.acknowledge()
+        }
+        .alert("Session Expired", isPresented: $isShowingSessionExpiredAlert) {
+            Button("Sign In Again") {
+                selection = .settings
+                settingsRouter.push(.connectionForm(.edit(account)))
+            }
+            Button("Not Now", role: .cancel) {}
+        } message: {
+            Text("Your session for \"\(account.displayName)\" expired. Sign in again to keep using Viku.")
         }
         .overlay(alignment: .topTrailing) {
             if BuildConfig.isDevBuild, container.devToolsCenter.isDevBadgeVisible {

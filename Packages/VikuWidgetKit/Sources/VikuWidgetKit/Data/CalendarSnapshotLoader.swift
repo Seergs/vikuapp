@@ -20,7 +20,7 @@ public struct CalendarSnapshotLoader: Sendable {
     /// to a direct Keychain read (today's behavior); `VikuWidgetEnvironment`
     /// passes one backed by `PasswordSessionRefresher` so a password
     /// account's JWT gets refreshed here too, not just from the app.
-    private let tokenResolver: @Sendable (InstanceAccount) async -> String?
+    private let tokenResolver: @Sendable (InstanceAccount) async throws -> String?
 
     public init(
         accountStore: AccountStoreProtocol,
@@ -28,7 +28,7 @@ public struct CalendarSnapshotLoader: Sendable {
         cache: CalendarSnapshotCache,
         taskLimit: Int = VikuWidgetConfig.calendarTaskLimit,
         now: @escaping @Sendable () -> Date = { Date() },
-        tokenResolver: (@Sendable (InstanceAccount) async -> String?)? = nil,
+        tokenResolver: (@Sendable (InstanceAccount) async throws -> String?)? = nil,
     ) {
         self.accountStore = accountStore
         self.clientFactory = clientFactory
@@ -42,7 +42,10 @@ public struct CalendarSnapshotLoader: Sendable {
         let account = try? await accountStore.activeAccount()
         var token: String?
         if let account {
-            token = await tokenResolver(account)
+            // A `.sessionExpired` refresh failure has nothing more useful to
+            // do here than fall back to the cache below — the widget can't
+            // present a "sign in again" prompt of its own.
+            token = try? await tokenResolver(account)
         }
 
         guard let account, let token, !token.isEmpty else {

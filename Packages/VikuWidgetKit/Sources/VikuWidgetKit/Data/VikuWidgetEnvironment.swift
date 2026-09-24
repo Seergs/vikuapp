@@ -36,7 +36,7 @@ public enum VikuWidgetEnvironment {
             accountStore: makeAccountStore(),
             clientFactory: VikunjaInstanceClientFactory(),
             cache: makeSnapshotCache(),
-            tokenResolver: { await sessionRefresher.validToken(for: $0) },
+            tokenResolver: { try await sessionRefresher.validToken(for: $0) },
         )
     }
 
@@ -46,7 +46,7 @@ public enum VikuWidgetEnvironment {
             accountStore: makeAccountStore(),
             clientFactory: VikunjaInstanceClientFactory(),
             cache: makeCalendarSnapshotCache(),
-            tokenResolver: { await sessionRefresher.validToken(for: $0) },
+            tokenResolver: { try await sessionRefresher.validToken(for: $0) },
         )
     }
 
@@ -54,7 +54,7 @@ public enum VikuWidgetEnvironment {
     public static func makeTaskRepository() async -> TaskRepositoryProtocol? {
         let store = makeAccountStore()
         guard let account = try? await store.activeAccount() else { return nil }
-        let token = await makeSessionRefresher().validToken(for: account)
+        let token = try? await makeSessionRefresher().validToken(for: account)
         guard let token, !token.isEmpty else { return nil }
 
         return VikunjaInstanceClientFactory().makeTaskRepository(baseURL: account.baseURL) { token }

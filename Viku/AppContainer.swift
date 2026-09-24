@@ -29,6 +29,10 @@ final class AppContainer {
     /// session stays alive without any screen needing to know about it. A
     /// no-op passthrough for API-token accounts.
     let sessionRefresher: PasswordSessionRefresher
+    /// Live notification that an account's session can no longer be
+    /// renewed — `MainTabView` observes this to prompt the user to sign in
+    /// again. See `SessionExpiryCenter`.
+    let sessionExpiryCenter = SessionExpiryCenter()
     /// The single toast host for the whole app — see `RootView`'s
     /// `.toastHost(_:)`. Pass this as `ToastPresenting` to any ViewModel that
     /// needs to surface a toast (e.g. `toastPresenter:` in a `make...ViewModel`
@@ -95,7 +99,10 @@ final class AppContainer {
     ) {
         self.accountStore = accountStore
         self.clientFactory = clientFactory
-        self.sessionRefresher = PasswordSessionRefresher(accountStore: accountStore)
+        self.sessionRefresher = PasswordSessionRefresher(
+            accountStore: accountStore,
+            sessionExpiryReporter: sessionExpiryCenter,
+        )
     }
 
     /// One-time move of Keychain items written before the shared
@@ -115,8 +122,8 @@ final class AppContainer {
     /// authenticate themselves. Call on launch and whenever the app backgrounds.
     func refreshWidgetSnapshots() async {
         let sessionRefresher = sessionRefresher
-        let resolver: @Sendable (InstanceAccount) async -> String? = {
-            await sessionRefresher.validToken(for: $0)
+        let resolver: @Sendable (InstanceAccount) async throws -> String? = {
+            try await sessionRefresher.validToken(for: $0)
         }
         let todayLoader = TodaySnapshotLoader(
             accountStore: accountStore,
@@ -361,8 +368,8 @@ final class AppContainer {
     /// — routes through `sessionRefresher` so a password account's JWT is
     /// refreshed transparently, and an API-token account passes through with
     /// no behavior change.
-    private func tokenProvider(for account: InstanceAccount) -> @Sendable () async -> String? {
+    private func tokenProvider(for account: InstanceAccount) -> @Sendable () async throws -> String? {
         let sessionRefresher = sessionRefresher
-        return { await sessionRefresher.validToken(for: account) }
+        return { try await sessionRefresher.validToken(for: account) }
     }
 }

@@ -11,14 +11,14 @@ private let apiLogger = Logger(subsystem: "dev.sergiosuarez.vikunja", category: 
 public actor URLSessionAPIClient: APIClient {
     private let baseURL: URL
     private let session: URLSession
-    private let authTokenProvider: @Sendable () async -> String?
+    private let authTokenProvider: @Sendable () async throws -> String?
     private let decoder: JSONDecoder
     private let encoder: JSONEncoder
 
     public init(
         baseURL: URL,
         session: URLSession = .shared,
-        authTokenProvider: @escaping @Sendable () async -> String? = { nil },
+        authTokenProvider: @escaping @Sendable () async throws -> String? = { nil },
     ) {
         self.baseURL = baseURL
         self.session = session
@@ -74,7 +74,7 @@ public actor URLSessionAPIClient: APIClient {
         if endpoint.body != nil {
             request.setValue(endpoint.contentType ?? "application/json", forHTTPHeaderField: "Content-Type")
         }
-        if let token = await authTokenProvider() {
+        if let token = try await authTokenProvider() {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         for (field, value) in endpoint.additionalHeaders {

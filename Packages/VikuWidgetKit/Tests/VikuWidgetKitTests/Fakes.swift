@@ -148,43 +148,43 @@ struct FakeClientFactory: InstanceClientFactoryProtocol {
     }
 
     func makeProjectRepository(
-        baseURL _: URL, tokenProvider _: @escaping @Sendable () async -> String?,
+        baseURL _: URL, tokenProvider _: @escaping @Sendable () async throws -> String?,
     ) -> ProjectRepositoryProtocol {
         projectRepository
     }
 
     func makeTaskRepository(
-        baseURL _: URL, tokenProvider _: @escaping @Sendable () async -> String?,
+        baseURL _: URL, tokenProvider _: @escaping @Sendable () async throws -> String?,
     ) -> TaskRepositoryProtocol {
         taskRepository
     }
 
     func makeLabelRepository(
-        baseURL _: URL, tokenProvider _: @escaping @Sendable () async -> String?,
+        baseURL _: URL, tokenProvider _: @escaping @Sendable () async throws -> String?,
     ) -> LabelRepositoryProtocol {
         fatalError("unused")
     }
 
     func makeTaskRelationRepository(
-        baseURL _: URL, tokenProvider _: @escaping @Sendable () async -> String?,
+        baseURL _: URL, tokenProvider _: @escaping @Sendable () async throws -> String?,
     ) -> TaskRelationRepositoryProtocol {
         fatalError("unused")
     }
 
     func makeTaskCommentRepository(
-        baseURL _: URL, tokenProvider _: @escaping @Sendable () async -> String?,
+        baseURL _: URL, tokenProvider _: @escaping @Sendable () async throws -> String?,
     ) -> TaskCommentRepositoryProtocol {
         fatalError("unused")
     }
 
     func makeTaskAttachmentRepository(
-        baseURL _: URL, tokenProvider _: @escaping @Sendable () async -> String?,
+        baseURL _: URL, tokenProvider _: @escaping @Sendable () async throws -> String?,
     ) -> TaskAttachmentRepositoryProtocol {
         fatalError("unused")
     }
 
     func makeUserRepository(
-        baseURL _: URL, tokenProvider _: @escaping @Sendable () async -> String?,
+        baseURL _: URL, tokenProvider _: @escaping @Sendable () async throws -> String?,
     ) -> UserRepositoryProtocol {
         fatalError("unused")
     }

@@ -151,6 +151,23 @@ struct ConnectionEditorCoreTests {
         #expect(store.tokens[account.id] == "new-token")
     }
 
+    @Test
+    func `saving while editing clears a stale needsReauthentication flag`() async throws {
+        let store = FakeAccountStore()
+        let account = try InstanceAccount(
+            displayName: "Home",
+            baseURL: #require(URL(string: "https://tasks.example.com")),
+            needsReauthentication: true,
+        )
+        try await store.addAccount(account, token: "old-token")
+        let core = makeCore(editingAccount: account, store: store)
+        core.apiToken = "new-token"
+
+        await core.save()
+
+        #expect(store.accounts.first?.needsReauthentication == false)
+    }
+
     // MARK: - password
 
     @Test
@@ -365,43 +382,43 @@ private final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @u
     }
 
     func makeProjectRepository(
-        baseURL _: URL, tokenProvider _: @escaping @Sendable () async -> String?,
+        baseURL _: URL, tokenProvider _: @escaping @Sendable () async throws -> String?,
     ) -> ProjectRepositoryProtocol {
         fatalError("unused")
     }
 
     func makeTaskRepository(
-        baseURL _: URL, tokenProvider _: @escaping @Sendable () async -> String?,
+        baseURL _: URL, tokenProvider _: @escaping @Sendable () async throws -> String?,
     ) -> TaskRepositoryProtocol {
         fatalError("unused")
     }
 
     func makeLabelRepository(
-        baseURL _: URL, tokenProvider _: @escaping @Sendable () async -> String?,
+        baseURL _: URL, tokenProvider _: @escaping @Sendable () async throws -> String?,
     ) -> LabelRepositoryProtocol {
         fatalError("unused")
     }
 
     func makeTaskRelationRepository(
-        baseURL _: URL, tokenProvider _: @escaping @Sendable () async -> String?,
+        baseURL _: URL, tokenProvider _: @escaping @Sendable () async throws -> String?,
     ) -> TaskRelationRepositoryProtocol {
         fatalError("unused")
     }
 
     func makeTaskCommentRepository(
-        baseURL _: URL, tokenProvider _: @escaping @Sendable () async -> String?,
+        baseURL _: URL, tokenProvider _: @escaping @Sendable () async throws -> String?,
     ) -> TaskCommentRepositoryProtocol {
         fatalError("unused")
     }
 
     func makeTaskAttachmentRepository(
-        baseURL _: URL, tokenProvider _: @escaping @Sendable () async -> String?,
+        baseURL _: URL, tokenProvider _: @escaping @Sendable () async throws -> String?,
     ) -> TaskAttachmentRepositoryProtocol {
         fatalError("unused")
     }
 
     func makeUserRepository(
-        baseURL _: URL, tokenProvider _: @escaping @Sendable () async -> String?,
+        baseURL _: URL, tokenProvider _: @escaping @Sendable () async throws -> String?,
     ) -> UserRepositoryProtocol {
         fatalError("unused")
     }
