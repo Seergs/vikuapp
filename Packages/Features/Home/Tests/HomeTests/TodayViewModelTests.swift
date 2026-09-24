@@ -204,6 +204,98 @@ struct TodayViewModelTests {
     }
 
     @Test
+    func `toggle label adds A label through the label repository`() async {
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 1, title: "Work")]
+        let taskRepository = FakeTaskRepository()
+        taskRepository.tasks = [VikunjaTask(id: 1, title: "Write report", projectID: 1)]
+        let labelRepository = FakeLabelRepository()
+        let viewModel = TodayViewModel(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository,
+            labelRepository: labelRepository,
+            relationRepository: FakeTaskRelationRepository(),
+            toastPresenter: FakeToastPresenter(),
+        )
+        await viewModel.load()
+        let label = Label(id: 5, title: "Urgent", hexColor: "ff0000")
+
+        await viewModel.toggleLabel(viewModel.tasks[0], label)
+
+        #expect(viewModel.tasks[0].labels == [label])
+        #expect(labelRepository.addedLabelIDs.map(\.labelID) == [5])
+    }
+
+    @Test
+    func `toggle label removes an already attached label`() async {
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 1, title: "Work")]
+        let taskRepository = FakeTaskRepository()
+        let label = Label(id: 5, title: "Urgent", hexColor: "ff0000")
+        taskRepository.tasks = [VikunjaTask(id: 1, title: "Write report", projectID: 1, labels: [label])]
+        let labelRepository = FakeLabelRepository()
+        let viewModel = TodayViewModel(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository,
+            labelRepository: labelRepository,
+            relationRepository: FakeTaskRelationRepository(),
+            toastPresenter: FakeToastPresenter(),
+        )
+        await viewModel.load()
+
+        await viewModel.toggleLabel(viewModel.tasks[0], label)
+
+        #expect(viewModel.tasks[0].labels.isEmpty)
+        #expect(labelRepository.removedLabelIDs.map(\.labelID) == [5])
+    }
+
+    @Test
+    func `toggle label reverts when the server rejects it`() async {
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 1, title: "Work")]
+        let taskRepository = FakeTaskRepository()
+        taskRepository.tasks = [VikunjaTask(id: 1, title: "Write report", projectID: 1)]
+        let labelRepository = FakeLabelRepository()
+        labelRepository.addError = .network("offline")
+        let viewModel = TodayViewModel(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository,
+            labelRepository: labelRepository,
+            relationRepository: FakeTaskRelationRepository(),
+            toastPresenter: FakeToastPresenter(),
+        )
+        await viewModel.load()
+        let label = Label(id: 5, title: "Urgent", hexColor: "ff0000")
+
+        await viewModel.toggleLabel(viewModel.tasks[0], label)
+
+        #expect(viewModel.tasks[0].labels.isEmpty)
+    }
+
+    @Test
+    func `create and add label creates then attaches the new label`() async {
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 1, title: "Work")]
+        let taskRepository = FakeTaskRepository()
+        taskRepository.tasks = [VikunjaTask(id: 1, title: "Write report", projectID: 1)]
+        let labelRepository = FakeLabelRepository()
+        let viewModel = TodayViewModel(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository,
+            labelRepository: labelRepository,
+            relationRepository: FakeTaskRelationRepository(),
+            toastPresenter: FakeToastPresenter(),
+        )
+        await viewModel.load()
+
+        await viewModel.createAndAddLabel(viewModel.tasks[0], title: "Urgent", hexColor: "ff0000")
+
+        #expect(viewModel.allLabels.map(\.title) == ["Urgent"])
+        #expect(viewModel.tasks[0].labels.map(\.title) == ["Urgent"])
+        #expect(labelRepository.addedLabelIDs.count == 1)
+    }
+
+    @Test
     func `completing a task plays a success haptic but un-completing does not`() async {
         let projectRepository = FakeProjectRepository()
         projectRepository.projects = [Project(id: 1, title: "Work")]
