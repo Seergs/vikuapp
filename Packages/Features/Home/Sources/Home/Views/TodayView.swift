@@ -15,6 +15,7 @@ struct TodayView: View {
     @State private var taskPendingMove: VikunjaTask?
     @State private var taskPendingDuplicate: VikunjaTask?
     @State private var taskPendingDueDateEdit: VikunjaTask?
+    @State private var taskPendingLabelEdit: VikunjaTask?
 
     var body: some View {
         content
@@ -67,6 +68,17 @@ struct TodayView: View {
                 DueDatePickerSheet(initialDate: task.dueDate) { newDate in
                     Task { await viewModel.setDueDate(task, to: newDate) }
                 }
+            }
+            .sheet(item: $taskPendingLabelEdit) { task in
+                LabelPickerSheet(
+                    taskLabels: viewModel.tasks.first(where: { $0.id == task.id })?.labels ?? task.labels,
+                    allLabels: viewModel.allLabels,
+                    onLoad: { await viewModel.loadAllLabels() },
+                    onToggle: { label in Task { await viewModel.toggleLabel(task, label) } },
+                    onCreate: { title, hexColor in
+                        Task { await viewModel.createAndAddLabel(task, title: title, hexColor: hexColor) }
+                    },
+                )
             }
     }
 
@@ -180,6 +192,9 @@ struct TodayView: View {
                                         }
                                     }
                                 }
+                            }
+                            Button("Labels", systemImage: "tag") {
+                                taskPendingLabelEdit = task
                             }
                             Button("Duplicate Task", systemImage: "plus.square.on.square") {
                                 taskPendingDuplicate = task

@@ -115,6 +115,9 @@ public struct TaskDetailView: View {
                             }
                         }
                     }
+                    Button("Labels", systemImage: "tag") {
+                        isShowingLabelPicker = true
+                    }
                     Button("Duplicate Task", systemImage: "plus.square.on.square") {
                         isShowingDuplicateSheet = true
                     }
@@ -154,7 +157,15 @@ public struct TaskDetailView: View {
             }
         }
         .sheet(isPresented: $isShowingLabelPicker) {
-            LabelPickerSheet(viewModel: viewModel)
+            LabelPickerSheet(
+                taskLabels: viewModel.task.labels,
+                allLabels: viewModel.allLabels,
+                onLoad: { await viewModel.loadAllLabels() },
+                onToggle: { label in Task { await viewModel.toggleLabel(label) } },
+                onCreate: { title, hexColor in
+                    Task { await viewModel.createAndAddLabel(title: title, hexColor: hexColor) }
+                },
+            )
         }
         .sheet(isPresented: $isShowingMovePicker) {
             ProjectPickerSheet(

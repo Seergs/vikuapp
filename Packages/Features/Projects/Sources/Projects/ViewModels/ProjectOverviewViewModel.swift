@@ -24,6 +24,9 @@ public final class ProjectOverviewViewModel {
     /// loaded lazily via `loadMoveCandidates()` rather than alongside
     /// `load()`, since most visits to this screen never open that picker.
     public private(set) var allProjects: [Project] = []
+    /// Every label on the instance, for the label picker sheet - loaded
+    /// lazily via `loadAllLabels()`, mirroring `allProjects`.
+    public private(set) var allLabels: [Label] = []
 
     public var isLoading: Bool {
         loadState == .loading
@@ -187,6 +190,44 @@ public final class ProjectOverviewViewModel {
         updated.dueDate = dueDate
         tasks[index] = updated
         tasks[index] = await mutator.persistSetDueDate(updated: updated, original: task)
+    }
+
+    /// Adds or removes `label` from `task`, persists the change, and rolls
+    /// the local edit back if the server rejects it - mirrors
+    /// `setPriority(_:to:)`. Task labels are read-only through the plain
+    /// task update endpoint, so this routes through the label repository
+    /// rather than `mutator.persistSetPriority`'s `repository.update(_:)`.
+    public func toggleLabel(_ task: VikunjaTask, _ label: Label) async {
+        guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
+        let original = tasks[index]
+        var updated = original
+        let isAdding = !updated.labels.contains(label)
+        if isAdding {
+            updated.labels.append(label)
+        } else {
+            updated.labels.removeAll { $0.id == label.id }
+        }
+        tasks[index] = updated
+        tasks[index] = await mutator.persistToggleLabel(
+            updated: updated, original: original, label: label, isAdding: isAdding, labelRepository: labelRepository,
+        )
+    }
+
+    /// Loads every label on the instance, for the label picker sheet.
+    /// Failures leave `allLabels` at whatever it already was, mirroring
+    /// `loadMoveCandidates()`.
+    public func loadAllLabels() async {
+        allLabels = await (try? labelRepository.fetchLabels()) ?? allLabels
+    }
+
+    /// Creates a new label on the instance and attaches it to `task` -
+    /// mirrors `TaskDetailViewModel.createAndAddLabel(title:hexColor:)`.
+    public func createAndAddLabel(_ task: VikunjaTask, title: String, hexColor: String) async {
+        guard let created = try? await labelRepository.create(Label(id: 0, title: title, hexColor: hexColor)) else {
+            return
+        }
+        allLabels.append(created)
+        await toggleLabel(task, created)
     }
 
     /// Deletes a task from the server and drops it from the local list on
