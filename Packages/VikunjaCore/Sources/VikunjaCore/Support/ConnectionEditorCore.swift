@@ -286,6 +286,11 @@ public final class ConnectionEditorCore {
             account.displayName = trimmedDisplayName
             account.baseURL = baseURL
             account.authMethod = authMethod
+            // A successful save always produces a fresh, valid credential —
+            // clear any stale "needs reauthentication" flag left over from a
+            // previously expired session, even if this save didn't happen to
+            // go through the sign-in-again prompt that set it.
+            account.needsReauthentication = false
             try await accountStore.updateAccount(account, token: token)
             return account
         }

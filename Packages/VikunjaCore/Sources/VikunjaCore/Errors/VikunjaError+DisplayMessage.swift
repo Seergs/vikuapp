@@ -20,6 +20,8 @@ public extension VikunjaError {
             "This app needs Vikunja \(minimumRequired) or newer."
         case .totpRequired:
             "This account needs a two-factor code."
+        case .sessionExpired:
+            "Your session expired. Sign in again to continue."
         }
     }
 }
