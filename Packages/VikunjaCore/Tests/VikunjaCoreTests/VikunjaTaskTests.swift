@@ -47,4 +47,19 @@ struct VikunjaTaskTests {
 
         #expect(task.isBlocked == false)
     }
+
+    @Test
+    func `priority display name folds do now into urgent`() {
+        #expect(VikunjaTask.Priority.unset.displayName == "None")
+        #expect(VikunjaTask.Priority.low.displayName == "Low")
+        #expect(VikunjaTask.Priority.medium.displayName == "Medium")
+        #expect(VikunjaTask.Priority.high.displayName == "High")
+        #expect(VikunjaTask.Priority.urgent.displayName == "Urgent")
+        #expect(VikunjaTask.Priority.doNow.displayName == "Urgent")
+    }
+
+    @Test
+    func `selectable priorities exclude do now`() {
+        #expect(VikunjaTask.Priority.selectable == [.unset, .low, .medium, .high, .urgent])
+    }
 }

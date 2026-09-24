@@ -119,6 +119,47 @@ struct TodayViewModelTests {
     }
 
     @Test
+    func `set priority persists the new priority through the repository`() async {
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 1, title: "Work")]
+        let taskRepository = FakeTaskRepository()
+        taskRepository.tasks = [VikunjaTask(id: 1, title: "Write report", priority: .low, projectID: 1)]
+        let viewModel = TodayViewModel(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            toastPresenter: FakeToastPresenter(),
+        )
+        await viewModel.load()
+
+        await viewModel.setPriority(viewModel.tasks[0], to: .urgent)
+
+        #expect(viewModel.tasks[0].priority == .urgent)
+    }
+
+    @Test
+    func `set priority reverts when the server rejects the update`() async {
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 1, title: "Work")]
+        let taskRepository = FakeTaskRepository()
+        taskRepository.tasks = [VikunjaTask(id: 1, title: "Write report", priority: .low, projectID: 1)]
+        let viewModel = TodayViewModel(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            toastPresenter: FakeToastPresenter(),
+        )
+        await viewModel.load()
+        taskRepository.updateError = .network("offline")
+
+        await viewModel.setPriority(viewModel.tasks[0], to: .urgent)
+
+        #expect(viewModel.tasks[0].priority == .low)
+    }
+
+    @Test
     func `completing a task plays a success haptic but un-completing does not`() async {
         let projectRepository = FakeProjectRepository()
         projectRepository.projects = [Project(id: 1, title: "Work")]

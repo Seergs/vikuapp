@@ -64,6 +64,38 @@ struct TaskListMutatorTests {
         #expect(toast.shown.isEmpty)
     }
 
+    // MARK: persistSetPriority
+
+    @Test
+    func `a priority change persists the server copy`() async {
+        let repository = FakeTaskRepository()
+        let mutator = makeMutator(repository: repository)
+        let original = VikunjaTask(id: 1, title: "A", priority: .low, projectID: 1)
+        var updated = original
+        updated.priority = .high
+
+        let resolved = await mutator.persistSetPriority(updated: updated, original: original)
+
+        #expect(resolved.priority == .high)
+        #expect(repository.updatedTasks.map(\.id) == [1])
+    }
+
+    @Test
+    func `a rejected priority change rolls back to the original silently`() async {
+        let repository = FakeTaskRepository()
+        repository.updateError = .network("offline")
+        let toast = FakeToastPresenter()
+        let mutator = makeMutator(repository: repository, toast: toast)
+        let original = VikunjaTask(id: 1, title: "A", priority: .low, projectID: 1)
+        var updated = original
+        updated.priority = .high
+
+        let resolved = await mutator.persistSetPriority(updated: updated, original: original)
+
+        #expect(resolved.priority == .low)
+        #expect(toast.shown.isEmpty)
+    }
+
     // MARK: delete
 
     @Test

@@ -27,12 +27,12 @@ struct DueDatePriorityRows: View {
             .buttonStyle(.plain)
 
             Menu {
-                ForEach(VikunjaTask.Priority.allCases.filter { $0 != .doNow }, id: \.self) { priority in
+                ForEach(VikunjaTask.Priority.selectable, id: \.self) { priority in
                     Button {
                         Task { await viewModel.setPriority(priority) }
                     } label: {
                         HStack {
-                            Text(priorityMenuLabel(priority))
+                            Text(priority.displayName)
                             if task.priority == priority {
                                 Image(systemName: "checkmark")
                             }
@@ -65,16 +65,7 @@ struct DueDatePriorityRows: View {
     }
 
     private func priorityDisplay(_ priority: VikunjaTask.Priority) -> PriorityDisplay? {
-        switch priority {
-        case .unset: nil
-        case .low: PriorityDisplay(label: "Low", color: VikuColor.Priority.low)
-        case .medium: PriorityDisplay(label: "Medium", color: VikuColor.Priority.medium)
-        case .high: PriorityDisplay(label: "High", color: VikuColor.Priority.high)
-        case .urgent, .doNow: PriorityDisplay(label: "Urgent", color: VikuColor.Priority.urgent)
-        }
-    }
-
-    private func priorityMenuLabel(_ priority: VikunjaTask.Priority) -> String {
-        priorityDisplay(priority)?.label ?? "None"
+        guard let color = VikuColor.Priority.dot(for: priority) else { return nil }
+        return PriorityDisplay(label: priority.displayName, color: color)
     }
 }
