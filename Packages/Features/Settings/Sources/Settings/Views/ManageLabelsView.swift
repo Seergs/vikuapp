@@ -125,7 +125,7 @@ private struct LabelRow: View {
     let label: VikunjaCore.Label
 
     private var color: Color {
-        Color(vikuHex: label.hexColor) ?? VikuColor.textSecondary
+        Color(vikuMutedHex: label.hexColor) ?? VikuColor.textSecondary
     }
 
     var body: some View {
