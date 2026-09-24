@@ -2,37 +2,61 @@ import SwiftUI
 import VikuDesignSystem
 import VikunjaCore
 
-/// Add/remove labels on the task, and create a new one on the fly — matches
+/// Add/remove labels on a task, and create a new one on the fly — matches
 /// the design mockup's label sheet. A `.searchable` list rather than a
 /// custom text field; unlike the project picker, tapping a row here toggles
 /// membership instead of dismissing, since a task can carry more than one
-/// label.
-struct LabelPickerSheet: View {
-    @Bindable var viewModel: TaskDetailViewModel
+/// label. Driven entirely by closures/values rather than a concrete view
+/// model, so it lives in `VikuUI` rather than `Features/Tasks` - every screen
+/// that lists tasks (Today, a project's task list, the task detail overflow
+/// menu) can offer it without importing another feature, mirroring
+/// `DueDatePickerSheet`. Callers pass live, freshly-computed `taskLabels` on
+/// every body re-evaluation (rather than a snapshot captured once) so the
+/// checkmarks stay in sync while the sheet is open.
+public struct LabelPickerSheet: View {
+    let taskLabels: [VikunjaCore.Label]
+    let allLabels: [VikunjaCore.Label]
+    let onLoad: () async -> Void
+    let onToggle: (VikunjaCore.Label) -> Void
+    let onCreate: (String, String) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
     @State private var pickedColor = VikuColor.SwatchPalette.swatches[0]
+
+    public init(
+        taskLabels: [VikunjaCore.Label],
+        allLabels: [VikunjaCore.Label],
+        onLoad: @escaping () async -> Void,
+        onToggle: @escaping (VikunjaCore.Label) -> Void,
+        onCreate: @escaping (String, String) -> Void,
+    ) {
+        self.taskLabels = taskLabels
+        self.allLabels = allLabels
+        self.onLoad = onLoad
+        self.onToggle = onToggle
+        self.onCreate = onCreate
+    }
 
     private var trimmedQuery: String {
         query.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private var filteredLabels: [VikunjaCore.Label] {
-        guard !trimmedQuery.isEmpty else { return viewModel.allLabels }
-        return viewModel.allLabels.filter { $0.title.localizedCaseInsensitiveContains(trimmedQuery) }
+        guard !trimmedQuery.isEmpty else { return allLabels }
+        return allLabels.filter { $0.title.localizedCaseInsensitiveContains(trimmedQuery) }
     }
 
     private var hasExactMatch: Bool {
-        viewModel.allLabels.contains { $0.title.caseInsensitiveCompare(trimmedQuery) == .orderedSame }
+        allLabels.contains { $0.title.caseInsensitiveCompare(trimmedQuery) == .orderedSame }
     }
 
-    var body: some View {
+    public var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: VikuSpacing.xs) {
                     ForEach(filteredLabels) { label in
-                        LabelPickerRow(label: label, isSelected: viewModel.task.labels.contains(label)) {
-                            Task { await viewModel.toggleLabel(label) }
+                        LabelPickerRow(label: label, isSelected: taskLabels.contains(label)) {
+                            onToggle(label)
                         }
                     }
 
@@ -41,7 +65,7 @@ struct LabelPickerSheet: View {
                             let title = trimmedQuery
                             let color = pickedColor
                             query = ""
-                            Task { await viewModel.createAndAddLabel(title: title, hexColor: color) }
+                            onCreate(title, color)
                         }
                     }
                 }
@@ -61,7 +85,7 @@ struct LabelPickerSheet: View {
         }
         .presentationDetents([.fraction(0.75), .large])
         .presentationDragIndicator(.visible)
-        .task { await viewModel.loadAllLabels() }
+        .task { await onLoad() }
     }
 }
 
