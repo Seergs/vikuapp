@@ -82,6 +82,33 @@ public struct TaskListMutator {
         }
     }
 
+    /// Adds or removes a label from `updated` (which the caller has already
+    /// applied optimistically) via `labelRepository`'s dedicated add/remove
+    /// endpoints - task labels are read-only through the plain task update
+    /// endpoint (see `VikunjaTaskRepositoryV2`), unlike priority/due date, so
+    /// this takes the label repository explicitly rather than going through
+    /// `repository.update(_:)`. Returns the task the list should show:
+    /// `updated` on success, `original` on failure - a silent rollback,
+    /// mirroring `persistSetDueDate`.
+    public func persistToggleLabel(
+        updated: VikunjaTask,
+        original: VikunjaTask,
+        label: Label,
+        isAdding: Bool,
+        labelRepository: LabelRepositoryProtocol,
+    ) async -> VikunjaTask {
+        do {
+            if isAdding {
+                try await labelRepository.addLabel(label.id, toTask: updated.id)
+            } else {
+                try await labelRepository.removeLabel(label.id, fromTask: updated.id)
+            }
+            return updated
+        } catch {
+            return original
+        }
+    }
+
     /// Deletes `task`. Returns `true` (with a success toast) when the caller
     /// should drop it from the list, `false` (with an error toast) when the
     /// request failed and the row should stay.

@@ -129,6 +129,61 @@ struct TaskListMutatorTests {
         #expect(toast.shown.isEmpty)
     }
 
+    // MARK: persistToggleLabel
+
+    @Test
+    func `adding a label persists it via the label repository`() async {
+        let labelRepository = FakeLabelRepository()
+        let mutator = makeMutator(repository: FakeTaskRepository())
+        let label = Label(id: 5, title: "Work", hexColor: "ff0000")
+        let original = VikunjaTask(id: 1, title: "A", projectID: 1)
+        var updated = original
+        updated.labels.append(label)
+
+        let resolved = await mutator.persistToggleLabel(
+            updated: updated, original: original, label: label, isAdding: true, labelRepository: labelRepository,
+        )
+
+        #expect(resolved.labels == [label])
+        #expect(labelRepository.addedLabelIDs.map(\.labelID) == [5])
+    }
+
+    @Test
+    func `removing a label persists it via the label repository`() async {
+        let labelRepository = FakeLabelRepository()
+        let mutator = makeMutator(repository: FakeTaskRepository())
+        let label = Label(id: 5, title: "Work", hexColor: "ff0000")
+        var original = VikunjaTask(id: 1, title: "A", projectID: 1)
+        original.labels = [label]
+        let updated = VikunjaTask(id: 1, title: "A", projectID: 1)
+
+        let resolved = await mutator.persistToggleLabel(
+            updated: updated, original: original, label: label, isAdding: false, labelRepository: labelRepository,
+        )
+
+        #expect(resolved.labels.isEmpty)
+        #expect(labelRepository.removedLabelIDs.map(\.labelID) == [5])
+    }
+
+    @Test
+    func `a rejected label add rolls back to the original silently`() async {
+        let labelRepository = FakeLabelRepository()
+        labelRepository.addError = .network("offline")
+        let toast = FakeToastPresenter()
+        let mutator = makeMutator(repository: FakeTaskRepository(), toast: toast)
+        let label = Label(id: 5, title: "Work", hexColor: "ff0000")
+        let original = VikunjaTask(id: 1, title: "A", projectID: 1)
+        var updated = original
+        updated.labels.append(label)
+
+        let resolved = await mutator.persistToggleLabel(
+            updated: updated, original: original, label: label, isAdding: true, labelRepository: labelRepository,
+        )
+
+        #expect(resolved.labels.isEmpty)
+        #expect(toast.shown.isEmpty)
+    }
+
     // MARK: delete
 
     @Test
