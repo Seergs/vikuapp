@@ -167,6 +167,11 @@ final class AppContainer {
                 baseURL: account.baseURL,
                 tokenProvider: tokenProvider,
             ),
+            labelRepository: clientFactory.makeLabelRepository(baseURL: account.baseURL, tokenProvider: tokenProvider),
+            relationRepository: clientFactory.makeTaskRelationRepository(
+                baseURL: account.baseURL,
+                tokenProvider: tokenProvider,
+            ),
             toastPresenter: toastCenter,
             hapticPresenter: hapticCenter,
         )

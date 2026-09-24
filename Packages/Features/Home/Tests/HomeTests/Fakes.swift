@@ -78,6 +78,38 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     }
 }
 
+final class FakeLabelRepository: LabelRepositoryProtocol, @unchecked Sendable {
+    var labels: [Label] = []
+    var addedLabelIDs: [(labelID: Int, taskID: Int)] = []
+
+    func fetchLabels() async throws -> [Label] {
+        labels
+    }
+
+    func create(_ label: Label) async throws -> Label {
+        label
+    }
+
+    func update(_ label: Label) async throws -> Label {
+        label
+    }
+
+    func delete(id: Int) async throws {
+        labels.removeAll { $0.id == id }
+    }
+
+    func addLabel(_ labelID: Int, toTask taskID: Int) async throws {
+        addedLabelIDs.append((labelID, taskID))
+    }
+
+    func removeLabel(_ labelID: Int, fromTask taskID: Int) async throws {}
+}
+
+final class FakeTaskRelationRepository: TaskRelationRepositoryProtocol, @unchecked Sendable {
+    func addRelation(kind: RelationKind, otherTaskID: Int, toTask taskID: Int) async throws {}
+    func removeRelation(kind: RelationKind, otherTaskID: Int, fromTask taskID: Int) async throws {}
+}
+
 final class FakeToastPresenter: ToastPresenting, @unchecked Sendable {
     private(set) var shownMessages: [(message: String, style: ToastStyle)] = []
 
