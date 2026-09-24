@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import VikunjaCore
 
@@ -93,6 +94,38 @@ struct TaskListMutatorTests {
         let resolved = await mutator.persistSetPriority(updated: updated, original: original)
 
         #expect(resolved.priority == .low)
+        #expect(toast.shown.isEmpty)
+    }
+
+    // MARK: persistSetDueDate
+
+    @Test
+    func `a due date change persists the server copy`() async {
+        let repository = FakeTaskRepository()
+        let mutator = makeMutator(repository: repository)
+        let original = VikunjaTask(id: 1, title: "A", projectID: 1)
+        var updated = original
+        updated.dueDate = Date(timeIntervalSince1970: 0)
+
+        let resolved = await mutator.persistSetDueDate(updated: updated, original: original)
+
+        #expect(resolved.dueDate == updated.dueDate)
+        #expect(repository.updatedTasks.map(\.id) == [1])
+    }
+
+    @Test
+    func `a rejected due date change rolls back to the original silently`() async {
+        let repository = FakeTaskRepository()
+        repository.updateError = .network("offline")
+        let toast = FakeToastPresenter()
+        let mutator = makeMutator(repository: repository, toast: toast)
+        let original = VikunjaTask(id: 1, title: "A", projectID: 1)
+        var updated = original
+        updated.dueDate = Date(timeIntervalSince1970: 0)
+
+        let resolved = await mutator.persistSetDueDate(updated: updated, original: original)
+
+        #expect(resolved.dueDate == nil)
         #expect(toast.shown.isEmpty)
     }
 
