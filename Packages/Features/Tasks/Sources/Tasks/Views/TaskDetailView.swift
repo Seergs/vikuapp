@@ -115,6 +115,9 @@ public struct TaskDetailView: View {
                             }
                         }
                     }
+                    Button("Labels", systemImage: "tag") {
+                        isShowingLabelPicker = true
+                    }
                     Button("Duplicate Task", systemImage: "plus.square.on.square") {
                         isShowingDuplicateSheet = true
                     }
