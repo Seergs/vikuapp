@@ -21,7 +21,7 @@ public struct LabelPickerSheet: View {
     let onCreate: (String, String) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
-    @State private var pickedColor = VikuColor.SwatchPalette.swatches[0]
+    @State private var pickedColor = VikuColor.SwatchPalette.labelSwatches[0]
 
     public init(
         taskLabels: [VikunjaCore.Label],
@@ -95,7 +95,7 @@ private struct LabelPickerRow: View {
     let action: () -> Void
 
     private var color: Color {
-        Color(vikuHex: label.hexColor) ?? VikuColor.textSecondary
+        Color(vikuMutedHex: label.hexColor) ?? VikuColor.textSecondary
     }
 
     var body: some View {
@@ -173,7 +173,7 @@ private struct CreateLabelCard: View {
             }
 
             HStack(spacing: VikuSpacing.sm) {
-                ForEach(VikuColor.SwatchPalette.swatches, id: \.self) { swatch in
+                ForEach(VikuColor.SwatchPalette.labelSwatches, id: \.self) { swatch in
                     Circle()
                         .fill(Color(vikuHex: swatch) ?? VikuColor.brandPrimary)
                         .frame(width: 24, height: 24)

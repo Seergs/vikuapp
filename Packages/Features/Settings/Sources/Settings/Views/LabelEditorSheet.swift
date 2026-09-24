@@ -3,8 +3,8 @@ import VikuDesignSystem
 import VikunjaCore
 
 /// The compact "new label" / "edit label" sheet: a title field and a row of
-/// preset color swatches from `VikuColor.SwatchPalette` — no free-form
-/// color picker, matching how projects choose their color. Same shape as
+/// preset color swatches from `VikuColor.SwatchPalette.labelSwatches` — no
+/// free-form color picker, matching how projects choose their color. Same shape as
 /// `Projects`' `CreateProjectSheetView`: a `NavigationStack` carrying an
 /// inline title and `Cancel`/`Save` in the toolbar, on a single detent sized
 /// to its content so the keyboard doesn't stretch it.
@@ -26,7 +26,7 @@ struct LabelEditorSheet: View {
         switch mode {
         case .create:
             _title = State(initialValue: "")
-            _hexColor = State(initialValue: VikuColor.SwatchPalette.swatches[0])
+            _hexColor = State(initialValue: VikuColor.SwatchPalette.labelSwatches[0])
         case let .edit(label):
             _title = State(initialValue: label.title)
             _hexColor = State(initialValue: label.hexColor)
@@ -73,7 +73,7 @@ struct LabelEditorSheet: View {
     private var nameField: some View {
         HStack(spacing: VikuSpacing.sm - VikuSpacing.xxs) {
             Circle()
-                .fill(Color(vikuHex: hexColor) ?? VikuColor.brandPrimary)
+                .fill(Color(vikuMutedHex: hexColor) ?? VikuColor.brandPrimary)
                 .frame(width: 10, height: 10)
 
             TextField("Label name", text: $title)
@@ -95,7 +95,7 @@ struct LabelEditorSheet: View {
                 .foregroundStyle(VikuColor.textSecondary)
 
             HStack(spacing: VikuSpacing.sm) {
-                ForEach(VikuColor.SwatchPalette.swatches, id: \.self) { swatch in
+                ForEach(VikuColor.SwatchPalette.labelSwatches, id: \.self) { swatch in
                     let swatchColor = Color(vikuHex: swatch) ?? VikuColor.brandPrimary
                     Circle()
                         .fill(swatchColor)

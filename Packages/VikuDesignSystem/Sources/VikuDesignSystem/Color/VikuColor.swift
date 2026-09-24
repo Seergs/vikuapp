@@ -47,12 +47,25 @@ public enum VikuColor {
     public static let textTertiary = Color.platformTextTertiary
 
     /// Preset swatches offered when picking a color for something the user is
-    /// creating (a label, a project, ...). Plain hex strings rather than
-    /// `Color`, since `Label.hexColor`/`Project.hexColor` round-trip through
-    /// the API as a hex string and this is what a "create ..." UI hands back.
+    /// creating (a project, ...). Plain hex strings rather than `Color`,
+    /// since `Label.hexColor`/`Project.hexColor` round-trip through the API
+    /// as a hex string and this is what a "create ..." UI hands back.
     public enum SwatchPalette {
         public static let swatches: [String] = [
             "8B5CF6", "0EA5E9", "22C55E", "F59E0B", "EF4444", "EC4899",
+        ]
+
+        /// Preset swatches for creating a *label*: the same hues as
+        /// `swatches`, pre-muted to `Color.vikuMutedHex`'s saturation/
+        /// lightness (38%/46% HSL). A label chip re-mutes its color at
+        /// display time regardless of what's stored, so this doesn't change
+        /// how this app renders a label created from these swatches — it
+        /// keeps the *stored* hex already elegant for any other Vikunja
+        /// client (web, Android, ...) that draws a label's color at full
+        /// saturation. Kept separate from `swatches` since project colors
+        /// aren't muted.
+        public static let labelSwatches: [String] = [
+            "6449A2", "4986A2", "49A26A", "A28149", "A24949", "A24975",
         ]
     }
 
