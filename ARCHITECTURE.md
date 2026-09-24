@@ -628,6 +628,29 @@ the same `VikunjaCore` protocols), and reinforces the central idea: anything
 
 ---
 
+## 8. Localization (String Catalogs)
+
+- **One `Localizable.xcstrings` per module**, mirroring the package boundaries
+  above: `VikunjaCore`, `VikuDesignSystem`, each `Features/<Name>`,
+  `VikuWidgetKit`, and the `Viku` app target each own their own catalog. No
+  single app-wide strings file, same reasoning as the design tokens and the
+  error enum: one owner per concern.
+- **Every localized string inside an SPM package target** (`Features/*`,
+  `VikuDesignSystem`, `VikuWidgetKit`) **must pass `bundle: .module`
+  explicitly**: `Text("key", bundle: .module)`,
+  `String(localized: "key", bundle: .module)`. Without it, the call resolves
+  against the wrong bundle and silently falls back to showing the raw key
+  instead of the translation. Only the `Viku` app target itself omits it,
+  since its catalog already lives in the main bundle.
+- **Plurals go through the catalog's plural variables** (`%lld task(s)`-style),
+  never a hand-rolled `count == 1 ? ... : ...` ternary, since that only covers
+  English's two-form rule and breaks for languages with different plural
+  rules.
+
+See `docs/LOCALIZATION_PLAN.md` for the full rollout plan and phased schedule.
+
+---
+
 ## Next steps
 
 The shell is built and wired, and the central slice of Vikunja's model is real
