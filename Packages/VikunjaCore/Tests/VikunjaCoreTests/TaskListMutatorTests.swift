@@ -184,6 +184,40 @@ struct TaskListMutatorTests {
         #expect(toast.shown.isEmpty)
     }
 
+    // MARK: persistAddRelation
+
+    @Test
+    func `adding a relation persists it via the relation repository and shows a success toast`() async {
+        let relationRepository = FakeTaskRelationRepository()
+        let toast = FakeToastPresenter()
+        let mutator = makeMutator(repository: FakeTaskRepository(), toast: toast)
+        let task = VikunjaTask(id: 1, title: "A", projectID: 1)
+        let relation = TaskRelation(id: 9, title: "B", projectID: 1)
+
+        await mutator.persistAddRelation(relation, kind: .related, to: task, relationRepository: relationRepository)
+
+        #expect(relationRepository.addedRelations.map(\.kind) == [.related])
+        #expect(relationRepository.addedRelations.map(\.otherTaskID) == [9])
+        #expect(relationRepository.addedRelations.map(\.taskID) == [1])
+        #expect(toast.shown.last?.message == "Relation added")
+        #expect(toast.shown.last?.style == .success)
+    }
+
+    @Test
+    func `a failed relation add shows an error toast`() async {
+        let relationRepository = FakeTaskRelationRepository()
+        relationRepository.addError = .network("offline")
+        let toast = FakeToastPresenter()
+        let mutator = makeMutator(repository: FakeTaskRepository(), toast: toast)
+        let task = VikunjaTask(id: 1, title: "A", projectID: 1)
+        let relation = TaskRelation(id: 9, title: "B", projectID: 1)
+
+        await mutator.persistAddRelation(relation, kind: .related, to: task, relationRepository: relationRepository)
+
+        #expect(relationRepository.addedRelations.isEmpty)
+        #expect(toast.shown.last?.style == .error)
+    }
+
     // MARK: delete
 
     @Test

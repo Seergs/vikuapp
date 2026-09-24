@@ -119,6 +119,26 @@ final class FakeLabelRepository: LabelRepositoryProtocol, @unchecked Sendable {
     }
 }
 
+final class FakeTaskRelationRepository: TaskRelationRepositoryProtocol, @unchecked Sendable {
+    struct RecordedRelation: Sendable {
+        let kind: RelationKind
+        let otherTaskID: Int
+        let taskID: Int
+    }
+
+    var addError: VikunjaError?
+    private(set) var addedRelations: [RecordedRelation] = []
+
+    func addRelation(kind: RelationKind, otherTaskID: Int, toTask taskID: Int) async throws {
+        if let addError {
+            throw addError
+        }
+        addedRelations.append(RecordedRelation(kind: kind, otherTaskID: otherTaskID, taskID: taskID))
+    }
+
+    func removeRelation(kind: RelationKind, otherTaskID: Int, fromTask taskID: Int) async throws {}
+}
+
 @MainActor
 final class FakeToastPresenter: ToastPresenting {
     private(set) var shown: [(message: String, style: ToastStyle)] = []

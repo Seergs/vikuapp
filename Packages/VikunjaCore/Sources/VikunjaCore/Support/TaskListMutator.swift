@@ -109,6 +109,25 @@ public struct TaskListMutator {
         }
     }
 
+    /// Adds `relation` under `kind` to `task` via `relationRepository`'s
+    /// dedicated endpoint. Unlike `persistToggleLabel`, there's no local list
+    /// state to update optimistically or roll back - task lists don't render
+    /// relations - so this only reports the outcome as a toast, mirroring
+    /// `delete`/`move`.
+    public func persistAddRelation(
+        _ relation: TaskRelation,
+        kind: RelationKind,
+        to task: VikunjaTask,
+        relationRepository: TaskRelationRepositoryProtocol,
+    ) async {
+        do {
+            try await relationRepository.addRelation(kind: kind, otherTaskID: relation.id, toTask: task.id)
+            toastPresenter.show("Relation added", style: .success)
+        } catch {
+            toastPresenter.show(errorMessage(error), style: .error)
+        }
+    }
+
     /// Deletes `task`. Returns `true` (with a success toast) when the caller
     /// should drop it from the list, `false` (with an error toast) when the
     /// request failed and the row should stay.
