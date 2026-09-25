@@ -1,0 +1,196 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Access method" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Método de acceso"
+          }
+        }
+      }
+    },
+    "API Token" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Token de API"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelar"
+          }
+        }
+      }
+    },
+    "Choose project" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elegir proyecto"
+          }
+        }
+      }
+    },
+    "Current" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actual"
+          }
+        }
+      }
+    },
+    "High" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alta"
+          }
+        }
+      }
+    },
+    "Low" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Baja"
+          }
+        }
+      }
+    },
+    "Medium" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Media"
+          }
+        }
+      }
+    },
+    "None" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ninguno"
+          }
+        }
+      }
+    },
+    "Not available on this server, or not confirmed yet." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No disponible en este servidor, o aún no confirmado."
+          }
+        }
+      }
+    },
+    "Overdue" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vencida"
+          }
+        }
+      }
+    },
+    "Paste a token generated on your instance." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pega un token generado en tu instancia."
+          }
+        }
+      }
+    },
+    "Priority" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prioridad"
+          }
+        }
+      }
+    },
+    "Search projects..." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar proyectos..."
+          }
+        }
+      }
+    },
+    "Sign in through your identity provider." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inicia sesión a través de tu proveedor de identidad."
+          }
+        }
+      }
+    },
+    "Sign in with your Vikunja credentials." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inicia sesión con tus credenciales de Vikunja."
+          }
+        }
+      }
+    },
+    "SSO / OpenID" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SSO / OpenID"
+          }
+        }
+      }
+    },
+    "Urgent" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Urgente"
+          }
+        }
+      }
+    },
+    "Username & Password" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usuario y contraseña"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

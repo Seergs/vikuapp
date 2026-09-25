@@ -156,7 +156,7 @@ public struct VikuTaskRow<Menu: View>: View {
             // keeping the row to one line.
             Group {
                 if isOverdue {
-                    Text("Overdue")
+                    Text("Overdue", bundle: .module)
                         .font(.system(size: 12.5, weight: .semibold))
                         .foregroundStyle(VikuColor.Semantic.dangerText)
                 } else if let dueDate = task.dueDate {
