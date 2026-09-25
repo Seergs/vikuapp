@@ -646,6 +646,35 @@ the same `VikunjaCore` protocols), and reinforces the central idea: anything
   never a hand-rolled `count == 1 ? ... : ...` ternary, since that only covers
   English's two-form rule and breaks for languages with different plural
   rules.
+- **A shared component that accepts caller-supplied display text (`FieldLabel`,
+  `ProjectField`, `ProjectPickerSheet`'s `title`, `SaveErrorBanner`) must treat
+  that text as opaque and display it verbatim (`Text(verbatim:)`, or a plain
+  `String` parameter with no catalog lookup), never re-localize it itself.**
+  `bundle: .module` inside the component always resolves against *the
+  component's own module*, not the caller's, since the bundle is fixed at the
+  source location where `Text`/`String(localized:)` is written, not at the
+  call site. A component that looked itself up would force every caller's
+  string, across every feature that reuses it, into the component's own
+  catalog, breaking the "one catalog per module, module owns its own strings"
+  rule. Only strings the component itself hardcodes (e.g. `AuthMethodAccordion`'s
+  card titles, `PriorityChipRow`'s "Low"/"Medium"/"High"/"Urgent") get resolved
+  with `String(localized:bundle: .module)` at their point of definition inside
+  that module; everything else is the caller's job, deferred to whichever
+  phase migrates that caller's own package (see `docs/LOCALIZATION_PLAN.md`
+  Phase 2).
+- **`swift build`/`swift test` from the command line do not compile
+  `.xcstrings` files.** Only Xcode's own build system runs the "Compile
+  String Catalogs" step that turns a `.xcstrings` source file into the
+  `.strings`/`.stringsdict` Foundation actually resolves at runtime; the
+  SwiftPM CLI just copies the raw `.xcstrings` JSON into the resource bundle
+  unprocessed. So `String(localized:)`/`Text(_:bundle:)` silently fall back to
+  the source-language string under `swift test`, regardless of whether the
+  catalog and translations are correct. Package tests can only assert against
+  the catalog's JSON content directly (see
+  `VikuDesignSystemTests/LocalizationTests.swift` for the pattern); verifying
+  a translation actually renders requires building/running through Xcode
+  (device, simulator, or an Xcode-hosted test target), which is also the only
+  way to catch the `bundle: .module` mistake above in practice.
 
 See `docs/LOCALIZATION_PLAN.md` for the full rollout plan and phased schedule.
 

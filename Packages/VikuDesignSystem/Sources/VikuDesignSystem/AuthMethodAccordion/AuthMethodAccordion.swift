@@ -30,22 +30,30 @@ public struct AuthMethodAccordion<APIToken: View, Password: View, OIDC: View>: V
             Spec(
                 method: .apiToken,
                 icon: "key.fill",
-                title: "API Token",
-                subtitle: "Paste a token generated on your instance.",
+                title: String(localized: "API Token", bundle: .module),
+                subtitle: String(localized: "Paste a token generated on your instance.", bundle: .module),
             ),
             Spec(
                 method: .password,
                 icon: "person.fill",
-                title: "Username & Password",
-                subtitle: "Sign in with your Vikunja credentials.",
+                title: String(localized: "Username & Password", bundle: .module),
+                subtitle: String(localized: "Sign in with your Vikunja credentials.", bundle: .module),
             ),
             Spec(
                 method: .oidc,
                 icon: "globe",
-                title: "SSO / OpenID",
-                subtitle: "Sign in through your identity provider.",
+                title: String(localized: "SSO / OpenID", bundle: .module),
+                subtitle: String(localized: "Sign in through your identity provider.", bundle: .module),
             ),
         ]
+    }
+
+    /// Shown in place of a disabled card's own subtitle. Owned by this
+    /// component (not caller-supplied), so it localizes itself rather than
+    /// relying on the caller to have already resolved it. Computed, not a
+    /// stored `static let`, since generic types can't hold those.
+    private static var disabledSubtitle: String {
+        String(localized: "Not available on this server, or not confirmed yet.", bundle: .module)
     }
 
     @Binding private var expanded: InstanceAccount.AuthMethod
@@ -76,7 +84,7 @@ public struct AuthMethodAccordion<APIToken: View, Password: View, OIDC: View>: V
 
     public var body: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm) {
-            Text("Access method")
+            Text("Access method", bundle: .module)
                 .font(VikuFont.footnote)
                 .fontWeight(.semibold)
                 .foregroundStyle(VikuColor.textSecondary)
@@ -145,13 +153,13 @@ public struct AuthMethodAccordion<APIToken: View, Password: View, OIDC: View>: V
 
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: VikuSpacing.xs + VikuSpacing.xxs) {
-                    Text(spec.title)
+                    Text(verbatim: spec.title)
                         .font(VikuFont.subheadline)
                         .fontWeight(.semibold)
                         .foregroundStyle(isEnabled ? Color.primary : VikuColor.textTertiary)
 
                     if currentMethod == spec.method {
-                        Text("Current")
+                        Text("Current", bundle: .module)
                             .font(VikuFont.caption2)
                             .fontWeight(.bold)
                             .foregroundStyle(VikuColor.brandPrimary)
@@ -161,7 +169,7 @@ public struct AuthMethodAccordion<APIToken: View, Password: View, OIDC: View>: V
                     }
                 }
 
-                Text(isEnabled ? spec.subtitle : "Not available on this server, or not confirmed yet.")
+                Text(verbatim: isEnabled ? spec.subtitle : Self.disabledSubtitle)
                     .font(VikuFont.caption)
                     .foregroundStyle(VikuColor.textTertiary)
                     .multilineTextAlignment(.leading)

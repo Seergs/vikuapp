@@ -9,6 +9,14 @@ import VikunjaCore
 // (Tasks, VikuUI) that both already depend on VikuDesignSystem.
 
 /// A field-group caption ("Project", "Priority", ...).
+///
+/// `title` is treated as opaque, already-resolved display text, not a
+/// catalog key: callers outside this module pass their own feature's
+/// strings, and a `Text(_:bundle: .module)` lookup here would always
+/// resolve against VikuDesignSystem's own catalog, never the caller's.
+/// A caller that owns its string localizes it first (e.g.
+/// `String(localized: "Priority", bundle: .module)` for a string this
+/// module owns) and hands the resolved value in.
 public struct FieldLabel: View {
     let title: String
 
@@ -17,7 +25,7 @@ public struct FieldLabel: View {
     }
 
     public var body: some View {
-        Text(title)
+        Text(verbatim: title)
             .font(VikuFont.footnote)
             .fontWeight(.semibold)
             .foregroundStyle(VikuColor.textSecondary)
@@ -45,7 +53,7 @@ public struct ProjectField: View {
                         .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(Color.primary)
                 } else {
-                    Text("Choose project")
+                    Text("Choose project", bundle: .module)
                         .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(VikuColor.textTertiary)
                 }
@@ -76,10 +84,26 @@ public struct PriorityOption: Identifiable, Sendable {
     /// The four pickable priorities shown as chips (the sheets don't offer
     /// `.unset`/`.doNow`).
     public static let all: [PriorityOption] = [
-        PriorityOption(priority: .low, label: "Low", color: VikuColor.Priority.low),
-        PriorityOption(priority: .medium, label: "Medium", color: VikuColor.Priority.medium),
-        PriorityOption(priority: .high, label: "High", color: VikuColor.Priority.high),
-        PriorityOption(priority: .urgent, label: "Urgent", color: VikuColor.Priority.urgent),
+        PriorityOption(
+            priority: .low,
+            label: String(localized: "Low", bundle: .module),
+            color: VikuColor.Priority.low,
+        ),
+        PriorityOption(
+            priority: .medium,
+            label: String(localized: "Medium", bundle: .module),
+            color: VikuColor.Priority.medium,
+        ),
+        PriorityOption(
+            priority: .high,
+            label: String(localized: "High", bundle: .module),
+            color: VikuColor.Priority.high,
+        ),
+        PriorityOption(
+            priority: .urgent,
+            label: String(localized: "Urgent", bundle: .module),
+            color: VikuColor.Priority.urgent,
+        ),
     ]
 }
 
@@ -94,7 +118,7 @@ public struct PriorityChipRow: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm - VikuSpacing.xxs) {
-            FieldLabel("Priority")
+            FieldLabel(String(localized: "Priority", bundle: .module))
             HStack(spacing: VikuSpacing.sm) {
                 ForEach(PriorityOption.all) { option in
                     PriorityChip(option: option, isSelected: selection == option.priority) {
@@ -116,7 +140,7 @@ private struct PriorityChip: View {
             HStack(spacing: VikuSpacing.xs) {
                 Image(systemName: "flag")
                     .font(.system(size: 11))
-                Text(option.label)
+                Text(verbatim: option.label)
                     .font(.system(size: 13.5, weight: .semibold))
             }
             .foregroundStyle(isSelected ? option.color : VikuColor.textTertiary)
@@ -148,7 +172,7 @@ public struct SaveErrorBanner: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 13))
                 .foregroundStyle(VikuColor.Semantic.dangerText)
-            Text(message)
+            Text(verbatim: message)
                 .font(VikuFont.footnote)
                 .fontWeight(.semibold)
                 .foregroundStyle(VikuColor.Semantic.dangerText)

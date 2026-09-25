@@ -14,7 +14,10 @@ import VikunjaCore
 /// row (which dismisses); the "Cancel" toolbar button closes without
 /// changing anything.
 public struct ProjectPickerSheet: View {
-    private let title: LocalizedStringKey
+    /// Caller-supplied, opaque display text (see `FieldLabel`'s doc comment
+    /// on `TaskFormControls.swift`): each caller's feature owns and
+    /// localizes its own title, this sheet just renders it verbatim.
+    private let title: String
     private let projects: [Project]
     private let selectedProjectID: Int?
     private let showsNoneOption: Bool
@@ -40,7 +43,7 @@ public struct ProjectPickerSheet: View {
     ///   - onSelect: the picked project, or `nil` for the "None" row. Called
     ///     after the sheet dismisses.
     public init(
-        title: LocalizedStringKey,
+        title: String,
         projects: [Project],
         selectedProjectID: Int?,
         showsNoneOption: Bool = false,
@@ -109,7 +112,7 @@ public struct ProjectPickerSheet: View {
                     }
                 }
             }
-            .searchable(text: $query, prompt: Text("Search projects..."))
+            .searchable(text: $query, prompt: Text("Search projects...", bundle: .module))
             .navigationTitle(title)
             #if os(iOS)
             .listStyle(.insetGrouped)
@@ -117,7 +120,11 @@ public struct ProjectPickerSheet: View {
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("Cancel", bundle: .module)
+                    }
                 }
             }
         }
@@ -241,7 +248,7 @@ private struct NoneRow: View {
                         .foregroundStyle(VikuColor.textTertiary)
                         .frame(width: 24, alignment: .center)
 
-                    Text("None")
+                    Text("None", bundle: .module)
                         .font(VikuFont.body)
                         .foregroundStyle(Color.primary)
 
