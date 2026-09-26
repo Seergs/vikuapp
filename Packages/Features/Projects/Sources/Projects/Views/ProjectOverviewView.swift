@@ -573,7 +573,19 @@ private extension View {
     /// rows are flush by default, matching the title; `.vikuCardRow(index:count:)`
     /// recreates the rounded "card" look by hand (per-row corner rounding)
     /// instead of relying on the list style to do it.
+    ///
+    /// See `TodayView.todayListStyle()` for why `listRowSpacing(0)` and a
+    /// zeroed `defaultMinListRowHeight` are needed alongside `.plain`, and
+    /// why `listRowSpacing` is gated to iOS.
+    @ViewBuilder
     func projectsListStyle() -> some View {
+        #if os(iOS)
         listStyle(.plain)
+            .listRowSpacing(0)
+            .environment(\.defaultMinListRowHeight, 0)
+        #else
+        listStyle(.plain)
+            .environment(\.defaultMinListRowHeight, 0)
+        #endif
     }
 }

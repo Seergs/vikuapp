@@ -345,7 +345,22 @@ private extension View {
     /// `.plain`, not `.insetGrouped` — see `ProjectOverviewView.projectsListStyle()`
     /// for why: `.insetGrouped` always floats its content in from the screen
     /// edges by a fixed system margin that can't be tuned away.
+    ///
+    /// `listRowSpacing(0)` and a zeroed `defaultMinListRowHeight` stop `List`
+    /// from adding its own content-independent spacing/height floor on top of
+    /// `vikuCardRow`'s own padding — without them the gap between two rows
+    /// varied with row content instead of always being exactly that padding.
+    /// `listRowSpacing` is iOS-only; this package also builds for macOS to
+    /// run its tests.
+    @ViewBuilder
     func todayListStyle() -> some View {
+        #if os(iOS)
         listStyle(.plain)
+            .listRowSpacing(0)
+            .environment(\.defaultMinListRowHeight, 0)
+        #else
+        listStyle(.plain)
+            .environment(\.defaultMinListRowHeight, 0)
+        #endif
     }
 }
