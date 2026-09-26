@@ -149,8 +149,19 @@ struct SearchView: View {
 }
 
 private extension View {
+    /// See `TodayView.todayListStyle()` for why `listRowSpacing(0)` and a
+    /// zeroed `defaultMinListRowHeight` are needed alongside `.plain`, and
+    /// why `listRowSpacing` is gated to iOS.
+    @ViewBuilder
     func searchListStyle() -> some View {
+        #if os(iOS)
         listStyle(.plain)
+            .listRowSpacing(0)
+            .environment(\.defaultMinListRowHeight, 0)
+        #else
+        listStyle(.plain)
+            .environment(\.defaultMinListRowHeight, 0)
+        #endif
     }
 }
 
