@@ -6,8 +6,7 @@ import Foundation
 /// becomes `.remote`.
 ///
 /// One shared type is reused as-is across every entity (`Project`,
-/// `VikunjaTask`, `Label`, ...) rather than a distinct type per entity. See
-/// docs/OFFLINE_SYNC_DESIGN.md §4.2.
+/// `VikunjaTask`, `Label`, ...) rather than a distinct type per entity.
 public enum EntityID: Hashable, Sendable {
     case local(UUID)
     case remote(Int)
