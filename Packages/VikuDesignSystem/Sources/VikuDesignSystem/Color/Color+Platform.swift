@@ -66,4 +66,21 @@ extension Color {
         Color.secondary
         #endif
     }
+
+    /// The light-mode `dangerText` hex reads as near-black on a dark
+    /// background (e.g. widgets in dark mode), so dark mode swaps in the same
+    /// brighter red iOS itself uses for `.systemRed` in dark mode.
+    static var platformDangerText: Color {
+        #if os(iOS)
+        Color(uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor(red: 1.0, green: 0.27, blue: 0.23, alpha: 1)
+                : UIColor(red: 0.62, green: 0.09, blue: 0.13, alpha: 1)
+        })
+        #elseif os(macOS)
+        Color(nsColor: .systemRed)
+        #else
+        Color.red
+        #endif
+    }
 }
