@@ -2,6 +2,9 @@ import SwiftUI
 import VikuDesignSystem
 import VikuNavigation
 import VikunjaCore
+#if os(iOS)
+import UIKit
+#endif
 
 /// The add/edit connection screen: name, instance URL, API token, a "Test
 /// Connection" probe, and — only in edit mode — a "Delete Connection" action.
@@ -15,6 +18,8 @@ struct ConnectionFormView: View {
     @State private var isPasswordVisible = false
     @State private var isConfirmingDelete = false
     @FocusState private var isNameFocused: Bool
+    @State private var hasLoaded = false
+    @State private var hasSettled = false
 
     /// Takes a factory rather than an already-built view model — see
     /// `ConnectionsListView.init`'s doc comment for why this has to be
@@ -93,8 +98,29 @@ struct ConnectionFormView: View {
         #endif
         .task {
             await viewModel.load()
-            isNameFocused = viewModel.displayName.isEmpty
+            hasLoaded = true
+            #if os(macOS)
+            // No push-transition/keyboard race to wait out here.
+            hasSettled = true
+            #endif
+            attemptAutoFocus()
         }
+        #if os(iOS)
+        // Neither a fixed delay nor SwiftUI's own `withAnimation(...)
+        // completion:` reliably catches when this screen's push transition
+        // has actually finished (NavigationStack push is bridged through a
+        // UINavigationController, not a purely SwiftUI-animatable value) -
+        // focusing while it's still sliding in briefly breaks the keyboard's
+        // translucent backdrop on device. Going straight to UIKit's own
+        // `transitionCoordinator`, the API meant for exactly this, instead.
+        .background {
+            PushTransitionSettledDetector {
+                hasSettled = true
+                attemptAutoFocus()
+            }
+            .allowsHitTesting(false)
+        }
+        #endif
         .task(id: viewModel.urlText) {
             try? await Task.sleep(for: .milliseconds(500))
             guard !Task.isCancelled else { return }
@@ -119,6 +145,11 @@ struct ConnectionFormView: View {
             }
             Button("Cancel", role: .cancel) {}
         }
+    }
+
+    private func attemptAutoFocus() {
+        guard hasLoaded, hasSettled, viewModel.displayName.isEmpty else { return }
+        isNameFocused = true
     }
 
     private var insecureConnectionToggle: some View {
@@ -379,3 +410,48 @@ private struct StatusBanner: View {
         style == .success ? VikuColor.Semantic.success : VikuColor.Semantic.danger
     }
 }
+
+#if os(iOS)
+/// Invisible helper that calls `onSettled` once, after the push transition
+/// bringing this view onto its `UINavigationController` has actually
+/// finished animating - not when it starts. Goes straight to UIKit's
+/// `transitionCoordinator` since SwiftUI has no reliable equivalent for
+/// `NavigationStack` push/pop transitions.
+private struct PushTransitionSettledDetector: UIViewControllerRepresentable {
+    let onSettled: () -> Void
+
+    func makeUIViewController(context: Context) -> DetectorViewController {
+        let controller = DetectorViewController()
+        controller.onSettled = onSettled
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: DetectorViewController, context: Context) {}
+
+    final class DetectorViewController: UIViewController {
+        var onSettled: (() -> Void)?
+        private var hasFired = false
+
+        override func viewDidLoad() {
+            super.viewDidLoad()
+            view.backgroundColor = .clear
+            view.isUserInteractionEnabled = false
+        }
+
+        override func viewWillAppear(_ animated: Bool) {
+            super.viewWillAppear(animated)
+            guard !hasFired else { return }
+            guard let coordinator = transitionCoordinator else {
+                hasFired = true
+                onSettled?()
+                return
+            }
+            coordinator.animate(alongsideTransition: nil) { [weak self] _ in
+                guard let self, !self.hasFired else { return }
+                hasFired = true
+                onSettled?()
+            }
+        }
+    }
+}
+#endif
