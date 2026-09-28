@@ -80,6 +80,9 @@ public enum VikuColor {
         /// of the low-opacity tinted banner background — `success`/`danger`
         /// themselves are too bright to read comfortably as text.
         public static let successText = Color(hex: 0x15753F)
-        public static let dangerText = Color(hex: 0x9E1620)
+        /// Adapts to a brighter red in dark mode (see `Color+Platform.swift`)
+        /// so it stays legible on dark backgrounds, e.g. the "Overdue" label
+        /// in home-screen widgets.
+        public static let dangerText = Color.platformDangerText
     }
 }
