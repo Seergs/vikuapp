@@ -3,6 +3,9 @@ import VikuDesignSystem
 import VikuNavigation
 import VikunjaCore
 import VikuUI
+#if os(iOS)
+import UIKit
+#endif
 
 /// A single task's detail screen: completion, due date, priority, labels,
 /// subtasks, and dependencies. Pushed as a leaf screen inside whichever
@@ -36,6 +39,20 @@ public struct TaskDetailView: View {
     @State private var isEditingDescription = false
     @State private var descriptionDraft = ""
     @FocusState private var focusedField: EditableField?
+    // The comment composer sits at the very bottom of the scroll content, with
+    // barely any padding below it. SwiftUI's automatic keyboard avoidance only
+    // shrinks the visible viewport - it doesn't add scrollable room - so once
+    // the composer is the last thing on screen there's nowhere left to scroll
+    // it above the keyboard. Padding the content by the live keyboard height
+    // gives the scroll view that missing room.
+    @State private var keyboardHeight: CGFloat = 0
+    // Threaded down into `CommentComposer`'s `TextField` so the screen knows
+    // to scroll it into view once the keyboard has room to reveal it (see the
+    // `keyboardHeight` change handler below) rather than relying solely on
+    // iOS's own best-effort scroll, which fires before `keyboardHeight` (and
+    // the extra bottom padding it drives) has actually been applied.
+    @FocusState private var isCommentComposerFocused: Bool
+    private static let commentsAnchorID = "comments-section"
 
     private enum EditableField: Hashable {
         case title
@@ -47,232 +64,253 @@ public struct TaskDetailView: View {
     }
 
     public var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                switch viewModel.loadState {
-                case let .failure(message):
-                    VikuStatusView(
-                        systemImage: "exclamationmark.triangle.fill",
-                        title: "Couldn't load this task",
-                        message: message,
-                        fillsHeight: false,
-                    ) {
-                        Task { await viewModel.load() }
-                    }
-                    .padding(.top, VikuSpacing.xxl)
-                default:
-                    loadedContent
-                }
-            }
-            .padding(.horizontal, VikuSpacing.md)
-            .padding(.bottom, VikuSpacing.xl)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .background(VikuColor.Surface.page)
-        .contentShape(Rectangle())
-        .onTapGesture { focusedField = nil }
-        .scrollDismissesKeyboard(.interactively)
-        // The tap-outside/scroll dismissal above isn't reliable on a physical
-        // device once the keyboard is up (a background tap there commonly
-        // resigns the keyboard through UIKit without SwiftUI's gesture ever
-        // firing) — a checkmark in the nav bar, matching Notes/Reminders, is
-        // the dependable way to commit the description edit. The title field
-        // doesn't need it: it's single-line, so its own Return key already
-        // submits.
-        .toolbar {
-            if focusedField == .description || focusedField == .title {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button {
-                        focusedField = nil
-                    } label: {
-                        Image(systemName: "checkmark")
-                            .fontWeight(.semibold)
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    switch viewModel.loadState {
+                    case let .failure(message):
+                        VikuStatusView(
+                            systemImage: "exclamationmark.triangle.fill",
+                            title: "Couldn't load this task",
+                            message: message,
+                            fillsHeight: false,
+                        ) {
+                            Task { await viewModel.load() }
+                        }
+                        .padding(.top, VikuSpacing.xxl)
+                    default:
+                        loadedContent
                     }
                 }
+                .padding(.horizontal, VikuSpacing.md)
+                .padding(.bottom, VikuSpacing.xl + keyboardHeight)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            ToolbarItem(placement: .primaryAction) {
-                Menu {
-                    Button(
-                        viewModel.task.isDone ? "Mark as Not Done" : "Mark as Done",
-                        systemImage: viewModel.task.isDone ? "circle" : "checkmark.circle",
-                    ) {
-                        Task { await viewModel.toggleDone() }
+            .background(VikuColor.Surface.page)
+            .contentShape(Rectangle())
+            .onTapGesture { focusedField = nil }
+            .scrollDismissesKeyboard(.interactively)
+            // The tap-outside/scroll dismissal above isn't reliable on a physical
+            // device once the keyboard is up (a background tap there commonly
+            // resigns the keyboard through UIKit without SwiftUI's gesture ever
+            // firing) — a checkmark in the nav bar, matching Notes/Reminders, is
+            // the dependable way to commit the description edit. The title field
+            // doesn't need it: it's single-line, so its own Return key already
+            // submits.
+            .toolbar {
+                if focusedField == .description || focusedField == .title {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button {
+                            focusedField = nil
+                        } label: {
+                            Image(systemName: "checkmark")
+                                .fontWeight(.semibold)
+                        }
                     }
-                    Button("Due Date", systemImage: "calendar") {
-                        isShowingDueDatePicker = true
-                    }
-                    Menu("Priority", systemImage: "flag") {
-                        ForEach(VikunjaTask.Priority.selectable, id: \.self) { priority in
-                            Button {
-                                Task { await viewModel.setPriority(priority) }
-                            } label: {
-                                HStack {
-                                    Text(priority.displayName)
-                                    if viewModel.task.priority == priority {
-                                        Image(systemName: "checkmark")
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        Button(
+                            viewModel.task.isDone ? "Mark as Not Done" : "Mark as Done",
+                            systemImage: viewModel.task.isDone ? "circle" : "checkmark.circle",
+                        ) {
+                            Task { await viewModel.toggleDone() }
+                        }
+                        Button("Due Date", systemImage: "calendar") {
+                            isShowingDueDatePicker = true
+                        }
+                        Menu("Priority", systemImage: "flag") {
+                            ForEach(VikunjaTask.Priority.selectable, id: \.self) { priority in
+                                Button {
+                                    Task { await viewModel.setPriority(priority) }
+                                } label: {
+                                    HStack {
+                                        Text(priority.displayName)
+                                        if viewModel.task.priority == priority {
+                                            Image(systemName: "checkmark")
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                    Button("Labels", systemImage: "tag") {
-                        isShowingLabelPicker = true
-                    }
-                    Button("Add Relation", systemImage: "link") {
-                        relationEditStep = .pickKind(viewModel.task)
-                    }
-                    Button("Duplicate Task", systemImage: "plus.square.on.square") {
-                        isShowingDuplicateSheet = true
-                    }
-                    Button("Move to Project", systemImage: "folder") {
-                        isShowingMovePicker = true
-                    }
-                    // `role: .destructive` alone renders blue here, not red:
-                    // the tab bar's `.tint(VikuColor.brandPrimary)` leaks
-                    // into this menu and overrides the role's tint — mirrors
-                    // `ProjectTaskRow`'s context menu in `Features/Projects`.
-                    Button("Delete Task", systemImage: "trash", role: .destructive) {
-                        isShowingDeleteConfirmation = true
-                    }
-                    .tint(VikuColor.Semantic.danger)
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                }
-            }
-        }
-        .navigationTitle("Task Details")
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-        #endif
-        .task { await viewModel.load() }
-        .task { await viewModel.loadComments() }
-        .task { await viewModel.loadAttachments() }
-        .onAppear { viewModel.markVisible() }
-        .onDisappear { viewModel.markHidden() }
-        .refreshable {
-            await viewModel.load()
-            await viewModel.loadComments()
-            await viewModel.loadAttachments()
-        }
-        .sheet(isPresented: $isShowingDueDatePicker) {
-            DueDatePickerSheet(initialDate: viewModel.task.dueDate) { newDate in
-                Task { await viewModel.setDueDate(newDate) }
-            }
-        }
-        .sheet(isPresented: $isShowingLabelPicker) {
-            LabelPickerSheet(
-                taskLabels: viewModel.task.labels,
-                allLabels: viewModel.allLabels,
-                onLoad: { await viewModel.loadAllLabels() },
-                onToggle: { label in Task { await viewModel.toggleLabel(label) } },
-                onCreate: { title, hexColor in
-                    Task { await viewModel.createAndAddLabel(title: title, hexColor: hexColor) }
-                },
-            )
-        }
-        .sheet(isPresented: $isShowingMovePicker) {
-            ProjectPickerSheet(
-                title: "Move to Project",
-                projects: viewModel.allProjects,
-                selectedProjectID: nil,
-                excludingSubtreeOf: viewModel.task.projectID,
-            ) { project in
-                guard let project else { return }
-                Task {
-                    if await viewModel.move(to: project) {
-                        dismiss()
+                        Button("Labels", systemImage: "tag") {
+                            isShowingLabelPicker = true
+                        }
+                        Button("Add Relation", systemImage: "link") {
+                            relationEditStep = .pickKind(viewModel.task)
+                        }
+                        Button("Duplicate Task", systemImage: "plus.square.on.square") {
+                            isShowingDuplicateSheet = true
+                        }
+                        Button("Move to Project", systemImage: "folder") {
+                            isShowingMovePicker = true
+                        }
+                        // `role: .destructive` alone renders blue here, not red:
+                        // the tab bar's `.tint(VikuColor.brandPrimary)` leaks
+                        // into this menu and overrides the role's tint — mirrors
+                        // `ProjectTaskRow`'s context menu in `Features/Projects`.
+                        Button("Delete Task", systemImage: "trash", role: .destructive) {
+                            isShowingDeleteConfirmation = true
+                        }
+                        .tint(VikuColor.Semantic.danger)
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
                     }
                 }
             }
-            .task { await viewModel.loadAllProjects() }
-        }
-        .sheet(isPresented: $isShowingDuplicateSheet) {
-            DuplicateTaskSheetView(
-                makeViewModel: { viewModel.makeDuplicateTaskViewModel() },
-                onDuplicated: { task, project in
-                    // Reuses the same push path a tapped relation row takes.
-                    router.push(.taskDetail(task, project))
-                },
-            )
-        }
-        .confirmationDialog(
-            "This permanently deletes the task.",
-            isPresented: $isShowingDeleteConfirmation,
-            titleVisibility: .visible,
-        ) {
-            Button("Delete Task", role: .destructive) {
-                Task {
-                    if await viewModel.deleteTask() {
-                        dismiss()
+            .navigationTitle("Task Details")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .task { await viewModel.load() }
+            .task { await viewModel.loadComments() }
+            .task { await viewModel.loadAttachments() }
+            .onAppear { viewModel.markVisible() }
+            .onDisappear { viewModel.markHidden() }
+            #if os(iOS)
+            .onReceive(
+                NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification),
+            ) { notification in
+                let info = notification.userInfo
+                guard let endFrame = info?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
+                      let duration = info?[UIResponder.keyboardAnimationDurationUserInfoKey] as? TimeInterval
+                else { return }
+                let newHeight = max(0, UIScreen.main.bounds.height - endFrame.origin.y)
+                withAnimation(.easeInOut(duration: duration)) {
+                    keyboardHeight = newHeight
+                }
+                if newHeight > 0, isCommentComposerFocused {
+                    withAnimation(.easeInOut(duration: duration)) {
+                        proxy.scrollTo(Self.commentsAnchorID, anchor: .bottom)
                     }
                 }
             }
-            Button("Cancel", role: .cancel) {}
-        }
-        .confirmationDialog(
-            "This permanently deletes the comment.",
-            isPresented: Binding(
-                get: { commentPendingDeletion != nil },
-                set: {
-                    if !$0 {
-                        commentPendingDeletion = nil
-                    }
-                },
-            ),
-            titleVisibility: .visible,
-            presenting: commentPendingDeletion,
-        ) { comment in
-            Button("Delete Comment", role: .destructive) {
-                Task { await viewModel.deleteComment(comment) }
+            #endif
+            .refreshable {
+                await viewModel.load()
+                await viewModel.loadComments()
+                await viewModel.loadAttachments()
             }
-            Button("Cancel", role: .cancel) {}
-        }
-        .sheet(item: $commentPendingEdit) { comment in
-            EditCommentSheet(initialText: RichText.plainText(from: comment.comment)) { newText in
-                Task { await viewModel.editComment(comment, newText: newText) }
-            }
-        }
-        .modifier(
-            AttachmentActionsModifier(
-                viewModel: viewModel,
-                isShowingFileImporter: $isShowingFileImporter,
-                pendingDeletion: $attachmentPendingDeletion,
-                previewURL: $attachmentPreviewURL,
-            ),
-        )
-        .sheet(item: $relationEditStep) { step in
-            switch step {
-            case let .pickKind(task):
-                RelationKindPickerSheet { kind in
-                    relationEditStep = .pickTask(task, kind)
+            .sheet(isPresented: $isShowingDueDatePicker) {
+                DueDatePickerSheet(initialDate: viewModel.task.dueDate) { newDate in
+                    Task { await viewModel.setDueDate(newDate) }
                 }
-            case let .pickTask(_, kind):
-                RelationTaskPickerSheet(
-                    kind: kind,
-                    results: viewModel.relationSearchResults,
-                    projectTitle: { candidate in viewModel.projectTitle(forProjectID: candidate.projectID) },
-                    onAppear: {
-                        await viewModel.loadAllProjects()
-                        await viewModel.loadRelationSuggestions()
-                    },
-                    onSearch: { query in await viewModel.searchTasksForRelation(query: query) },
-                    onSelect: { candidate in
-                        let relation = TaskRelation(
-                            id: candidate.id, title: candidate.title,
-                            isDone: candidate.isDone, projectID: candidate.projectID,
-                        )
-                        Task { await viewModel.addRelation(relation, kind: kind) }
-                        relationEditStep = nil
+            }
+            .sheet(isPresented: $isShowingLabelPicker) {
+                LabelPickerSheet(
+                    taskLabels: viewModel.task.labels,
+                    allLabels: viewModel.allLabels,
+                    onLoad: { await viewModel.loadAllLabels() },
+                    onToggle: { label in Task { await viewModel.toggleLabel(label) } },
+                    onCreate: { title, hexColor in
+                        Task { await viewModel.createAndAddLabel(title: title, hexColor: hexColor) }
                     },
                 )
             }
-        }
-        .onChange(of: focusedField) { previous, current in
-            if previous == .title, current != .title {
-                commitTitleEdit()
+            .sheet(isPresented: $isShowingMovePicker) {
+                ProjectPickerSheet(
+                    title: "Move to Project",
+                    projects: viewModel.allProjects,
+                    selectedProjectID: nil,
+                    excludingSubtreeOf: viewModel.task.projectID,
+                ) { project in
+                    guard let project else { return }
+                    Task {
+                        if await viewModel.move(to: project) {
+                            dismiss()
+                        }
+                    }
+                }
+                .task { await viewModel.loadAllProjects() }
             }
-            if previous == .description, current != .description {
-                commitDescriptionEdit()
+            .sheet(isPresented: $isShowingDuplicateSheet) {
+                DuplicateTaskSheetView(
+                    makeViewModel: { viewModel.makeDuplicateTaskViewModel() },
+                    onDuplicated: { task, project in
+                        // Reuses the same push path a tapped relation row takes.
+                        router.push(.taskDetail(task, project))
+                    },
+                )
+            }
+            .confirmationDialog(
+                "This permanently deletes the task.",
+                isPresented: $isShowingDeleteConfirmation,
+                titleVisibility: .visible,
+            ) {
+                Button("Delete Task", role: .destructive) {
+                    Task {
+                        if await viewModel.deleteTask() {
+                            dismiss()
+                        }
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            }
+            .confirmationDialog(
+                "This permanently deletes the comment.",
+                isPresented: Binding(
+                    get: { commentPendingDeletion != nil },
+                    set: {
+                        if !$0 {
+                            commentPendingDeletion = nil
+                        }
+                    },
+                ),
+                titleVisibility: .visible,
+                presenting: commentPendingDeletion,
+            ) { comment in
+                Button("Delete Comment", role: .destructive) {
+                    Task { await viewModel.deleteComment(comment) }
+                }
+                Button("Cancel", role: .cancel) {}
+            }
+            .sheet(item: $commentPendingEdit) { comment in
+                EditCommentSheet(initialText: RichText.plainText(from: comment.comment)) { newText in
+                    Task { await viewModel.editComment(comment, newText: newText) }
+                }
+            }
+            .modifier(
+                AttachmentActionsModifier(
+                    viewModel: viewModel,
+                    isShowingFileImporter: $isShowingFileImporter,
+                    pendingDeletion: $attachmentPendingDeletion,
+                    previewURL: $attachmentPreviewURL,
+                ),
+            )
+            .sheet(item: $relationEditStep) { step in
+                switch step {
+                case let .pickKind(task):
+                    RelationKindPickerSheet { kind in
+                        relationEditStep = .pickTask(task, kind)
+                    }
+                case let .pickTask(_, kind):
+                    RelationTaskPickerSheet(
+                        kind: kind,
+                        results: viewModel.relationSearchResults,
+                        projectTitle: { candidate in viewModel.projectTitle(forProjectID: candidate.projectID) },
+                        onAppear: {
+                            await viewModel.loadAllProjects()
+                            await viewModel.loadRelationSuggestions()
+                        },
+                        onSearch: { query in await viewModel.searchTasksForRelation(query: query) },
+                        onSelect: { candidate in
+                            let relation = TaskRelation(
+                                id: candidate.id, title: candidate.title,
+                                isDone: candidate.isDone, projectID: candidate.projectID,
+                            )
+                            Task { await viewModel.addRelation(relation, kind: kind) }
+                            relationEditStep = nil
+                        },
+                    )
+                }
+            }
+            .onChange(of: focusedField) { previous, current in
+                if previous == .title, current != .title {
+                    commitTitleEdit()
+                }
+                if previous == .description, current != .description {
+                    commitDescriptionEdit()
+                }
             }
         }
     }
@@ -398,7 +436,13 @@ public struct TaskDetailView: View {
             viewModel: viewModel,
             onEdit: { commentPendingEdit = $0 },
             onDelete: { commentPendingDeletion = $0 },
+            isComposerFocused: $isCommentComposerFocused,
         )
+        // The extra bottom padding is inside the scrolled-to id, so
+        // `anchor: .bottom` below leaves this much breathing room between
+        // the composer and the keyboard instead of butting flush against it.
+        .padding(.bottom, VikuSpacing.md)
+        .id(Self.commentsAnchorID)
     }
 
     @ViewBuilder
