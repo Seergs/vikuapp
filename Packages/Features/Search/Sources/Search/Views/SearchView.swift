@@ -125,6 +125,7 @@ struct SearchView: View {
                         ) {
                             Task { await viewModel.toggleDone(task) }
                         }
+                        Divider()
                         Button("Delete", systemImage: "trash", role: .destructive) {
                             taskPendingDelete = task
                         }

@@ -266,6 +266,7 @@ struct ProjectOverviewView: View {
                             ) {
                                 Task { await viewModel.toggleDone(task) }
                             }
+                            Divider()
                             Button("Due Date", systemImage: "calendar") {
                                 taskPendingDueDateEdit = task
                             }
@@ -286,6 +287,7 @@ struct ProjectOverviewView: View {
                             Button("Labels", systemImage: "tag") {
                                 taskPendingLabelEdit = task
                             }
+                            Divider()
                             Button("Add Relation", systemImage: "link") {
                                 relationEditStep = .pickKind(task)
                             }
@@ -295,6 +297,7 @@ struct ProjectOverviewView: View {
                             Button("Move to Project", systemImage: "folder") {
                                 taskPendingMove = task
                             }
+                            Divider()
                             // `role: .destructive` alone renders blue here: the
                             // tab bar's tint leaks into the context menu and
                             // overrides it. Pin it back to danger.
