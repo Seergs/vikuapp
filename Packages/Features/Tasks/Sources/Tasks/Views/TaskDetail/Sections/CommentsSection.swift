@@ -11,6 +11,7 @@ struct CommentsSection: View {
     @Bindable var viewModel: TaskDetailViewModel
     let onEdit: (TaskComment) -> Void
     let onDelete: (TaskComment) -> Void
+    var isComposerFocused: FocusState<Bool>.Binding
 
     var body: some View {
         SectionBlock(title: "Comments", count: viewModel.comments.isEmpty ? nil : "\(viewModel.comments.count)") {
@@ -22,6 +23,7 @@ struct CommentsSection: View {
                 },
                 onEdit: onEdit,
                 onDelete: onDelete,
+                isComposerFocused: isComposerFocused,
             )
         }
     }
@@ -33,6 +35,7 @@ private struct CommentsList: View {
     let onSubmit: (String) -> Void
     let onEdit: (TaskComment) -> Void
     let onDelete: (TaskComment) -> Void
+    var isComposerFocused: FocusState<Bool>.Binding
     @State private var draft = ""
 
     private var emptyStateMessage: String {
@@ -60,7 +63,7 @@ private struct CommentsList: View {
                 }
             }
 
-            CommentComposer(draft: $draft) {
+            CommentComposer(draft: $draft, isFocused: isComposerFocused) {
                 let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !text.isEmpty else { return }
                 draft = ""
@@ -131,6 +134,7 @@ private struct CommentRow: View {
 
 private struct CommentComposer: View {
     @Binding var draft: String
+    var isFocused: FocusState<Bool>.Binding
     let onSubmit: () -> Void
 
     private var canSubmit: Bool {
@@ -144,6 +148,7 @@ private struct CommentComposer: View {
                 .foregroundStyle(Color.primary)
                 .submitLabel(.send)
                 .onSubmit(onSubmit)
+                .focused(isFocused)
                 .padding(.leading, VikuSpacing.sm)
                 .padding(.vertical, VikuSpacing.xs + VikuSpacing.xxs)
 
