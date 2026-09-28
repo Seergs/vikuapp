@@ -116,6 +116,7 @@ public struct TaskDetailView: View {
                         ) {
                             Task { await viewModel.toggleDone() }
                         }
+                        Divider()
                         Button("Due Date", systemImage: "calendar") {
                             isShowingDueDatePicker = true
                         }
@@ -136,6 +137,7 @@ public struct TaskDetailView: View {
                         Button("Labels", systemImage: "tag") {
                             isShowingLabelPicker = true
                         }
+                        Divider()
                         Button("Add Relation", systemImage: "link") {
                             relationEditStep = .pickKind(viewModel.task)
                         }
@@ -145,6 +147,7 @@ public struct TaskDetailView: View {
                         Button("Move to Project", systemImage: "folder") {
                             isShowingMovePicker = true
                         }
+                        Divider()
                         // `role: .destructive` alone renders blue here, not red:
                         // the tab bar's `.tint(VikuColor.brandPrimary)` leaks
                         // into this menu and overrides the role's tint — mirrors

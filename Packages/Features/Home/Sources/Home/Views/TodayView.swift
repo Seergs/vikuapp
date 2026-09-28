@@ -206,6 +206,7 @@ struct TodayView: View {
                             ) {
                                 Task { await viewModel.toggleDone(task) }
                             }
+                            Divider()
                             Button("Due Date", systemImage: "calendar") {
                                 taskPendingDueDateEdit = task
                             }
@@ -226,6 +227,7 @@ struct TodayView: View {
                             Button("Labels", systemImage: "tag") {
                                 taskPendingLabelEdit = task
                             }
+                            Divider()
                             Button("Add Relation", systemImage: "link") {
                                 relationEditStep = .pickKind(task)
                             }
@@ -235,6 +237,7 @@ struct TodayView: View {
                             Button("Move to Project", systemImage: "folder") {
                                 taskPendingMove = task
                             }
+                            Divider()
                             Button("Delete Task", systemImage: "trash", role: .destructive) {
                                 taskPendingDelete = task
                             }
