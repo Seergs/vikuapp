@@ -70,9 +70,16 @@ final class MockURLProtocol: URLProtocol {
         // check, since this function keeps using `request` afterward.
         let capturedRequest = request
         let capture = Self.capture
+        // Block until the capture actor has recorded the request: without this,
+        // `record(_:)` races the response we deliver below, so a test's `await
+        // capture.lastRequest` right after its network call can read `nil` if the
+        // recording `Task` hasn't been scheduled yet.
+        let recorded = DispatchSemaphore(value: 0)
         Task {
             await capture?.record(capturedRequest)
+            recorded.signal()
         }
+        recorded.wait()
 
         let response: Response = if Self.responses.count > 1 {
             Self.responses.removeFirst()
