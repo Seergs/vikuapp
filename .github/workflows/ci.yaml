@@ -72,6 +72,7 @@ jobs:
         package:
           - Packages/Features/Calendar
           - Packages/Features/Home
+          - Packages/Features/Kanban
           - Packages/Features/Onboarding
           - Packages/Features/Projects
           - Packages/Features/Search
