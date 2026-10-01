@@ -524,7 +524,13 @@ private struct ProjectOverviewMenuContent: View {
     let onEditProject: () -> Void
 
     var body: some View {
-        Section("Sort") {
+        // A `Section("Sort") { Picker; Picker }` silently drops its header
+        // here — a `Section` in a `Menu` only reliably shows a title when its
+        // content includes a plain item like a `Button`; a section made up
+        // entirely of `Picker`s doesn't render one (see "Project" below,
+        // which does). A nested `Menu` always shows its own label, so this
+        // sidesteps that rather than fighting it.
+        Menu("Sort", systemImage: "arrow.up.arrow.down") {
             Picker("Sort By", selection: $sortField) {
                 ForEach(TaskSort.Field.allCases, id: \.self) { field in
                     Text(field.menuTitle).tag(field)
