@@ -8,7 +8,10 @@ let package = Package(
         .library(name: "VikunjaCore", targets: ["VikunjaCore"]),
     ],
     targets: [
-        .target(name: "VikunjaCore"),
+        .target(
+            name: "VikunjaCore",
+            resources: [.process("Resources")],
+        ),
         .testTarget(name: "VikunjaCoreTests", dependencies: ["VikunjaCore"]),
     ],
 )
