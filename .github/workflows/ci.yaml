@@ -70,10 +70,12 @@ jobs:
       fail-fast: false
       matrix:
         package:
+          - Packages/Features/Calendar
           - Packages/Features/Home
           - Packages/Features/Kanban
           - Packages/Features/Onboarding
           - Packages/Features/Projects
+          - Packages/Features/Search
           - Packages/Features/Settings
           - Packages/Features/Tasks
           - Packages/VikuAuth
@@ -81,6 +83,8 @@ jobs:
           - Packages/VikuNavigation
           - Packages/VikunjaCore
           - Packages/VikunjaNetworking
+          - Packages/VikunjaPersistence
+          - Packages/VikuUI
           - Packages/VikuWidgetKit
     steps:
       - uses: actions/checkout@v7
