@@ -48,4 +48,9 @@ public protocol InstanceClientFactoryProtocol: Sendable {
         baseURL: URL,
         tokenProvider: @escaping @Sendable () async throws -> String?,
     ) -> UserRepositoryProtocol
+
+    func makeBucketRepository(
+        baseURL: URL,
+        tokenProvider: @escaping @Sendable () async throws -> String?,
+    ) -> BucketRepositoryProtocol
 }
