@@ -53,7 +53,7 @@ struct BlockedBanner: View {
             Image(systemName: "link")
                 .font(.system(size: 11))
                 .foregroundStyle(VikuColor.Semantic.dangerText)
-            Text("Blocked · waiting on \(waitingOn) task\(waitingOn == 1 ? "" : "s")")
+            Text("Blocked · waiting on \(waitingOn) tasks", bundle: .module)
                 .font(VikuFont.footnote)
                 .fontWeight(.bold)
                 .foregroundStyle(VikuColor.Semantic.dangerText)
