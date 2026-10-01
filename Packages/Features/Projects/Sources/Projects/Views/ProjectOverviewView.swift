@@ -1,3 +1,4 @@
+import Kanban
 import SwiftUI
 import VikuDesignSystem
 import VikunjaCore
@@ -14,6 +15,13 @@ import VikuUI
 /// cross-feature) pushes an `AppRoute`.
 struct ProjectOverviewView: View {
     @Bindable var viewModel: ProjectOverviewViewModel
+    /// Built by the caller (mirrors `viewModel` itself) rather than via a
+    /// factory closure held in `@State` here — a `.navigationDestination`
+    /// closure further up re-invokes on unrelated re-renders, so the one
+    /// place that's safe to build this exactly once is where `viewModel`
+    /// itself is already stabilized (`ProjectsRootView`'s cache,
+    /// `AppDestinations.swift`'s `ProjectOverviewDestination`).
+    let kanbanViewModel: KanbanBoardViewModel
     let onSelectSubproject: (ProjectNode) -> Void
     let onSelectTask: (VikunjaTask) -> Void
     let onEditProject: (Project) -> Void
@@ -23,6 +31,7 @@ struct ProjectOverviewView: View {
     /// duplicate can land in any project the sheet's picker offers, not just
     /// this one.
     let onDuplicated: (VikunjaTask, Project) -> Void
+    @State private var displayMode: ProjectDisplayMode = .list
     @State private var filter: ProjectTaskFilter = .all
     @State private var taskPendingDelete: VikunjaTask?
     @State private var taskPendingMove: VikunjaTask?
@@ -36,117 +45,141 @@ struct ProjectOverviewView: View {
     }
 
     var body: some View {
-        content
-            .projectsListStyle()
-            .scrollContentBackground(.hidden)
-            .background(VikuColor.Surface.page)
-            .refreshable { await viewModel.load() }
-            .navigationTitle(viewModel.project.title)
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    TaskSortMenu(field: $viewModel.sortField, direction: $viewModel.sortDirection)
+        VStack(spacing: 0) {
+            if viewModel.supportsKanban {
+                displayModePicker
+            }
+
+            switch displayMode {
+            case .list:
+                content
+                    .projectsListStyle()
+                    .scrollContentBackground(.hidden)
+                    .refreshable { await viewModel.load() }
+            case .kanban:
+                KanbanBoardView(viewModel: kanbanViewModel, onSelectTask: onSelectTask)
+            }
+        }
+        .background(VikuColor.Surface.page)
+        .navigationTitle(viewModel.project.title)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                TaskSortMenu(field: $viewModel.sortField, direction: $viewModel.sortDirection)
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    onEditProject(viewModel.project)
+                } label: {
+                    Image(systemName: "pencil")
                 }
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        onEditProject(viewModel.project)
-                    } label: {
-                        Image(systemName: "pencil")
+            }
+        }
+        .task {
+            await viewModel.load()
+        }
+        .onAppear {
+            viewModel.markVisible()
+        }
+        .onDisappear { viewModel.markHidden() }
+        .onChange(of: viewModel.lastCreatedTaskForThisProject) { _, event in
+            guard event != nil else { return }
+            Task { await viewModel.load() }
+        }
+        .confirmationDialog(
+            "This permanently deletes the task.",
+            isPresented: Binding(
+                get: { taskPendingDelete != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        taskPendingDelete = nil
                     }
+                },
+            ),
+            titleVisibility: .visible,
+        ) {
+            if let taskPendingDelete {
+                Button("Delete Task", role: .destructive) {
+                    Task { await viewModel.delete(taskPendingDelete) }
                 }
             }
-            .task {
-                await viewModel.load()
+            Button("Cancel", role: .cancel) {}
+        }
+        .sheet(item: $taskPendingMove) { task in
+            ProjectPickerSheet(
+                title: "Move to Project",
+                projects: viewModel.allProjects,
+                selectedProjectID: nil,
+                excludingSubtreeOf: viewModel.project.id,
+            ) { destination in
+                guard let destination else { return }
+                Task { await viewModel.move(task, to: destination) }
             }
-            .onAppear {
-                viewModel.markVisible()
+            .task { await viewModel.loadMoveCandidates() }
+        }
+        .sheet(item: $taskPendingDuplicate) { task in
+            DuplicateTaskSheetView(
+                makeViewModel: { viewModel.makeDuplicateTaskViewModel(for: task) },
+                onDuplicated: onDuplicated,
+            )
+        }
+        .sheet(item: $taskPendingDueDateEdit) { task in
+            DueDatePickerSheet(initialDate: task.dueDate) { newDate in
+                Task { await viewModel.setDueDate(task, to: newDate) }
             }
-            .onDisappear { viewModel.markHidden() }
-            .onChange(of: viewModel.lastCreatedTaskForThisProject) { _, event in
-                guard event != nil else { return }
-                Task { await viewModel.load() }
-            }
-            .confirmationDialog(
-                "This permanently deletes the task.",
-                isPresented: Binding(
-                    get: { taskPendingDelete != nil },
-                    set: { isPresented in
-                        if !isPresented {
-                            taskPendingDelete = nil
-                        }
+        }
+        .sheet(item: $taskPendingLabelEdit) { task in
+            LabelPickerSheet(
+                taskLabels: viewModel.tasks.first(where: { $0.id == task.id })?.labels ?? task.labels,
+                allLabels: viewModel.allLabels,
+                onLoad: { await viewModel.loadAllLabels() },
+                onToggle: { label in Task { await viewModel.toggleLabel(task, label) } },
+                onCreate: { title, hexColor in
+                    Task { await viewModel.createAndAddLabel(task, title: title, hexColor: hexColor) }
+                },
+            )
+        }
+        .sheet(item: $relationEditStep) { step in
+            switch step {
+            case let .pickKind(task):
+                RelationKindPickerSheet { kind in
+                    relationEditStep = .pickTask(task, kind)
+                }
+            case let .pickTask(task, kind):
+                RelationTaskPickerSheet(
+                    kind: kind,
+                    results: viewModel.relationSearchResults,
+                    projectTitle: { candidate in
+                        viewModel.allProjects.first { $0.id == candidate.projectID }?.title
                     },
-                ),
-                titleVisibility: .visible,
-            ) {
-                if let taskPendingDelete {
-                    Button("Delete Task", role: .destructive) {
-                        Task { await viewModel.delete(taskPendingDelete) }
-                    }
-                }
-                Button("Cancel", role: .cancel) {}
-            }
-            .sheet(item: $taskPendingMove) { task in
-                ProjectPickerSheet(
-                    title: "Move to Project",
-                    projects: viewModel.allProjects,
-                    selectedProjectID: nil,
-                    excludingSubtreeOf: viewModel.project.id,
-                ) { destination in
-                    guard let destination else { return }
-                    Task { await viewModel.move(task, to: destination) }
-                }
-                .task { await viewModel.loadMoveCandidates() }
-            }
-            .sheet(item: $taskPendingDuplicate) { task in
-                DuplicateTaskSheetView(
-                    makeViewModel: { viewModel.makeDuplicateTaskViewModel(for: task) },
-                    onDuplicated: onDuplicated,
+                    onAppear: {
+                        await viewModel.loadMoveCandidates()
+                        await viewModel.loadRelationSuggestions(for: task)
+                    },
+                    onSearch: { query in await viewModel.searchTasksForRelation(for: task, query: query) },
+                    onSelect: { candidate in
+                        let relation = TaskRelation(
+                            id: candidate.id, title: candidate.title,
+                            isDone: candidate.isDone, projectID: candidate.projectID,
+                        )
+                        Task { await viewModel.addRelation(relation, kind: kind, to: task) }
+                        relationEditStep = nil
+                    },
                 )
             }
-            .sheet(item: $taskPendingDueDateEdit) { task in
-                DueDatePickerSheet(initialDate: task.dueDate) { newDate in
-                    Task { await viewModel.setDueDate(task, to: newDate) }
-                }
-            }
-            .sheet(item: $taskPendingLabelEdit) { task in
-                LabelPickerSheet(
-                    taskLabels: viewModel.tasks.first(where: { $0.id == task.id })?.labels ?? task.labels,
-                    allLabels: viewModel.allLabels,
-                    onLoad: { await viewModel.loadAllLabels() },
-                    onToggle: { label in Task { await viewModel.toggleLabel(task, label) } },
-                    onCreate: { title, hexColor in
-                        Task { await viewModel.createAndAddLabel(task, title: title, hexColor: hexColor) }
-                    },
-                )
-            }
-            .sheet(item: $relationEditStep) { step in
-                switch step {
-                case let .pickKind(task):
-                    RelationKindPickerSheet { kind in
-                        relationEditStep = .pickTask(task, kind)
-                    }
-                case let .pickTask(task, kind):
-                    RelationTaskPickerSheet(
-                        kind: kind,
-                        results: viewModel.relationSearchResults,
-                        projectTitle: { candidate in
-                            viewModel.allProjects.first { $0.id == candidate.projectID }?.title
-                        },
-                        onAppear: {
-                            await viewModel.loadMoveCandidates()
-                            await viewModel.loadRelationSuggestions(for: task)
-                        },
-                        onSearch: { query in await viewModel.searchTasksForRelation(for: task, query: query) },
-                        onSelect: { candidate in
-                            let relation = TaskRelation(
-                                id: candidate.id, title: candidate.title,
-                                isDone: candidate.isDone, projectID: candidate.projectID,
-                            )
-                            Task { await viewModel.addRelation(relation, kind: kind, to: task) }
-                            relationEditStep = nil
-                        },
-                    )
-                }
-            }
+        }
+    }
+
+    /// Hidden entirely on a pre-2.4 server (see `viewModel.supportsKanban`) —
+    /// the Kanban board needs the v2 buckets endpoint, which doesn't exist
+    /// on older instances.
+    private var displayModePicker: some View {
+        Picker("Display", selection: $displayMode) {
+            Text("List").tag(ProjectDisplayMode.list)
+            Text("Kanban").tag(ProjectDisplayMode.kanban)
+        }
+        .pickerStyle(.segmented)
+        .padding(.horizontal, VikuSpacing.md)
+        .padding(.vertical, VikuSpacing.sm)
     }
 
     private var content: some View {
@@ -423,6 +456,13 @@ private struct SubprojectCard: View {
         }
         .buttonStyle(.plain)
     }
+}
+
+/// Which body `ProjectOverviewView` currently shows — the existing task
+/// `List`, or the Kanban board (gated on `viewModel.supportsKanban`).
+enum ProjectDisplayMode: Hashable {
+    case list
+    case kanban
 }
 
 /// Status filter for this project's own task list.

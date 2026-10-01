@@ -17,6 +17,7 @@
 		AF1A9958F7144C64A26AE7DE /* VikuAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 1EDAB22A2783416BA9F0AC6D /* VikuAuth */; };
 		B89F0AB3411531775B788526 /* Viku-widgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 092ABB4ABC46663D77A4333A /* Viku-widgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C0A0235CF7A4953CBF6775E2 /* VikuDesignSystem in Frameworks */ = {isa = PBXBuildFile; productRef = 887DB5E3A518911BD1897E4B /* VikuDesignSystem */; };
+		13222C99D726509EF1E32034 /* Kanban in Frameworks */ = {isa = PBXBuildFile; productRef = E8024A7799294F5CBCB0B3D8 /* Kanban */; };
 		CA1EDA0000000000000000B2 /* CalendarFeature in Frameworks */ = {isa = PBXBuildFile; productRef = CA1EDA0000000000000000C3 /* CalendarFeature */; };
 		CFBB516F15E3030F653FBDC1 /* VikuWidgetKit in Frameworks */ = {isa = PBXBuildFile; productRef = E436BCA8C1BEFFBB4869643D /* VikuWidgetKit */; };
 		EB2D2DA5CFF441EFB4450EF5 /* Onboarding in Frameworks */ = {isa = PBXBuildFile; productRef = 691135973B8B496295E14896 /* Onboarding */; };
@@ -118,6 +119,7 @@
 				6ACFD68581C4ED4510656534 /* Tasks in Frameworks */,
 				C0A0235CF7A4953CBF6775E2 /* VikuDesignSystem in Frameworks */,
 				F8DCC6D8B7369D0CF81969F6 /* VikuWidgetKit in Frameworks */,
+				13222C99D726509EF1E32034 /* Kanban in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -217,6 +219,7 @@
 				CB1292EB9627A6D204BBA18B /* Tasks */,
 				887DB5E3A518911BD1897E4B /* VikuDesignSystem */,
 				8A10F10FDD4DC2CAF301F579 /* VikuWidgetKit */,
+				E8024A7799294F5CBCB0B3D8 /* Kanban */,
 			);
 			productName = Viku;
 			productReference = EC3BB466303D1EF6002753FC /* Viku.app */;
@@ -254,6 +257,7 @@
 				F4ED8517F32D4805BA91B284 /* XCLocalSwiftPackageReference "Packages/Features/Onboarding" */,
 				FE450F8737274DC4914D99E8 /* XCLocalSwiftPackageReference "Packages/Features/Home" */,
 				CA1EDA0000000000000000A1 /* XCLocalSwiftPackageReference "Packages/Features/Calendar" */,
+				11E80D27D54507DA50620543 /* XCLocalSwiftPackageReference "Packages/Features/Kanban" */,
 				D146E576D31867FAEE64F3E3 /* XCLocalSwiftPackageReference "Packages/VikuNavigation" */,
 				FB9B84FD97A6B958D6347015 /* XCLocalSwiftPackageReference "Packages/Features/Projects" */,
 				630BB56C29B87B52911E4F21 /* XCLocalSwiftPackageReference "Packages/Features/Search" */,
@@ -671,6 +675,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/Features/Home;
 		};
+		11E80D27D54507DA50620543 /* XCLocalSwiftPackageReference "Packages/Features/Kanban" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Features/Kanban;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -718,6 +726,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = CA1EDA0000000000000000A1 /* XCLocalSwiftPackageReference "Packages/Features/Calendar" */;
 			productName = CalendarFeature;
+		};
+		E8024A7799294F5CBCB0B3D8 /* Kanban */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 11E80D27D54507DA50620543 /* XCLocalSwiftPackageReference "Packages/Features/Kanban" */;
+			productName = Kanban;
 		};
 		CB1292EB9627A6D204BBA18B /* Tasks */ = {
 			isa = XCSwiftPackageProductDependency;

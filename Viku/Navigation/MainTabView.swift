@@ -1,5 +1,6 @@
 import CalendarFeature
 import Home
+import Kanban
 import Projects
 import Search
 import Settings
@@ -99,6 +100,9 @@ struct MainTabView: View {
                         viewModel: projectsViewModel,
                         makeOverviewViewModel: { node in
                             container.makeProjectOverviewViewModel(node: node, account: account)
+                        },
+                        makeKanbanBoardViewModel: { project in
+                            container.makeKanbanBoardViewModel(project: project, account: account)
                         },
                         makeCreateProjectViewModel: {
                             container.makeCreateProjectViewModel(account: account)

@@ -16,6 +16,10 @@ public final class ProjectOverviewViewModel {
     public let subprojects: [ProjectNode]
     public private(set) var tasks: [VikunjaTask] = []
     public private(set) var loadState: ScreenLoadState<Void> = .idle
+    /// Whether this account's server supports the Kanban board (API v2,
+    /// server 2.4.0+). Resolved during `load()`; the List/Kanban toggle in
+    /// `ProjectOverviewView` stays hidden until this is `true`.
+    public private(set) var supportsKanban = false
     /// Each subproject's own task completion count, keyed by project id, for
     /// the "Subprojects" cards. Fetched alongside this project's own tasks
     /// since `ProjectNode` only carries project metadata, not tasks.
@@ -49,6 +53,7 @@ public final class ProjectOverviewViewModel {
     private let projectRepository: ProjectRepositoryProtocol
     private let labelRepository: LabelRepositoryProtocol
     private let relationRepository: TaskRelationRepositoryProtocol
+    private let capabilityProvider: CapabilityProvider
     private let mutator: TaskListMutator
     private let taskSortStore: TaskSortStore
     private let toastPresenter: ToastPresenting
@@ -69,6 +74,7 @@ public final class ProjectOverviewViewModel {
         projectRepository: ProjectRepositoryProtocol,
         labelRepository: LabelRepositoryProtocol,
         relationRepository: TaskRelationRepositoryProtocol,
+        capabilityProvider: CapabilityProvider = NoopCapabilityProvider(),
         toastPresenter: ToastPresenting,
         hapticPresenter: HapticFeedbackPresenting = NoopHapticFeedback(),
         taskSortStore: TaskSortStore,
@@ -81,6 +87,7 @@ public final class ProjectOverviewViewModel {
         self.projectRepository = projectRepository
         self.labelRepository = labelRepository
         self.relationRepository = relationRepository
+        self.capabilityProvider = capabilityProvider
         self.taskSortStore = taskSortStore
         self.mutator = TaskListMutator(
             repository: repository,
@@ -127,6 +134,7 @@ public final class ProjectOverviewViewModel {
         if loadState != .loaded {
             loadState = .loading
         }
+        async let kanbanSupport = capabilityProvider.supports(.apiV2)
         do {
             tasks = try await repository.fetchTasks(projectID: project.id)
             subprojectTaskSummaries = await Self.fetchSubprojectSummaries(subprojects, repository: repository)
@@ -136,6 +144,7 @@ public final class ProjectOverviewViewModel {
         } catch {
             loadState = .failure(error.localizedDescription)
         }
+        supportsKanban = await kanbanSupport
     }
 
     /// Fetches each subproject's own tasks concurrently so the "Subprojects"

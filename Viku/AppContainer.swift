@@ -1,6 +1,7 @@
 import CalendarFeature
 import Foundation
 import Home
+import Kanban
 import Onboarding
 import Projects
 import Search
@@ -246,6 +247,7 @@ final class AppContainer {
             projectRepository: projectRepository,
             labelRepository: labelRepository,
             relationRepository: relationRepository,
+            capabilityProvider: clientFactory.makeCapabilityProvider(baseURL: account.baseURL),
             toastPresenter: toastCenter,
             hapticPresenter: hapticCenter,
             taskSortStore: taskSortStore,
@@ -260,6 +262,24 @@ final class AppContainer {
     /// seeds `ProjectOverviewViewModel` with no known subprojects.
     func makeProjectOverviewViewModel(project: Project, account: InstanceAccount) -> ProjectOverviewViewModel {
         makeProjectOverviewViewModel(node: ProjectNode(project: project), account: account)
+    }
+
+    /// No v1/v2 switch to pick a repository from — `BucketRepositoryProtocol`
+    /// is v2-only (see `VikunjaInstanceClientFactory.makeBucketRepository`).
+    /// `ProjectOverviewView` itself gates the Kanban toggle on
+    /// `CapabilityProvider.supports(.apiV2)` before this view model's board
+    /// ever loads.
+    func makeKanbanBoardViewModel(project: Project, account: InstanceAccount) -> KanbanBoardViewModel {
+        let repository = clientFactory.makeBucketRepository(
+            baseURL: account.baseURL,
+            tokenProvider: tokenProvider(for: account),
+        )
+        return KanbanBoardViewModel(
+            project: project,
+            repository: repository,
+            toastPresenter: toastCenter,
+            hapticPresenter: hapticCenter,
+        )
     }
 
     func makeTaskDetailViewModel(task: VikunjaTask, project: Project, account: InstanceAccount) -> TaskDetailViewModel {

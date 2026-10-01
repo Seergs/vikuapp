@@ -1,3 +1,4 @@
+import Kanban
 import SwiftUI
 import VikuNavigation
 import VikunjaCore
@@ -19,20 +20,28 @@ import VikunjaCore
 public struct ProjectOverviewRootView: View {
     @Environment(AppRouter.self) private var router
     private let viewModel: ProjectOverviewViewModel
+    /// Built once by the caller (`AppDestinations.swift`'s
+    /// `ProjectOverviewDestination`, held in its own `@State`) — see
+    /// `ProjectOverviewView.kanbanViewModel`'s doc comment for why this is
+    /// never built here via a factory closure.
+    private let kanbanViewModel: KanbanBoardViewModel
     private let makeEditProjectViewModel: (Project) -> EditProjectViewModel
     @State private var editingProject: Project?
 
     public init(
         viewModel: ProjectOverviewViewModel,
+        kanbanViewModel: KanbanBoardViewModel,
         makeEditProjectViewModel: @escaping (Project) -> EditProjectViewModel,
     ) {
         self.viewModel = viewModel
+        self.kanbanViewModel = kanbanViewModel
         self.makeEditProjectViewModel = makeEditProjectViewModel
     }
 
     public var body: some View {
         ProjectOverviewView(
             viewModel: viewModel,
+            kanbanViewModel: kanbanViewModel,
             onSelectSubproject: { router.push(.projectOverview($0.project)) },
             onSelectTask: { router.push(.taskDetail($0, viewModel.project)) },
             onEditProject: { editingProject = $0 },
