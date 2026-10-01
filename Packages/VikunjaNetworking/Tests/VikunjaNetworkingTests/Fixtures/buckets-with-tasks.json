@@ -1,0 +1,43 @@
+{
+  "items": [
+    {
+      "id": 20,
+      "title": "To Do",
+      "position": 1,
+      "limit": 0,
+      "count": 1,
+      "project_view_id": 11,
+      "tasks": [
+        {
+          "id": 100,
+          "title": "Write proposal",
+          "description": "",
+          "done": false,
+          "due_date": "0001-01-01T00:00:00Z",
+          "priority": 1,
+          "project_id": 6
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "title": "Done",
+      "position": 2,
+      "limit": 3,
+      "count": 1,
+      "project_view_id": 11,
+      "tasks": [
+        {
+          "id": 101,
+          "title": "Ship release",
+          "description": "",
+          "done": true,
+          "due_date": "0001-01-01T00:00:00Z",
+          "priority": 0,
+          "project_id": 6
+        }
+      ]
+    }
+  ],
+  "total": 2
+}

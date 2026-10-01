@@ -104,4 +104,14 @@ public struct VikunjaInstanceClientFactory: InstanceClientFactoryProtocol {
             capabilityProvider: VikunjaCapabilityProvider(client: client),
         )
     }
+
+    /// No v1/v2 switch: Kanban is net-new and goes straight to v2. Callers
+    /// must check `CapabilityProvider.supports(.apiV2)` themselves before
+    /// using the result on a pre-2.4 server.
+    public func makeBucketRepository(
+        baseURL: URL,
+        tokenProvider: @escaping @Sendable () async throws -> String?,
+    ) -> BucketRepositoryProtocol {
+        VikunjaBucketRepository(client: URLSessionAPIClient(baseURL: baseURL, authTokenProvider: tokenProvider))
+    }
 }

@@ -1,0 +1,34 @@
+{
+  "items": [
+    {
+      "id": 10,
+      "project_id": 6,
+      "title": "List",
+      "view_kind": "list",
+      "position": 1,
+      "bucket_configuration_mode": "none",
+      "bucket_configuration": null,
+      "default_bucket_id": 0,
+      "done_bucket_id": 0,
+      "created": "2026-01-01T00:00:00Z",
+      "updated": "2026-01-01T00:00:00Z"
+    },
+    {
+      "id": 11,
+      "project_id": 6,
+      "title": "Kanban",
+      "view_kind": "kanban",
+      "position": 2,
+      "bucket_configuration_mode": "manual",
+      "bucket_configuration": null,
+      "default_bucket_id": 20,
+      "done_bucket_id": 22,
+      "created": "2026-01-01T00:00:00Z",
+      "updated": "2026-01-01T00:00:00Z"
+    }
+  ],
+  "total": 2,
+  "page": 1,
+  "per_page": 50,
+  "total_pages": 1
+}

@@ -1622,6 +1622,116 @@ struct URLSessionAPIClientTests {
         }
         #expect(await capture.requests.isEmpty)
     }
+
+    // `VikunjaBucketRepository` is tested here for the same reason as
+    // `VikunjaLabelRepository` above — it shares `MockURLProtocol`'s static
+    // response queue, which races across suites that aren't this one.
+
+    private static func fixture(_ name: String) throws -> String {
+        let url = try #require(Bundle.module.url(forResource: name, withExtension: "json"))
+        return try String(contentsOf: url, encoding: .utf8)
+    }
+
+    /// Only the "list" view, no "kanban" one — used to exercise the
+    /// no-Kanban-view error path.
+    private static let projectViewsWithNoKanbanBody = #"""
+    {"items": [{"id": 10, "project_id": 6, "title": "List", "view_kind": "list",
+     "position": 1, "default_bucket_id": 0, "done_bucket_id": 0}],
+     "total": 1, "page": 1, "per_page": 50, "total_pages": 1}
+    """#
+
+    @Test
+    func `fetch buckets resolves the kanban view then unwraps buckets with their tasks`() async throws {
+        let (session, capture) = try MockURLProtocol.makeSession(responses: [
+            (200, Self.fixture("project-views")),
+            (200, Self.fixture("buckets-with-tasks")),
+        ])
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaBucketRepository(client: client)
+
+        let buckets = try await repository.fetchBuckets(projectID: 6)
+
+        #expect(buckets.map(\.id) == [20, 22])
+        #expect(buckets[0].isDoneBucket == false)
+        #expect(buckets[1].isDoneBucket == true)
+        #expect(buckets[0].tasks.map(\.title) == ["Write proposal"])
+
+        let requests = await capture.requests
+        #expect(requests.count == 2)
+        #expect(requests[0].url?.path == "/api/v2/projects/6/views")
+        #expect(requests[1].url?.path == "/api/v2/projects/6/views/11/buckets/tasks")
+    }
+
+    @Test
+    func `fetch buckets throws not found when the project has no kanban view`() async throws {
+        let (session, _) = MockURLProtocol.makeSession(statusCode: 200, body: Self.projectViewsWithNoKanbanBody)
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaBucketRepository(client: client)
+
+        await #expect(throws: VikunjaError.notFound) {
+            _ = try await repository.fetchBuckets(projectID: 6)
+        }
+    }
+
+    @Test
+    func `move task resolves the view then places the task in the target bucket`() async throws {
+        let taskBucketBody = #"""
+        {"task_id": 101, "bucket_id": 22, "project_view_id": 11,
+         "task": {"id": 101, "title": "Ship release", "description": "", "done": true,
+                   "due_date": "0001-01-01T00:00:00Z", "priority": 0, "project_id": 6},
+         "bucket": {"id": 22, "title": "Done", "limit": 3, "tasks": null}}
+        """#
+        let (session, capture) = try MockURLProtocol.makeSession(responses: [
+            (200, Self.fixture("project-views")),
+            (200, taskBucketBody),
+        ])
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaBucketRepository(client: client)
+
+        let moved = try await repository.moveTask(taskID: 101, toBucketID: 22, projectID: 6)
+
+        #expect(moved.id == 101)
+        #expect(moved.isDone == true)
+
+        let requests = await capture.requests
+        #expect(requests.count == 2)
+        #expect(requests[1].httpMethod == "PUT")
+        #expect(requests[1].url?.path == "/api/v2/projects/6/views/11/buckets/22/tasks")
+
+        let sentBody = try #require(requests[1].httpBody)
+        let sentJSON = try #require(JSONSerialization.jsonObject(with: sentBody) as? [String: Any])
+        #expect(sentJSON["task_id"] as? Int == 101)
+    }
+
+    @Test
+    func `create task posts bucket id directly, with no separate move call`() async throws {
+        let createdTaskBody = #"""
+        {"id": 102, "title": "New card", "description": "", "done": false,
+         "due_date": "0001-01-01T00:00:00Z", "priority": 0, "project_id": 6}
+        """#
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 201, body: createdTaskBody)
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaBucketRepository(client: client)
+
+        let created = try await repository.createTask(
+            VikunjaTask(id: 0, title: "New card", projectID: 6),
+            bucketID: 20,
+            projectID: 6,
+        )
+
+        #expect(created.id == 102)
+        #expect(created.title == "New card")
+
+        let requests = await capture.requests
+        #expect(requests.count == 1)
+        #expect(requests[0].httpMethod == "POST")
+        #expect(requests[0].url?.path == "/api/v2/projects/6/tasks")
+
+        let sentBody = try #require(requests[0].httpBody)
+        let sentJSON = try #require(JSONSerialization.jsonObject(with: sentBody) as? [String: Any])
+        #expect(sentJSON["title"] as? String == "New card")
+        #expect(sentJSON["bucket_id"] as? Int == 20)
+    }
 }
 
 /// Shared helpers for the `PasswordSessionRefresher` tests above.
