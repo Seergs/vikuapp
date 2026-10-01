@@ -59,10 +59,21 @@ struct ProjectOverviewView: View {
         .background(VikuColor.Surface.page)
         .navigationTitle(viewModel.project.title)
         .toolbar {
-            if viewModel.supportsKanban {
-                ToolbarItem(placement: .primaryAction) {
-                    DisplayModeSwitcher(selection: $displayMode)
+            ToolbarItem(placement: .primaryAction) {
+                // The `ToolbarItem` itself stays structurally present rather
+                // than being added/removed by an `if` at the toolbar-builder
+                // level — iOS doesn't animate a toolbar gaining or losing an
+                // item, which is what made this pop in abruptly once the
+                // capability check resolved. A plain `Group` + conditional
+                // inside is normal view diffing, where `.transition` and
+                // `.animation` behave as expected.
+                Group {
+                    if viewModel.supportsKanban {
+                        DisplayModeSwitcher(selection: $displayMode)
+                            .transition(.opacity.combined(with: .scale(scale: 0.85)))
+                    }
                 }
+                .animation(.easeInOut(duration: 0.25), value: viewModel.supportsKanban)
             }
             ToolbarItem(placement: .primaryAction) {
                 Menu {
