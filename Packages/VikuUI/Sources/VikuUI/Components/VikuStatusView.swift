@@ -48,9 +48,11 @@ public struct VikuStatusView: View {
                 .multilineTextAlignment(.center)
 
             if let retry {
-                Button("Try Again", action: retry)
-                    .buttonStyle(.bordered)
-                    .padding(.top, VikuSpacing.xs)
+                Button(action: retry) {
+                    Text("Try Again", bundle: .module)
+                }
+                .buttonStyle(.bordered)
+                .padding(.top, VikuSpacing.xs)
             }
         }
         .padding(VikuSpacing.lg)
