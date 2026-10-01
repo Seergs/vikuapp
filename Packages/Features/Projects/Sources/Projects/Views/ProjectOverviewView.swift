@@ -59,21 +59,18 @@ struct ProjectOverviewView: View {
         .background(VikuColor.Surface.page)
         .navigationTitle(viewModel.project.title)
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                // The `ToolbarItem` itself stays structurally present rather
-                // than being added/removed by an `if` at the toolbar-builder
-                // level — iOS doesn't animate a toolbar gaining or losing an
-                // item, which is what made this pop in abruptly once the
-                // capability check resolved. A plain `Group` + conditional
-                // inside is normal view diffing, where `.transition` and
-                // `.animation` behave as expected.
-                Group {
-                    if viewModel.supportsKanban {
-                        DisplayModeSwitcher(selection: $displayMode)
-                            .transition(.opacity.combined(with: .scale(scale: 0.85)))
-                    }
+            if viewModel.supportsKanban {
+                // Pops in once the capability check resolves rather than
+                // fading, on every SwiftUI version tried — content inside a
+                // `ToolbarItem` is hosted through the bridge to
+                // `UINavigationBar` and doesn't reliably honor `.transition`/
+                // `.animation`, including when the item itself is kept
+                // structurally present and only its inner content is
+                // conditional. Accepted as a platform limitation rather than
+                // chased further.
+                ToolbarItem(placement: .primaryAction) {
+                    DisplayModeSwitcher(selection: $displayMode)
                 }
-                .animation(.easeInOut(duration: 0.25), value: viewModel.supportsKanban)
             }
             ToolbarItem(placement: .primaryAction) {
                 Menu {
