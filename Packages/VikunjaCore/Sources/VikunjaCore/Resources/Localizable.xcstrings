@@ -1,0 +1,96 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Couldn't reach that server. Check the address and your connection." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo conectar con ese servidor. Revisa la dirección y tu conexión."
+          }
+        }
+      }
+    },
+    "That address didn't respond like a Vikunja instance." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esa dirección no respondió como una instancia de Vikunja."
+          }
+        }
+      }
+    },
+    "That address uses an insecure http connection." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esa dirección usa una conexión http insegura."
+          }
+        }
+      }
+    },
+    "That doesn't look like a valid instance address." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eso no parece una dirección de instancia válida."
+          }
+        }
+      }
+    },
+    "That server rejected the request." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ese servidor rechazó la solicitud."
+          }
+        }
+      }
+    },
+    "The server responded with an error (%lld)." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El servidor respondió con un error (%lld)."
+          }
+        }
+      }
+    },
+    "This account needs a two-factor code." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta cuenta necesita un código de dos factores."
+          }
+        }
+      }
+    },
+    "This app needs Vikunja %@ or newer." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta app necesita Vikunja %@ o una versión más reciente."
+          }
+        }
+      }
+    },
+    "Your session expired. Sign in again to continue." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu sesión expiró. Inicia sesión de nuevo para continuar."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

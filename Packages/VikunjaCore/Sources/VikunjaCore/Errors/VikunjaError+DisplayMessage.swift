@@ -1,3 +1,5 @@
+import Foundation
+
 public extension VikunjaError {
     /// The canonical user-facing copy for each error case, shared by every
     /// screen that surfaces a `VikunjaError`. This is domain-level text about a
@@ -5,23 +7,23 @@ public extension VikunjaError {
     var displayMessage: String {
         switch self {
         case .invalidInstanceURL:
-            "That doesn't look like a valid instance address."
+            String(localized: "That doesn't look like a valid instance address.", bundle: .module)
         case .insecureInstanceURL:
-            "That address uses an insecure http connection."
+            String(localized: "That address uses an insecure http connection.", bundle: .module)
         case .network:
-            "Couldn't reach that server. Check the address and your connection."
+            String(localized: "Couldn't reach that server. Check the address and your connection.", bundle: .module)
         case .notFound, .decoding:
-            "That address didn't respond like a Vikunja instance."
+            String(localized: "That address didn't respond like a Vikunja instance.", bundle: .module)
         case .unauthorized:
-            "That server rejected the request."
+            String(localized: "That server rejected the request.", bundle: .module)
         case let .server(_, statusCode):
-            "The server responded with an error (\(statusCode))."
+            String(localized: "The server responded with an error (\(statusCode)).", bundle: .module)
         case let .unsupportedServerVersion(minimumRequired, _):
-            "This app needs Vikunja \(minimumRequired) or newer."
+            String(localized: "This app needs Vikunja \(minimumRequired) or newer.", bundle: .module)
         case .totpRequired:
-            "This account needs a two-factor code."
+            String(localized: "This account needs a two-factor code.", bundle: .module)
         case .sessionExpired:
-            "Your session expired. Sign in again to continue."
+            String(localized: "Your session expired. Sign in again to continue.", bundle: .module)
         }
     }
 }
