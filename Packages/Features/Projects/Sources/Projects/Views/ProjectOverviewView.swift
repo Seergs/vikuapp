@@ -567,14 +567,24 @@ private struct DisplayModeSwitcher: View {
         }
         .padding(VikuSpacing.xxs)
         .background(VikuColor.Surface.field, in: Capsule())
+        // A toolbar item otherwise proposes a width tight enough to clip
+        // this view's `Text` down to its first letter — forces SwiftUI to
+        // lay it out, and the toolbar to size it, at its natural width.
+        .fixedSize()
+        // Scoped to this view's own layout (the sliding pill, the
+        // icon-only/icon+label collapse) rather than wrapping the
+        // `selection` write itself in `withAnimation` - that would also
+        // animate `ProjectOverviewView`'s List/KanbanBoardView swap one
+        // level up, which is what produced the nav-title flicker: SwiftUI
+        // tried to cross-fade two structurally unrelated view hierarchies
+        // under one bar.
+        .animation(.easeInOut(duration: 0.18), value: selection)
     }
 
     private func segment(for option: Option) -> some View {
         let isSelected = selection == option.mode
         return Button {
-            withAnimation(.easeInOut(duration: 0.18)) {
-                selection = option.mode
-            }
+            selection = option.mode
         } label: {
             HStack(spacing: VikuSpacing.xs) {
                 Image(systemName: option.systemImage)
