@@ -36,7 +36,7 @@ public final class TodayViewModel {
 
     public var pendingSubtitle: String {
         let pending = tasks.filter { $0.dueDate != nil && !$0.isDone }.count
-        return pending == 1 ? "1 task pending" : "\(pending) tasks pending"
+        return String(localized: "\(pending) tasks pending", bundle: .module)
     }
 
     private let taskLoader: AccountTaskLoader

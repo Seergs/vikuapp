@@ -18,6 +18,7 @@ let package = Package(
         .target(
             name: "Projects",
             dependencies: ["VikunjaCore", "VikuNavigation", "VikuDesignSystem", "VikuUI", "Kanban"],
+            resources: [.process("Resources")],
         ),
         .testTarget(name: "ProjectsTests", dependencies: ["Projects"]),
     ],

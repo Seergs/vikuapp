@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import VikuDesignSystem
 import VikuNavigation
@@ -145,7 +146,7 @@ struct ProjectsView: View {
 
     private static func countText(for nodes: [ProjectNode]) -> String {
         let count = totalCount(in: nodes)
-        return count == 1 ? "1 project" : "\(count) projects"
+        return String(localized: "\(count) projects", bundle: .module)
     }
 
     private static func totalCount(in nodes: [ProjectNode]) -> Int {

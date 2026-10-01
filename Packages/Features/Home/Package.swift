@@ -14,7 +14,11 @@ let package = Package(
         .package(path: "../../VikuUI"),
     ],
     targets: [
-        .target(name: "Home", dependencies: ["VikunjaCore", "VikuNavigation", "VikuDesignSystem", "VikuUI"]),
+        .target(
+            name: "Home",
+            dependencies: ["VikunjaCore", "VikuNavigation", "VikuDesignSystem", "VikuUI"],
+            resources: [.process("Resources")],
+        ),
         .testTarget(name: "HomeTests", dependencies: ["Home"]),
     ],
 )
