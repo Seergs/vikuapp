@@ -46,10 +46,6 @@ struct ProjectOverviewView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if viewModel.supportsKanban {
-                displayModePicker
-            }
-
             switch displayMode {
             case .list:
                 content
@@ -63,14 +59,20 @@ struct ProjectOverviewView: View {
         .background(VikuColor.Surface.page)
         .navigationTitle(viewModel.project.title)
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                TaskSortMenu(field: $viewModel.sortField, direction: $viewModel.sortDirection)
+            if viewModel.supportsKanban {
+                ToolbarItem(placement: .primaryAction) {
+                    DisplayModeSwitcher(selection: $displayMode)
+                }
             }
             ToolbarItem(placement: .primaryAction) {
-                Button {
-                    onEditProject(viewModel.project)
+                Menu {
+                    ProjectOverviewMenuContent(
+                        sortField: $viewModel.sortField,
+                        sortDirection: $viewModel.sortDirection,
+                        onEditProject: { onEditProject(viewModel.project) },
+                    )
                 } label: {
-                    Image(systemName: "pencil")
+                    Image(systemName: "ellipsis.circle")
                 }
             }
         }
@@ -167,19 +169,6 @@ struct ProjectOverviewView: View {
                 )
             }
         }
-    }
-
-    /// Hidden entirely on a pre-2.4 server (see `viewModel.supportsKanban`) —
-    /// the Kanban board needs the v2 buckets endpoint, which doesn't exist
-    /// on older instances.
-    private var displayModePicker: some View {
-        Picker("Display", selection: $displayMode) {
-            Text("List").tag(ProjectDisplayMode.list)
-            Text("Kanban").tag(ProjectDisplayMode.kanban)
-        }
-        .pickerStyle(.segmented)
-        .padding(.horizontal, VikuSpacing.md)
-        .padding(.vertical, VikuSpacing.sm)
     }
 
     private var content: some View {
@@ -525,26 +514,89 @@ private struct FilterChip: View {
 /// Toolbar menu for choosing the task list's sort field and direction.
 /// Backed by `@AppStorage` in the host view, so the choice persists globally
 /// across projects and launches.
-private struct TaskSortMenu: View {
-    @Binding var field: TaskSort.Field
-    @Binding var direction: TaskSort.Direction
+/// The combined "..." overflow menu's contents: sort field, sort direction,
+/// then the project edit action — everything that used to be a separate
+/// sort-icon menu plus a standalone pencil button, freed up so the toolbar
+/// has room for `DisplayModeSwitcher`.
+private struct ProjectOverviewMenuContent: View {
+    @Binding var sortField: TaskSort.Field
+    @Binding var sortDirection: TaskSort.Direction
+    let onEditProject: () -> Void
 
     var body: some View {
-        Menu {
-            Picker("Sort By", selection: $field) {
-                ForEach(TaskSort.Field.allCases, id: \.self) { field in
-                    Text(field.menuTitle).tag(field)
-                }
+        Picker("Sort By", selection: $sortField) {
+            ForEach(TaskSort.Field.allCases, id: \.self) { field in
+                Text(field.menuTitle).tag(field)
             }
-            Picker("Order", selection: $direction) {
-                ForEach(TaskSort.Direction.allCases, id: \.self) { direction in
-                    Text(direction.menuTitle).tag(direction)
-                }
+        }
+        Picker("Order", selection: $sortDirection) {
+            ForEach(TaskSort.Direction.allCases, id: \.self) { direction in
+                Text(direction.menuTitle).tag(direction)
+            }
+        }
+        Divider()
+        Button("Edit Project", systemImage: "pencil", action: onEditProject)
+    }
+}
+
+/// A capsule-shaped List/Kanban switch: the selected side shows its icon and
+/// title on a raised background, the other collapses to just its icon —
+/// mirrors the product mockup's `ViewSwitcher` rather than a native
+/// `.pickerStyle(.segmented)`, which always renders every segment the same
+/// way and can't collapse the unselected one.
+private struct DisplayModeSwitcher: View {
+    @Binding var selection: ProjectDisplayMode
+    @Namespace private var namespace
+
+    private struct Option {
+        let mode: ProjectDisplayMode
+        let title: String
+        let systemImage: String
+    }
+
+    private static let options: [Option] = [
+        Option(mode: .list, title: "List", systemImage: "list.bullet"),
+        Option(mode: .kanban, title: "Kanban", systemImage: "rectangle.split.3x1"),
+    ]
+
+    var body: some View {
+        HStack(spacing: VikuSpacing.xxs) {
+            ForEach(Self.options, id: \.mode) { option in
+                segment(for: option)
+            }
+        }
+        .padding(VikuSpacing.xxs)
+        .background(VikuColor.Surface.field, in: Capsule())
+    }
+
+    private func segment(for option: Option) -> some View {
+        let isSelected = selection == option.mode
+        return Button {
+            withAnimation(.easeInOut(duration: 0.18)) {
+                selection = option.mode
             }
         } label: {
-            Image(systemName: "arrow.up.arrow.down")
+            HStack(spacing: VikuSpacing.xs) {
+                Image(systemName: option.systemImage)
+                    .font(.system(size: 13, weight: .semibold))
+                if isSelected {
+                    Text(option.title)
+                        .font(.system(size: 13, weight: .semibold))
+                }
+            }
+            .foregroundStyle(isSelected ? Color.primary : VikuColor.textTertiary)
+            .padding(.horizontal, isSelected ? VikuSpacing.sm + VikuSpacing.xxs : VikuSpacing.sm)
+            .padding(.vertical, VikuSpacing.xs + VikuSpacing.xxs)
+            .background {
+                if isSelected {
+                    Capsule()
+                        .fill(VikuColor.Surface.card)
+                        .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
+                        .matchedGeometryEffect(id: "selection", in: namespace)
+                }
+            }
         }
-        .pickerStyle(.inline)
+        .buttonStyle(.plain)
     }
 }
 
