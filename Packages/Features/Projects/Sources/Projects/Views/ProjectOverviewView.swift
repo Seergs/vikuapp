@@ -524,18 +524,21 @@ private struct ProjectOverviewMenuContent: View {
     let onEditProject: () -> Void
 
     var body: some View {
-        Picker("Sort By", selection: $sortField) {
-            ForEach(TaskSort.Field.allCases, id: \.self) { field in
-                Text(field.menuTitle).tag(field)
+        Section("Sort") {
+            Picker("Sort By", selection: $sortField) {
+                ForEach(TaskSort.Field.allCases, id: \.self) { field in
+                    Text(field.menuTitle).tag(field)
+                }
+            }
+            Picker("Order", selection: $sortDirection) {
+                ForEach(TaskSort.Direction.allCases, id: \.self) { direction in
+                    Text(direction.menuTitle).tag(direction)
+                }
             }
         }
-        Picker("Order", selection: $sortDirection) {
-            ForEach(TaskSort.Direction.allCases, id: \.self) { direction in
-                Text(direction.menuTitle).tag(direction)
-            }
+        Section("Project") {
+            Button("Edit Project", systemImage: "pencil", action: onEditProject)
         }
-        Divider()
-        Button("Edit Project", systemImage: "pencil", action: onEditProject)
     }
 }
 
@@ -578,7 +581,7 @@ private struct DisplayModeSwitcher: View {
         // level up, which is what produced the nav-title flicker: SwiftUI
         // tried to cross-fade two structurally unrelated view hierarchies
         // under one bar.
-        .animation(.easeInOut(duration: 0.18), value: selection)
+        .animation(.spring(response: 0.32, dampingFraction: 0.82), value: selection)
     }
 
     private func segment(for option: Option) -> some View {
@@ -589,10 +592,18 @@ private struct DisplayModeSwitcher: View {
             HStack(spacing: VikuSpacing.xs) {
                 Image(systemName: option.systemImage)
                     .font(.system(size: 13, weight: .semibold))
-                if isSelected {
-                    Text(option.title)
-                        .font(.system(size: 13, weight: .semibold))
-                }
+                // Always present (never inserted/removed) so SwiftUI
+                // interpolates its width and opacity as one continuous
+                // animation instead of popping it in/out, which is what read
+                // as laggy — an insert/remove transition doesn't blend with
+                // the sibling icon's position shifting at the same time.
+                Text(option.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
+                    .fixedSize()
+                    .frame(maxWidth: isSelected ? nil : 0, alignment: .leading)
+                    .opacity(isSelected ? 1 : 0)
+                    .clipped()
             }
             .foregroundStyle(isSelected ? Color.primary : VikuColor.textTertiary)
             .padding(.horizontal, isSelected ? VikuSpacing.sm + VikuSpacing.xxs : VikuSpacing.sm)
