@@ -61,6 +61,7 @@ and only shows the ones that are actually available.
 - **Today:** An account-wide list of what is overdue, due today, and coming up across every project, behind quick filters.
 - **Quick Capture:** Add a task in one tap from the tab bar, the Today home-screen widget, or the `viku://quick-add` deep link
 - **Widgets:** Quickly see your daily tasks and a calendar view from your Home screen.
+- **Kanban board:** Switch a project between List and Kanban view, drag tasks between buckets, and add tasks directly into a bucket. Requires a Vikunja instance on 2.4.0+.
 
 ### Planned
 
@@ -104,11 +105,19 @@ so it covers the parts of the API that matter for day-to-day mobile use
 
 - List, upload, download and preview, delete
 
+**Kanban**
+
+- View a project's buckets with their tasks
+- Drag a task between buckets, including the done bucket (syncs the task's completion state)
+- Add a task directly into a bucket
+- Requires Vikunja 2.4.0+; the List/Kanban toggle is hidden on older servers
+
 **Not yet supported**
 
 - Start dates, reminders, assignees, percent done, repeating tasks, task colors
 - Saved filters and custom project views
-- Kanban, Gantt, table views
+- Kanban bucket management (create/rename/delete/reorder buckets, WIP limits), intra-column reordering, filter-populated buckets
+- Gantt, table views
 - Team and permission management, instance settings
 - Bulk editing
 
