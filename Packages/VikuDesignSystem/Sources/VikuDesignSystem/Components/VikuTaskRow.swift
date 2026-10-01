@@ -22,6 +22,7 @@ public struct VikuTaskRow<Menu: View>: View {
     private let task: VikunjaTask
     private let project: Project?
     private let showsProjectBadge: Bool
+    private let inlineLabels: Bool
     private let onToggle: () -> Void
     private let onOpen: () -> Void
     @ViewBuilder private let contextMenu: () -> Menu
@@ -33,6 +34,10 @@ public struct VikuTaskRow<Menu: View>: View {
     ///   - showsProjectBadge: whether to show the project dot + name in the
     ///     metadata row. A project's own overview passes `false` (the project
     ///     is already the screen title); everywhere else leaves it `true`.
+    ///   - inlineLabels: show label pills on the metadata row, to the right
+    ///     of the due date, instead of their own wrapped row below. Kanban's
+    ///     narrow card passes `true`; every full-width list row leaves it
+    ///     `false`.
     ///   - onToggle: completion checkbox tapped.
     ///   - onOpen: the row (anywhere but the checkbox) tapped.
     ///   - contextMenu: the long-press menu contents for this screen.
@@ -40,6 +45,7 @@ public struct VikuTaskRow<Menu: View>: View {
         task: VikunjaTask,
         project: Project?,
         showsProjectBadge: Bool = true,
+        inlineLabels: Bool = false,
         onToggle: @escaping () -> Void,
         onOpen: @escaping () -> Void,
         @ViewBuilder contextMenu: @escaping () -> Menu,
@@ -47,6 +53,7 @@ public struct VikuTaskRow<Menu: View>: View {
         self.task = task
         self.project = project
         self.showsProjectBadge = showsProjectBadge
+        self.inlineLabels = inlineLabels
         self.onToggle = onToggle
         self.onOpen = onOpen
         self.contextMenu = contextMenu
@@ -69,8 +76,10 @@ public struct VikuTaskRow<Menu: View>: View {
     /// Whether the metadata row has anything to show besides the link glyph.
     /// When it doesn't (a project overview task with no due date), the glyph
     /// would sit alone on its own line, so it moves up next to the title.
+    /// `inlineLabels` also counts the task's own labels, since those move
+    /// into this row instead of their own one below.
     private var hasMetadataLine: Bool {
-        badge != nil || isOverdue || task.dueDate != nil
+        badge != nil || isOverdue || task.dueDate != nil || (inlineLabels && !task.labels.isEmpty)
     }
 
     public var body: some View {
@@ -95,8 +104,8 @@ public struct VikuTaskRow<Menu: View>: View {
                     metadataRow
                 }
 
-                if !task.labels.isEmpty {
-                    labelRow
+                if !task.labels.isEmpty, !inlineLabels {
+                    labelChips
                 }
             }
 
@@ -170,6 +179,10 @@ public struct VikuTaskRow<Menu: View>: View {
                 }
             }
             .fixedSize(horizontal: true, vertical: false)
+
+            if inlineLabels, !task.labels.isEmpty {
+                labelChips
+            }
         }
         .lineLimit(1)
     }
@@ -180,7 +193,7 @@ public struct VikuTaskRow<Menu: View>: View {
             .foregroundStyle(VikuColor.textTertiary)
     }
 
-    private var labelRow: some View {
+    private var labelChips: some View {
         HStack(spacing: VikuSpacing.xs + VikuSpacing.xxs) {
             ForEach(task.labels.prefix(Self.labelDisplayLimit)) { label in
                 VikuLabelChip(label: label)

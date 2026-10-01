@@ -11,10 +11,11 @@ import VikunjaCore
 /// `KanbanBoardViewModel.moveTask(_:to:)`), so this column looks exactly like
 /// any other one.
 struct KanbanColumnView: View {
-    private static let width: CGFloat = 280
+    private static let width: CGFloat = 300
 
     let bucket: KanbanBucket
     let onSelectTask: (VikunjaTask) -> Void
+    let onToggleDone: (VikunjaTask) -> Void
     /// The dropped card's task id. Resolving it to a full `VikunjaTask`
     /// needs every bucket's tasks, not just this column's own, so the lookup
     /// (and the `moveTask` call) happens in `KanbanBoardView`.
@@ -29,6 +30,7 @@ struct KanbanColumnView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm) {
             header
+                .padding(.top, VikuSpacing.sm)
 
             ScrollView {
                 LazyVStack(spacing: VikuSpacing.sm) {
@@ -36,6 +38,7 @@ struct KanbanColumnView: View {
                         card(for: task)
                     }
                 }
+                .padding(.top, VikuSpacing.sm)
             }
 
             if isAddingTask {
@@ -86,10 +89,11 @@ struct KanbanColumnView: View {
             task: task,
             project: nil,
             showsProjectBadge: false,
-            // Completion in Kanban is bucket-driven (drag into the done
-            // bucket), not a direct toggle from the card — see this view's
-            // doc comment.
-            onToggle: {},
+            // Labels sit next to the due date instead of wrapping onto their
+            // own line below — the narrow column has no room to spare for a
+            // separate label row.
+            inlineLabels: true,
+            onToggle: { onToggleDone(task) },
             onOpen: { onSelectTask(task) },
             contextMenu: { EmptyView() },
         )

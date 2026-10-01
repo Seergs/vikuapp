@@ -54,6 +54,7 @@ public struct KanbanBoardView: View {
                     KanbanColumnView(
                         bucket: bucket,
                         onSelectTask: onSelectTask,
+                        onToggleDone: { task in Task { await viewModel.toggleDone(task) } },
                         onDropTaskID: { taskID in
                             guard let task = viewModel.buckets.flatMap(\.tasks).first(where: { $0.id == taskID })
                             else { return }

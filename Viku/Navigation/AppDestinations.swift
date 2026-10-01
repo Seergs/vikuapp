@@ -1,3 +1,4 @@
+import Kanban
 import Projects
 import SwiftUI
 import Tasks
@@ -72,16 +73,19 @@ private struct ProjectOverviewDestination: View {
     let container: AppContainer
     let account: InstanceAccount
     @State private var viewModel: ProjectOverviewViewModel
+    @State private var kanbanViewModel: KanbanBoardViewModel
 
     init(container: AppContainer, account: InstanceAccount, project: Project) {
         self.container = container
         self.account = account
         _viewModel = State(initialValue: container.makeProjectOverviewViewModel(project: project, account: account))
+        _kanbanViewModel = State(initialValue: container.makeKanbanBoardViewModel(project: project, account: account))
     }
 
     var body: some View {
         ProjectOverviewRootView(
             viewModel: viewModel,
+            kanbanViewModel: kanbanViewModel,
             makeEditProjectViewModel: { container.makeEditProjectViewModel(project: $0, account: account) },
         )
     }

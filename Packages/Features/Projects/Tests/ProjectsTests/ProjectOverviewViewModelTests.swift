@@ -6,6 +6,43 @@ import VikunjaCore
 @MainActor
 struct ProjectOverviewViewModelTests {
     @Test
+    func `load leaves supports kanban false when the capability provider reports no api v2`() async {
+        let viewModel = ProjectOverviewViewModel(
+            project: Project(id: 1, title: "Work"),
+            repository: FakeTaskRepository(),
+            projectRepository: FakeProjectRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
+        )
+
+        await viewModel.load()
+
+        #expect(viewModel.supportsKanban == false)
+    }
+
+    @Test
+    func `load sets supports kanban true when the capability provider reports api v2`() async {
+        let capabilityProvider = FakeCapabilityProvider()
+        capabilityProvider.supportedFeatures = [.apiV2]
+        let viewModel = ProjectOverviewViewModel(
+            project: Project(id: 1, title: "Work"),
+            repository: FakeTaskRepository(),
+            projectRepository: FakeProjectRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            capabilityProvider: capabilityProvider,
+            toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
+        )
+
+        await viewModel.load()
+
+        #expect(viewModel.supportsKanban == true)
+    }
+
+    @Test
     func `mark visible claims the quick add context and mark hidden releases it`() {
         let context = FakeQuickAddContext()
         let viewModel = ProjectOverviewViewModel(

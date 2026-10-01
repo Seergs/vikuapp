@@ -1,3 +1,4 @@
+import Kanban
 import SwiftUI
 import VikuNavigation
 import VikunjaCore
@@ -12,6 +13,7 @@ public struct ProjectsRootView: View {
     @Environment(AppRouter.self) private var router
     private let viewModel: ProjectsListViewModel
     private let makeOverviewViewModel: (ProjectNode) -> ProjectOverviewViewModel
+    private let makeKanbanBoardViewModel: (Project) -> KanbanBoardViewModel
     private let makeCreateProjectViewModel: () -> CreateProjectViewModel
     private let makeEditProjectViewModel: (Project) -> EditProjectViewModel
 
@@ -21,11 +23,13 @@ public struct ProjectsRootView: View {
     public init(
         viewModel: ProjectsListViewModel,
         makeOverviewViewModel: @escaping (ProjectNode) -> ProjectOverviewViewModel,
+        makeKanbanBoardViewModel: @escaping (Project) -> KanbanBoardViewModel,
         makeCreateProjectViewModel: @escaping () -> CreateProjectViewModel,
         makeEditProjectViewModel: @escaping (Project) -> EditProjectViewModel,
     ) {
         self.viewModel = viewModel
         self.makeOverviewViewModel = makeOverviewViewModel
+        self.makeKanbanBoardViewModel = makeKanbanBoardViewModel
         self.makeCreateProjectViewModel = makeCreateProjectViewModel
         self.makeEditProjectViewModel = makeEditProjectViewModel
     }
@@ -47,6 +51,10 @@ public struct ProjectsRootView: View {
     /// `ProjectOverviewViewModel`'s loaded tasks on back-navigation (see
     /// 451e893), it's just no longer state-driven.
     @State private var overviewViewModelCache = OverviewViewModelCache()
+    /// Mirrors `overviewViewModelCache` for `KanbanBoardViewModel` - same
+    /// reasoning: built once per project, never rebuilt by an unrelated
+    /// `.navigationDestination` re-invocation.
+    @State private var kanbanViewModelCache = KanbanBoardViewModelCache()
 
     public var body: some View {
         ProjectsView(
@@ -59,6 +67,7 @@ public struct ProjectsRootView: View {
             case let .projectOverview(node):
                 ProjectOverviewView(
                     viewModel: cachedOverviewViewModel(for: node),
+                    kanbanViewModel: cachedKanbanBoardViewModel(for: node.project),
                     onSelectSubproject: { router.push(ProjectsRoute.projectOverview($0)) },
                     onSelectTask: { task in router.push(.taskDetail(task, node.project)) },
                     onEditProject: { editingProject = $0 },
@@ -86,6 +95,17 @@ public struct ProjectsRootView: View {
         overviewViewModelCache.storage[node.id] = vm
         return vm
     }
+
+    /// Returns this project's cached `KanbanBoardViewModel`, creating and
+    /// storing one on first visit - mirrors `cachedOverviewViewModel(for:)`.
+    private func cachedKanbanBoardViewModel(for project: Project) -> KanbanBoardViewModel {
+        if let existing = kanbanViewModelCache.storage[project.id] {
+            return existing
+        }
+        let vm = makeKanbanBoardViewModel(project)
+        kanbanViewModelCache.storage[project.id] = vm
+        return vm
+    }
 }
 
 /// Backs `ProjectsRootView.overviewViewModelCache`. A class rather than a
@@ -95,4 +115,11 @@ public struct ProjectsRootView: View {
 @MainActor
 private final class OverviewViewModelCache {
     var storage: [Int: ProjectOverviewViewModel] = [:]
+}
+
+/// Backs `ProjectsRootView.kanbanViewModelCache` - mirrors
+/// `OverviewViewModelCache`.
+@MainActor
+private final class KanbanBoardViewModelCache {
+    var storage: [Int: KanbanBoardViewModel] = [:]
 }

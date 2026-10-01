@@ -1,6 +1,18 @@
 @testable import Projects
 import VikunjaCore
 
+final class FakeCapabilityProvider: CapabilityProvider, @unchecked Sendable {
+    var supportedFeatures: Set<VikunjaFeature> = []
+
+    func serverInfo() async throws -> VikunjaServerInfo {
+        VikunjaServerInfo(version: "0.24.6", caldavEnabled: false, totpEnabled: false, registrationEnabled: false)
+    }
+
+    func supports(_ feature: VikunjaFeature) async -> Bool {
+        supportedFeatures.contains(feature)
+    }
+}
+
 final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendable {
     var projects: [Project] = []
     var fetchError: VikunjaError?

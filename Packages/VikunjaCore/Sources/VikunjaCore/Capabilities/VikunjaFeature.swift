@@ -1,4 +1,4 @@
-public enum VikunjaFeature: Sendable {
+public enum VikunjaFeature: Hashable, Sendable {
     case caldav
     case totp
     case registration

@@ -1,3 +1,4 @@
+import Kanban
 import SwiftUI
 import VikuDesignSystem
 import VikunjaCore
@@ -14,6 +15,13 @@ import VikuUI
 /// cross-feature) pushes an `AppRoute`.
 struct ProjectOverviewView: View {
     @Bindable var viewModel: ProjectOverviewViewModel
+    /// Built by the caller (mirrors `viewModel` itself) rather than via a
+    /// factory closure held in `@State` here — a `.navigationDestination`
+    /// closure further up re-invokes on unrelated re-renders, so the one
+    /// place that's safe to build this exactly once is where `viewModel`
+    /// itself is already stabilized (`ProjectsRootView`'s cache,
+    /// `AppDestinations.swift`'s `ProjectOverviewDestination`).
+    let kanbanViewModel: KanbanBoardViewModel
     let onSelectSubproject: (ProjectNode) -> Void
     let onSelectTask: (VikunjaTask) -> Void
     let onEditProject: (Project) -> Void
@@ -23,6 +31,7 @@ struct ProjectOverviewView: View {
     /// duplicate can land in any project the sheet's picker offers, not just
     /// this one.
     let onDuplicated: (VikunjaTask, Project) -> Void
+    @State private var displayMode: ProjectDisplayMode = .list
     @State private var filter: ProjectTaskFilter = .all
     @State private var taskPendingDelete: VikunjaTask?
     @State private var taskPendingMove: VikunjaTask?
@@ -36,117 +45,138 @@ struct ProjectOverviewView: View {
     }
 
     var body: some View {
-        content
-            .projectsListStyle()
-            .scrollContentBackground(.hidden)
-            .background(VikuColor.Surface.page)
-            .refreshable { await viewModel.load() }
-            .navigationTitle(viewModel.project.title)
-            .toolbar {
+        VStack(spacing: 0) {
+            switch displayMode {
+            case .list:
+                content
+                    .projectsListStyle()
+                    .scrollContentBackground(.hidden)
+                    .refreshable { await viewModel.load() }
+            case .kanban:
+                KanbanBoardView(viewModel: kanbanViewModel, onSelectTask: onSelectTask)
+            }
+        }
+        .background(VikuColor.Surface.page)
+        .navigationTitle(viewModel.project.title)
+        .toolbar {
+            if viewModel.supportsKanban {
+                // Pops in once the capability check resolves rather than
+                // fading, on every SwiftUI version tried — content inside a
+                // `ToolbarItem` is hosted through the bridge to
+                // `UINavigationBar` and doesn't reliably honor `.transition`/
+                // `.animation`, including when the item itself is kept
+                // structurally present and only its inner content is
+                // conditional. Accepted as a platform limitation rather than
+                // chased further.
                 ToolbarItem(placement: .primaryAction) {
-                    TaskSortMenu(field: $viewModel.sortField, direction: $viewModel.sortDirection)
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        onEditProject(viewModel.project)
-                    } label: {
-                        Image(systemName: "pencil")
-                    }
+                    DisplayModeSwitcher(selection: $displayMode)
                 }
             }
-            .task {
-                await viewModel.load()
-            }
-            .onAppear {
-                viewModel.markVisible()
-            }
-            .onDisappear { viewModel.markHidden() }
-            .onChange(of: viewModel.lastCreatedTaskForThisProject) { _, event in
-                guard event != nil else { return }
-                Task { await viewModel.load() }
-            }
-            .confirmationDialog(
-                "This permanently deletes the task.",
-                isPresented: Binding(
-                    get: { taskPendingDelete != nil },
-                    set: { isPresented in
-                        if !isPresented {
-                            taskPendingDelete = nil
-                        }
-                    },
-                ),
-                titleVisibility: .visible,
-            ) {
-                if let taskPendingDelete {
-                    Button("Delete Task", role: .destructive) {
-                        Task { await viewModel.delete(taskPendingDelete) }
-                    }
-                }
-                Button("Cancel", role: .cancel) {}
-            }
-            .sheet(item: $taskPendingMove) { task in
-                ProjectPickerSheet(
-                    title: "Move to Project",
-                    projects: viewModel.allProjects,
-                    selectedProjectID: nil,
-                    excludingSubtreeOf: viewModel.project.id,
-                ) { destination in
-                    guard let destination else { return }
-                    Task { await viewModel.move(task, to: destination) }
-                }
-                .task { await viewModel.loadMoveCandidates() }
-            }
-            .sheet(item: $taskPendingDuplicate) { task in
-                DuplicateTaskSheetView(
-                    makeViewModel: { viewModel.makeDuplicateTaskViewModel(for: task) },
-                    onDuplicated: onDuplicated,
-                )
-            }
-            .sheet(item: $taskPendingDueDateEdit) { task in
-                DueDatePickerSheet(initialDate: task.dueDate) { newDate in
-                    Task { await viewModel.setDueDate(task, to: newDate) }
-                }
-            }
-            .sheet(item: $taskPendingLabelEdit) { task in
-                LabelPickerSheet(
-                    taskLabels: viewModel.tasks.first(where: { $0.id == task.id })?.labels ?? task.labels,
-                    allLabels: viewModel.allLabels,
-                    onLoad: { await viewModel.loadAllLabels() },
-                    onToggle: { label in Task { await viewModel.toggleLabel(task, label) } },
-                    onCreate: { title, hexColor in
-                        Task { await viewModel.createAndAddLabel(task, title: title, hexColor: hexColor) }
-                    },
-                )
-            }
-            .sheet(item: $relationEditStep) { step in
-                switch step {
-                case let .pickKind(task):
-                    RelationKindPickerSheet { kind in
-                        relationEditStep = .pickTask(task, kind)
-                    }
-                case let .pickTask(task, kind):
-                    RelationTaskPickerSheet(
-                        kind: kind,
-                        results: viewModel.relationSearchResults,
-                        projectTitle: { candidate in
-                            viewModel.allProjects.first { $0.id == candidate.projectID }?.title
-                        },
-                        onAppear: {
-                            await viewModel.loadMoveCandidates()
-                            await viewModel.loadRelationSuggestions(for: task)
-                        },
-                        onSearch: { query in await viewModel.searchTasksForRelation(for: task, query: query) },
-                        onSelect: { candidate in
-                            let relation = TaskRelation(
-                                id: candidate.id, title: candidate.title,
-                                isDone: candidate.isDone, projectID: candidate.projectID,
-                            )
-                            Task { await viewModel.addRelation(relation, kind: kind, to: task) }
-                            relationEditStep = nil
-                        },
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    ProjectOverviewMenuContent(
+                        sortField: $viewModel.sortField,
+                        sortDirection: $viewModel.sortDirection,
+                        onEditProject: { onEditProject(viewModel.project) },
                     )
+                } label: {
+                    Image(systemName: "ellipsis.circle")
                 }
             }
+        }
+        .task {
+            await viewModel.load()
+        }
+        .onAppear {
+            viewModel.markVisible()
+        }
+        .onDisappear { viewModel.markHidden() }
+        .onChange(of: viewModel.lastCreatedTaskForThisProject) { _, event in
+            guard event != nil else { return }
+            Task { await viewModel.load() }
+        }
+        .confirmationDialog(
+            "This permanently deletes the task.",
+            isPresented: Binding(
+                get: { taskPendingDelete != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        taskPendingDelete = nil
+                    }
+                },
+            ),
+            titleVisibility: .visible,
+        ) {
+            if let taskPendingDelete {
+                Button("Delete Task", role: .destructive) {
+                    Task { await viewModel.delete(taskPendingDelete) }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .sheet(item: $taskPendingMove) { task in
+            ProjectPickerSheet(
+                title: "Move to Project",
+                projects: viewModel.allProjects,
+                selectedProjectID: nil,
+                excludingSubtreeOf: viewModel.project.id,
+            ) { destination in
+                guard let destination else { return }
+                Task { await viewModel.move(task, to: destination) }
+            }
+            .task { await viewModel.loadMoveCandidates() }
+        }
+        .sheet(item: $taskPendingDuplicate) { task in
+            DuplicateTaskSheetView(
+                makeViewModel: { viewModel.makeDuplicateTaskViewModel(for: task) },
+                onDuplicated: onDuplicated,
+            )
+        }
+        .sheet(item: $taskPendingDueDateEdit) { task in
+            DueDatePickerSheet(initialDate: task.dueDate) { newDate in
+                Task { await viewModel.setDueDate(task, to: newDate) }
+            }
+        }
+        .sheet(item: $taskPendingLabelEdit) { task in
+            LabelPickerSheet(
+                taskLabels: viewModel.tasks.first(where: { $0.id == task.id })?.labels ?? task.labels,
+                allLabels: viewModel.allLabels,
+                onLoad: { await viewModel.loadAllLabels() },
+                onToggle: { label in Task { await viewModel.toggleLabel(task, label) } },
+                onCreate: { title, hexColor in
+                    Task { await viewModel.createAndAddLabel(task, title: title, hexColor: hexColor) }
+                },
+            )
+        }
+        .sheet(item: $relationEditStep) { step in
+            switch step {
+            case let .pickKind(task):
+                RelationKindPickerSheet { kind in
+                    relationEditStep = .pickTask(task, kind)
+                }
+            case let .pickTask(task, kind):
+                RelationTaskPickerSheet(
+                    kind: kind,
+                    results: viewModel.relationSearchResults,
+                    projectTitle: { candidate in
+                        viewModel.allProjects.first { $0.id == candidate.projectID }?.title
+                    },
+                    onAppear: {
+                        await viewModel.loadMoveCandidates()
+                        await viewModel.loadRelationSuggestions(for: task)
+                    },
+                    onSearch: { query in await viewModel.searchTasksForRelation(for: task, query: query) },
+                    onSelect: { candidate in
+                        let relation = TaskRelation(
+                            id: candidate.id, title: candidate.title,
+                            isDone: candidate.isDone, projectID: candidate.projectID,
+                        )
+                        Task { await viewModel.addRelation(relation, kind: kind, to: task) }
+                        relationEditStep = nil
+                    },
+                )
+            }
+        }
     }
 
     private var content: some View {
@@ -425,6 +455,13 @@ private struct SubprojectCard: View {
     }
 }
 
+/// Which body `ProjectOverviewView` currently shows — the existing task
+/// `List`, or the Kanban board (gated on `viewModel.supportsKanban`).
+enum ProjectDisplayMode: Hashable {
+    case list
+    case kanban
+}
+
 /// Status filter for this project's own task list.
 enum ProjectTaskFilter: CaseIterable {
     case all
@@ -485,26 +522,116 @@ private struct FilterChip: View {
 /// Toolbar menu for choosing the task list's sort field and direction.
 /// Backed by `@AppStorage` in the host view, so the choice persists globally
 /// across projects and launches.
-private struct TaskSortMenu: View {
-    @Binding var field: TaskSort.Field
-    @Binding var direction: TaskSort.Direction
+/// The combined "..." overflow menu's contents: sort field, sort direction,
+/// then the project edit action — everything that used to be a separate
+/// sort-icon menu plus a standalone pencil button, freed up so the toolbar
+/// has room for `DisplayModeSwitcher`.
+private struct ProjectOverviewMenuContent: View {
+    @Binding var sortField: TaskSort.Field
+    @Binding var sortDirection: TaskSort.Direction
+    let onEditProject: () -> Void
 
     var body: some View {
-        Menu {
-            Picker("Sort By", selection: $field) {
+        // A `Section("Sort") { Picker; Picker }` silently drops its header
+        // here — a `Section` in a `Menu` only reliably shows a title when its
+        // content includes a plain item like a `Button`; a section made up
+        // entirely of `Picker`s doesn't render one (see "Project" below,
+        // which does). A nested `Menu` always shows its own label, so this
+        // sidesteps that rather than fighting it.
+        Menu("Sort", systemImage: "arrow.up.arrow.down") {
+            Picker("Sort By", selection: $sortField) {
                 ForEach(TaskSort.Field.allCases, id: \.self) { field in
                     Text(field.menuTitle).tag(field)
                 }
             }
-            Picker("Order", selection: $direction) {
+            Picker("Order", selection: $sortDirection) {
                 ForEach(TaskSort.Direction.allCases, id: \.self) { direction in
                     Text(direction.menuTitle).tag(direction)
                 }
             }
-        } label: {
-            Image(systemName: "arrow.up.arrow.down")
         }
-        .pickerStyle(.inline)
+        Section("Project") {
+            Button("Edit Project", systemImage: "pencil", action: onEditProject)
+        }
+    }
+}
+
+/// A capsule-shaped List/Kanban switch: the selected side shows its icon and
+/// title on a raised background, the other collapses to just its icon —
+/// mirrors the product mockup's `ViewSwitcher` rather than a native
+/// `.pickerStyle(.segmented)`, which always renders every segment the same
+/// way and can't collapse the unselected one.
+private struct DisplayModeSwitcher: View {
+    @Binding var selection: ProjectDisplayMode
+    @Namespace private var namespace
+
+    private struct Option {
+        let mode: ProjectDisplayMode
+        let title: String
+        let systemImage: String
+    }
+
+    private static let options: [Option] = [
+        Option(mode: .list, title: "List", systemImage: "list.bullet"),
+        Option(mode: .kanban, title: "Kanban", systemImage: "rectangle.split.3x1"),
+    ]
+
+    var body: some View {
+        HStack(spacing: VikuSpacing.xxs) {
+            ForEach(Self.options, id: \.mode) { option in
+                segment(for: option)
+            }
+        }
+        .padding(VikuSpacing.xxs)
+        .background(VikuColor.Surface.field, in: Capsule())
+        // A toolbar item otherwise proposes a width tight enough to clip
+        // this view's `Text` down to its first letter — forces SwiftUI to
+        // lay it out, and the toolbar to size it, at its natural width.
+        .fixedSize()
+        // Scoped to this view's own layout (the sliding pill, the
+        // icon-only/icon+label collapse) rather than wrapping the
+        // `selection` write itself in `withAnimation` - that would also
+        // animate `ProjectOverviewView`'s List/KanbanBoardView swap one
+        // level up, which is what produced the nav-title flicker: SwiftUI
+        // tried to cross-fade two structurally unrelated view hierarchies
+        // under one bar.
+        .animation(.spring(response: 0.32, dampingFraction: 0.82), value: selection)
+    }
+
+    private func segment(for option: Option) -> some View {
+        let isSelected = selection == option.mode
+        return Button {
+            selection = option.mode
+        } label: {
+            HStack(spacing: VikuSpacing.xs) {
+                Image(systemName: option.systemImage)
+                    .font(.system(size: 13, weight: .semibold))
+                // Always present (never inserted/removed) so SwiftUI
+                // interpolates its width and opacity as one continuous
+                // animation instead of popping it in/out, which is what read
+                // as laggy — an insert/remove transition doesn't blend with
+                // the sibling icon's position shifting at the same time.
+                Text(option.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
+                    .fixedSize()
+                    .frame(maxWidth: isSelected ? nil : 0, alignment: .leading)
+                    .opacity(isSelected ? 1 : 0)
+                    .clipped()
+            }
+            .foregroundStyle(isSelected ? Color.primary : VikuColor.textTertiary)
+            .padding(.horizontal, isSelected ? VikuSpacing.sm + VikuSpacing.xxs : VikuSpacing.sm)
+            .padding(.vertical, VikuSpacing.xs + VikuSpacing.xxs)
+            .background {
+                if isSelected {
+                    Capsule()
+                        .fill(VikuColor.Surface.card)
+                        .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
+                        .matchedGeometryEffect(id: "selection", in: namespace)
+                }
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 

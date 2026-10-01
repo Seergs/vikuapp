@@ -159,4 +159,65 @@ struct KanbanBoardViewModelTests {
         #expect(viewModel.buckets[0].tasks.isEmpty)
         #expect(toastPresenter.shownMessages.map(\.style) == [.error])
     }
+
+    @Test
+    func `toggle done on a pending task moves it into the done bucket`() async {
+        let repository = FakeBucketRepository()
+        let task = VikunjaTask(id: 1, title: "Write report", projectID: 4)
+        repository.buckets = [
+            KanbanBucket(id: 1, title: "To Do", tasks: [task]),
+            KanbanBucket(id: 2, title: "Done", isDoneBucket: true),
+        ]
+        let viewModel = KanbanBoardViewModel(
+            project: Project(id: 4, title: "Work"),
+            repository: repository,
+            toastPresenter: FakeToastPresenter(),
+        )
+        await viewModel.load()
+
+        await viewModel.toggleDone(task)
+
+        #expect(viewModel.buckets[0].tasks.isEmpty)
+        #expect(viewModel.buckets[1].tasks.map(\.id) == [1])
+        #expect(repository.movedTaskIDs.map(\.bucketID) == [2])
+    }
+
+    @Test
+    func `toggle done on a completed task moves it back to the first non done bucket`() async {
+        let repository = FakeBucketRepository()
+        let task = VikunjaTask(id: 1, title: "Ship release", isDone: true, projectID: 4)
+        repository.buckets = [
+            KanbanBucket(id: 1, title: "To Do"),
+            KanbanBucket(id: 2, title: "Done", isDoneBucket: true, tasks: [task]),
+        ]
+        let viewModel = KanbanBoardViewModel(
+            project: Project(id: 4, title: "Work"),
+            repository: repository,
+            toastPresenter: FakeToastPresenter(),
+        )
+        await viewModel.load()
+
+        await viewModel.toggleDone(task)
+
+        #expect(viewModel.buckets[1].tasks.isEmpty)
+        #expect(viewModel.buckets[0].tasks.map(\.id) == [1])
+        #expect(repository.movedTaskIDs.map(\.bucketID) == [1])
+    }
+
+    @Test
+    func `toggle done is a no op when the view has no done bucket`() async {
+        let repository = FakeBucketRepository()
+        let task = VikunjaTask(id: 1, title: "Write report", projectID: 4)
+        repository.buckets = [KanbanBucket(id: 1, title: "To Do", tasks: [task])]
+        let viewModel = KanbanBoardViewModel(
+            project: Project(id: 4, title: "Work"),
+            repository: repository,
+            toastPresenter: FakeToastPresenter(),
+        )
+        await viewModel.load()
+
+        await viewModel.toggleDone(task)
+
+        #expect(repository.movedTaskIDs.isEmpty)
+    }
 }
