@@ -83,6 +83,23 @@ public final class KanbanBoardViewModel {
         }
     }
 
+    /// Toggles `task`'s completion from its card's checkbox. Kanban's data
+    /// model has no independent "done" flag to flip — a task's completion
+    /// *is* whether it sits in the view's done bucket (dropping it there
+    /// sets `isDone`, and vice versa; see `docs/KANBAN_SUPPORT.md`) — so this
+    /// just moves the task into the done bucket, or into the first
+    /// non-done bucket when un-completing, reusing `moveTask(_:to:)`'s own
+    /// optimistic-with-rollback handling. A no-op if the view has no bucket
+    /// to move into (no done bucket configured, or only a done bucket
+    /// exists).
+    public func toggleDone(_ task: VikunjaTask) async {
+        let target = task.isDone
+            ? buckets.first { !$0.isDoneBucket }
+            : buckets.first { $0.isDoneBucket }
+        guard let target else { return }
+        await moveTask(task, to: target)
+    }
+
     /// Creates a task titled `title` directly in `bucket`, appending the
     /// server's copy to that bucket's tasks on success.
     public func createTask(title: String, in bucket: KanbanBucket) async {
