@@ -81,6 +81,21 @@ behind each one.
   `Color(...)`/`Font(...)` literals or magic-number padding in `Features/*`
   views. Add a new token there first if the one you need doesn't exist yet,
   rather than inlining a one-off value.
+- **New user-facing strings go through the module's String Catalog, never a
+  literal.** Add the key (English source + Spanish translation) to that
+  target's `Resources/Localizable.xcstrings`, then reference it via
+  `Text("key", bundle: .module)` or `String(localized: "key", bundle: .module)`
+  — `bundle: .module` is required in every `Features/*`/`VikuDesignSystem`/
+  `VikuWidgetKit` target; SwiftUI's default resolves against the main app
+  bundle, not the package's, so omitting it silently shows the raw key or the
+  wrong bundle's copy. The app target itself (`Viku/`) is the one exception —
+  it has no `.module` bundle, so a literal there resolves correctly with no
+  `bundle:` argument, as long as the key exists in `Viku/Localizable.xcstrings`.
+  Caller-supplied or already-resolved text (dynamic data, a value handed in
+  from another module) renders with `Text(verbatim:)` instead, never through
+  the catalog. `scripts/audit_hardcoded_strings.sh --ci` enforces this as a
+  `lint`-job CI check: a new `Text(`/`Button(`/`Label(`/`.navigationTitle(`
+  literal without `bundle: .module` or `Text(verbatim:)` fails the build.
 - **ViewModels take their dependency as a protocol via constructor injection**
   (e.g. `init(repository: TaskRepositoryProtocol)`), never a concrete networking
   class. A screen that needs several takes one protocol parameter each (e.g.
