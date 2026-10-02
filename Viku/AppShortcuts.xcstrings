@@ -19,11 +19,11 @@
           "stringSet" : {
             "state" : "translated",
             "values" : [
-              "Añade una tarea en ${applicationName}",
+              "Agrega una tarea en ${applicationName}",
               "Agrega una tarea a ${applicationName}",
               "Crea una tarea en ${applicationName}",
               "Nueva tarea en ${applicationName}",
-              "Añadir rápido en ${applicationName}"
+              "Agregar rápido en ${applicationName}"
             ]
           }
         }
