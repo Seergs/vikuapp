@@ -26,6 +26,6 @@ struct QuickAddButton: View {
                 .shadow(color: VikuColor.brandPrimary.opacity(0.3), radius: 3, x: 0, y: 2)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Quick Add")
+        .accessibilityLabel(Text("Quick Add"))
     }
 }

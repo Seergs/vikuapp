@@ -179,18 +179,22 @@ struct MainTabView: View {
             isShowingSessionExpiredAlert = true
             container.sessionExpiryCenter.acknowledge()
         }
-        .alert("Session Expired", isPresented: $isShowingSessionExpiredAlert) {
-            Button("Sign In Again") {
+        .alert(Text("Session Expired"), isPresented: $isShowingSessionExpiredAlert) {
+            Button {
                 selection = .settings
                 settingsRouter.push(.connectionForm(.edit(account)))
+            } label: {
+                Text("Sign In Again")
             }
-            Button("Not Now", role: .cancel) {}
+            Button(role: .cancel) {} label: {
+                Text("Not Now")
+            }
         } message: {
             Text("Your session for \"\(account.displayName)\" expired. Sign in again to keep using Viku.")
         }
         .overlay(alignment: .topTrailing) {
             if BuildConfig.isDevBuild, container.devToolsCenter.isDevBadgeVisible {
-                Text("DEV")
+                Text(verbatim: "DEV")
                     .font(.caption2)
                     .fontWeight(.semibold)
                     .foregroundStyle(.white)
