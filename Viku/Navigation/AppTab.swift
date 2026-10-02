@@ -16,11 +16,11 @@ enum AppTab: Hashable, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .home: "Today"
-        case .projects: "Projects"
-        case .calendar: "Calendar"
-        case .search: "Search"
-        case .settings: "Settings"
+        case .home: String(localized: "Today")
+        case .projects: String(localized: "Projects")
+        case .calendar: String(localized: "Calendar")
+        case .search: String(localized: "Search")
+        case .settings: String(localized: "Settings")
         }
     }
 
