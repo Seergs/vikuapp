@@ -28,7 +28,7 @@ struct ProjectsView: View {
         content
             .projectsListStyle()
             .refreshable { await viewModel.load() }
-            .navigationTitle("Projects")
+            .navigationTitle(Text("Projects", bundle: .module))
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
@@ -36,7 +36,7 @@ struct ProjectsView: View {
                     } label: {
                         Image(systemName: "plus")
                     }
-                    .accessibilityLabel("New Project")
+                    .accessibilityLabel(Text("New Project", bundle: .module))
                 }
             }
             .sheet(isPresented: $isShowingCreateProject, onDismiss: {
@@ -50,7 +50,7 @@ struct ProjectsView: View {
                 EditProjectSheetView(makeViewModel: { makeEditProjectViewModel(project) })
             })
             .confirmationDialog(
-                deleteConfirmationMessage,
+                Text(verbatim: deleteConfirmationMessage),
                 isPresented: Binding(
                     get: { projectPendingDelete != nil },
                     set: { isPresented in
@@ -62,11 +62,15 @@ struct ProjectsView: View {
                 titleVisibility: .visible,
             ) {
                 if let projectPendingDelete {
-                    Button("Delete Project", role: .destructive) {
+                    Button(role: .destructive) {
                         Task { await viewModel.deleteProject(projectPendingDelete) }
+                    } label: {
+                        Text("Delete Project", bundle: .module)
                     }
                 }
-                Button("Cancel", role: .cancel) {}
+                Button(role: .cancel) {} label: {
+                    Text("Cancel", bundle: .module)
+                }
             }
             .task {
                 await viewModel.load()
@@ -85,7 +89,7 @@ struct ProjectsView: View {
             case let .failure(message):
                 VikuStatusView(
                     systemImage: "exclamationmark.triangle.fill",
-                    title: "Couldn't load projects",
+                    title: String(localized: "Couldn't load projects", bundle: .module),
                     message: message,
                 ) {
                     Task { await viewModel.load() }
@@ -96,8 +100,11 @@ struct ProjectsView: View {
             case .loaded where viewModel.rootNodes.isEmpty:
                 VikuStatusView(
                     systemImage: "folder.badge.plus",
-                    title: "No projects yet",
-                    message: "Projects you create on your Vikunja instance will show up here.",
+                    title: String(localized: "No projects yet", bundle: .module),
+                    message: String(
+                        localized: "Projects you create on your Vikunja instance will show up here.",
+                        bundle: .module,
+                    ),
                 )
                 .padding(.top, VikuSpacing.xxl)
                 .listRowSeparator(.hidden)
@@ -130,8 +137,11 @@ struct ProjectsView: View {
     private var deleteConfirmationMessage: String {
         let hasChildren = projectPendingDelete?.children.isEmpty == false
         return hasChildren
-            ? "This permanently deletes the project, its subprojects, and all their tasks."
-            : "This permanently deletes the project and all its tasks."
+            ? String(
+                localized: "This permanently deletes the project, its subprojects, and all their tasks.",
+                bundle: .module,
+            )
+            : String(localized: "This permanently deletes the project and all its tasks.", bundle: .module)
     }
 
     private func toggleExpanded(_ id: Int) {
@@ -227,7 +237,7 @@ private struct ProjectRow: View {
                         if taskSummary.total > 0 {
                             ProjectProgressCount(summary: taskSummary, color: swatchColor)
                         } else {
-                            Text("No tasks")
+                            Text("No tasks", bundle: .module)
                                 .font(VikuFont.caption)
                                 .foregroundStyle(VikuColor.textTertiary)
                         }
@@ -254,19 +264,32 @@ private struct ProjectRow: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(isExpanded ? "Collapse" : "Expand")
+                .accessibilityLabel(
+                    isExpanded
+                        ? Text("Collapse", bundle: .module)
+                        : Text("Expand", bundle: .module),
+                )
             }
         }
         .padding(.leading, CGFloat(level) * VikuSpacing.lg)
         .contentShape(Rectangle())
         .onTapGesture(perform: onSelect)
         .contextMenu {
-            Button("Edit Project", systemImage: "pencil", action: { onEdit(project) })
+            Button(
+                String(localized: "Edit Project", bundle: .module),
+                systemImage: "pencil",
+                action: { onEdit(project) },
+            )
             // `role: .destructive` alone renders blue here, not red: the tab
             // bar's `.tint(VikuColor.brandPrimary)` leaks into the context
             // menu and overrides the role's tint. Pin it back to danger.
-            Button("Delete Project", systemImage: "trash", role: .destructive, action: onDelete)
-                .tint(VikuColor.Semantic.danger)
+            Button(
+                String(localized: "Delete Project", bundle: .module),
+                systemImage: "trash",
+                role: .destructive,
+                action: onDelete,
+            )
+            .tint(VikuColor.Semantic.danger)
         }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
@@ -293,12 +316,14 @@ private struct ProjectProgressCount: View {
             }
             .frame(width: 120, height: 4)
 
-            Text("\(summary.done)/\(summary.total)")
+            Text(verbatim: "\(summary.done)/\(summary.total)")
                 .font(VikuFont.caption)
                 .foregroundStyle(VikuColor.textTertiary)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(summary.done) of \(summary.total) tasks completed")
+        .accessibilityLabel(
+            Text("\(summary.done) of \(summary.total) tasks completed", bundle: .module),
+        )
     }
 }
 

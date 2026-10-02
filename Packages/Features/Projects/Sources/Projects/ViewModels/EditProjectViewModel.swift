@@ -1,3 +1,4 @@
+import Foundation
 import Observation
 import VikunjaCore
 import VikuUI
@@ -80,7 +81,7 @@ public final class EditProjectViewModel {
                     hexColor: hexColor,
                 ),
             )
-            toastPresenter.show("Project updated", style: .success)
+            toastPresenter.show(String(localized: "Project updated", bundle: .module), style: .success)
             return updated
         } catch let error as VikunjaError {
             saveErrorMessage = error.displayMessage

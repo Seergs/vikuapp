@@ -96,7 +96,7 @@ struct ProjectOverviewView: View {
             Task { await viewModel.load() }
         }
         .confirmationDialog(
-            "This permanently deletes the task.",
+            Text("This permanently deletes the task.", bundle: .module),
             isPresented: Binding(
                 get: { taskPendingDelete != nil },
                 set: { isPresented in
@@ -108,15 +108,19 @@ struct ProjectOverviewView: View {
             titleVisibility: .visible,
         ) {
             if let taskPendingDelete {
-                Button("Delete Task", role: .destructive) {
+                Button(role: .destructive) {
                     Task { await viewModel.delete(taskPendingDelete) }
+                } label: {
+                    Text("Delete Task", bundle: .module)
                 }
             }
-            Button("Cancel", role: .cancel) {}
+            Button(role: .cancel) {} label: {
+                Text("Cancel", bundle: .module)
+            }
         }
         .sheet(item: $taskPendingMove) { task in
             ProjectPickerSheet(
-                title: "Move to Project",
+                title: String(localized: "Move to Project", bundle: .module),
                 projects: viewModel.allProjects,
                 selectedProjectID: nil,
                 excludingSubtreeOf: viewModel.project.id,
@@ -191,7 +195,7 @@ struct ProjectOverviewView: View {
             case let .failure(message):
                 VikuStatusView(
                     systemImage: "exclamationmark.triangle.fill",
-                    title: "Couldn't load this project",
+                    title: String(localized: "Couldn't load this project", bundle: .module),
                     message: message,
                 ) {
                     Task { await viewModel.load() }
@@ -220,9 +224,9 @@ struct ProjectOverviewView: View {
             if !viewModel.subprojects.isEmpty {
                 VStack(alignment: .leading, spacing: VikuSpacing.sm) {
                     HStack(spacing: VikuSpacing.xs) {
-                        Text("Subprojects")
+                        Text("Subprojects", bundle: .module)
                             .fontWeight(.bold)
-                        Text("\(viewModel.subprojects.count)")
+                        Text(verbatim: "\(viewModel.subprojects.count)")
                             .fontWeight(.regular)
                     }
                     .vikuSectionHeader()
@@ -253,10 +257,12 @@ struct ProjectOverviewView: View {
         if visible.isEmpty {
             VikuStatusView(
                 systemImage: "checkmark.circle",
-                title: viewModel.tasks.isEmpty ? "No tasks yet" : "Nothing here",
+                title: viewModel.tasks.isEmpty
+                    ? String(localized: "No tasks yet", bundle: .module)
+                    : String(localized: "Nothing here", bundle: .module),
                 message: viewModel.tasks.isEmpty
-                    ? "Tasks in this project will show up here."
-                    : "No tasks match this filter.",
+                    ? String(localized: "Tasks in this project will show up here.", bundle: .module)
+                    : String(localized: "No tasks match this filter.", bundle: .module),
                 iconSize: 28,
             )
             .padding(.top, VikuSpacing.lg)
@@ -266,9 +272,9 @@ struct ProjectOverviewView: View {
         } else {
             ForEach(visible) { section in
                 HStack(spacing: VikuSpacing.xs) {
-                    Text(section.title)
+                    Text(verbatim: section.title)
                         .fontWeight(.bold)
-                    Text("\(section.tasks.count)")
+                    Text(verbatim: "\(section.tasks.count)")
                         .fontWeight(.regular)
                 }
                 .vikuSectionHeader()
@@ -291,22 +297,24 @@ struct ProjectOverviewView: View {
                         onOpen: { onSelectTask(task) },
                         contextMenu: {
                             Button(
-                                task.isDone ? "Mark as Not Done" : "Mark as Done",
+                                task.isDone
+                                    ? String(localized: "Mark as Not Done", bundle: .module)
+                                    : String(localized: "Mark as Done", bundle: .module),
                                 systemImage: task.isDone ? "circle" : "checkmark.circle",
                             ) {
                                 Task { await viewModel.toggleDone(task) }
                             }
                             Divider()
-                            Button("Due Date", systemImage: "calendar") {
+                            Button(String(localized: "Due Date", bundle: .module), systemImage: "calendar") {
                                 taskPendingDueDateEdit = task
                             }
-                            Menu("Priority", systemImage: "flag") {
+                            Menu(String(localized: "Priority", bundle: .module), systemImage: "flag") {
                                 ForEach(VikunjaTask.Priority.selectable, id: \.self) { priority in
                                     Button {
                                         Task { await viewModel.setPriority(task, to: priority) }
                                     } label: {
                                         HStack {
-                                            Text(priority.displayName)
+                                            Text(verbatim: priority.localizedMenuLabel)
                                             if task.priority == priority {
                                                 Image(systemName: "checkmark")
                                             }
@@ -314,24 +322,31 @@ struct ProjectOverviewView: View {
                                     }
                                 }
                             }
-                            Button("Labels", systemImage: "tag") {
+                            Button(String(localized: "Labels", bundle: .module), systemImage: "tag") {
                                 taskPendingLabelEdit = task
                             }
                             Divider()
-                            Button("Add Relation", systemImage: "link") {
+                            Button(String(localized: "Add Relation", bundle: .module), systemImage: "link") {
                                 relationEditStep = .pickKind(task)
                             }
-                            Button("Duplicate Task", systemImage: "plus.square.on.square") {
+                            Button(
+                                String(localized: "Duplicate Task", bundle: .module),
+                                systemImage: "plus.square.on.square",
+                            ) {
                                 taskPendingDuplicate = task
                             }
-                            Button("Move to Project", systemImage: "folder") {
+                            Button(String(localized: "Move to Project", bundle: .module), systemImage: "folder") {
                                 taskPendingMove = task
                             }
                             Divider()
                             // `role: .destructive` alone renders blue here: the
                             // tab bar's tint leaks into the context menu and
                             // overrides it. Pin it back to danger.
-                            Button("Delete Task", systemImage: "trash", role: .destructive) {
+                            Button(
+                                String(localized: "Delete Task", bundle: .module),
+                                systemImage: "trash",
+                                role: .destructive,
+                            ) {
                                 taskPendingDelete = task
                             }
                             .tint(VikuColor.Semantic.danger)
@@ -361,7 +376,7 @@ private struct ProjectProgressHeader: View {
                 .fill(swatchColor)
                 .frame(width: 10, height: 10)
 
-            Text(subtitle)
+            Text(verbatim: subtitle)
                 .font(VikuFont.subheadline)
                 .fontWeight(.medium)
                 .foregroundStyle(VikuColor.textSecondary)
@@ -369,9 +384,9 @@ private struct ProjectProgressHeader: View {
     }
 
     private var subtitle: String {
-        guard !tasks.isEmpty else { return "No tasks yet" }
+        guard !tasks.isEmpty else { return String(localized: "No tasks yet", bundle: .module) }
         let done = tasks.filter(\.isDone).count
-        return "\(done)/\(tasks.count) tasks completed"
+        return String(localized: "\(done)/\(tasks.count) tasks completed", bundle: .module)
     }
 }
 
@@ -409,8 +424,10 @@ private struct SubprojectCard: View {
     }
 
     private var summaryText: String {
-        guard let taskSummary, taskSummary.total > 0 else { return "No tasks yet" }
-        return "\(taskSummary.done)/\(taskSummary.total) tasks"
+        guard let taskSummary, taskSummary.total > 0 else {
+            return String(localized: "No tasks yet", bundle: .module)
+        }
+        return String(localized: "\(taskSummary.done)/\(taskSummary.total) tasks", bundle: .module)
     }
 
     var body: some View {
@@ -432,7 +449,7 @@ private struct SubprojectCard: View {
                         .foregroundStyle(.primary)
                         .lineLimit(1)
 
-                    Text(summaryText)
+                    Text(verbatim: summaryText)
                         .font(VikuFont.caption)
                         .foregroundStyle(VikuColor.textTertiary)
                 }
@@ -471,10 +488,10 @@ enum ProjectTaskFilter: CaseIterable {
 
     var title: String {
         switch self {
-        case .all: "All"
-        case .pending: "Pending"
-        case .overdue: "Overdue"
-        case .completed: "Completed"
+        case .all: String(localized: "All", bundle: .module)
+        case .pending: String(localized: "Pending", bundle: .module)
+        case .overdue: String(localized: "Overdue", bundle: .module)
+        case .completed: String(localized: "Completed", bundle: .module)
         }
     }
 }
@@ -505,7 +522,7 @@ private struct FilterChip: View {
 
     var body: some View {
         Button(action: onSelect) {
-            Text(title)
+            Text(verbatim: title)
                 .font(VikuFont.subheadline)
                 .fontWeight(.semibold)
                 .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
@@ -538,20 +555,20 @@ private struct ProjectOverviewMenuContent: View {
         // entirely of `Picker`s doesn't render one (see "Project" below,
         // which does). A nested `Menu` always shows its own label, so this
         // sidesteps that rather than fighting it.
-        Menu("Sort", systemImage: "arrow.up.arrow.down") {
-            Picker("Sort By", selection: $sortField) {
+        Menu(String(localized: "Sort", bundle: .module), systemImage: "arrow.up.arrow.down") {
+            Picker(String(localized: "Sort By", bundle: .module), selection: $sortField) {
                 ForEach(TaskSort.Field.allCases, id: \.self) { field in
-                    Text(field.menuTitle).tag(field)
+                    Text(verbatim: field.menuTitle).tag(field)
                 }
             }
-            Picker("Order", selection: $sortDirection) {
+            Picker(String(localized: "Order", bundle: .module), selection: $sortDirection) {
                 ForEach(TaskSort.Direction.allCases, id: \.self) { direction in
-                    Text(direction.menuTitle).tag(direction)
+                    Text(verbatim: direction.menuTitle).tag(direction)
                 }
             }
         }
-        Section("Project") {
-            Button("Edit Project", systemImage: "pencil", action: onEditProject)
+        Section(String(localized: "Project", bundle: .module)) {
+            Button(String(localized: "Edit Project", bundle: .module), systemImage: "pencil", action: onEditProject)
         }
     }
 }
@@ -572,8 +589,8 @@ private struct DisplayModeSwitcher: View {
     }
 
     private static let options: [Option] = [
-        Option(mode: .list, title: "List", systemImage: "list.bullet"),
-        Option(mode: .kanban, title: "Kanban", systemImage: "rectangle.split.3x1"),
+        Option(mode: .list, title: String(localized: "List", bundle: .module), systemImage: "list.bullet"),
+        Option(mode: .kanban, title: String(localized: "Kanban", bundle: .module), systemImage: "rectangle.split.3x1"),
     ]
 
     var body: some View {
@@ -611,7 +628,7 @@ private struct DisplayModeSwitcher: View {
                 // animation instead of popping it in/out, which is what read
                 // as laggy — an insert/remove transition doesn't blend with
                 // the sibling icon's position shifting at the same time.
-                Text(option.title)
+                Text(verbatim: option.title)
                     .font(.system(size: 13, weight: .semibold))
                     .lineLimit(1)
                     .fixedSize()
@@ -638,9 +655,9 @@ private struct DisplayModeSwitcher: View {
 private extension TaskSort.Field {
     var menuTitle: String {
         switch self {
-        case .dueDate: "Due Date"
-        case .priority: "Priority"
-        case .title: "Alphabetical"
+        case .dueDate: String(localized: "Due Date", bundle: .module)
+        case .priority: String(localized: "Priority", bundle: .module)
+        case .title: String(localized: "Alphabetical", bundle: .module)
         }
     }
 }
@@ -648,8 +665,8 @@ private extension TaskSort.Field {
 private extension TaskSort.Direction {
     var menuTitle: String {
         switch self {
-        case .ascending: "Ascending"
-        case .descending: "Descending"
+        case .ascending: String(localized: "Ascending", bundle: .module)
+        case .descending: String(localized: "Descending", bundle: .module)
         }
     }
 }
@@ -686,11 +703,35 @@ private struct ProjectTaskSection: Identifiable {
         let pending = filtered.filter { !$0.isDone && !isOverdue($0) }
         let completed = filtered.filter(\.isDone)
 
+        let overdueTitle = String(localized: "Overdue", bundle: .module)
+        let pendingTitle = String(localized: "Pending", bundle: .module)
+        let completedTitle = String(localized: "Completed", bundle: .module)
+
         return [
-            overdue.isEmpty ? nil : ProjectTaskSection(title: "Overdue", tasks: sort.sorted(overdue)),
-            pending.isEmpty ? nil : ProjectTaskSection(title: "Pending", tasks: sort.sorted(pending)),
-            completed.isEmpty ? nil : ProjectTaskSection(title: "Completed", tasks: sort.sorted(completed)),
+            overdue.isEmpty ? nil : ProjectTaskSection(title: overdueTitle, tasks: sort.sorted(overdue)),
+            pending.isEmpty ? nil : ProjectTaskSection(title: pendingTitle, tasks: sort.sorted(pending)),
+            completed.isEmpty ? nil : ProjectTaskSection(title: completedTitle, tasks: sort.sorted(completed)),
         ].compactMap(\.self)
+    }
+}
+
+private extension VikunjaTask.Priority {
+    /// `displayName` (`VikunjaCore`) is plain English; this screen's priority
+    /// menu needs a localized label, so it owns its own translation here
+    /// rather than reaching into Core, mirroring `PriorityOption.all` in
+    /// `VikuDesignSystem`'s `TaskFormControls.swift` and `Home`'s `TodayView`.
+    var localizedMenuLabel: String {
+        switch self {
+        // Distinct key from `ParentProjectField`'s "None" (`CreateProjectSheetView`/
+        // `EditProjectSheetView`): that one agrees with "proyecto" (masculine,
+        // "Ninguno"), this one with "prioridad" (feminine, "Ninguna") — same
+        // English source text, different Spanish translations.
+        case .unset: String(localized: "priority.none", defaultValue: "None", bundle: .module)
+        case .low: String(localized: "Low", bundle: .module)
+        case .medium: String(localized: "Medium", bundle: .module)
+        case .high: String(localized: "High", bundle: .module)
+        case .urgent, .doNow: String(localized: "Urgent", bundle: .module)
+        }
     }
 }
 
