@@ -110,7 +110,9 @@ public final class SearchViewModel {
             state = .loaded(tasks)
         } catch {
             guard !Task.isCancelled else { return }
-            state = .failure((error as? VikunjaError)?.displayMessage ?? "Search failed")
+            state = .failure(
+                (error as? VikunjaError)?.displayMessage ?? String(localized: "Search failed", bundle: .module),
+            )
         }
     }
 
@@ -156,7 +158,7 @@ public final class SearchViewModel {
         } catch {
             guard !Task.isCancelled else { return }
             if !didWarnProjectLoadFailure {
-                toastPresenter.show("Could not load project details", style: .error)
+                toastPresenter.show(String(localized: "Could not load project details", bundle: .module), style: .error)
                 didWarnProjectLoadFailure = true
             }
         }

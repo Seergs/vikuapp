@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import VikuDesignSystem
 import VikuNavigation
@@ -19,14 +20,14 @@ struct SearchView: View {
             .searchable(
                 text: $viewModel.query,
                 placement: .automatic,
-                prompt: "Search tasks",
+                prompt: Text("Search tasks", bundle: .module),
             )
             .onChange(of: viewModel.query) { _, _ in
                 viewModel.queryChanged()
             }
-            .navigationTitle("Search")
+            .navigationTitle(Text("Search", bundle: .module))
             .confirmationDialog(
-                "This permanently deletes the task.",
+                Text("This permanently deletes the task.", bundle: .module),
                 isPresented: Binding(
                     get: { taskPendingDelete != nil },
                     set: { isPresented in
@@ -38,11 +39,15 @@ struct SearchView: View {
                 titleVisibility: .visible,
             ) {
                 if let taskPendingDelete {
-                    Button("Delete Task", role: .destructive) {
+                    Button(role: .destructive) {
                         Task { await viewModel.delete(taskPendingDelete) }
+                    } label: {
+                        Text("Delete Task", bundle: .module)
                     }
                 }
-                Button("Cancel", role: .cancel) {}
+                Button(role: .cancel) {} label: {
+                    Text("Cancel", bundle: .module)
+                }
             }
     }
 
@@ -52,8 +57,8 @@ struct SearchView: View {
             case .idle:
                 VikuStatusView(
                     systemImage: "magnifyingglass",
-                    title: "Search Tasks",
-                    message: "Type a query to search all your tasks",
+                    title: String(localized: "Search Tasks", bundle: .module),
+                    message: String(localized: "Type a query to search all your tasks", bundle: .module),
                 )
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
@@ -69,8 +74,8 @@ struct SearchView: View {
                 if tasks.isEmpty {
                     VikuStatusView(
                         systemImage: "magnifyingglass",
-                        title: "No Results",
-                        message: "No tasks match your search",
+                        title: String(localized: "No Results", bundle: .module),
+                        message: String(localized: "No tasks match your search", bundle: .module),
                     )
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
@@ -81,7 +86,7 @@ struct SearchView: View {
             case let .failure(message):
                 VikuStatusView(
                     systemImage: "exclamationmark.triangle.fill",
-                    title: "Search Error",
+                    title: String(localized: "Search Error", bundle: .module),
                     message: message,
                     fillsHeight: false,
                 )
@@ -96,9 +101,9 @@ struct SearchView: View {
     @ViewBuilder
     private func loadedContent(_ tasks: [VikunjaTask]) -> some View {
         HStack(spacing: VikuSpacing.xs) {
-            Text("RESULTS")
+            Text("RESULTS", bundle: .module)
                 .fontWeight(.bold)
-            Text("\(tasks.count)")
+            Text(verbatim: "\(tasks.count)")
                 .fontWeight(.regular)
         }
         .vikuSectionHeader()
@@ -120,13 +125,15 @@ struct SearchView: View {
                     },
                     contextMenu: {
                         Button(
-                            task.isDone ? "Mark as Not Done" : "Mark as Done",
+                            task.isDone
+                                ? String(localized: "Mark as Not Done", bundle: .module)
+                                : String(localized: "Mark as Done", bundle: .module),
                             systemImage: task.isDone ? "circle" : "checkmark.circle",
                         ) {
                             Task { await viewModel.toggleDone(task) }
                         }
                         Divider()
-                        Button("Delete", systemImage: "trash", role: .destructive) {
+                        Button(String(localized: "Delete", bundle: .module), systemImage: "trash", role: .destructive) {
                             taskPendingDelete = task
                         }
                         .tint(VikuColor.Semantic.danger)
