@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import VikuDesignSystem
 import VikunjaCore
@@ -14,7 +15,10 @@ struct CommentsSection: View {
     var isComposerFocused: FocusState<Bool>.Binding
 
     var body: some View {
-        SectionBlock(title: "Comments", count: viewModel.comments.isEmpty ? nil : "\(viewModel.comments.count)") {
+        SectionBlock(
+            title: String(localized: "Comments", bundle: .module),
+            count: viewModel.comments.isEmpty ? nil : "\(viewModel.comments.count)",
+        ) {
             CommentsList(
                 comments: viewModel.comments,
                 loadState: viewModel.commentsLoadState,
@@ -42,13 +46,13 @@ private struct CommentsList: View {
         if case let .failure(message) = loadState {
             return message
         }
-        return "No comments yet."
+        return String(localized: "No comments yet.", bundle: .module)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.md - VikuSpacing.xxs) {
             if comments.isEmpty {
-                Text(emptyStateMessage)
+                Text(verbatim: emptyStateMessage)
                     .font(VikuFont.subheadline)
                     .foregroundStyle(VikuColor.textTertiary)
             } else {
@@ -97,17 +101,17 @@ private struct CommentRow: View {
                 .fill(VikuColor.Surface.field)
                 .frame(width: 30, height: 30)
                 .overlay {
-                    Text(initials)
+                    Text(verbatim: initials)
                         .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(VikuColor.textSecondary)
                 }
 
             VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
                 HStack(alignment: .firstTextBaseline, spacing: VikuSpacing.xs) {
-                    Text(displayName)
+                    Text(verbatim: displayName)
                         .font(.system(size: 13.5, weight: .bold))
                         .foregroundStyle(Color.primary)
-                    Text(RelativeTimeFormatter.string(for: comment.created))
+                    Text(verbatim: RelativeTimeFormatter.string(for: comment.created))
                         .font(.system(size: 12))
                         .foregroundStyle(VikuColor.textTertiary)
                 }
@@ -121,13 +125,18 @@ private struct CommentRow: View {
         }
         .contentShape(Rectangle())
         .contextMenu {
-            Button("Edit Comment", systemImage: "pencil", action: onEdit)
+            Button(String(localized: "Edit Comment", bundle: .module), systemImage: "pencil", action: onEdit)
             // `role: .destructive` alone renders blue here, not red: the tab
             // bar's `.tint(VikuColor.brandPrimary)` leaks into the context
             // menu — an explicit `.tint` is what forces the red, mirroring
             // `ProjectTaskRow`'s context menu in `Features/Projects`.
-            Button("Delete Comment", systemImage: "trash", role: .destructive, action: onDelete)
-                .tint(VikuColor.Semantic.danger)
+            Button(
+                String(localized: "Delete Comment", bundle: .module),
+                systemImage: "trash",
+                role: .destructive,
+                action: onDelete,
+            )
+            .tint(VikuColor.Semantic.danger)
         }
     }
 }
@@ -143,7 +152,7 @@ private struct CommentComposer: View {
 
     var body: some View {
         HStack(spacing: VikuSpacing.xs) {
-            TextField("Write a comment...", text: $draft)
+            TextField(String(localized: "Write a comment...", bundle: .module), text: $draft)
                 .font(.system(size: 15))
                 .foregroundStyle(Color.primary)
                 .submitLabel(.send)

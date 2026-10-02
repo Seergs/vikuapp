@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import VikuDesignSystem
 
@@ -28,7 +29,7 @@ struct EditCommentSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                TextField("Comment", text: $draft, axis: .vertical)
+                TextField(String(localized: "Comment", bundle: .module), text: $draft, axis: .vertical)
                     .font(.system(size: 15))
                     .foregroundStyle(Color.primary)
                     .padding(VikuSpacing.sm)
@@ -39,16 +40,16 @@ struct EditCommentSheet: View {
                     .padding(.horizontal, VikuSpacing.md)
                     .padding(.top, VikuSpacing.md)
             }
-            .navigationTitle("Edit Comment")
+            .navigationTitle(Text("Edit Comment", bundle: .module))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button(String(localized: "Cancel", bundle: .module)) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
+                    Button(String(localized: "Save", bundle: .module)) {
                         onSave(draft)
                         dismiss()
                     }

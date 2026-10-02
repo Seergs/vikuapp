@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import VikuDesignSystem
 import VikunjaCore
@@ -14,10 +15,10 @@ struct AttachmentsSection: View {
 
     var body: some View {
         SectionBlock(
-            title: "Attachments",
+            title: String(localized: "Attachments", bundle: .module),
             count: viewModel.attachments.isEmpty ? nil : "\(viewModel.attachments.count)",
             trailing: AnyView(
-                SectionHeaderButton(title: "Add", action: onAdd)
+                SectionHeaderButton(title: String(localized: "Add", bundle: .module), action: onAdd)
                     .disabled(viewModel.isUploadingAttachment),
             ),
         ) {
@@ -43,13 +44,13 @@ private struct AttachmentsList: View {
         if case let .failure(message) = loadState {
             return message
         }
-        return "No attachments yet."
+        return String(localized: "No attachments yet.", bundle: .module)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.xs) {
             if attachments.isEmpty, !isUploading {
-                Text(emptyStateMessage)
+                Text(verbatim: emptyStateMessage)
                     .font(VikuFont.subheadline)
                     .foregroundStyle(VikuColor.textTertiary)
             } else {
@@ -74,7 +75,7 @@ private struct AttachmentUploadingRow: View {
         HStack(spacing: VikuSpacing.sm) {
             ProgressView()
                 .frame(width: 28)
-            Text("Uploading…")
+            Text("Uploading…", bundle: .module)
                 .font(.system(size: 14.5, weight: .medium))
                 .foregroundStyle(VikuColor.textSecondary)
             Spacer(minLength: 0)
@@ -106,12 +107,12 @@ private struct AttachmentRow: View {
                     .frame(width: 28)
 
                 VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
-                    Text(attachment.fileName)
+                    Text(verbatim: attachment.fileName)
                         .font(.system(size: 14.5, weight: .medium))
                         .foregroundStyle(Color.primary)
                         .lineLimit(1)
                         .truncationMode(.middle)
-                    Text(subtitle)
+                    Text(verbatim: subtitle)
                         .font(.system(size: 12))
                         .foregroundStyle(VikuColor.textTertiary)
                 }
@@ -131,8 +132,13 @@ private struct AttachmentRow: View {
             // `role: .destructive` alone renders blue here — the tab bar's
             // `.tint(VikuColor.brandPrimary)` leaks in, same as
             // `CommentRow`'s context menu.
-            Button("Delete Attachment", systemImage: "trash", role: .destructive, action: onDelete)
-                .tint(VikuColor.Semantic.danger)
+            Button(
+                String(localized: "Delete Attachment", bundle: .module),
+                systemImage: "trash",
+                role: .destructive,
+                action: onDelete,
+            )
+            .tint(VikuColor.Semantic.danger)
         }
     }
 }

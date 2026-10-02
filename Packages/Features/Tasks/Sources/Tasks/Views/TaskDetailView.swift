@@ -71,7 +71,7 @@ public struct TaskDetailView: View {
                     case let .failure(message):
                         VikuStatusView(
                             systemImage: "exclamationmark.triangle.fill",
-                            title: "Couldn't load this task",
+                            title: String(localized: "Couldn't load this task", bundle: .module),
                             message: message,
                             fillsHeight: false,
                         ) {
@@ -111,22 +111,24 @@ public struct TaskDetailView: View {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
                         Button(
-                            viewModel.task.isDone ? "Mark as Not Done" : "Mark as Done",
+                            viewModel.task.isDone
+                                ? String(localized: "Mark as Not Done", bundle: .module)
+                                : String(localized: "Mark as Done", bundle: .module),
                             systemImage: viewModel.task.isDone ? "circle" : "checkmark.circle",
                         ) {
                             Task { await viewModel.toggleDone() }
                         }
                         Divider()
-                        Button("Due Date", systemImage: "calendar") {
+                        Button(String(localized: "Due Date", bundle: .module), systemImage: "calendar") {
                             isShowingDueDatePicker = true
                         }
-                        Menu("Priority", systemImage: "flag") {
+                        Menu(String(localized: "Priority", bundle: .module), systemImage: "flag") {
                             ForEach(VikunjaTask.Priority.selectable, id: \.self) { priority in
                                 Button {
                                     Task { await viewModel.setPriority(priority) }
                                 } label: {
                                     HStack {
-                                        Text(priority.displayName)
+                                        Text(verbatim: priority.localizedMenuLabel)
                                         if viewModel.task.priority == priority {
                                             Image(systemName: "checkmark")
                                         }
@@ -134,17 +136,20 @@ public struct TaskDetailView: View {
                                 }
                             }
                         }
-                        Button("Labels", systemImage: "tag") {
+                        Button(String(localized: "Labels", bundle: .module), systemImage: "tag") {
                             isShowingLabelPicker = true
                         }
                         Divider()
-                        Button("Add Relation", systemImage: "link") {
+                        Button(String(localized: "Add Relation", bundle: .module), systemImage: "link") {
                             relationEditStep = .pickKind(viewModel.task)
                         }
-                        Button("Duplicate Task", systemImage: "plus.square.on.square") {
+                        Button(
+                            String(localized: "Duplicate Task", bundle: .module),
+                            systemImage: "plus.square.on.square",
+                        ) {
                             isShowingDuplicateSheet = true
                         }
-                        Button("Move to Project", systemImage: "folder") {
+                        Button(String(localized: "Move to Project", bundle: .module), systemImage: "folder") {
                             isShowingMovePicker = true
                         }
                         Divider()
@@ -152,7 +157,11 @@ public struct TaskDetailView: View {
                         // the tab bar's `.tint(VikuColor.brandPrimary)` leaks
                         // into this menu and overrides the role's tint — mirrors
                         // `ProjectTaskRow`'s context menu in `Features/Projects`.
-                        Button("Delete Task", systemImage: "trash", role: .destructive) {
+                        Button(
+                            String(localized: "Delete Task", bundle: .module),
+                            systemImage: "trash",
+                            role: .destructive,
+                        ) {
                             isShowingDeleteConfirmation = true
                         }
                         .tint(VikuColor.Semantic.danger)
@@ -161,7 +170,7 @@ public struct TaskDetailView: View {
                     }
                 }
             }
-            .navigationTitle("Task Details")
+            .navigationTitle(Text("Task Details", bundle: .module))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -212,7 +221,7 @@ public struct TaskDetailView: View {
             }
             .sheet(isPresented: $isShowingMovePicker) {
                 ProjectPickerSheet(
-                    title: "Move to Project",
+                    title: String(localized: "Move to Project", bundle: .module),
                     projects: viewModel.allProjects,
                     selectedProjectID: nil,
                     excludingSubtreeOf: viewModel.task.projectID,
@@ -236,21 +245,25 @@ public struct TaskDetailView: View {
                 )
             }
             .confirmationDialog(
-                "This permanently deletes the task.",
+                Text("This permanently deletes the task.", bundle: .module),
                 isPresented: $isShowingDeleteConfirmation,
                 titleVisibility: .visible,
             ) {
-                Button("Delete Task", role: .destructive) {
+                Button(role: .destructive) {
                     Task {
                         if await viewModel.deleteTask() {
                             dismiss()
                         }
                     }
+                } label: {
+                    Text("Delete Task", bundle: .module)
                 }
-                Button("Cancel", role: .cancel) {}
+                Button(role: .cancel) {} label: {
+                    Text("Cancel", bundle: .module)
+                }
             }
             .confirmationDialog(
-                "This permanently deletes the comment.",
+                Text("This permanently deletes the comment.", bundle: .module),
                 isPresented: Binding(
                     get: { commentPendingDeletion != nil },
                     set: {
@@ -262,10 +275,14 @@ public struct TaskDetailView: View {
                 titleVisibility: .visible,
                 presenting: commentPendingDeletion,
             ) { comment in
-                Button("Delete Comment", role: .destructive) {
+                Button(role: .destructive) {
                     Task { await viewModel.deleteComment(comment) }
+                } label: {
+                    Text("Delete Comment", bundle: .module)
                 }
-                Button("Cancel", role: .cancel) {}
+                Button(role: .cancel) {} label: {
+                    Text("Cancel", bundle: .module)
+                }
             }
             .sheet(item: $commentPendingEdit) { comment in
                 EditCommentSheet(initialText: RichText.plainText(from: comment.comment)) { newText in
@@ -392,12 +409,12 @@ public struct TaskDetailView: View {
             .padding(.top, VikuSpacing.xxs)
 
             if isEditingTitle {
-                TextField("Task title", text: $titleDraft, axis: .vertical)
+                TextField(String(localized: "Task title", bundle: .module), text: $titleDraft, axis: .vertical)
                     .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(Color.primary)
                     .focused($focusedField, equals: .title)
             } else {
-                Text(task.title)
+                Text(verbatim: task.title)
                     .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(Color.primary)
                     .strikethrough(task.isDone)
@@ -457,11 +474,15 @@ public struct TaskDetailView: View {
             // here since a multi-line field never submits on Return. Committing
             // happens via the nav bar checkmark below, or by tapping
             // elsewhere (see `focusedField`'s `onChange` above).
-            TextField("Add description...", text: $descriptionDraft, axis: .vertical)
-                .font(VikuFont.callout)
-                .foregroundStyle(VikuColor.textSecondary)
-                .focused($focusedField, equals: .description)
-                .padding(.top, VikuSpacing.md)
+            TextField(
+                String(localized: "Add description...", bundle: .module),
+                text: $descriptionDraft,
+                axis: .vertical,
+            )
+            .font(VikuFont.callout)
+            .foregroundStyle(VikuColor.textSecondary)
+            .focused($focusedField, equals: .description)
+            .padding(.top, VikuSpacing.md)
         } else if let description = task.description, !RichText.isEmpty(description) {
             // Vikunja stores the description as its web editor's HTML output;
             // render it, don't show the raw markup. Tapping still opens the
@@ -472,7 +493,7 @@ public struct TaskDetailView: View {
                 .onTapGesture { beginEditingDescription() }
                 .padding(.top, VikuSpacing.md)
         } else {
-            Text("Add description...")
+            Text("Add description...", bundle: .module)
                 .font(VikuFont.callout)
                 .foregroundStyle(VikuColor.textTertiary)
                 .contentShape(Rectangle())

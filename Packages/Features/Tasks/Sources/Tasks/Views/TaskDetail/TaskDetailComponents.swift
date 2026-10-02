@@ -17,7 +17,7 @@ struct ProjectPill: View {
             RoundedRectangle(cornerRadius: 3, style: .continuous)
                 .fill(swatchColor)
                 .frame(width: 10, height: 10)
-            Text(project.title)
+            Text(verbatim: project.title)
                 .font(VikuFont.footnote)
                 .fontWeight(.semibold)
                 .foregroundStyle(VikuColor.textSecondary)
@@ -83,11 +83,11 @@ struct InfoRow: View {
                 .font(.system(size: 14))
                 .foregroundStyle(iconColor)
                 .frame(width: 18)
-            Text(title)
+            Text(verbatim: title)
                 .font(VikuFont.subheadline)
                 .foregroundStyle(Color.primary)
             Spacer()
-            Text(value)
+            Text(verbatim: value)
                 .font(VikuFont.subheadline)
                 .fontWeight(.semibold)
                 .foregroundStyle(valueColor ?? Color.primary)
@@ -112,10 +112,10 @@ struct SectionBlock<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm) {
             HStack(spacing: VikuSpacing.xs) {
-                Text(title)
+                Text(verbatim: title)
                     .fontWeight(.bold)
                 if let count {
-                    Text(count)
+                    Text(verbatim: count)
                         .fontWeight(.regular)
                 }
                 Spacer(minLength: 0)
@@ -144,7 +144,7 @@ struct SectionHeaderButton: View {
             HStack(spacing: VikuSpacing.xxs) {
                 Image(systemName: "plus")
                     .font(.system(size: 11, weight: .semibold))
-                Text(title)
+                Text(verbatim: title)
             }
             .foregroundStyle(VikuColor.brandPrimary)
         }

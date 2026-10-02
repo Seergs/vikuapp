@@ -1,3 +1,4 @@
+import Foundation
 import Observation
 import VikunjaCore
 import VikuUI
@@ -112,7 +113,7 @@ public final class QuickAddTaskViewModel {
                     projectID: selectedProjectID,
                 ),
             )
-            toastPresenter.show("Task created", style: .success)
+            toastPresenter.show(String(localized: "Task created", bundle: .module), style: .success)
             taskChangeBroadcaster?.taskCreated(projectID: selectedProjectID)
             return created
         } catch let error as VikunjaError {

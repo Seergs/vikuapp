@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import VikuDesignSystem
 import VikunjaCore
@@ -16,8 +17,9 @@ struct DueDatePriorityRows: View {
                 InfoRow(
                     systemImage: "calendar",
                     iconColor: task.dueDate == nil ? VikuColor.textTertiary : VikuColor.textSecondary,
-                    title: "Due",
-                    value: task.dueDate.map { DueDateFormatter.dueLabel($0) } ?? "Set due date",
+                    title: String(localized: "Due", bundle: .module),
+                    value: task.dueDate.map { DueDateFormatter.dueLabel($0) }
+                        ?? String(localized: "Set due date", bundle: .module),
                     valueColor: task.dueDate == nil
                         ? VikuColor.textTertiary
                         : (isOverdue(task) ? VikuColor.Semantic.dangerText : nil),
@@ -32,7 +34,7 @@ struct DueDatePriorityRows: View {
                         Task { await viewModel.setPriority(priority) }
                     } label: {
                         HStack {
-                            Text(priority.displayName)
+                            Text(verbatim: priority.localizedMenuLabel)
                             if task.priority == priority {
                                 Image(systemName: "checkmark")
                             }
@@ -43,8 +45,8 @@ struct DueDatePriorityRows: View {
                 InfoRow(
                     systemImage: "flag",
                     iconColor: priorityDisplay(task.priority)?.color ?? VikuColor.textTertiary,
-                    title: "Priority",
-                    value: priorityDisplay(task.priority)?.label ?? "Set priority",
+                    title: String(localized: "Priority", bundle: .module),
+                    value: priorityDisplay(task.priority)?.label ?? String(localized: "Set priority", bundle: .module),
                     valueColor: priorityDisplay(task.priority)?.color ?? VikuColor.textTertiary,
                     showsChevron: true,
                 )
@@ -66,6 +68,24 @@ struct DueDatePriorityRows: View {
 
     private func priorityDisplay(_ priority: VikunjaTask.Priority) -> PriorityDisplay? {
         guard let color = VikuColor.Priority.dot(for: priority) else { return nil }
-        return PriorityDisplay(label: priority.displayName, color: color)
+        return PriorityDisplay(label: priority.localizedMenuLabel, color: color)
+    }
+}
+
+extension VikunjaTask.Priority {
+    /// `displayName` (`VikunjaCore`) is plain English; this feature's priority
+    /// menus need a localized label, so it owns its own translation here
+    /// rather than reaching into Core, mirroring `PriorityOption.all` in
+    /// `VikuDesignSystem`'s `TaskFormControls.swift` and `Home`/`Projects`'
+    /// own `TodayView`/`ProjectOverviewView`. Internal (not `private`): also
+    /// used by `TaskDetailView`'s own priority menu.
+    var localizedMenuLabel: String {
+        switch self {
+        case .unset: String(localized: "None", bundle: .module)
+        case .low: String(localized: "Low", bundle: .module)
+        case .medium: String(localized: "Medium", bundle: .module)
+        case .high: String(localized: "High", bundle: .module)
+        case .urgent, .doNow: String(localized: "Urgent", bundle: .module)
+        }
     }
 }

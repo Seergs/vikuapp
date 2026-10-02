@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import VikuDesignSystem
 import VikunjaCore
@@ -10,9 +11,15 @@ struct LabelsSection: View {
     let onEdit: () -> Void
 
     var body: some View {
-        SectionBlock(title: "Labels", trailing: AnyView(SectionHeaderButton(title: "Edit", action: onEdit))) {
+        SectionBlock(
+            title: String(localized: "Labels", bundle: .module),
+            trailing: AnyView(SectionHeaderButton(
+                title: String(localized: "Edit", bundle: .module),
+                action: onEdit,
+            )),
+        ) {
             if labels.isEmpty {
-                Button("Add labels…", action: onEdit)
+                Button(String(localized: "Add labels…", bundle: .module), action: onEdit)
                     .buttonStyle(.plain)
                     .font(VikuFont.subheadline)
                     .foregroundStyle(VikuColor.textTertiary)

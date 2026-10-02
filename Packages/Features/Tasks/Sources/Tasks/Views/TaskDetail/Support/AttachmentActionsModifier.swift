@@ -1,3 +1,4 @@
+import Foundation
 import QuickLook
 import SwiftUI
 import UniformTypeIdentifiers
@@ -24,7 +25,7 @@ struct AttachmentActionsModifier: ViewModifier {
             }
             .quickLookPreview($previewURL)
             .confirmationDialog(
-                "This permanently deletes the attachment.",
+                Text("This permanently deletes the attachment.", bundle: .module),
                 isPresented: Binding(
                     get: { pendingDeletion != nil },
                     set: {
@@ -36,10 +37,14 @@ struct AttachmentActionsModifier: ViewModifier {
                 titleVisibility: .visible,
                 presenting: pendingDeletion,
             ) { attachment in
-                Button("Delete Attachment", role: .destructive) {
+                Button(role: .destructive) {
                     Task { await viewModel.deleteAttachment(attachment) }
+                } label: {
+                    Text("Delete Attachment", bundle: .module)
                 }
-                Button("Cancel", role: .cancel) {}
+                Button(role: .cancel) {} label: {
+                    Text("Cancel", bundle: .module)
+                }
             }
     }
 }
