@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import VikuDesignSystem
 import VikuNavigation
@@ -18,7 +19,7 @@ struct CalendarView: View {
     var body: some View {
         content
             .background(VikuColor.Surface.page)
-            .navigationTitle("Calendar")
+            .navigationTitle(Text("Calendar", bundle: .module))
             .refreshable { await viewModel.load() }
             .task { await viewModel.load() }
     }
@@ -32,7 +33,7 @@ struct CalendarView: View {
         case let .failure(message):
             VikuStatusView(
                 systemImage: "exclamationmark.triangle.fill",
-                title: "Couldn't load your tasks",
+                title: String(localized: "Couldn't load your tasks", bundle: .module),
                 message: message,
             ) {
                 Task { await viewModel.load() }
@@ -87,7 +88,7 @@ struct CalendarView: View {
 
             Spacer()
 
-            Text(month.title)
+            Text(verbatim: month.title)
                 .font(VikuFont.headline)
                 .foregroundStyle(Color.primary)
 
@@ -109,10 +110,10 @@ struct CalendarView: View {
     @ViewBuilder
     private var selectedDaySection: some View {
         HStack(spacing: VikuSpacing.xs) {
-            Text(selectedDayTitle)
+            Text(verbatim: selectedDayTitle)
                 .fontWeight(.bold)
             if !selectedTasks.isEmpty {
-                Text("\(selectedTasks.count)")
+                Text(verbatim: "\(selectedTasks.count)")
                     .fontWeight(.regular)
             }
         }
@@ -124,7 +125,7 @@ struct CalendarView: View {
         .padding(.top, VikuSpacing.xs)
 
         if selectedTasks.isEmpty {
-            Text("No tasks this day.")
+            Text("No tasks this day.", bundle: .module)
                 .font(VikuFont.subheadline)
                 .foregroundStyle(VikuColor.textTertiary)
                 .frame(maxWidth: .infinity)
@@ -152,7 +153,7 @@ struct CalendarView: View {
 
     private var selectedDayTitle: String {
         if calendar.isDateInToday(selectedDay) {
-            return "Today"
+            return String(localized: "Today", bundle: .module)
         }
         return selectedDay.formatted(.dateTime.weekday(.wide).month(.wide).day())
     }
@@ -182,7 +183,7 @@ private struct MonthGrid: View {
     var body: some View {
         LazyVGrid(columns: columns, spacing: VikuSpacing.xs) {
             ForEach(month.weekdaySymbols, id: \.self) { symbol in
-                Text(symbol)
+                Text(verbatim: symbol)
                     .font(.system(size: 11.5, weight: .bold))
                     .foregroundStyle(VikuColor.textTertiary)
                     .frame(maxWidth: .infinity)
@@ -233,7 +234,7 @@ private struct DayCell: View {
                     } else if day.isToday {
                         Circle().strokeBorder(VikuColor.brandPrimary, lineWidth: 1.5)
                     }
-                    Text("\(day.dayNumber)")
+                    Text(verbatim: "\(day.dayNumber)")
                         .font(.system(size: 14.5, weight: day.isToday || isSelected ? .bold : .medium))
                         .foregroundStyle(numberColor)
                 }
@@ -304,7 +305,7 @@ private struct CalendarTaskRow: View {
             .padding(.top, 1)
 
             VStack(alignment: .leading, spacing: VikuSpacing.xs + VikuSpacing.xxs) {
-                Text(task.title)
+                Text(verbatim: task.title)
                     .font(VikuFont.body)
                     .fontWeight(.medium)
                     .strikethrough(task.isDone)
@@ -316,7 +317,7 @@ private struct CalendarTaskRow: View {
                             RoundedRectangle(cornerRadius: 3, style: .continuous)
                                 .fill(projectColor)
                                 .frame(width: 6, height: 6)
-                            Text(project.title)
+                            Text(verbatim: project.title)
                                 .font(.system(size: 12.5, weight: .regular))
                                 .foregroundStyle(VikuColor.textSecondary)
                                 .truncationMode(.tail)
@@ -324,18 +325,18 @@ private struct CalendarTaskRow: View {
                     }
 
                     if project != nil, task.dueDate != nil {
-                        Text("·")
+                        Text(verbatim: "·")
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(VikuColor.textSecondary)
                     }
 
                     Group {
                         if isOverdue {
-                            Text("Overdue")
+                            Text("Overdue", bundle: .module)
                                 .font(.system(size: 12.5, weight: .semibold))
                                 .foregroundStyle(VikuColor.Semantic.dangerText)
                         } else if let dueDate = task.dueDate {
-                            Text(DueDateFormatter.compact(dueDate))
+                            Text(verbatim: DueDateFormatter.compact(dueDate))
                                 .font(.system(size: 12.5, weight: .regular))
                                 .foregroundStyle(VikuColor.textSecondary)
                         }
@@ -357,7 +358,7 @@ private struct CalendarTaskRow: View {
                         }
                         let remaining = task.labels.count - Self.labelDisplayLimit
                         if remaining > 0 {
-                            Text("+\(remaining)")
+                            Text(verbatim: "+\(remaining)")
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(VikuColor.textTertiary)
                                 .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
