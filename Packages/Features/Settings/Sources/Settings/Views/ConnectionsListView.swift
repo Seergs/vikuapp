@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import VikuDesignSystem
 import VikuNavigation
@@ -28,7 +29,7 @@ struct ConnectionsListView: View {
     var body: some View {
         content
             .background(VikuColor.Surface.page)
-            .navigationTitle("Connections")
+            .navigationTitle(Text("Connections", bundle: .module))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -56,7 +57,7 @@ struct ConnectionsListView: View {
         case let .failure(message):
             VikuStatusView(
                 systemImage: "exclamationmark.triangle.fill",
-                title: "Couldn't load connections",
+                title: String(localized: "Couldn't load connections", bundle: .module),
                 message: message,
             ) {
                 Task { await viewModel.load() }
@@ -65,7 +66,7 @@ struct ConnectionsListView: View {
         case .loaded:
             ScrollView {
                 VStack(alignment: .leading, spacing: VikuSpacing.md) {
-                    Text("Choose the Vikunja instance you want to sync your tasks with.")
+                    Text("Choose the Vikunja instance you want to sync your tasks with.", bundle: .module)
                         .font(VikuFont.footnote)
                         .foregroundStyle(VikuColor.textSecondary)
 
@@ -114,7 +115,7 @@ private struct AddConnectionButton: View {
             HStack(spacing: VikuSpacing.sm) {
                 Image(systemName: "plus")
                     .font(.system(size: 14, weight: .semibold))
-                Text("Add Connection")
+                Text("Add Connection", bundle: .module)
                     .font(VikuFont.body)
                     .fontWeight(.semibold)
             }
@@ -164,14 +165,14 @@ private struct ConnectionRow: View {
 
                     VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
                         HStack(spacing: VikuSpacing.xs + VikuSpacing.xxs) {
-                            Text(account.displayName)
+                            Text(verbatim: account.displayName)
                                 .font(VikuFont.body)
                                 .fontWeight(.semibold)
                                 .foregroundStyle(Color.primary)
                                 .lineLimit(1)
 
                             if isActive {
-                                Text("ACTIVE")
+                                Text("ACTIVE", bundle: .module)
                                     .font(.system(size: 11, weight: .bold))
                                     .foregroundStyle(VikuColor.brandPrimary)
                                     .padding(.horizontal, VikuSpacing.xs + VikuSpacing.xxs)
@@ -180,7 +181,7 @@ private struct ConnectionRow: View {
                             }
                         }
 
-                        Text(account.baseURL.absoluteString)
+                        Text(verbatim: account.baseURL.absoluteString)
                             .font(VikuFont.footnote)
                             .foregroundStyle(VikuColor.textTertiary)
                             .lineLimit(1)
@@ -192,10 +193,10 @@ private struct ConnectionRow: View {
                     Image(systemName: account.authMethod.badgeSystemImage)
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(VikuColor.textTertiary)
-                        .accessibilityLabel(account.authMethod.badgeAccessibilityLabel)
+                        .accessibilityLabel(Text(verbatim: account.authMethod.badgeAccessibilityLabel))
 
                     if let serverVersion {
-                        Text(serverVersion.hasPrefix("v") ? serverVersion : "v\(serverVersion)")
+                        Text(verbatim: serverVersion.hasPrefix("v") ? serverVersion : "v\(serverVersion)")
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(VikuColor.textTertiary)
                             .lineLimit(1)
@@ -216,7 +217,7 @@ private struct ConnectionRow: View {
                     .background(VikuColor.Surface.field, in: Circle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Edit \(account.displayName)")
+            .accessibilityLabel(Text("Edit \(account.displayName)", bundle: .module))
         }
         .padding(.vertical, VikuSpacing.sm)
     }

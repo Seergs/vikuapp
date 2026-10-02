@@ -1,3 +1,4 @@
+import Foundation
 import VikunjaCore
 
 /// The small per-connection glyph + accessible label shown in
@@ -18,11 +19,11 @@ extension InstanceAccount.AuthMethod {
     var badgeAccessibilityLabel: String {
         switch self {
         case .apiToken:
-            "API Token"
+            String(localized: "API Token", bundle: .module)
         case .password:
-            "Username & Password"
+            String(localized: "Username & Password", bundle: .module)
         case .oidc:
-            "Single Sign-On"
+            String(localized: "Single Sign-On", bundle: .module)
         }
     }
 }

@@ -55,7 +55,12 @@ public final class ConnectionFormViewModel {
         )
         core.onStored = { [weak self] _ in
             guard let self else { return }
-            toastPresenter.show(isEditing ? "Connection updated" : "Connection added", style: .success)
+            toastPresenter.show(
+                isEditing
+                    ? String(localized: "Connection updated", bundle: .module)
+                    : String(localized: "Connection added", bundle: .module),
+                style: .success,
+            )
             onActiveAccountChanged()
         }
     }
@@ -196,12 +201,15 @@ public final class ConnectionFormViewModel {
         do {
             let remaining = try await accountStore.fetchAccounts()
             guard remaining.count > 1 else {
-                toastPresenter.show("You need at least one connection", style: .error)
+                toastPresenter.show(
+                    String(localized: "You need at least one connection", bundle: .module),
+                    style: .error,
+                )
                 return false
             }
             let activeID = try await accountStore.activeAccount()?.id
             try await accountStore.removeAccount(id: account.id)
-            toastPresenter.show("Connection removed", style: .success)
+            toastPresenter.show(String(localized: "Connection removed", bundle: .module), style: .success)
             if activeID == account.id {
                 onActiveAccountChanged()
             }
