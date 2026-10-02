@@ -155,7 +155,7 @@ public struct VikuTaskRow<Menu: View>: View {
             }
 
             if badge != nil, isOverdue || task.dueDate != nil {
-                Text("·")
+                Text(verbatim: "·")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(VikuColor.textSecondary)
             }
@@ -211,7 +211,7 @@ private struct TaskRowExtraLabelsPill: View {
     let count: Int
 
     var body: some View {
-        Text("+\(count)")
+        Text(verbatim: "+\(count)")
             .font(.system(size: 12, weight: .semibold))
             .foregroundStyle(VikuColor.textTertiary)
             .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
