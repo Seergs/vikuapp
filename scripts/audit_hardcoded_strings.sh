@@ -19,7 +19,10 @@
 #   scripts/audit_hardcoded_strings.sh --verbose   # also list each match
 #   scripts/audit_hardcoded_strings.sh --ci        # exit non-zero if any remain
 #
-# Intended to double as the Phase 5 CI guard once the count reaches zero.
+# Wired into CI as the "Localization audit" step of the `lint` job
+# (.github/workflows/ci.yaml) via --ci, so a PR introducing a new raw
+# literal in Features/*, VikuDesignSystem, VikuWidgetKit, or Viku fails
+# instead of silently shipping unlocalized copy (VIKU-104).
 
 set -euo pipefail
 

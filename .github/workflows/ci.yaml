@@ -31,6 +31,9 @@ jobs:
       - name: SwiftFormat
         run: swiftformat --lint .
 
+      - name: Localization audit
+        run: scripts/audit_hardcoded_strings.sh --ci
+
 
   build:
     name: Build
