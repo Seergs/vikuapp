@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import VikuDesignSystem
 import VikunjaCore
@@ -37,7 +38,7 @@ public struct QuickAddSheetView: View {
     public var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: VikuSpacing.md) {
-                TextField("Task title", text: $viewModel.title)
+                TextField(String(localized: "Task title", bundle: .module), text: $viewModel.title)
                     .font(VikuFont.body)
                     .focused($isTitleFocused)
                     .submitLabel(.done)
@@ -68,19 +69,19 @@ public struct QuickAddSheetView: View {
             // system itself uses to animate a sheet's own detent resize, so
             // our content's own transition doesn't visibly race against it.
             .animation(.spring(response: 0.35, dampingFraction: 0.86), value: viewModel.saveErrorMessage)
-            .navigationTitle("New Task")
+            .navigationTitle(Text("New Task", bundle: .module))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button(String(localized: "Cancel", bundle: .module)) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     if viewModel.isSaving {
                         ProgressView()
                     } else {
-                        Button("Save") {
+                        Button(String(localized: "Save", bundle: .module)) {
                             Task {
                                 if await viewModel.save() != nil {
                                     dismiss()
@@ -97,7 +98,7 @@ public struct QuickAddSheetView: View {
         .presentationCornerRadius(VikuRadius.lg + VikuSpacing.sm)
         .sheet(isPresented: $isShowingProjectPicker) {
             ProjectPickerSheet(
-                title: "Choose Project",
+                title: String(localized: "Choose Project", bundle: .module),
                 projects: viewModel.projects,
                 selectedProjectID: viewModel.selectedProjectID,
             ) { project in
@@ -114,14 +115,14 @@ public struct QuickAddSheetView: View {
     private var projectSection: some View {
         switch viewModel.loadState {
         case let .failure(message):
-            Text(message)
+            Text(verbatim: message)
                 .font(VikuFont.footnote)
                 .foregroundStyle(VikuColor.textSecondary)
         case .loading, .idle:
             ProgressView()
         case .loaded:
             VStack(alignment: .leading, spacing: VikuSpacing.sm - VikuSpacing.xxs) {
-                FieldLabel("Project")
+                FieldLabel(String(localized: "Project", bundle: .module))
                 ProjectField(project: viewModel.selectedProject) {
                     isShowingProjectPicker = true
                 }

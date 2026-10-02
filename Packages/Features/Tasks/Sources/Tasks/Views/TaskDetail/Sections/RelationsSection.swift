@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import VikuDesignSystem
 import VikunjaCore
@@ -15,9 +16,15 @@ struct RelationsSection: View {
         let task = viewModel.task
         let groups = relationGroups(for: task)
 
-        SectionBlock(title: "Relations", trailing: AnyView(SectionHeaderButton(title: "Add", action: onAdd))) {
+        SectionBlock(
+            title: String(localized: "Relations", bundle: .module),
+            trailing: AnyView(SectionHeaderButton(
+                title: String(localized: "Add", bundle: .module),
+                action: onAdd,
+            )),
+        ) {
             if groups.isEmpty {
-                Text("No relations with other tasks.")
+                Text("No relations with other tasks.", bundle: .module)
                     .font(VikuFont.subheadline)
                     .foregroundStyle(VikuColor.textTertiary)
             } else {
@@ -98,7 +105,7 @@ private struct RelationGroupView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.xs) {
-            Text(kind.displayName)
+            Text(verbatim: kind.localizedDisplayName)
                 .font(VikuFont.caption)
                 .fontWeight(.semibold)
                 .foregroundStyle(VikuColor.textTertiary)
@@ -119,9 +126,12 @@ private struct RelationGroupView: View {
                     HStack(spacing: VikuSpacing.xxs) {
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                             .font(.system(size: 10, weight: .semibold))
-                        Text(isExpanded
-                            ? "Show less"
-                            : "Show \(relations.count - Self.collapseThreshold) more")
+                        Text(verbatim: isExpanded
+                            ? String(localized: "Show less", bundle: .module)
+                            : String(
+                                localized: "Show \(relations.count - Self.collapseThreshold) more",
+                                bundle: .module,
+                            ))
                     }
                     .font(VikuFont.caption)
                     .fontWeight(.semibold)
@@ -157,12 +167,12 @@ private struct DependencyRow: View {
                         }
 
                     VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
-                        Text(relation.title)
+                        Text(verbatim: relation.title)
                             .font(.system(size: 14.5, weight: .medium))
                             .foregroundStyle(Color.primary)
                             .strikethrough(relation.isDone)
                         if let projectTitle {
-                            Text(projectTitle)
+                            Text(verbatim: projectTitle)
                                 .font(VikuFont.caption)
                                 .foregroundStyle(VikuColor.textTertiary)
                         }
@@ -186,5 +196,27 @@ private struct DependencyRow: View {
         .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
         .padding(.vertical, VikuSpacing.sm)
         .background(VikuColor.Surface.card, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
+    }
+}
+
+private extension RelationKind {
+    /// `displayName` (`VikunjaCore`) is plain English; this screen's relation
+    /// groups need a localized label, so it owns its own translation here
+    /// rather than reaching into Core, mirroring `Priority.localizedMenuLabel`
+    /// in `DueDatePriorityRows.swift`.
+    var localizedDisplayName: String {
+        switch self {
+        case .subtask: String(localized: "Subtasks", bundle: .module)
+        case .parenttask: String(localized: "Parent Task", bundle: .module)
+        case .related: String(localized: "Related Tasks", bundle: .module)
+        case .duplicateof: String(localized: "Duplicate Of", bundle: .module)
+        case .duplicates: String(localized: "Duplicates", bundle: .module)
+        case .blocking: String(localized: "Blocks", bundle: .module)
+        case .blocked: String(localized: "Depends On", bundle: .module)
+        case .precedes: String(localized: "Precedes", bundle: .module)
+        case .follows: String(localized: "Follows", bundle: .module)
+        case .copiedfrom: String(localized: "Copied From", bundle: .module)
+        case .copiedto: String(localized: "Copied To", bundle: .module)
+        }
     }
 }

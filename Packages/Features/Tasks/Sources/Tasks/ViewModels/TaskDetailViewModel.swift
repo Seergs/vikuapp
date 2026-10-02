@@ -235,7 +235,7 @@ public final class TaskDetailViewModel {
         insertRelation(relation, kind: kind)
         do {
             try await relationRepository.addRelation(kind: kind, otherTaskID: relation.id, toTask: task.id)
-            toastPresenter.show("Relation added", style: .success)
+            toastPresenter.show(String(localized: "Relation added", bundle: .module), style: .success)
         } catch {
             guard token == taskWriteToken else { return }
             task = previous
@@ -314,7 +314,10 @@ public final class TaskDetailViewModel {
             if token == taskWriteToken {
                 task = updated
             }
-            toastPresenter.show("Task moved to \(newProject.title)", style: .success)
+            toastPresenter.show(
+                String(localized: "Task moved to \(newProject.title)", bundle: .module),
+                style: .success,
+            )
             return true
         } catch let error as VikunjaError {
             if token == taskWriteToken {
@@ -336,7 +339,7 @@ public final class TaskDetailViewModel {
     public func deleteTask() async -> Bool {
         do {
             try await repository.delete(id: task.id)
-            toastPresenter.show("Task deleted", style: .success)
+            toastPresenter.show(String(localized: "Task deleted", bundle: .module), style: .success)
             return true
         } catch let error as VikunjaError {
             toastPresenter.show(error.displayMessage, style: .error)
@@ -461,7 +464,7 @@ public final class TaskDetailViewModel {
             // response comes back.
             let newAttachments = created.filter { new in !attachments.contains { $0.id == new.id } }
             attachments.append(contentsOf: newAttachments)
-            toastPresenter.show("Attachment added", style: .success)
+            toastPresenter.show(String(localized: "Attachment added", bundle: .module), style: .success)
         } catch let error as VikunjaError {
             toastPresenter.show(error.displayMessage, style: .error)
         } catch {
@@ -507,11 +510,11 @@ public final class TaskDetailViewModel {
         attachments.removeAll { $0.id == attachment.id }
         do {
             try await attachmentRepository.deleteAttachment(attachment.id, fromTask: task.id)
-            toastPresenter.show("Attachment deleted", style: .success)
+            toastPresenter.show(String(localized: "Attachment deleted", bundle: .module), style: .success)
         } catch {
             guard token == attachmentsWriteToken else { return }
             attachments = previous
-            toastPresenter.show("Couldn't delete attachment", style: .error)
+            toastPresenter.show(String(localized: "Couldn't delete attachment", bundle: .module), style: .error)
         }
     }
 
@@ -519,7 +522,7 @@ public final class TaskDetailViewModel {
     /// (a security-scoped resource that won't open, an unreadable path) —
     /// the upload never starts in that case.
     public func reportAttachmentReadFailure() {
-        toastPresenter.show("Couldn't read that file", style: .error)
+        toastPresenter.show(String(localized: "Couldn't read that file", bundle: .module), style: .error)
     }
 
     /// Posts a new comment and appends the server's response (its real id,
@@ -541,7 +544,7 @@ public final class TaskDetailViewModel {
                 comments.append(created)
             }
         } catch {
-            toastPresenter.show("Couldn't post comment", style: .error)
+            toastPresenter.show(String(localized: "Couldn't post comment", bundle: .module), style: .error)
         }
     }
 
@@ -566,7 +569,7 @@ public final class TaskDetailViewModel {
             guard let index = comments.firstIndex(where: { $0.id == comment.id }) else { return }
             comments[index] = updated
         } catch {
-            toastPresenter.show("Couldn't update comment", style: .error)
+            toastPresenter.show(String(localized: "Couldn't update comment", bundle: .module), style: .error)
         }
     }
 
@@ -585,7 +588,7 @@ public final class TaskDetailViewModel {
         } catch {
             guard token == commentsWriteToken else { return }
             comments = previous
-            toastPresenter.show("Couldn't delete comment", style: .error)
+            toastPresenter.show(String(localized: "Couldn't delete comment", bundle: .module), style: .error)
         }
     }
 

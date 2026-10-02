@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import VikuDesignSystem
 import VikunjaCore
@@ -12,7 +13,7 @@ struct SubtasksSection: View {
 
     var body: some View {
         SectionBlock(
-            title: "Subtasks",
+            title: String(localized: "Subtasks", bundle: .module),
             count: "\(subtasks.filter(\.isDone).count)/\(subtasks.count)",
         ) {
             SubtasksCard(subtasks: subtasks, color: color)
@@ -36,7 +37,7 @@ private struct SubtasksCard: View {
                 }
                 HStack(spacing: VikuSpacing.sm) {
                     TaskDetailCheckbox(isDone: subtask.isDone, color: color, size: 20)
-                    Text(subtask.title)
+                    Text(verbatim: subtask.title)
                         .font(VikuFont.subheadline)
                         .foregroundStyle(subtask.isDone ? VikuColor.textTertiary : Color.primary)
                         .strikethrough(subtask.isDone)
