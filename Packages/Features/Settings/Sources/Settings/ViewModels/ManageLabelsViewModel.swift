@@ -46,7 +46,7 @@ public final class ManageLabelsViewModel {
         do {
             let created = try await repository.create(Label(id: 0, title: trimmed, hexColor: hexColor))
             labels = sorted(labels + [created])
-            toastPresenter.show("Label created", style: .success)
+            toastPresenter.show(String(localized: "Label created", bundle: .module), style: .success)
         } catch let error as VikunjaError {
             toastPresenter.show(error.displayMessage, style: .error)
         } catch {
@@ -68,7 +68,7 @@ public final class ManageLabelsViewModel {
         do {
             let saved = try await repository.update(edited)
             labels = sorted(labels.map { $0.id == saved.id ? saved : $0 })
-            toastPresenter.show("Label updated", style: .success)
+            toastPresenter.show(String(localized: "Label updated", bundle: .module), style: .success)
         } catch let error as VikunjaError {
             labels = previous
             toastPresenter.show(error.displayMessage, style: .error)
@@ -83,7 +83,7 @@ public final class ManageLabelsViewModel {
         labels.removeAll { $0.id == label.id }
         do {
             try await repository.delete(id: label.id)
-            toastPresenter.show("Label deleted", style: .success)
+            toastPresenter.show(String(localized: "Label deleted", bundle: .module), style: .success)
         } catch let error as VikunjaError {
             labels = previous
             toastPresenter.show(error.displayMessage, style: .error)

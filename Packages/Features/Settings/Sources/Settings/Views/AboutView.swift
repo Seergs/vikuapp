@@ -18,45 +18,61 @@ struct AboutView: View {
     var body: some View {
         List {
             Section {
-                SettingsInfoRow(icon: "info.circle", title: "Version", value: appVersion)
-                SettingsInfoRow(icon: "hammer", title: "Build", value: buildNumber)
+                SettingsInfoRow(
+                    icon: "info.circle",
+                    title: String(localized: "Version", bundle: .module),
+                    value: appVersion,
+                )
+                SettingsInfoRow(
+                    icon: "hammer",
+                    title: String(localized: "Build", bundle: .module),
+                    value: buildNumber,
+                )
             }
 
             Section {
                 SettingsLinkRow(
                     icon: "chevron.left.forwardslash.chevron.right",
-                    title: "Source Code",
+                    title: String(localized: "Source Code", bundle: .module),
                     url: AboutLinks.sourceCode,
                 )
-                SettingsLinkRow(icon: "ladybug", title: "Report a Problem", url: AboutLinks.reportProblem)
-                SettingsLinkRow(icon: "arrow.up.forward.app", title: "Vikunja Project", url: AboutLinks.vikunjaProject)
+                SettingsLinkRow(
+                    icon: "ladybug",
+                    title: String(localized: "Report a Problem", bundle: .module),
+                    url: AboutLinks.reportProblem,
+                )
+                SettingsLinkRow(
+                    icon: "arrow.up.forward.app",
+                    title: String(localized: "Vikunja Project", bundle: .module),
+                    url: AboutLinks.vikunjaProject,
+                )
             }
 
             Section {
                 HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
                     SettingsRowIcon(systemName: "hand.raised")
-                    Text("Privacy")
+                    Text("Privacy", bundle: .module)
                         .font(VikuFont.body)
                         .foregroundStyle(Color.primary)
                 }
             } footer: {
-                Text(
-                    "Viku only talks to the Vikunja instance you connect it to. "
-                        + "Your tasks and credentials never pass through any other server.",
-                )
+                // swiftlint:disable:next line_length
+                Text("Viku only talks to the Vikunja instance you connect it to. Your tasks and credentials never pass through any other server.", bundle: .module)
             }
 
             Section {
-                SettingsLinkRow(icon: "doc.text", title: "License (MIT)", url: AboutLinks.license)
-            } footer: {
-                Text(
-                    "Viku is an independent, unofficial client and isn't affiliated with the Vikunja project. "
-                        + "Vikunja itself is licensed under AGPLv3.",
+                SettingsLinkRow(
+                    icon: "doc.text",
+                    title: String(localized: "License (MIT)", bundle: .module),
+                    url: AboutLinks.license,
                 )
+            } footer: {
+                // swiftlint:disable:next line_length
+                Text("Viku is an independent, unofficial client and isn't affiliated with the Vikunja project. Vikunja itself is licensed under AGPLv3.", bundle: .module)
             }
         }
         .settingsListStyle()
-        .navigationTitle("About")
+        .navigationTitle(Text("About", bundle: .module))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
@@ -82,11 +98,11 @@ private struct SettingsInfoRow: View {
     var body: some View {
         HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
             SettingsRowIcon(systemName: icon)
-            Text(title)
+            Text(verbatim: title)
                 .font(VikuFont.body)
                 .foregroundStyle(Color.primary)
             Spacer()
-            Text(value)
+            Text(verbatim: value)
                 .font(VikuFont.body)
                 .foregroundStyle(VikuColor.textSecondary)
         }
@@ -105,7 +121,7 @@ private struct SettingsLinkRow: View {
         Link(destination: url) {
             HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
                 SettingsRowIcon(systemName: icon)
-                Text(title)
+                Text(verbatim: title)
                     .font(VikuFont.body)
                     .foregroundStyle(Color.primary)
                 Spacer()

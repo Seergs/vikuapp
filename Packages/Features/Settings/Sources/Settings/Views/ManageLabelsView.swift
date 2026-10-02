@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import VikuDesignSystem
 import VikuNavigation
@@ -24,7 +25,7 @@ struct ManageLabelsView: View {
     var body: some View {
         content
             .background(VikuColor.Surface.page)
-            .navigationTitle("Manage Labels")
+            .navigationTitle(Text("Manage Labels", bundle: .module))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -35,7 +36,7 @@ struct ManageLabelsView: View {
                     } label: {
                         Image(systemName: "plus")
                     }
-                    .accessibilityLabel("New Label")
+                    .accessibilityLabel(Text("New Label", bundle: .module))
                 }
             }
             .sheet(item: $editorMode) { mode in
@@ -49,7 +50,7 @@ struct ManageLabelsView: View {
                 }
             }
             .confirmationDialog(
-                "Delete this label?",
+                Text("Delete this label?", bundle: .module),
                 isPresented: Binding(get: { pendingDeletion != nil }, set: {
                     if !$0 {
                         pendingDeletion = nil
@@ -58,12 +59,16 @@ struct ManageLabelsView: View {
                 titleVisibility: .visible,
                 presenting: pendingDeletion,
             ) { (label: VikunjaCore.Label) in
-                Button("Delete \"\(label.title)\"", role: .destructive) {
+                Button(role: .destructive) {
                     Task { await viewModel.deleteLabel(label) }
+                } label: {
+                    Text("Delete \"\(label.title)\"", bundle: .module)
                 }
-                Button("Cancel", role: .cancel) {}
+                Button(role: .cancel) {} label: {
+                    Text("Cancel", bundle: .module)
+                }
             } message: { (_: VikunjaCore.Label) in
-                Text("It will be removed from every task it's attached to.")
+                Text("It will be removed from every task it's attached to.", bundle: .module)
             }
             // `.onAppear` rather than `.task`: this view's identity survives a
             // sheet presentation and dismissal, so a one-shot `.task` would
@@ -81,7 +86,7 @@ struct ManageLabelsView: View {
         case let .failure(message):
             VikuStatusView(
                 systemImage: "exclamationmark.triangle.fill",
-                title: "Couldn't load labels",
+                title: String(localized: "Couldn't load labels", bundle: .module),
                 message: message,
             ) {
                 Task { await viewModel.load() }
@@ -91,8 +96,11 @@ struct ManageLabelsView: View {
             if viewModel.labels.isEmpty {
                 VikuStatusView(
                     systemImage: "tag",
-                    title: "No labels yet",
-                    message: "Create a label to organize tasks across every project.",
+                    title: String(localized: "No labels yet", bundle: .module),
+                    message: String(
+                        localized: "Create a label to organize tasks across every project.",
+                        bundle: .module,
+                    ),
                 )
                 .padding(.top, VikuSpacing.xxl)
             } else {
@@ -108,7 +116,11 @@ struct ManageLabelsView: View {
                             // `role: .destructive` alone renders blue here, not
                             // red: the tab bar's `.tint(VikuColor.brandPrimary)`
                             // leaks into the swipe action, so tint it explicitly.
-                            Button("Delete", systemImage: "trash", role: .destructive) {
+                            Button(
+                                String(localized: "Delete", bundle: .module),
+                                systemImage: "trash",
+                                role: .destructive,
+                            ) {
                                 pendingDeletion = label
                             }
                             .tint(VikuColor.Semantic.danger)
@@ -133,7 +145,7 @@ private struct LabelRow: View {
             Circle()
                 .fill(color)
                 .frame(width: 12, height: 12)
-            Text(label.title)
+            Text(verbatim: label.title)
                 .font(VikuFont.body)
                 .foregroundStyle(Color.primary)
             Spacer(minLength: 0)

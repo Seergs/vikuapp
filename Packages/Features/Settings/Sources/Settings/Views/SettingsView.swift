@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import VikuDesignSystem
 import VikuNavigation
@@ -21,18 +22,18 @@ struct SettingsView: View {
             Section {
                 Picker(selection: themeBinding) {
                     ForEach(AppTheme.allCases, id: \.self) { theme in
-                        Text(theme.displayName).tag(theme)
+                        Text(verbatim: theme.displayName).tag(theme)
                     }
                 } label: {
                     HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
                         SettingsRowIcon(systemName: "circle.lefthalf.filled")
-                        Text("Appearance")
+                        Text("Appearance", bundle: .module)
                     }
                 }
 
                 SettingsNavigationRow(
                     icon: "server.rack",
-                    title: "Connections",
+                    title: String(localized: "Connections", bundle: .module),
                     subtitle: activeAccountName,
                 ) {
                     router.push(.connections)
@@ -40,16 +41,16 @@ struct SettingsView: View {
 
                 SettingsNavigationRow(
                     icon: "tag",
-                    title: "Manage Labels",
-                    subtitle: "View, edit, and create labels",
+                    title: String(localized: "Manage Labels", bundle: .module),
+                    subtitle: String(localized: "View, edit, and create labels", bundle: .module),
                 ) {
                     router.push(.manageLabels)
                 }
 
                 SettingsNavigationRow(
                     icon: "info.circle",
-                    title: "About",
-                    subtitle: "Version, links, and privacy",
+                    title: String(localized: "About", bundle: .module),
+                    subtitle: String(localized: "Version, links, and privacy", bundle: .module),
                 ) {
                     router.push(.about)
                 }
@@ -62,31 +63,31 @@ struct SettingsView: View {
                     Toggle(isOn: devBadgeBinding) {
                         HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
                             SettingsRowIcon(systemName: "ladybug")
-                            Text("Show DEV Badge")
+                            Text("Show DEV Badge", bundle: .module)
                         }
                     }
 
                     Toggle(isOn: networkLoggingBinding) {
                         HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
                             SettingsRowIcon(systemName: "network")
-                            Text("Log Network Requests")
+                            Text("Log Network Requests", bundle: .module)
                         }
                     }
 
                     SettingsNavigationRow(
                         icon: "arrow.counterclockwise",
-                        title: "Preview Onboarding",
-                        subtitle: "See the first-launch screen again",
+                        title: String(localized: "Preview Onboarding", bundle: .module),
+                        subtitle: String(localized: "See the first-launch screen again", bundle: .module),
                     ) {
                         onPreviewOnboarding()
                     }
                 } header: {
-                    Text("Developer")
+                    Text("Developer", bundle: .module)
                 }
             }
         }
         .settingsListStyle()
-        .navigationTitle("Settings")
+        .navigationTitle(Text("Settings", bundle: .module))
     }
 
     private var themeBinding: Binding<AppTheme> {
@@ -119,10 +120,10 @@ private struct SettingsNavigationRow: View {
                 SettingsRowIcon(systemName: icon)
 
                 VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
-                    Text(title)
+                    Text(verbatim: title)
                         .font(VikuFont.body)
                         .foregroundStyle(Color.primary)
-                    Text(subtitle)
+                    Text(verbatim: subtitle)
                         .font(VikuFont.footnote)
                         .foregroundStyle(VikuColor.textTertiary)
                         .lineLimit(1)

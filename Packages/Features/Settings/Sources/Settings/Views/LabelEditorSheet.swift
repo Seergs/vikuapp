@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import VikuDesignSystem
 import VikunjaCore
@@ -46,19 +47,23 @@ struct LabelEditorSheet: View {
             .padding(.horizontal, VikuSpacing.md)
             .padding(.top, VikuSpacing.md)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .navigationTitle(mode.isEdit ? "Edit Label" : "New Label")
+            .navigationTitle(
+                mode.isEdit
+                    ? Text("Edit Label", bundle: .module)
+                    : Text("New Label", bundle: .module),
+            )
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button(String(localized: "Cancel", bundle: .module)) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     if isSaving {
                         ProgressView()
                     } else {
-                        Button("Save", action: save)
+                        Button(String(localized: "Save", bundle: .module), action: save)
                             .fontWeight(.bold)
                             .disabled(!canSave)
                     }
@@ -76,7 +81,7 @@ struct LabelEditorSheet: View {
                 .fill(Color(vikuMutedHex: hexColor) ?? VikuColor.brandPrimary)
                 .frame(width: 10, height: 10)
 
-            TextField("Label name", text: $title)
+            TextField(String(localized: "Label name", bundle: .module), text: $title)
                 .font(VikuFont.body)
                 .focused($isTitleFocused)
                 .submitLabel(.done)
@@ -89,7 +94,7 @@ struct LabelEditorSheet: View {
 
     private var colorSection: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm - VikuSpacing.xxs) {
-            Text("Color")
+            Text("Color", bundle: .module)
                 .font(VikuFont.footnote)
                 .fontWeight(.semibold)
                 .foregroundStyle(VikuColor.textSecondary)

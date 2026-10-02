@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import VikuDesignSystem
 import VikuNavigation
@@ -33,15 +34,23 @@ struct ConnectionFormView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: VikuSpacing.lg) {
                 VStack(alignment: .leading, spacing: VikuSpacing.md) {
-                    FormField(label: "Connection Name", placeholder: "e.g. Office Server", text: $viewModel.displayName)
-                        .focused($isNameFocused)
+                    FormField(
+                        label: String(localized: "Connection Name", bundle: .module),
+                        placeholder: String(localized: "e.g. Office Server", bundle: .module),
+                        text: $viewModel.displayName,
+                    )
+                    .focused($isNameFocused)
 
-                    FormField(label: "Instance URL", placeholder: "https://tasks.yourcompany.com", text: $viewModel.urlText)
-                        #if os(iOS)
-                        .textInputAutocapitalization(.never)
-                        .keyboardType(.URL)
-                        #endif
-                        .autocorrectionDisabled()
+                    FormField(
+                        label: String(localized: "Instance URL", bundle: .module),
+                        placeholder: String(localized: "https://tasks.yourcompany.com", bundle: .module),
+                        text: $viewModel.urlText,
+                    )
+                    #if os(iOS)
+                    .textInputAutocapitalization(.never)
+                    .keyboardType(.URL)
+                    #endif
+                    .autocorrectionDisabled()
 
                     if viewModel.urlUsesInsecureScheme {
                         insecureConnectionToggle
@@ -69,7 +78,9 @@ struct ConnectionFormView: View {
                 } else if viewModel.validationState == .success {
                     StatusBanner(
                         style: .success,
-                        message: viewModel.savedAccount != nil ? "Saved" : "Connection successful",
+                        message: viewModel.savedAccount != nil
+                            ? String(localized: "Saved", bundle: .module)
+                            : String(localized: "Connection successful", bundle: .module),
                     )
                 }
 
@@ -81,7 +92,7 @@ struct ConnectionFormView: View {
                     Button(role: .destructive) {
                         isConfirmingDelete = true
                     } label: {
-                        Text("Delete Connection")
+                        Text("Delete Connection", bundle: .module)
                             .font(VikuFont.body)
                             .fontWeight(.bold)
                             .foregroundStyle(VikuColor.Semantic.danger)
@@ -92,7 +103,11 @@ struct ConnectionFormView: View {
             }
             .padding(VikuSpacing.md)
         }
-        .navigationTitle(viewModel.isEditing ? "Edit Connection" : "New Connection")
+        .navigationTitle(
+            viewModel.isEditing
+                ? Text("Edit Connection", bundle: .module)
+                : Text("New Connection", bundle: .module),
+        )
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
@@ -132,18 +147,22 @@ struct ConnectionFormView: View {
             }
         }
         .confirmationDialog(
-            "Remove this connection?",
+            Text("Remove this connection?", bundle: .module),
             isPresented: $isConfirmingDelete,
             titleVisibility: .visible,
         ) {
-            Button("Remove Connection", role: .destructive) {
+            Button(role: .destructive) {
                 Task {
                     if await viewModel.deleteConnection() {
                         router.pop()
                     }
                 }
+            } label: {
+                Text("Remove Connection", bundle: .module)
             }
-            Button("Cancel", role: .cancel) {}
+            Button(role: .cancel) {} label: {
+                Text("Cancel", bundle: .module)
+            }
         }
     }
 
@@ -155,14 +174,15 @@ struct ConnectionFormView: View {
     private var insecureConnectionToggle: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm - VikuSpacing.xxs) {
             Toggle(isOn: $viewModel.allowInsecureConnection) {
-                FieldLabel("Allow Insecure Connection")
+                FieldLabel(String(localized: "Allow Insecure Connection", bundle: .module))
             }
             .tint(VikuColor.brandPrimary)
 
             if viewModel.allowInsecureConnection {
                 HStack(alignment: .firstTextBaseline, spacing: VikuSpacing.xs) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                    Text("Traffic to this instance won't be encrypted. Only use http on a trusted local network.")
+                    // swiftlint:disable:next line_length
+                    Text("Traffic to this instance won't be encrypted. Only use http on a trusted local network.", bundle: .module)
                 }
                 .font(VikuFont.caption)
                 .fontWeight(.medium)
@@ -175,7 +195,7 @@ struct ConnectionFormView: View {
 
     private var oidcProvidersSection: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm) {
-            Text("You'll be redirected to your provider's sign-in page to finish.")
+            Text("You'll be redirected to your provider's sign-in page to finish.", bundle: .module)
                 .font(VikuFont.caption)
                 .foregroundStyle(VikuColor.textSecondary)
 
@@ -189,7 +209,7 @@ struct ConnectionFormView: View {
         Button {
             Task { await viewModel.signInWithOIDC(provider) }
         } label: {
-            Text("Continue with \(provider.name)")
+            Text("Continue with \(provider.name)", bundle: .module)
                 .font(VikuFont.body)
                 .fontWeight(.semibold)
                 .foregroundStyle(Color.primary)
@@ -207,34 +227,42 @@ struct ConnectionFormView: View {
 
     private var passwordFields: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.md) {
-            FormField(label: "Username", placeholder: "your-username", text: $viewModel.username)
-                #if os(iOS)
-                .textInputAutocapitalization(.never)
-                #endif
-                .autocorrectionDisabled()
+            FormField(
+                label: String(localized: "Username", bundle: .module),
+                placeholder: String(localized: "your-username", bundle: .module),
+                text: $viewModel.username,
+            )
+            #if os(iOS)
+            .textInputAutocapitalization(.never)
+            #endif
+            .autocorrectionDisabled()
 
             passwordField
 
             if viewModel.awaitingTOTP {
-                FormField(label: "Two-Factor Code", placeholder: "123456", text: $viewModel.totpPasscode)
-                    #if os(iOS)
-                    .textInputAutocapitalization(.never)
-                    #endif
-                    .autocorrectionDisabled()
+                FormField(
+                    label: String(localized: "Two-Factor Code", bundle: .module),
+                    placeholder: String(localized: "123456", bundle: .module),
+                    text: $viewModel.totpPasscode,
+                )
+                #if os(iOS)
+                .textInputAutocapitalization(.never)
+                #endif
+                .autocorrectionDisabled()
             }
         }
     }
 
     private var passwordField: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm - VikuSpacing.xxs) {
-            FieldLabel("Password")
+            FieldLabel(String(localized: "Password", bundle: .module))
 
             HStack(spacing: VikuSpacing.sm) {
                 Group {
                     if isPasswordVisible {
-                        TextField("••••••••", text: $viewModel.password)
+                        TextField(String(localized: "••••••••", bundle: .module), text: $viewModel.password)
                     } else {
-                        SecureField("••••••••", text: $viewModel.password)
+                        SecureField(String(localized: "••••••••", bundle: .module), text: $viewModel.password)
                     }
                 }
                 .font(VikuFont.body)
@@ -250,7 +278,11 @@ struct ConnectionFormView: View {
                         .foregroundStyle(VikuColor.textTertiary)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(isPasswordVisible ? "Hide password" : "Show password")
+                .accessibilityLabel(
+                    isPasswordVisible
+                        ? Text("Hide password", bundle: .module)
+                        : Text("Show password", bundle: .module),
+                )
             }
             .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
             .padding(.vertical, VikuSpacing.sm + VikuSpacing.xxs)
@@ -260,14 +292,14 @@ struct ConnectionFormView: View {
 
     private var tokenField: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm - VikuSpacing.xxs) {
-            FieldLabel("API Token")
+            FieldLabel(String(localized: "API Token", bundle: .module))
 
             HStack(spacing: VikuSpacing.sm) {
                 Group {
                     if isTokenVisible {
-                        TextField("vkj_...", text: $viewModel.apiToken)
+                        TextField(String(localized: "vkj_...", bundle: .module), text: $viewModel.apiToken)
                     } else {
-                        SecureField("vkj_...", text: $viewModel.apiToken)
+                        SecureField(String(localized: "vkj_...", bundle: .module), text: $viewModel.apiToken)
                     }
                 }
                 .font(VikuFont.body)
@@ -283,13 +315,17 @@ struct ConnectionFormView: View {
                         .foregroundStyle(VikuColor.textTertiary)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(isTokenVisible ? "Hide token" : "Show token")
+                .accessibilityLabel(
+                    isTokenVisible
+                        ? Text("Hide token", bundle: .module)
+                        : Text("Show token", bundle: .module),
+                )
             }
             .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
             .padding(.vertical, VikuSpacing.sm + VikuSpacing.xxs)
             .background(VikuColor.Surface.field, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
 
-            Text("Generate it on your Vikunja instance: Settings → API Tokens.")
+            Text("Generate it on your Vikunja instance: Settings → API Tokens.", bundle: .module)
                 .font(VikuFont.caption)
                 .foregroundStyle(VikuColor.textTertiary)
         }
@@ -303,7 +339,9 @@ struct ConnectionFormView: View {
                 if viewModel.isSaving {
                     ProgressView()
                 }
-                Text(viewModel.isSaving ? "Testing connection…" : "Test Connection")
+                Text(viewModel.isSaving
+                    ? String(localized: "Testing connection…", bundle: .module)
+                    : String(localized: "Test Connection", bundle: .module))
                     .font(VikuFont.body)
                     .fontWeight(.semibold)
                     .foregroundStyle(Color.primary)
@@ -321,7 +359,9 @@ struct ConnectionFormView: View {
         Button {
             Task { await viewModel.save() }
         } label: {
-            Text(viewModel.isEditing ? "Save Connection" : "Save and Connect")
+            Text(viewModel.isEditing
+                ? String(localized: "Save Connection", bundle: .module)
+                : String(localized: "Save and Connect", bundle: .module))
                 .font(VikuFont.body)
                 .fontWeight(.bold)
                 .foregroundStyle(.white)
@@ -346,7 +386,7 @@ private struct FieldLabel: View {
     }
 
     var body: some View {
-        Text(title)
+        Text(verbatim: title)
             .font(VikuFont.footnote)
             .fontWeight(.semibold)
             .foregroundStyle(VikuColor.textSecondary)
@@ -390,7 +430,7 @@ private struct StatusBanner: View {
             Image(systemName: style == .success ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                 .font(.system(size: 13))
                 .foregroundStyle(foreground)
-            Text(message)
+            Text(verbatim: message)
                 .font(VikuFont.footnote)
                 .fontWeight(.semibold)
                 .foregroundStyle(foreground)
