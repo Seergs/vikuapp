@@ -1,0 +1,246 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "123456" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "123456"
+          }
+        }
+      }
+    },
+    "API token" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Token de API"
+          }
+        }
+      }
+    },
+    "Allow insecure connection" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permitir conexión insegura"
+          }
+        }
+      }
+    },
+    "Connect your instance" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conecta tu instancia"
+          }
+        }
+      }
+    },
+    "Connection name" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nombre de la conexión"
+          }
+        }
+      }
+    },
+    "Connection successful." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conexión exitosa."
+          }
+        }
+      }
+    },
+    "Continue with %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continuar con %@"
+          }
+        }
+      }
+    },
+    "Enter the current code from your authenticator app." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ingresa el código actual de tu app de autenticación."
+          }
+        }
+      }
+    },
+    "Generate one on your Vikunja instance: Settings → API Tokens." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Genera uno en tu instancia de Vikunja: Configuración → Tokens de API."
+          }
+        }
+      }
+    },
+    "Instance URL" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL de la instancia"
+          }
+        }
+      }
+    },
+    "Password" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contraseña"
+          }
+        }
+      }
+    },
+    "Save & Continue" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardar y continuar"
+          }
+        }
+      }
+    },
+    "Test Connection" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Probar conexión"
+          }
+        }
+      }
+    },
+    "Testing connection…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Probando conexión…"
+          }
+        }
+      }
+    },
+    "This app connects to your own Vikunja server. Enter your instance's details to get started." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta app se conecta a tu propio servidor de Vikunja. Ingresa los datos de tu instancia para comenzar."
+          }
+        }
+      }
+    },
+    "Traffic to this instance won't be encrypted. Only use http on a trusted local network." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El tráfico hacia esta instancia no estará cifrado. Usa http solo en una red local de confianza."
+          }
+        }
+      }
+    },
+    "Two-factor code" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Código de dos factores"
+          }
+        }
+      }
+    },
+    "Username" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usuario"
+          }
+        }
+      }
+    },
+    "You'll be redirected to your provider's sign-in page to finish." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Serás redirigido a la página de inicio de sesión de tu proveedor para finalizar."
+          }
+        }
+      }
+    },
+    "e.g. Office server" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "p. ej. Servidor de la oficina"
+          }
+        }
+      }
+    },
+    "https://tasks.example.com" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "https://tasks.example.com"
+          }
+        }
+      }
+    },
+    "vkj_..." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "vkj_..."
+          }
+        }
+      }
+    },
+    "your-username" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "tu-usuario"
+          }
+        }
+      }
+    },
+    "••••••••" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "••••••••"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
