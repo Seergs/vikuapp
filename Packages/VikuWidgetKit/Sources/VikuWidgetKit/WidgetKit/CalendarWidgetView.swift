@@ -1,4 +1,5 @@
 #if canImport(WidgetKit)
+import Foundation
 import SwiftUI
 import VikuDesignSystem
 import VikunjaCore
@@ -25,20 +26,23 @@ struct CalendarWidgetView: View {
         case .notConnected:
             CalendarWidgetMessage(
                 systemImage: "link.circle",
-                title: "Not connected",
-                message: "Open Viku to add your instance.",
+                title: String(localized: "Not connected", bundle: .module),
+                message: String(localized: "Open Viku to add your instance.", bundle: .module),
             )
         case .needsAuth:
             CalendarWidgetMessage(
                 systemImage: "lock.circle",
-                title: "Sign in again",
-                message: "Your token was rejected. Re-add the connection in Settings.",
+                title: String(localized: "Sign in again", bundle: .module),
+                message: String(
+                    localized: "Your token was rejected. Re-add the connection in Settings.",
+                    bundle: .module,
+                ),
             )
         case .unavailable:
             CalendarWidgetMessage(
                 systemImage: "wifi.slash",
-                title: "Couldn't refresh",
-                message: "No connection and nothing saved yet.",
+                title: String(localized: "Couldn't refresh", bundle: .module),
+                message: String(localized: "No connection and nothing saved yet.", bundle: .module),
             )
         case let .content(content):
             CalendarWidgetBody(content: content)
@@ -63,7 +67,7 @@ private struct CalendarWidgetBody: View {
 
     private var header: some View {
         HStack(spacing: VikuSpacing.xs) {
-            Text(content.monthTitle)
+            Text(verbatim: content.monthTitle)
                 .font(VikuFont.subheadline)
                 .fontWeight(.semibold)
                 .foregroundStyle(Color.primary)
@@ -72,7 +76,7 @@ private struct CalendarWidgetBody: View {
                 Image(systemName: "clock.arrow.circlepath")
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(VikuColor.textTertiary)
-                    .accessibilityLabel("Showing saved data")
+                    .accessibilityLabel(Text("Showing saved data", bundle: .module))
             }
             if let url = URL(string: "\(VikuWidgetConfig.urlScheme)://quick-add") {
                 Link(destination: url) {
@@ -80,7 +84,7 @@ private struct CalendarWidgetBody: View {
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(VikuColor.brandPrimary)
                 }
-                .accessibilityLabel("Add task")
+                .accessibilityLabel(Text("Add task", bundle: .module))
             }
         }
     }
@@ -88,10 +92,10 @@ private struct CalendarWidgetBody: View {
     @ViewBuilder
     private var todaySection: some View {
         HStack(spacing: VikuSpacing.xs) {
-            Text(content.selectedDayLabel)
+            Text(verbatim: content.selectedDayLabel)
                 .fontWeight(.bold)
             if content.todayTaskCount > 0 {
-                Text("\(content.todayTaskCount)")
+                Text(verbatim: "\(content.todayTaskCount)")
             }
         }
         .font(VikuFont.caption2)
@@ -100,7 +104,7 @@ private struct CalendarWidgetBody: View {
         .foregroundStyle(VikuColor.textSecondary)
 
         if content.todayTasks.isEmpty {
-            Text("Nothing due today.")
+            Text("Nothing due today.", bundle: .module)
                 .font(VikuFont.caption)
                 .foregroundStyle(VikuColor.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -113,7 +117,7 @@ private struct CalendarWidgetBody: View {
             }
             let hidden = content.todayTaskCount - content.todayTasks.count
             if hidden > 0 {
-                Text("+\(hidden) more")
+                Text(String(localized: "+\(hidden) more", bundle: .module))
                     .font(VikuFont.caption2)
                     .foregroundStyle(VikuColor.textTertiary)
             }
@@ -131,7 +135,7 @@ private struct MonthGrid: View {
     var body: some View {
         LazyVGrid(columns: columns, spacing: VikuSpacing.xxs) {
             ForEach(Array(content.weekdaySymbols.enumerated()), id: \.offset) { _, symbol in
-                Text(symbol)
+                Text(verbatim: symbol)
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(VikuColor.textTertiary)
                     .frame(maxWidth: .infinity)
@@ -162,7 +166,7 @@ private struct DayCell: View {
                 if day.isToday {
                     Circle().fill(VikuColor.brandPrimary.opacity(0.16))
                 }
-                Text("\(day.dayNumber)")
+                Text(verbatim: "\(day.dayNumber)")
                     .font(.system(size: 12, weight: day.isToday ? .bold : .medium))
                     .foregroundStyle(day.isToday ? VikuColor.brandPrimary : numberColor)
             }
@@ -194,7 +198,7 @@ private struct CalendarWidgetTaskRow: View {
         HStack(spacing: VikuSpacing.xs + VikuSpacing.xxs) {
             toggle
 
-            Text(task.title)
+            Text(verbatim: task.title)
                 .font(VikuFont.caption)
                 .fontWeight(.medium)
                 .strikethrough(task.isDone)
@@ -204,11 +208,11 @@ private struct CalendarWidgetTaskRow: View {
             Spacer(minLength: VikuSpacing.xs)
 
             if task.isOverdue {
-                Text("Overdue")
+                Text("Overdue", bundle: .module)
                     .font(VikuFont.caption2)
                     .foregroundStyle(VikuColor.Semantic.dangerText)
             } else if !task.projectName.isEmpty {
-                Text(task.projectName)
+                Text(verbatim: task.projectName)
                     .font(VikuFont.caption2)
                     .foregroundStyle(VikuColor.textSecondary)
                     .lineLimit(1)
@@ -252,10 +256,10 @@ private struct CalendarWidgetMessage: View {
             Image(systemName: systemImage)
                 .font(.system(size: 20))
                 .foregroundStyle(VikuColor.textTertiary)
-            Text(title)
+            Text(verbatim: title)
                 .font(VikuFont.caption)
                 .fontWeight(.semibold)
-            Text(message)
+            Text(verbatim: message)
                 .font(VikuFont.caption2)
                 .foregroundStyle(VikuColor.textSecondary)
                 .multilineTextAlignment(.center)

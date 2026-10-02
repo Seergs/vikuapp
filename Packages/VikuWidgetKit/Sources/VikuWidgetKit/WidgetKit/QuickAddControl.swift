@@ -23,7 +23,11 @@ public struct QuickAddControl: ControlWidget {
     public var body: some ControlWidgetConfiguration {
         StaticControlConfiguration(kind: VikuWidgetConfig.quickAddControlKind) {
             ControlWidgetButton(action: QuickAddControlIntent()) {
-                Label("Add Task", systemImage: "plus.circle.fill")
+                Label {
+                    Text("Add Task", bundle: .module)
+                } icon: {
+                    Image(systemName: "plus.circle.fill")
+                }
             }
         }
         .displayName("Add Task")

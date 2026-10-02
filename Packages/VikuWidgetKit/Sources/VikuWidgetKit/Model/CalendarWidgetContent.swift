@@ -157,7 +157,7 @@ public struct CalendarWidgetContent: Sendable, Hashable, Codable {
             monthTitle: month.title,
             weekdaySymbols: month.weekdaySymbols,
             weeks: weeks,
-            selectedDayLabel: "Today",
+            selectedDayLabel: String(localized: "Today", bundle: .module),
             todayTasks: Array(rows),
             todayTaskCount: todayTasks.count,
         )
