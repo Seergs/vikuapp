@@ -72,15 +72,18 @@ public struct InstanceSetupView: View {
                 }
 
             VStack(spacing: VikuSpacing.xs) {
-                Text("Connect your instance")
+                Text("Connect your instance", bundle: .module)
                     .font(VikuFont.title2)
                     .fontWeight(.heavy)
 
-                Text("This app connects to your own Vikunja server. Enter your instance's details to get started.")
-                    .font(VikuFont.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundStyle(VikuColor.textSecondary)
-                    .multilineTextAlignment(.center)
+                Text(
+                    "This app connects to your own Vikunja server. Enter your instance's details to get started.",
+                    bundle: .module,
+                )
+                .font(VikuFont.subheadline)
+                .fontWeight(.medium)
+                .foregroundStyle(VikuColor.textSecondary)
+                .multilineTextAlignment(.center)
             }
         }
         .padding(.top, VikuSpacing.lg)
@@ -88,13 +91,21 @@ public struct InstanceSetupView: View {
 
     private var fields: some View {
         VStack(spacing: VikuSpacing.md) {
-            OnboardingField(label: "Connection name", text: $viewModel.displayName, placeholder: "e.g. Office server")
-                .autocapitalized(.words)
+            OnboardingField(
+                label: String(localized: "Connection name", bundle: .module),
+                text: $viewModel.displayName,
+                placeholder: String(localized: "e.g. Office server", bundle: .module),
+            )
+            .autocapitalized(.words)
 
-            OnboardingField(label: "Instance URL", text: $viewModel.urlText, placeholder: "https://tasks.example.com")
-                .autocapitalized(.never)
-                .autocorrectionDisabled()
-                .keyboardTypeURL()
+            OnboardingField(
+                label: String(localized: "Instance URL", bundle: .module),
+                text: $viewModel.urlText,
+                placeholder: String(localized: "https://tasks.example.com", bundle: .module),
+            )
+            .autocapitalized(.never)
+            .autocorrectionDisabled()
+            .keyboardTypeURL()
 
             if viewModel.urlUsesInsecureScheme {
                 insecureConnectionToggle
@@ -116,7 +127,7 @@ public struct InstanceSetupView: View {
     private var insecureConnectionToggle: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.xs) {
             Toggle(isOn: $viewModel.allowInsecureConnection) {
-                Text("Allow insecure connection")
+                Text("Allow insecure connection", bundle: .module)
                     .font(VikuFont.footnote)
                     .fontWeight(.semibold)
                     .foregroundStyle(VikuColor.textSecondary)
@@ -126,7 +137,10 @@ public struct InstanceSetupView: View {
             if viewModel.allowInsecureConnection {
                 HStack(alignment: .firstTextBaseline, spacing: VikuSpacing.xs) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                    Text("Traffic to this instance won't be encrypted. Only use http on a trusted local network.")
+                    Text(
+                        "Traffic to this instance won't be encrypted. Only use http on a trusted local network.",
+                        bundle: .module,
+                    )
                 }
                 .font(VikuFont.caption)
                 .fontWeight(.medium)
@@ -139,7 +153,7 @@ public struct InstanceSetupView: View {
 
     private var oidcProvidersSection: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm) {
-            Text("You'll be redirected to your provider's sign-in page to finish.")
+            Text("You'll be redirected to your provider's sign-in page to finish.", bundle: .module)
                 .font(VikuFont.caption)
                 .foregroundStyle(VikuColor.textSecondary)
 
@@ -153,7 +167,7 @@ public struct InstanceSetupView: View {
         Button {
             Task { await viewModel.signInWithOIDC(provider) }
         } label: {
-            Text("Continue with \(provider.name)")
+            Text("Continue with \(provider.name)", bundle: .module)
                 .font(VikuFont.subheadline)
                 .fontWeight(.semibold)
                 .frame(maxWidth: .infinity)
@@ -169,11 +183,11 @@ public struct InstanceSetupView: View {
 
     private var apiTokenField: some View {
         OnboardingField(
-            label: "API token",
+            label: String(localized: "API token", bundle: .module),
             text: $viewModel.apiToken,
-            placeholder: "vkj_...",
+            placeholder: String(localized: "vkj_...", bundle: .module),
             isSecure: !isTokenVisible,
-            hint: "Generate one on your Vikunja instance: Settings → API Tokens.",
+            hint: String(localized: "Generate one on your Vikunja instance: Settings → API Tokens.", bundle: .module),
             trailingSystemImage: isTokenVisible ? "eye.slash" : "eye",
             trailingAction: { isTokenVisible.toggle() },
         )
@@ -183,14 +197,18 @@ public struct InstanceSetupView: View {
 
     private var passwordFields: some View {
         VStack(spacing: VikuSpacing.md) {
-            OnboardingField(label: "Username", text: $viewModel.username, placeholder: "your-username")
-                .autocapitalized(.never)
-                .autocorrectionDisabled()
+            OnboardingField(
+                label: String(localized: "Username", bundle: .module),
+                text: $viewModel.username,
+                placeholder: String(localized: "your-username", bundle: .module),
+            )
+            .autocapitalized(.never)
+            .autocorrectionDisabled()
 
             OnboardingField(
-                label: "Password",
+                label: String(localized: "Password", bundle: .module),
                 text: $viewModel.password,
-                placeholder: "••••••••",
+                placeholder: String(localized: "••••••••", bundle: .module),
                 isSecure: !isPasswordVisible,
                 trailingSystemImage: isPasswordVisible ? "eye.slash" : "eye",
                 trailingAction: { isPasswordVisible.toggle() },
@@ -200,10 +218,10 @@ public struct InstanceSetupView: View {
 
             if viewModel.awaitingTOTP {
                 OnboardingField(
-                    label: "Two-factor code",
+                    label: String(localized: "Two-factor code", bundle: .module),
                     text: $viewModel.totpPasscode,
-                    placeholder: "123456",
-                    hint: "Enter the current code from your authenticator app.",
+                    placeholder: String(localized: "123456", bundle: .module),
+                    hint: String(localized: "Enter the current code from your authenticator app.", bundle: .module),
                 )
                 .autocapitalized(.never)
                 .autocorrectionDisabled()
@@ -219,7 +237,9 @@ public struct InstanceSetupView: View {
                 if viewModel.isSaving {
                     ProgressView()
                 }
-                Text(viewModel.isSaving ? "Testing connection…" : "Test Connection")
+                Text(viewModel.isSaving
+                    ? String(localized: "Testing connection…", bundle: .module)
+                    : String(localized: "Test Connection", bundle: .module))
                     .font(VikuFont.subheadline)
                     .fontWeight(.semibold)
             }
@@ -239,7 +259,7 @@ public struct InstanceSetupView: View {
         let textTint = isSuccess ? VikuColor.Semantic.successText : VikuColor.Semantic.dangerText
         return HStack(spacing: VikuSpacing.sm) {
             Image(systemName: isSuccess ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-            Text(text)
+            Text(verbatim: text)
                 .font(VikuFont.footnote)
                 .fontWeight(.semibold)
         }
@@ -254,7 +274,7 @@ public struct InstanceSetupView: View {
         Button {
             Task { await viewModel.saveConnection() }
         } label: {
-            Text("Save & Continue")
+            Text("Save & Continue", bundle: .module)
                 .font(VikuFont.body)
                 .fontWeight(.bold)
                 .frame(maxWidth: .infinity)
@@ -273,7 +293,7 @@ public struct InstanceSetupView: View {
         case .idle, .validating:
             nil
         case .success:
-            "Connection successful."
+            String(localized: "Connection successful.", bundle: .module)
         case let .failure(message):
             message
         }
@@ -294,7 +314,7 @@ private struct OnboardingField: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.xs) {
-            Text(label)
+            Text(verbatim: label)
                 .font(VikuFont.footnote)
                 .fontWeight(.semibold)
                 .foregroundStyle(VikuColor.textSecondary)
@@ -323,7 +343,7 @@ private struct OnboardingField: View {
             .background(VikuColor.Surface.field, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
 
             if let hint {
-                Text(hint)
+                Text(verbatim: hint)
                     .font(VikuFont.caption)
                     .foregroundStyle(VikuColor.textSecondary)
             }

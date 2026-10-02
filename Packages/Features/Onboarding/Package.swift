@@ -12,7 +12,11 @@ let package = Package(
         .package(path: "../../VikuDesignSystem"),
     ],
     targets: [
-        .target(name: "Onboarding", dependencies: ["VikunjaCore", "VikuDesignSystem"]),
+        .target(
+            name: "Onboarding",
+            dependencies: ["VikunjaCore", "VikuDesignSystem"],
+            resources: [.process("Resources")],
+        ),
         .testTarget(name: "OnboardingTests", dependencies: ["Onboarding"]),
     ],
 )
