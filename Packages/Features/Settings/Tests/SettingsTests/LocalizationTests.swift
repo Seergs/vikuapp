@@ -59,7 +59,7 @@ struct LocalizationTests {
         ("Version, links, and privacy", "Versión, enlaces y privacidad"),
         ("Show DEV Badge", "Mostrar insignia DEV"),
         ("Log Network Requests", "Registrar solicitudes de red"),
-        ("Preview Onboarding", "Previsualizar incorporación"),
+        ("Preview Onboarding", "Previsualizar onboarding"),
         ("See the first-launch screen again", "Ver otra vez la pantalla de primer inicio"),
         ("Developer", "Desarrollador"),
         ("Settings", "Configuración"),
