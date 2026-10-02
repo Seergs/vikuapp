@@ -67,7 +67,7 @@ public final class ProjectsListViewModel {
             for id in Self.flattenedIDs(of: [node]) {
                 taskSummaries[id] = nil
             }
-            toastPresenter.show("Project deleted", style: .success)
+            toastPresenter.show(String(localized: "Project deleted", bundle: .module), style: .success)
         } catch let error as VikunjaError {
             toastPresenter.show(error.displayMessage, style: .error)
         } catch {

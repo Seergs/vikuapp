@@ -45,19 +45,19 @@ public struct EditProjectSheetView: View {
             .padding(.top, VikuSpacing.md)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .animation(.spring(response: 0.35, dampingFraction: 0.86), value: viewModel.saveErrorMessage)
-            .navigationTitle("Edit Project")
+            .navigationTitle(Text("Edit Project", bundle: .module))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button(String(localized: "Cancel", bundle: .module)) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     if viewModel.isSaving {
                         ProgressView()
                     } else {
-                        Button("Save", action: save)
+                        Button(String(localized: "Save", bundle: .module), action: save)
                             .fontWeight(.bold)
                             .disabled(!viewModel.canSave)
                     }
@@ -68,7 +68,7 @@ public struct EditProjectSheetView: View {
         .presentationCornerRadius(VikuRadius.lg + VikuSpacing.sm)
         .sheet(isPresented: $isShowingParentPicker) {
             ProjectPickerSheet(
-                title: "Parent Project",
+                title: String(localized: "Parent Project", bundle: .module),
                 projects: viewModel.projects,
                 selectedProjectID: viewModel.parentProjectID,
                 showsNoneOption: true,
@@ -89,7 +89,7 @@ public struct EditProjectSheetView: View {
                 .fill(Color(vikuHex: viewModel.hexColor) ?? VikuColor.brandPrimary)
                 .frame(width: 10, height: 10)
 
-            TextField("Project name", text: $viewModel.title)
+            TextField(String(localized: "Project name", bundle: .module), text: $viewModel.title)
                 .font(VikuFont.body)
                 .focused($isTitleFocused)
                 .submitLabel(.done)
@@ -102,7 +102,7 @@ public struct EditProjectSheetView: View {
 
     private var colorSection: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm - VikuSpacing.xxs) {
-            FieldLabel("Color")
+            FieldLabel(String(localized: "Color", bundle: .module))
             HStack(spacing: VikuSpacing.sm) {
                 ForEach(Self.colorSwatches, id: \.self) { swatch in
                     let swatchColor = Color(vikuHex: swatch) ?? VikuColor.brandPrimary
@@ -124,7 +124,7 @@ public struct EditProjectSheetView: View {
 
     private var parentProjectSection: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm - VikuSpacing.xxs) {
-            FieldLabel("Parent Project")
+            FieldLabel(String(localized: "Parent Project", bundle: .module))
             ParentProjectField(project: viewModel.selectedParentProject) {
                 isShowingParentPicker = true
             }
@@ -158,7 +158,7 @@ private struct ParentProjectField: View {
                         .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(Color.primary)
                 } else {
-                    Text("None")
+                    Text("None", bundle: .module)
                         .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(Color.primary)
                 }
@@ -209,7 +209,7 @@ private struct FieldLabel: View {
     }
 
     var body: some View {
-        Text(title)
+        Text(verbatim: title)
             .font(VikuFont.footnote)
             .fontWeight(.semibold)
             .foregroundStyle(VikuColor.textSecondary)
