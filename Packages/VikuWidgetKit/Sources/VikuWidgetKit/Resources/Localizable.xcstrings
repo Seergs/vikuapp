@@ -1,6 +1,16 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%lld overdue · %lld today" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld vencidas · %lld hoy"
+          }
+        }
+      }
+    },
     "%lld tasks" : {
       "localizations" : {
         "en" : {
@@ -37,6 +47,256 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "%lld today · %lld upcoming" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld hoy · %lld próximas"
+          }
+        }
+      }
+    },
+    "+%lld more" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+%lld más"
+          }
+        }
+      }
+    },
+    "Add Task" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agregar tarea"
+          }
+        }
+      }
+    },
+    "Add task" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agregar tarea"
+          }
+        }
+      }
+    },
+    "Calendar" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calendario"
+          }
+        }
+      }
+    },
+    "Couldn't refresh" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo actualizar"
+          }
+        }
+      }
+    },
+    "Marks a Vikunja task done or not done." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marca una tarea de Vikunja como hecha o no hecha."
+          }
+        }
+      }
+    },
+    "No connection and nothing saved yet." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin conexión y aún no hay nada guardado."
+          }
+        }
+      }
+    },
+    "Not connected" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No conectado"
+          }
+        }
+      }
+    },
+    "Nothing due today." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nada pendiente hoy."
+          }
+        }
+      }
+    },
+    "Nothing due. Enjoy it." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nada pendiente. Disfrútalo."
+          }
+        }
+      }
+    },
+    "Open Viku to add your instance." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abre Viku para agregar tu instancia."
+          }
+        }
+      }
+    },
+    "Open Viku's quick-add sheet." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abre la hoja de agregado rápido de Viku."
+          }
+        }
+      }
+    },
+    "Open Vikunja to add your instance." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abre Vikunja para agregar tu instancia."
+          }
+        }
+      }
+    },
+    "Opens Viku's quick-add sheet to jot down a new task." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abre la hoja de agregado rápido de Viku para anotar una tarea nueva."
+          }
+        }
+      }
+    },
+    "Overdue" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vencida"
+          }
+        }
+      }
+    },
+    "Showing saved data" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrando datos guardados"
+          }
+        }
+      }
+    },
+    "Sign in again" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inicia sesión de nuevo"
+          }
+        }
+      }
+    },
+    "Task ID" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ID de tarea"
+          }
+        }
+      }
+    },
+    "Tasks that are overdue, due today, or coming up." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tareas vencidas, que vencen hoy, o próximas."
+          }
+        }
+      }
+    },
+    "The Viku glyph as a one-tap shortcut to add a task." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El glifo de Viku como acceso directo de un toque para agregar una tarea."
+          }
+        }
+      }
+    },
+    "This month's tasks at a glance, with today's list." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las tareas de este mes de un vistazo, con la lista de hoy."
+          }
+        }
+      }
+    },
+    "Toggle Task Completion" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alternar finalización de tarea"
+          }
+        }
+      }
+    },
+    "Today" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hoy"
+          }
+        }
+      }
+    },
+    "Your token was rejected. Re-add the connection in Settings." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu token fue rechazado. Vuelve a agregar la conexión en Configuración."
           }
         }
       }

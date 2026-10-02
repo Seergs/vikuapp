@@ -34,20 +34,23 @@ struct TodayWidgetView: View {
         case .notConnected:
             TodayWidgetMessage(
                 systemImage: "link.circle",
-                title: "Not connected",
-                message: "Open Vikunja to add your instance.",
+                title: String(localized: "Not connected", bundle: .module),
+                message: String(localized: "Open Vikunja to add your instance.", bundle: .module),
             )
         case .needsAuth:
             TodayWidgetMessage(
                 systemImage: "lock.circle",
-                title: "Sign in again",
-                message: "Your token was rejected. Re-add the connection in Settings.",
+                title: String(localized: "Sign in again", bundle: .module),
+                message: String(
+                    localized: "Your token was rejected. Re-add the connection in Settings.",
+                    bundle: .module,
+                ),
             )
         case .unavailable:
             TodayWidgetMessage(
                 systemImage: "wifi.slash",
-                title: "Couldn't refresh",
-                message: "No connection and nothing saved yet.",
+                title: String(localized: "Couldn't refresh", bundle: .module),
+                message: String(localized: "No connection and nothing saved yet.", bundle: .module),
             )
         case let .content(content):
             loadedContent(content)
@@ -79,7 +82,7 @@ private struct TodaySmallView: View {
             Spacer(minLength: 0)
 
             HStack(alignment: .firstTextBaseline, spacing: VikuSpacing.xxs) {
-                Text("\(content.pendingCount)")
+                Text(verbatim: "\(content.pendingCount)")
                     .font(.system(size: 30, weight: .bold, design: .rounded))
                     .foregroundStyle(Color.primary)
                 Text(pendingWord)
@@ -105,9 +108,15 @@ private struct TodaySmallView: View {
 
     private var pendingBreakdown: String {
         if content.overdueCount > 0 {
-            return "\(content.overdueCount) overdue · \(content.todayCount) today"
+            return String(
+                localized: "\(content.overdueCount) overdue · \(content.todayCount) today",
+                bundle: .module,
+            )
         }
-        return "\(content.todayCount) today · \(content.upcomingCount) upcoming"
+        return String(
+            localized: "\(content.todayCount) today · \(content.upcomingCount) upcoming",
+            bundle: .module,
+        )
     }
 }
 
@@ -127,7 +136,7 @@ private struct TodayListView: View {
 
             if rows.isEmpty {
                 Spacer(minLength: 0)
-                Text("Nothing due. Enjoy it.")
+                Text("Nothing due. Enjoy it.", bundle: .module)
                     .font(VikuFont.caption)
                     .foregroundStyle(VikuColor.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -156,7 +165,7 @@ private struct TodayWidgetRow: View {
             toggle
 
             VStack(alignment: .leading, spacing: 1) {
-                Text(task.title)
+                Text(verbatim: task.title)
                     .font(VikuFont.caption)
                     .fontWeight(.medium)
                     .strikethrough(task.isDone)
@@ -166,11 +175,11 @@ private struct TodayWidgetRow: View {
                 HStack(spacing: VikuSpacing.xs) {
                     if !task.projectName.isEmpty {
                         Circle().fill(projectColor).frame(width: 4, height: 4)
-                        Text(task.projectName)
+                        Text(verbatim: task.projectName)
                             .foregroundStyle(VikuColor.textSecondary)
                     }
                     if let due = dueLabel {
-                        Text("· \(due)")
+                        Text(verbatim: "· \(due)")
                             .foregroundStyle(
                                 task.bucket == .overdue ? VikuColor.Semantic.dangerText : VikuColor.textSecondary,
                             )
@@ -209,8 +218,8 @@ private struct TodayWidgetRow: View {
     private var dueLabel: String? {
         guard let dueDate = task.dueDate else { return nil }
         switch task.bucket {
-        case .overdue: return "Overdue"
-        case .today: return "Today"
+        case .overdue: return String(localized: "Overdue", bundle: .module)
+        case .today: return String(localized: "Today", bundle: .module)
         case .upcoming:
             return DueDateFormatter.compact(dueDate)
         }
@@ -225,7 +234,7 @@ private struct TodayWidgetHeader: View {
 
     var body: some View {
         HStack(spacing: VikuSpacing.xs) {
-            Text("Today")
+            Text("Today", bundle: .module)
                 .font(VikuFont.footnote)
                 .fontWeight(.semibold)
                 .textCase(.uppercase)
@@ -236,7 +245,7 @@ private struct TodayWidgetHeader: View {
                 Image(systemName: "clock.arrow.circlepath")
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(VikuColor.textTertiary)
-                    .accessibilityLabel("Showing saved data")
+                    .accessibilityLabel(Text("Showing saved data", bundle: .module))
             }
             quickAddButton
         }
@@ -257,7 +266,7 @@ private struct TodayWidgetHeader: View {
                     .foregroundStyle(VikuColor.brandPrimary)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Add task")
+            .accessibilityLabel(Text("Add task", bundle: .module))
             #endif
         } else if let url = quickAddURL {
             Link(destination: url) {
@@ -265,7 +274,7 @@ private struct TodayWidgetHeader: View {
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(VikuColor.brandPrimary)
             }
-            .accessibilityLabel("Add task")
+            .accessibilityLabel(Text("Add task", bundle: .module))
         }
     }
 
@@ -284,10 +293,10 @@ private struct TodayWidgetMessage: View {
             Image(systemName: systemImage)
                 .font(.system(size: 18))
                 .foregroundStyle(VikuColor.textTertiary)
-            Text(title)
+            Text(verbatim: title)
                 .font(VikuFont.caption)
                 .fontWeight(.semibold)
-            Text(message)
+            Text(verbatim: message)
                 .font(VikuFont.caption2)
                 .foregroundStyle(VikuColor.textSecondary)
                 .multilineTextAlignment(.center)
