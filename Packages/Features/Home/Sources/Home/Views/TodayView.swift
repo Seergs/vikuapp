@@ -24,10 +24,10 @@ struct TodayView: View {
             .scrollContentBackground(.hidden)
             .background(VikuColor.Surface.page)
             .refreshable { await viewModel.load() }
-            .navigationTitle("Today")
+            .navigationTitle(Text("Today", bundle: .module))
             .task { await viewModel.load() }
             .confirmationDialog(
-                "This permanently deletes the task.",
+                Text("This permanently deletes the task.", bundle: .module),
                 isPresented: Binding(
                     get: { taskPendingDelete != nil },
                     set: { isPresented in
@@ -39,15 +39,19 @@ struct TodayView: View {
                 titleVisibility: .visible,
             ) {
                 if let taskPendingDelete {
-                    Button("Delete Task", role: .destructive) {
+                    Button(role: .destructive) {
                         Task { await viewModel.delete(taskPendingDelete) }
+                    } label: {
+                        Text("Delete Task", bundle: .module)
                     }
                 }
-                Button("Cancel", role: .cancel) {}
+                Button(role: .cancel) {} label: {
+                    Text("Cancel", bundle: .module)
+                }
             }
             .sheet(item: $taskPendingMove) { task in
                 ProjectPickerSheet(
-                    title: "Move to Project",
+                    title: String(localized: "Move to Project", bundle: .module),
                     projects: viewModel.allProjects,
                     selectedProjectID: nil,
                     excludingSubtreeOf: task.projectID,
@@ -124,7 +128,7 @@ struct TodayView: View {
             case let .failure(message):
                 VikuStatusView(
                     systemImage: "exclamationmark.triangle.fill",
-                    title: "Couldn't load your tasks",
+                    title: String(localized: "Couldn't load your tasks", bundle: .module),
                     message: message,
                 ) {
                     Task { await viewModel.load() }
@@ -162,10 +166,12 @@ struct TodayView: View {
         if visible.isEmpty {
             VikuStatusView(
                 systemImage: "checkmark.circle",
-                title: viewModel.datedTaskCount == 0 ? "Nothing due" : "Nothing here",
+                title: viewModel.datedTaskCount == 0
+                    ? String(localized: "Nothing due", bundle: .module)
+                    : String(localized: "Nothing here", bundle: .module),
                 message: viewModel.datedTaskCount == 0
-                    ? "Tasks with a due date will show up here."
-                    : "No tasks match this filter.",
+                    ? String(localized: "Tasks with a due date will show up here.", bundle: .module)
+                    : String(localized: "No tasks match this filter.", bundle: .module),
                 iconSize: 28,
             )
             .padding(.top, VikuSpacing.lg)
@@ -175,9 +181,9 @@ struct TodayView: View {
         } else {
             ForEach(visible) { section in
                 HStack(spacing: VikuSpacing.xs) {
-                    Text(section.title)
+                    Text(verbatim: section.title)
                         .fontWeight(.bold)
-                    Text("\(section.tasks.count)")
+                    Text(verbatim: "\(section.tasks.count)")
                         .fontWeight(.regular)
                 }
                 .vikuSectionHeader()
@@ -201,22 +207,24 @@ struct TodayView: View {
                         },
                         contextMenu: {
                             Button(
-                                task.isDone ? "Mark as Not Done" : "Mark as Done",
+                                task.isDone
+                                    ? String(localized: "Mark as Not Done", bundle: .module)
+                                    : String(localized: "Mark as Done", bundle: .module),
                                 systemImage: task.isDone ? "circle" : "checkmark.circle",
                             ) {
                                 Task { await viewModel.toggleDone(task) }
                             }
                             Divider()
-                            Button("Due Date", systemImage: "calendar") {
+                            Button(String(localized: "Due Date", bundle: .module), systemImage: "calendar") {
                                 taskPendingDueDateEdit = task
                             }
-                            Menu("Priority", systemImage: "flag") {
+                            Menu(String(localized: "Priority", bundle: .module), systemImage: "flag") {
                                 ForEach(VikunjaTask.Priority.selectable, id: \.self) { priority in
                                     Button {
                                         Task { await viewModel.setPriority(task, to: priority) }
                                     } label: {
                                         HStack {
-                                            Text(priority.displayName)
+                                            Text(verbatim: priority.localizedMenuLabel)
                                             if task.priority == priority {
                                                 Image(systemName: "checkmark")
                                             }
@@ -224,21 +232,28 @@ struct TodayView: View {
                                     }
                                 }
                             }
-                            Button("Labels", systemImage: "tag") {
+                            Button(String(localized: "Labels", bundle: .module), systemImage: "tag") {
                                 taskPendingLabelEdit = task
                             }
                             Divider()
-                            Button("Add Relation", systemImage: "link") {
+                            Button(String(localized: "Add Relation", bundle: .module), systemImage: "link") {
                                 relationEditStep = .pickKind(task)
                             }
-                            Button("Duplicate Task", systemImage: "plus.square.on.square") {
+                            Button(
+                                String(localized: "Duplicate Task", bundle: .module),
+                                systemImage: "plus.square.on.square",
+                            ) {
                                 taskPendingDuplicate = task
                             }
-                            Button("Move to Project", systemImage: "folder") {
+                            Button(String(localized: "Move to Project", bundle: .module), systemImage: "folder") {
                                 taskPendingMove = task
                             }
                             Divider()
-                            Button("Delete Task", systemImage: "trash", role: .destructive) {
+                            Button(
+                                String(localized: "Delete Task", bundle: .module),
+                                systemImage: "trash",
+                                role: .destructive,
+                            ) {
                                 taskPendingDelete = task
                             }
                             .tint(VikuColor.Semantic.danger)
@@ -260,10 +275,10 @@ enum TodayFilter: CaseIterable {
 
     var title: String {
         switch self {
-        case .all: "All"
-        case .overdue: "Overdue"
-        case .today: "Today"
-        case .upcoming: "Upcoming"
+        case .all: String(localized: "All", bundle: .module)
+        case .overdue: String(localized: "Overdue", bundle: .module)
+        case .today: String(localized: "Today", bundle: .module)
+        case .upcoming: String(localized: "Upcoming", bundle: .module)
         }
     }
 }
@@ -294,7 +309,7 @@ private struct TodayFilterChip: View {
 
     var body: some View {
         Button(action: onSelect) {
-            Text(title)
+            Text(verbatim: title)
                 .font(VikuFont.subheadline)
                 .fontWeight(.semibold)
                 .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
@@ -327,19 +342,39 @@ struct TodaySection: Identifiable {
         // current filter keeps onto titled sections.
         let digest = TodayDigest(tasks: tasks, now: now)
 
+        let overdueTitle = String(localized: "Overdue", bundle: .module)
+        let todayTitle = String(localized: "Today", bundle: .module)
+        let upcomingTitle = String(localized: "Upcoming", bundle: .module)
+
         let buckets: [(String, [VikunjaTask])] = switch filter {
         case .all:
-            [("Overdue", digest.overdue), ("Today", digest.today), ("Upcoming", digest.upcoming)]
+            [(overdueTitle, digest.overdue), (todayTitle, digest.today), (upcomingTitle, digest.upcoming)]
         case .overdue:
-            [("Overdue", digest.overdue)]
+            [(overdueTitle, digest.overdue)]
         case .today:
-            [("Today", digest.today)]
+            [(todayTitle, digest.today)]
         case .upcoming:
-            [("Upcoming", digest.upcoming)]
+            [(upcomingTitle, digest.upcoming)]
         }
 
         return buckets.compactMap { title, tasks in
             tasks.isEmpty ? nil : TodaySection(title: title, tasks: tasks)
+        }
+    }
+}
+
+private extension VikunjaTask.Priority {
+    /// `displayName` (`VikunjaCore`) is plain English; this screen's priority
+    /// menu needs a localized label, so it owns its own translation here
+    /// rather than reaching into Core, mirroring `PriorityOption.all` in
+    /// `VikuDesignSystem`'s `TaskFormControls.swift`.
+    var localizedMenuLabel: String {
+        switch self {
+        case .unset: String(localized: "None", bundle: .module)
+        case .low: String(localized: "Low", bundle: .module)
+        case .medium: String(localized: "Medium", bundle: .module)
+        case .high: String(localized: "High", bundle: .module)
+        case .urgent, .doNow: String(localized: "Urgent", bundle: .module)
         }
     }
 }
