@@ -87,6 +87,7 @@ private struct ProjectOverviewDestination: View {
             viewModel: viewModel,
             kanbanViewModel: kanbanViewModel,
             makeEditProjectViewModel: { container.makeEditProjectViewModel(project: $0, account: account) },
+            makeCreateProjectViewModel: { container.makeCreateProjectViewModel(parentProjectID: $0, account: account) },
         )
     }
 }

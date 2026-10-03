@@ -14,7 +14,7 @@ public struct ProjectsRootView: View {
     private let viewModel: ProjectsListViewModel
     private let makeOverviewViewModel: (ProjectNode) -> ProjectOverviewViewModel
     private let makeKanbanBoardViewModel: (Project) -> KanbanBoardViewModel
-    private let makeCreateProjectViewModel: () -> CreateProjectViewModel
+    private let makeCreateProjectViewModel: (Int?) -> CreateProjectViewModel
     private let makeEditProjectViewModel: (Project) -> EditProjectViewModel
 
     /// The `make...ViewModel` closures come from the app target's
@@ -24,7 +24,7 @@ public struct ProjectsRootView: View {
         viewModel: ProjectsListViewModel,
         makeOverviewViewModel: @escaping (ProjectNode) -> ProjectOverviewViewModel,
         makeKanbanBoardViewModel: @escaping (Project) -> KanbanBoardViewModel,
-        makeCreateProjectViewModel: @escaping () -> CreateProjectViewModel,
+        makeCreateProjectViewModel: @escaping (Int?) -> CreateProjectViewModel,
         makeEditProjectViewModel: @escaping (Project) -> EditProjectViewModel,
     ) {
         self.viewModel = viewModel
@@ -72,6 +72,7 @@ public struct ProjectsRootView: View {
                     onSelectTask: { task in router.push(.taskDetail(task, node.project)) },
                     onEditProject: { editingProject = $0 },
                     onDuplicated: { router.push(.taskDetail($0, $1)) },
+                    makeCreateProjectViewModel: makeCreateProjectViewModel,
                 )
             }
         }

@@ -104,8 +104,8 @@ struct MainTabView: View {
                         makeKanbanBoardViewModel: { project in
                             container.makeKanbanBoardViewModel(project: project, account: account)
                         },
-                        makeCreateProjectViewModel: {
-                            container.makeCreateProjectViewModel(account: account)
+                        makeCreateProjectViewModel: { parentProjectID in
+                            container.makeCreateProjectViewModel(parentProjectID: parentProjectID, account: account)
                         },
                         makeEditProjectViewModel: { project in
                             container.makeEditProjectViewModel(project: project, account: account)

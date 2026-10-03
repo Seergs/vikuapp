@@ -169,6 +169,24 @@ struct ProjectOverviewViewModelTests {
     }
 
     @Test
+    func `add subproject appends it to the local tree and seeds its summary at zero`() {
+        let viewModel = ProjectOverviewViewModel(
+            project: Project(id: 1, title: "Work"),
+            repository: FakeTaskRepository(),
+            projectRepository: FakeProjectRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
+        )
+
+        viewModel.addSubproject(Project(id: 2, title: "Client A", parentProjectID: 1))
+
+        #expect(viewModel.subprojects.map(\.project.id) == [2])
+        #expect(viewModel.subprojectTaskSummaries[2] == ProjectOverviewViewModel.TaskSummary(done: 0, total: 0))
+    }
+
+    @Test
     func `load fetches each subprojects own task summary`() async {
         let repository = FakeTaskRepository()
         repository.tasks = [

@@ -14,6 +14,12 @@ public struct CreateProjectSheetView: View {
     @Environment(\.dismiss) private var dismiss
     @FocusState private var isTitleFocused: Bool
     @State private var isShowingParentPicker = false
+    /// Called with the newly created project right before the sheet
+    /// dismisses, so a caller that needs it (e.g. `ProjectOverviewView`
+    /// adding it to its own "Subprojects" section) doesn't have to re-fetch
+    /// it — mirrors `DuplicateTaskSheetView.onDuplicated`. `nil` for callers
+    /// that don't need it (e.g. the root projects list, which just reloads).
+    private let onCreated: ((Project) -> Void)?
 
     /// A single detent sized to the current content — see
     /// `QuickAddSheetView.detentHeight` for why a two-detent set stretches
@@ -24,8 +30,9 @@ public struct CreateProjectSheetView: View {
 
     /// Takes a factory rather than an already-built view model — see
     /// `EditProjectSheetView.init`'s doc comment for why.
-    public init(makeViewModel: @escaping () -> CreateProjectViewModel) {
+    public init(makeViewModel: @escaping () -> CreateProjectViewModel, onCreated: ((Project) -> Void)? = nil) {
         _viewModel = State(initialValue: makeViewModel())
+        self.onCreated = onCreated
     }
 
     public var body: some View {
@@ -144,7 +151,8 @@ public struct CreateProjectSheetView: View {
     private func save() {
         guard viewModel.canSave else { return }
         Task {
-            if await viewModel.save() != nil {
+            if let created = await viewModel.save() {
+                onCreated?(created)
                 dismiss()
             }
         }
