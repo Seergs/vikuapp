@@ -81,6 +81,16 @@
         }
       }
     },
+    "Add Subproject" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agregar subproyecto"
+          }
+        }
+      }
+    },
     "Alphabetical" : {
       "localizations" : {
         "es" : {

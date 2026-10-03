@@ -31,6 +31,11 @@ struct ProjectOverviewView: View {
     /// duplicate can land in any project the sheet's picker offers, not just
     /// this one.
     let onDuplicated: (VikunjaTask, Project) -> Void
+    /// Builds the "create subproject" sheet's view model, taking the parent
+    /// project id — mirrors `ProjectsView`/`ProjectsRootView`'s own
+    /// `makeCreateProjectViewModel`, reused here with this screen's project
+    /// passed as the parent instead of `nil`.
+    let makeCreateProjectViewModel: (Int?) -> CreateProjectViewModel
     @State private var displayMode: ProjectDisplayMode = .list
     @State private var filter: ProjectTaskFilter = .all
     @State private var taskPendingDelete: VikunjaTask?
@@ -39,6 +44,7 @@ struct ProjectOverviewView: View {
     @State private var taskPendingDueDateEdit: VikunjaTask?
     @State private var taskPendingLabelEdit: VikunjaTask?
     @State private var relationEditStep: RelationEditStep?
+    @State private var isShowingCreateSubproject = false
 
     private var sort: TaskSort {
         TaskSort(field: viewModel.sortField, direction: viewModel.sortDirection)
@@ -117,6 +123,12 @@ struct ProjectOverviewView: View {
             Button(role: .cancel) {} label: {
                 Text("Cancel", bundle: .module)
             }
+        }
+        .sheet(isPresented: $isShowingCreateSubproject) {
+            CreateProjectSheetView(
+                makeViewModel: { makeCreateProjectViewModel(viewModel.project.id) },
+                onCreated: { viewModel.addSubproject($0) },
+            )
         }
         .sheet(item: $taskPendingMove) { task in
             ProjectPickerSheet(
@@ -221,7 +233,11 @@ struct ProjectOverviewView: View {
             ProjectProgressHeader(project: viewModel.project, tasks: viewModel.tasks)
                 .padding(.horizontal, VikuSpacing.md)
 
-            if !viewModel.subprojects.isEmpty {
+            if viewModel.subprojects.isEmpty {
+                AddSubprojectButton { isShowingCreateSubproject = true }
+                    .padding(.horizontal, VikuSpacing.md)
+                    .padding(.top, VikuSpacing.xs)
+            } else {
                 VStack(alignment: .leading, spacing: VikuSpacing.sm) {
                     HStack(spacing: VikuSpacing.xs) {
                         Text("Subprojects", bundle: .module)
@@ -467,6 +483,28 @@ private struct SubprojectCard: View {
             // under only a `minWidth` would try to grow unbounded instead.
             .frame(width: 220, alignment: .leading)
             .background(VikuColor.Surface.card, in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// The empty-state affordance shown where the "Subprojects" row would
+/// otherwise go, once this project has at least one child: a plain,
+/// left-aligned, borderless link rather than a boxed call-to-action.
+private struct AddSubprojectButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: VikuSpacing.xs) {
+                Image(systemName: "plus")
+                    .font(.system(size: 11, weight: .semibold))
+                Text("Add Subproject", bundle: .module)
+                    .font(VikuFont.footnote)
+                    .fontWeight(.semibold)
+            }
+            .foregroundStyle(VikuColor.brandPrimary)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }

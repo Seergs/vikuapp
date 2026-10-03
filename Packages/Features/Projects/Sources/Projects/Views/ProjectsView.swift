@@ -11,7 +11,7 @@ import VikuUI
 struct ProjectsView: View {
     @Bindable var viewModel: ProjectsListViewModel
     @Environment(AppRouter.self) private var router
-    let makeCreateProjectViewModel: () -> CreateProjectViewModel
+    let makeCreateProjectViewModel: (Int?) -> CreateProjectViewModel
     let makeEditProjectViewModel: (Project) -> EditProjectViewModel
     @State private var expandedProjectIDs: Set<Int> = []
     @State private var isShowingCreateProject = false
@@ -42,7 +42,7 @@ struct ProjectsView: View {
             .sheet(isPresented: $isShowingCreateProject, onDismiss: {
                 Task { await viewModel.load() }
             }, content: {
-                CreateProjectSheetView(makeViewModel: makeCreateProjectViewModel)
+                CreateProjectSheetView(makeViewModel: { makeCreateProjectViewModel(nil) })
             })
             .sheet(item: $editingProject, onDismiss: {
                 Task { await viewModel.load() }

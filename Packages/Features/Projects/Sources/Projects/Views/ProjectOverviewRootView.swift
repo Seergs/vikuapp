@@ -26,16 +26,19 @@ public struct ProjectOverviewRootView: View {
     /// never built here via a factory closure.
     private let kanbanViewModel: KanbanBoardViewModel
     private let makeEditProjectViewModel: (Project) -> EditProjectViewModel
+    private let makeCreateProjectViewModel: (Int?) -> CreateProjectViewModel
     @State private var editingProject: Project?
 
     public init(
         viewModel: ProjectOverviewViewModel,
         kanbanViewModel: KanbanBoardViewModel,
         makeEditProjectViewModel: @escaping (Project) -> EditProjectViewModel,
+        makeCreateProjectViewModel: @escaping (Int?) -> CreateProjectViewModel,
     ) {
         self.viewModel = viewModel
         self.kanbanViewModel = kanbanViewModel
         self.makeEditProjectViewModel = makeEditProjectViewModel
+        self.makeCreateProjectViewModel = makeCreateProjectViewModel
     }
 
     public var body: some View {
@@ -46,6 +49,7 @@ public struct ProjectOverviewRootView: View {
             onSelectTask: { router.push(.taskDetail($0, viewModel.project)) },
             onEditProject: { editingProject = $0 },
             onDuplicated: { router.push(.taskDetail($0, $1)) },
+            makeCreateProjectViewModel: makeCreateProjectViewModel,
         )
         // Pushed from a `.inline`-titled screen (Tasks' `TaskDetailView`), a
         // pushed screen inherits that inline mode by default - force the large

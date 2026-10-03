@@ -12,8 +12,9 @@ public final class ProjectOverviewViewModel {
     public let project: Project
     /// This project's direct children, handed down from the already-built
     /// tree (`ProjectsListViewModel.tree(from:)`) at navigation time rather
-    /// than fetched again here.
-    public let subprojects: [ProjectNode]
+    /// than fetched again here. Mutable (not `let`) so `addSubproject(_:)`
+    /// can append one just created from this screen without a full reload.
+    public private(set) var subprojects: [ProjectNode]
     public private(set) var tasks: [VikunjaTask] = []
     public private(set) var loadState: ScreenLoadState<Void> = .idle
     /// Whether this account's server supports the Kanban board (API v2,
@@ -315,6 +316,17 @@ public final class ProjectOverviewViewModel {
         if await mutator.move(task, to: destination) {
             tasks.removeAll { $0.id == task.id }
         }
+    }
+
+    /// Appends a subproject just created from this screen's "Add Subproject"
+    /// button to the local tree and seeds its summary at 0/0, so the
+    /// "Subprojects" section reflects it immediately rather than waiting for
+    /// this screen's next cold load (which wouldn't pick it up anyway, since
+    /// `subprojects` is handed down once at navigation time, not re-fetched
+    /// by `load()`).
+    public func addSubproject(_ project: Project) {
+        subprojects.append(ProjectNode(project: project))
+        subprojectTaskSummaries[project.id] = TaskSummary(done: 0, total: 0)
     }
 
     /// Builds a `DuplicateTaskViewModel` for `task`, seeded with this
