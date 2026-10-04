@@ -20,7 +20,21 @@ final class MockURLProtocol: URLProtocol {
     }
 
     private nonisolated(unsafe) static var responses: [Response] = []
+    private nonisolated(unsafe) static var failure: URLError?
     nonisolated(unsafe) static var capture: RequestCapture?
+
+    /// A session whose every request fails with `error` instead of returning
+    /// a response, e.g. a `URLError(.timedOut)`.
+    static func makeSession(failingWith error: URLError) -> (URLSession, RequestCapture) {
+        let capture = RequestCapture()
+        Self.responses = []
+        Self.failure = error
+        Self.capture = capture
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        return (URLSession(configuration: configuration), capture)
+    }
 
     /// Single canned response reused for every request the session makes.
     static func makeSession(statusCode: Int, body: String, headers: [String: String] = [:]) -> (URLSession, RequestCapture) {
@@ -39,6 +53,7 @@ final class MockURLProtocol: URLProtocol {
     private static func makeSession(responses: [Response]) -> (URLSession, RequestCapture) {
         let capture = RequestCapture()
         Self.responses = responses
+        Self.failure = nil
         Self.capture = capture
 
         let configuration = URLSessionConfiguration.ephemeral
@@ -61,6 +76,11 @@ final class MockURLProtocol: URLProtocol {
         // dispatching through a custom `URLProtocol`, leaving `httpBody`
         // nil — read the stream now (it can only be consumed once) so
         // callers inspecting the captured request's body don't see nil.
+        if let failure = Self.failure {
+            client?.urlProtocol(self, didFailWithError: failure)
+            return
+        }
+
         var request = request
         if request.httpBody == nil, let bodyData = Self.readBody(from: request) {
             request.httpBody = bodyData

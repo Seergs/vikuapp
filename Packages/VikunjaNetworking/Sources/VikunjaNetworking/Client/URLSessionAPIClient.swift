@@ -17,7 +17,7 @@ public actor URLSessionAPIClient: APIClient {
 
     public init(
         baseURL: URL,
-        session: URLSession = .shared,
+        session: URLSession = .vikunjaDefault,
         authTokenProvider: @escaping @Sendable () async throws -> String? = { nil },
     ) {
         self.baseURL = baseURL
@@ -71,6 +71,9 @@ public actor URLSessionAPIClient: APIClient {
         var request = URLRequest(url: url)
         request.httpMethod = endpoint.method.rawValue
         request.httpBody = endpoint.body
+        if let timeoutInterval = endpoint.timeoutInterval {
+            request.timeoutInterval = timeoutInterval
+        }
         if endpoint.body != nil {
             request.setValue(endpoint.contentType ?? "application/json", forHTTPHeaderField: "Content-Type")
         }
@@ -85,6 +88,8 @@ public actor URLSessionAPIClient: APIClient {
         let response: URLResponse
         do {
             (data, response) = try await session.data(for: request)
+        } catch let urlError as URLError where urlError.code == .timedOut {
+            throw VikunjaError.timeout
         } catch {
             throw VikunjaError.network(error.localizedDescription)
         }

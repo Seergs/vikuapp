@@ -21,6 +21,16 @@ public struct Endpoint: Sendable {
     /// flow to attach a `Cookie` header, since login itself has no prior
     /// bearer token to authenticate with.
     public let additionalHeaders: [String: String]
+    /// Overrides the client's default per-request timeout. `nil` (the
+    /// default) lets the session's own timeout apply. Only attachment
+    /// upload/download set this, since those transfers can legitimately take
+    /// longer than a JSON call on a slow self-hosted connection.
+    public let timeoutInterval: TimeInterval?
+
+    /// Timeout for large binary transfers (attachment upload/download) that
+    /// may legitimately take longer than a typical JSON call on a slow
+    /// self-hosted connection.
+    public static let attachmentTransferTimeout: TimeInterval = 60
 
     public init(
         path: String,
@@ -29,6 +39,7 @@ public struct Endpoint: Sendable {
         body: Data? = nil,
         contentType: String? = nil,
         additionalHeaders: [String: String] = [:],
+        timeoutInterval: TimeInterval? = nil,
     ) {
         self.path = path
         self.method = method
@@ -36,6 +47,7 @@ public struct Endpoint: Sendable {
         self.body = body
         self.contentType = contentType
         self.additionalHeaders = additionalHeaders
+        self.timeoutInterval = timeoutInterval
     }
 
     static func encoding(
@@ -61,6 +73,7 @@ public struct Endpoint: Sendable {
             method: method,
             body: form.encoded(),
             contentType: form.contentType,
+            timeoutInterval: attachmentTransferTimeout,
         )
     }
 }

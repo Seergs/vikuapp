@@ -12,6 +12,8 @@ public extension VikunjaError {
             String(localized: "That address uses an insecure http connection.", bundle: .module)
         case .network:
             String(localized: "Couldn't reach that server. Check the address and your connection.", bundle: .module)
+        case .timeout:
+            String(localized: "The request timed out. Check your connection and try again.", bundle: .module)
         case .notFound, .decoding:
             String(localized: "That address didn't respond like a Vikunja instance.", bundle: .module)
         case .unauthorized:
