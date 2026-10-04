@@ -176,7 +176,11 @@ enum VikunjaEndpoints {
         previewSize: AttachmentPreviewSize?,
     ) -> Endpoint {
         let queryItems = previewSize.map { [URLQueryItem(name: "preview_size", value: $0.rawValue)] } ?? []
-        return Endpoint(path: "/api/v1/tasks/\(taskID)/attachments/\(attachmentID)", queryItems: queryItems)
+        return Endpoint(
+            path: "/api/v1/tasks/\(taskID)/attachments/\(attachmentID)",
+            queryItems: queryItems,
+            timeoutInterval: Endpoint.attachmentTransferTimeout,
+        )
     }
 
     static func deleteTaskAttachment(taskID: Int, attachmentID: Int) -> Endpoint {

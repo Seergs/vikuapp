@@ -51,6 +51,16 @@
         }
       }
     },
+    "The request timed out. Check your connection and try again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La solicitud tardó demasiado. Revisa tu conexión e inténtalo de nuevo."
+          }
+        }
+      }
+    },
     "The server responded with an error (%lld)." : {
       "localizations" : {
         "es" : {

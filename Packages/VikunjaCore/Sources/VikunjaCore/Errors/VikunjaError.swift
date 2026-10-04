@@ -9,6 +9,10 @@ public enum VikunjaError: Error, Equatable, Sendable {
     case server(message: String, statusCode: Int)
     case decoding(String)
     case network(String)
+    /// A request was aborted by the transport after exceeding its timeout
+    /// (`URLError.timedOut`), distinct from `.network`, which covers every
+    /// other connectivity failure (no route, DNS failure, TLS error, etc.).
+    case timeout
     case unsupportedServerVersion(minimumRequired: String, actual: String)
     /// A password login was rejected because the account has TOTP enabled
     /// and no (or an incorrect) passcode was supplied — the caller should

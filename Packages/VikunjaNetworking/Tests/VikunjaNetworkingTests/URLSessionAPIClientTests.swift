@@ -28,6 +28,29 @@ struct URLSessionAPIClientTests {
     }
 
     @Test
+    func `maps A timed out url error to domain timeout error`() async throws {
+        let (session, _) = MockURLProtocol.makeSession(failingWith: URLError(.timedOut))
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+
+        await #expect(throws: VikunjaError.timeout) {
+            let _: ServerInfoDTO = try await client.send(VikunjaEndpoints.info())
+        }
+    }
+
+    @Test
+    func `maps A non timeout url error to domain network error`() async throws {
+        let (session, _) = MockURLProtocol.makeSession(failingWith: URLError(.notConnectedToInternet))
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+
+        do {
+            let _: ServerInfoDTO = try await client.send(VikunjaEndpoints.info())
+            Issue.record("Expected VikunjaError.network to be thrown")
+        } catch VikunjaError.network {
+            // Expected.
+        }
+    }
+
+    @Test
     func `maps A v2 problem plus json error to A readable server message`() async throws {
         let body = #"""
         {"title":"Validation failed","status":422,"detail":"Title cannot be empty","code":4017}
@@ -1146,6 +1169,22 @@ struct URLSessionAPIClientTests {
         let request = try #require(await capture.lastRequest)
         #expect(request.httpMethod == "DELETE")
         #expect(request.url?.path == "/api/v1/tasks/42/attachments/2")
+    }
+
+    @Test
+    func `upload AND download attachment endpoints carry A longer timeout than A plain json endpoint`() {
+        let form = MultipartFormData()
+        let longTimeout = Endpoint.attachmentTransferTimeout
+        let upload = VikunjaEndpoints.uploadTaskAttachment(taskID: 42, form: form)
+        let download = VikunjaEndpoints.downloadTaskAttachment(taskID: 42, attachmentID: 2, previewSize: nil)
+        let uploadV2 = VikunjaEndpoints.uploadTaskAttachmentV2(taskID: 42, form: form)
+        let downloadV2 = VikunjaEndpoints.downloadTaskAttachmentV2(taskID: 42, attachmentID: 2, previewSize: nil)
+
+        #expect(upload.timeoutInterval == longTimeout)
+        #expect(download.timeoutInterval == longTimeout)
+        #expect(uploadV2.timeoutInterval == longTimeout)
+        #expect(downloadV2.timeoutInterval == longTimeout)
+        #expect(VikunjaEndpoints.info().timeoutInterval == nil)
     }
 
     // `VikunjaTaskAttachmentRepositoryV2` and the v1/v2 parity for

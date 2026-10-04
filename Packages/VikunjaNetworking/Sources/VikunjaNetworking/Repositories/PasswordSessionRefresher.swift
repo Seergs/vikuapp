@@ -32,7 +32,7 @@ public actor PasswordSessionRefresher {
 
     public init(
         accountStore: AccountStoreProtocol,
-        session: URLSession = .shared,
+        session: URLSession = .vikunjaDefault,
         sessionExpiryReporter: SessionExpiryReporting? = nil,
     ) {
         self.accountStore = accountStore
