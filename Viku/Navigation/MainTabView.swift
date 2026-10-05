@@ -204,9 +204,13 @@ struct MainTabView: View {
             }
         }
         .overlay(alignment: .bottomTrailing) {
-            QuickAddOverlay(container: container, account: account)
-                .padding(.trailing, VikuSpacing.md)
-                .padding(.bottom, VikuSpacing.xxl + VikuSpacing.lg)
+            QuickAddOverlay(
+                container: container,
+                account: account,
+                showsButton: selection != .settings,
+            )
+            .padding(.trailing, VikuSpacing.md)
+            .padding(.bottom, VikuSpacing.xxl + VikuSpacing.lg)
         }
     }
 }
@@ -220,6 +224,9 @@ struct MainTabView: View {
 private struct QuickAddOverlay: View {
     let container: AppContainer
     let account: InstanceAccount
+    /// `false` hides the floating button (e.g. on Settings) while keeping this
+    /// view mounted, so the sheet and `viku://quick-add` handling still work.
+    let showsButton: Bool
 
     /// Wraps an already-built `QuickAddTaskViewModel` so `.sheet(item:)` can
     /// present it. Built once, synchronously, in the tap handler / deep-link
@@ -245,13 +252,17 @@ private struct QuickAddOverlay: View {
     @State private var presented: PresentedQuickAdd?
 
     var body: some View {
-        QuickAddButton {
-            presented = PresentedQuickAdd(
-                viewModel: container.makeQuickAddTaskViewModel(
-                    preselectedProjectID: container.quickAddContext.preselectedProjectID,
-                    account: account,
-                ),
-            )
+        Group {
+            if showsButton {
+                QuickAddButton {
+                    presented = PresentedQuickAdd(
+                        viewModel: container.makeQuickAddTaskViewModel(
+                            preselectedProjectID: container.quickAddContext.preselectedProjectID,
+                            account: account,
+                        ),
+                    )
+                }
+            }
         }
         .sheet(item: $presented) { presented in
             QuickAddSheetView(viewModel: presented.viewModel)
