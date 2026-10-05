@@ -671,6 +671,16 @@
         }
       }
     },
+    "Traffic to this instance won't be encrypted. Only use http on a trusted local network." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El tráfico hacia esta instancia no estará cifrado. Usa http solo en una red local de confianza."
+          }
+        }
+      }
+    },
     "Two-Factor Code" : {
       "localizations" : {
         "es" : {

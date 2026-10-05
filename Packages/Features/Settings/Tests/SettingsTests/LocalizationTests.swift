@@ -69,6 +69,10 @@ struct LocalizationTests {
         ("https://tasks.yourcompany.com", "https://tasks.yourcompany.com"),
         ("Allow Insecure Connection", "Permitir conexión insegura"),
         (
+            "Traffic to this instance won't be encrypted. Only use http on a trusted local network.",
+            "El tráfico hacia esta instancia no estará cifrado. Usa http solo en una red local de confianza.",
+        ),
+        (
             "You'll be redirected to your provider's sign-in page to finish.",
             "Serás redirigido a la página de inicio de sesión de tu proveedor para finalizar.",
         ),
