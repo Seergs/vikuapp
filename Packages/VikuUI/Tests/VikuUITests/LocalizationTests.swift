@@ -57,6 +57,15 @@ struct LocalizationTests {
         ("Follows", "Sigue a"),
         ("Copied From", "Copiado de"),
         ("Copied To", "Copiado a"),
+        ("Labels", "Etiquetas"),
+        ("Done", "Listo"),
+        ("Create New Label", "Crear nueva etiqueta"),
+        ("Create and Add", "Crear y agregar"),
+        ("Duplicate Task", "Duplicar tarea"),
+        ("Duplicate", "Duplicar"),
+        ("Remove Due Date", "Quitar fecha de vencimiento"),
+        ("Due Date", "Fecha de vencimiento"),
+        ("Save", "Guardar"),
     ])
     func `key resolves to its Spanish translation`(key: String, expected: String) {
         #expect(Self.es(key) == expected)

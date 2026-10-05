@@ -28,7 +28,7 @@ public struct DueDatePickerSheet: View {
                         .labelsHidden()
 
                     if hadInitialDate {
-                        Button("Remove Due Date", role: .destructive) {
+                        Button(String(localized: "Remove Due Date", bundle: .module), role: .destructive) {
                             onSave(nil)
                             dismiss()
                         }
@@ -38,16 +38,16 @@ public struct DueDatePickerSheet: View {
                 .padding(.horizontal, VikuSpacing.md)
                 .padding(.top, VikuSpacing.sm)
             }
-            .navigationTitle("Due Date")
+            .navigationTitle(Text("Due Date", bundle: .module))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button(String(localized: "Cancel", bundle: .module)) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
+                    Button(String(localized: "Save", bundle: .module)) {
                         onSave(date)
                         dismiss()
                     }

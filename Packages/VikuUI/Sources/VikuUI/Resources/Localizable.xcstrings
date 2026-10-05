@@ -41,6 +41,26 @@
         }
       }
     },
+    "Create New Label" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crear nueva etiqueta"
+          }
+        }
+      }
+    },
+    "Create and Add" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crear y agregar"
+          }
+        }
+      }
+    },
     "Depends On" : {
       "localizations" : {
         "es" : {
@@ -51,12 +71,52 @@
         }
       }
     },
+    "Done" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Listo"
+          }
+        }
+      }
+    },
+    "Due Date" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fecha de vencimiento"
+          }
+        }
+      }
+    },
+    "Duplicate" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Duplicar"
+          }
+        }
+      }
+    },
     "Duplicate Of" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Duplicado de"
+          }
+        }
+      }
+    },
+    "Duplicate Task" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Duplicar tarea"
           }
         }
       }
@@ -77,6 +137,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sigue a"
+          }
+        }
+      }
+    },
+    "Labels" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Etiquetas"
           }
         }
       }
@@ -137,6 +207,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tipo de relación"
+          }
+        }
+      }
+    },
+    "Remove Due Date" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitar fecha de vencimiento"
+          }
+        }
+      }
+    },
+    "Save" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardar"
           }
         }
       }
