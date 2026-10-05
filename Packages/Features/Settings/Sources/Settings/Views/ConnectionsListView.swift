@@ -181,29 +181,39 @@ private struct ConnectionRow: View {
                             }
                         }
 
-                        Text(verbatim: account.baseURL.absoluteString)
+                        Text(verbatim: displayURL)
                             .font(VikuFont.footnote)
                             .foregroundStyle(VikuColor.textTertiary)
                             .lineLimit(1)
                             .truncationMode(.middle)
-                    }
 
-                    Spacer(minLength: 0)
-
-                    Image(systemName: account.authMethod.badgeSystemImage)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(VikuColor.textTertiary)
-                        .accessibilityLabel(Text(verbatim: account.authMethod.badgeAccessibilityLabel))
-
-                    if let serverVersion {
-                        Text(verbatim: serverVersion.hasPrefix("v") ? serverVersion : "v\(serverVersion)")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(VikuColor.textTertiary)
+                        HStack(spacing: VikuSpacing.xs + VikuSpacing.xxs) {
+                            HStack(spacing: VikuSpacing.xxs) {
+                                Image(systemName: account.authMethod.badgeSystemImage)
+                                    .font(.system(size: 10, weight: .semibold))
+                                Text(verbatim: account.authMethod.badgeTitle)
+                                    .font(.system(size: 11, weight: .bold))
+                            }
+                            .foregroundStyle(VikuColor.textSecondary)
                             .lineLimit(1)
                             .padding(.horizontal, VikuSpacing.xs + VikuSpacing.xxs)
                             .padding(.vertical, VikuSpacing.xxs)
                             .background(VikuColor.Surface.field, in: Capsule())
+
+                            if let serverVersion {
+                                Text(verbatim: serverVersion.hasPrefix("v") ? serverVersion : "v\(serverVersion)")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundStyle(VikuColor.textTertiary)
+                                    .lineLimit(1)
+                                    .padding(.horizontal, VikuSpacing.xs + VikuSpacing.xxs)
+                                    .padding(.vertical, VikuSpacing.xxs)
+                                    .background(VikuColor.Surface.field, in: Capsule())
+                            }
+                        }
+                        .padding(.top, VikuSpacing.sm)
                     }
+
+                    Spacer(minLength: 0)
                 }
                 .contentShape(Rectangle())
             }
@@ -220,5 +230,16 @@ private struct ConnectionRow: View {
             .accessibilityLabel(Text("Edit \(account.displayName)", bundle: .module))
         }
         .padding(.vertical, VikuSpacing.sm)
+    }
+
+    /// Drops the implied `https://` so the host reads first. An insecure
+    /// `http://` URL keeps its scheme so the downgrade stays visible.
+    private var displayURL: String {
+        let absolute = account.baseURL.absoluteString
+        let httpsPrefix = "https://"
+        guard account.baseURL.scheme?.lowercased() == "https", absolute.hasPrefix(httpsPrefix) else {
+            return absolute
+        }
+        return String(absolute.dropFirst(httpsPrefix.count))
     }
 }
