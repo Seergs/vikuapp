@@ -41,6 +41,22 @@ struct LocalizationTests {
 
     @Test(arguments: [
         ("Try Again", "Reintentar"),
+        ("Relation Type", "Tipo de relación"),
+        ("Cancel", "Cancelar"),
+        ("Search tasks...", "Buscar tareas..."),
+        ("No results", "Sin resultados"),
+        ("No other tasks in this project", "No hay otras tareas en este proyecto"),
+        ("Subtasks", "Subtareas"),
+        ("Parent Task", "Tarea principal"),
+        ("Related Tasks", "Tareas relacionadas"),
+        ("Duplicate Of", "Duplicado de"),
+        ("Duplicates", "Duplicados"),
+        ("Blocks", "Bloquea"),
+        ("Depends On", "Depende de"),
+        ("Precedes", "Precede a"),
+        ("Follows", "Sigue a"),
+        ("Copied From", "Copiado de"),
+        ("Copied To", "Copiado a"),
     ])
     func `key resolves to its Spanish translation`(key: String, expected: String) {
         #expect(Self.es(key) == expected)
