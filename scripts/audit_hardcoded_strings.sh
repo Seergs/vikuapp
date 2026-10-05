@@ -6,8 +6,11 @@
 # .navigationTitle(" call sites, per module.
 #
 # A call site is considered "already migrated" and excluded if it:
-#   - passes `bundle: .module` (the String Catalog resolution the SPM
-#     package gotcha requires, see LOCALIZATION_PLAN.md's Phase 0 writeup)
+#   - passes `bundle: .module` AND whose literal is a key in that package's
+#     own `Localizable.xcstrings` (the String Catalog resolution the SPM
+#     package gotcha requires, see LOCALIZATION_PLAN.md's Phase 0 writeup).
+#     A key that only exists in a sibling module's catalog is still reported:
+#     it renders in English at runtime (see check_package_literals.py)
 #   - uses `Text(verbatim:)` (deliberately unlocalized caller-supplied text,
 #     see ARCHITECTURE.md §8)
 #   - for the `Viku` app target only (no `bundle: .module` there — `Bundle.main`
@@ -81,10 +84,10 @@ for module in "${modules[@]}"; do
             | python3 "$repo_root/scripts/check_catalog_membership.py" "$repo_root/Viku/Localizable.xcstrings" \
             || true)"
     else
-        matches="$(grep -rEn "$pattern" "$src_dir" --include='*.swift' \
-            | grep -v 'bundle: \.module' \
-            | grep -v 'Text(verbatim:' \
-            || true)"
+        # A package call is localized only if it passes `bundle: .module` AND
+        # its key is in the package's own catalog (see check_package_literals.py).
+        catalog="$(find "$src_dir" -name Localizable.xcstrings -print -quit)"
+        matches="$(python3 "$repo_root/scripts/check_package_literals.py" "$src_dir" "$catalog" || true)"
     fi
 
     count=0
