@@ -1,9 +1,9 @@
 import Foundation
 import VikunjaCore
 
-/// The small per-connection glyph + accessible label shown in
-/// `ConnectionsListView`'s row, so a saved connection's credential type is
-/// visible at a glance without opening it.
+/// The small per-connection glyph + label shown in `ConnectionsListView`'s
+/// row, so a saved connection's credential type is visible at a glance
+/// without opening it.
 extension InstanceAccount.AuthMethod {
     var badgeSystemImage: String {
         switch self {
@@ -16,7 +16,7 @@ extension InstanceAccount.AuthMethod {
         }
     }
 
-    var badgeAccessibilityLabel: String {
+    var badgeTitle: String {
         switch self {
         case .apiToken:
             String(localized: "API Token", bundle: .module)
