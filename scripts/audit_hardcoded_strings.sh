@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Audits Features/*, VikuDesignSystem, VikuWidgetKit, and the Viku app target
+# Audits Features/*, VikuDesignSystem, VikuUI, VikuWidgetKit, and the Viku app target
 # for raw string literals that aren't going through a String Catalog yet (see
 # docs/LOCALIZATION_PLAN.md). Counts Text(", Button(", Label(", and
 # .navigationTitle(" call sites, per module.
@@ -52,6 +52,7 @@ modules=(
     "Packages/Features/Calendar"
     "Packages/Features/Search"
     "Packages/VikuDesignSystem"
+    "Packages/VikuUI"
     "Packages/VikuWidgetKit"
     "Viku"
 )

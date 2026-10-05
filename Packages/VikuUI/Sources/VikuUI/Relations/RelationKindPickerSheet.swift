@@ -30,7 +30,7 @@ public struct RelationKindPickerSheet: View {
                         Image(systemName: "link")
                             .font(.system(size: 15))
                             .foregroundStyle(VikuColor.brandPrimary)
-                        Text(kind.displayName)
+                        Text(verbatim: kind.localizedDisplayName)
                             .foregroundStyle(Color.primary)
                         Spacer()
                         Image(systemName: "chevron.right")
@@ -41,13 +41,13 @@ public struct RelationKindPickerSheet: View {
                 }
                 .buttonStyle(.plain)
             }
-            .navigationTitle("Relation Type")
+            .navigationTitle(Text("Relation Type", bundle: .module))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button(String(localized: "Cancel", bundle: .module)) { dismiss() }
                 }
             }
         }
