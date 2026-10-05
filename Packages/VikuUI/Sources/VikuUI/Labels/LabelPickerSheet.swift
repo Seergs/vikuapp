@@ -72,13 +72,13 @@ public struct LabelPickerSheet: View {
                 .padding(.vertical, VikuSpacing.sm)
             }
             .searchable(text: $query, prompt: "Search or create label...")
-            .navigationTitle("Labels")
+            .navigationTitle(Text("Labels", bundle: .module))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                    Button(String(localized: "Done", bundle: .module)) { dismiss() }
                         .fontWeight(.semibold)
                 }
             }
@@ -158,7 +158,7 @@ private struct CreateLabelCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm) {
-            Text("Create New Label")
+            Text("Create New Label", bundle: .module)
                 .font(VikuFont.footnote)
                 .fontWeight(.semibold)
                 .foregroundStyle(VikuColor.textSecondary)
@@ -167,7 +167,7 @@ private struct CreateLabelCard: View {
                 Circle()
                     .fill(Color(vikuHex: pickedColor) ?? VikuColor.brandPrimary)
                     .frame(width: 12, height: 12)
-                Text("\"\(title)\"")
+                Text(verbatim: "\"\(title)\"")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Color.primary)
             }
@@ -187,7 +187,7 @@ private struct CreateLabelCard: View {
             }
 
             Button(action: action) {
-                Text("Create and Add")
+                Text("Create and Add", bundle: .module)
                     .font(.system(size: 14.5, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)

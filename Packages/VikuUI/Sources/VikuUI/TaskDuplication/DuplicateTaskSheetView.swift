@@ -94,19 +94,19 @@ public struct DuplicateTaskSheetView: View {
             .padding(.top, VikuSpacing.md)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .animation(.spring(response: 0.35, dampingFraction: 0.86), value: viewModel.saveErrorMessage)
-            .navigationTitle("Duplicate Task")
+            .navigationTitle(Text("Duplicate Task", bundle: .module))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button(String(localized: "Cancel", bundle: .module)) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     if viewModel.isSaving {
                         ProgressView()
                     } else {
-                        Button("Duplicate") {
+                        Button(String(localized: "Duplicate", bundle: .module)) {
                             Task {
                                 if let result = await viewModel.duplicate() {
                                     onDuplicated?(result.task, result.project)

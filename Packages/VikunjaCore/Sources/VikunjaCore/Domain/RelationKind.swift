@@ -17,21 +17,4 @@ public enum RelationKind: String, Sendable, CaseIterable, Hashable, Codable {
     case follows
     case copiedfrom
     case copiedto
-
-    /// Section title shown in the UI for this relation kind.
-    public var displayName: String {
-        switch self {
-        case .subtask: "Subtasks"
-        case .parenttask: "Parent Task"
-        case .related: "Related Tasks"
-        case .duplicateof: "Duplicate Of"
-        case .duplicates: "Duplicates"
-        case .blocking: "Blocks"
-        case .blocked: "Depends On"
-        case .precedes: "Precedes"
-        case .follows: "Follows"
-        case .copiedfrom: "Copied From"
-        case .copiedto: "Copied To"
-        }
-    }
 }

@@ -111,16 +111,6 @@
         }
       }
     },
-    "Blocks" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bloquea"
-          }
-        }
-      }
-    },
     "Cancel" : {
       "localizations" : {
         "es" : {
@@ -157,26 +147,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Comentarios"
-          }
-        }
-      }
-    },
-    "Copied From" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copiado de"
-          }
-        }
-      }
-    },
-    "Copied To" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copiado a"
           }
         }
       }
@@ -271,16 +241,6 @@
         }
       }
     },
-    "Depends On" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Depende de"
-          }
-        }
-      }
-    },
     "Due" : {
       "localizations" : {
         "es" : {
@@ -301,32 +261,12 @@
         }
       }
     },
-    "Duplicate Of" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Duplicado de"
-          }
-        }
-      }
-    },
     "Duplicate Task" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Duplicar tarea"
-          }
-        }
-      }
-    },
-    "Duplicates" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Duplicados"
           }
         }
       }
@@ -347,16 +287,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Editar comentario"
-          }
-        }
-      }
-    },
-    "Follows" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sigue a"
           }
         }
       }
@@ -481,26 +411,6 @@
         }
       }
     },
-    "Parent Task" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tarea principal"
-          }
-        }
-      }
-    },
-    "Precedes" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Precede a"
-          }
-        }
-      }
-    },
     "Priority" : {
       "localizations" : {
         "es" : {
@@ -517,16 +427,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Proyecto"
-          }
-        }
-      }
-    },
-    "Related Tasks" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tareas relacionadas"
           }
         }
       }

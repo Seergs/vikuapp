@@ -46,9 +46,13 @@ public struct RelationTaskPickerSheet: View {
                 if results.isEmpty {
                     VStack {
                         Spacer()
-                        Text(isSearching ? "No results" : "No other tasks in this project")
-                            .font(VikuFont.subheadline)
-                            .foregroundStyle(VikuColor.textTertiary)
+                        Text(
+                            isSearching
+                                ? String(localized: "No results", bundle: .module)
+                                : String(localized: "No other tasks in this project", bundle: .module),
+                        )
+                        .font(VikuFont.subheadline)
+                        .foregroundStyle(VikuColor.textTertiary)
                         Spacer()
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -66,17 +70,17 @@ public struct RelationTaskPickerSheet: View {
                     }
                 }
             }
-            .searchable(text: $query, prompt: "Search tasks...")
+            .searchable(text: $query, prompt: Text("Search tasks...", bundle: .module))
             .onChange(of: query) { _, newValue in
                 Task { await onSearch(newValue) }
             }
-            .navigationTitle(kind.displayName)
+            .navigationTitle(kind.localizedDisplayName)
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button(String(localized: "Cancel", bundle: .module)) { dismiss() }
                 }
             }
         }
