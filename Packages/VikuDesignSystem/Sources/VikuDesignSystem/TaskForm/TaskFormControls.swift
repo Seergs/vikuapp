@@ -73,9 +73,9 @@ public struct ProjectField: View {
 }
 
 public struct PriorityOption: Identifiable, Sendable {
-    let priority: VikunjaTask.Priority
-    let label: String
-    let color: Color
+    public let priority: VikunjaTask.Priority
+    public let label: String
+    public let color: Color
 
     public var id: VikunjaTask.Priority {
         priority
