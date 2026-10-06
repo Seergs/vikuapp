@@ -181,4 +181,16 @@ struct QuickAddParserTests {
         #expect(result.projectID == nil)
         #expect(result.priority == nil)
     }
+
+    @Test
+    func `with shortcuts off the title comes back exactly as typed`() {
+        let input = "  Leche  #Compras !3 @casa  "
+        let result = QuickAddParser.parse(input, projects: projects, syntax: nil)
+
+        #expect(result.title == input)
+        #expect(result.tokens.isEmpty)
+        #expect(result.projectID == nil)
+        #expect(result.priority == nil)
+        #expect(QuickAddParser.tokenize(input, syntax: nil).isEmpty)
+    }
 }

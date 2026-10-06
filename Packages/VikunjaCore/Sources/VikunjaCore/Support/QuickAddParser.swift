@@ -74,12 +74,24 @@ public enum QuickAddParser {
 
     // MARK: - Parsing
 
+    /// Parses `input`. A `nil` syntax means shortcuts are off: the title comes
+    /// back exactly as typed, with nothing applied.
     public static func parse(
         _ input: String,
         projects: [Project],
         labels: [Label] = [],
-        syntax: QuickAddSyntax,
+        syntax: QuickAddSyntax?,
     ) -> Result {
+        guard let syntax else {
+            return Result(
+                title: input,
+                tokens: [],
+                projectID: nil,
+                priority: nil,
+                labelIDs: [],
+                newLabelNames: [],
+            )
+        }
         let scan = scan(input, syntax: syntax)
         let resolved = resolve(scan.tokens, projects: projects, labels: labels, syntax: syntax)
 
@@ -123,8 +135,9 @@ public enum QuickAddParser {
     }
 
     /// Finds shortcut shapes without looking at what they refer to.
-    public static func tokenize(_ input: String, syntax: QuickAddSyntax) -> [Token] {
-        scan(input, syntax: syntax).tokens
+    public static func tokenize(_ input: String, syntax: QuickAddSyntax?) -> [Token] {
+        guard let syntax else { return [] }
+        return scan(input, syntax: syntax).tokens
     }
 
     // MARK: - Scanning
