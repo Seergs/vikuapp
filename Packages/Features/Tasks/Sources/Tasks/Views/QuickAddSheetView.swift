@@ -28,7 +28,8 @@ public struct QuickAddSheetView: View {
     /// error banner needs the room, keeps the sheet exactly as tall as its
     /// content.
     private var detentHeight: CGFloat {
-        viewModel.saveErrorMessage != nil ? Self.expandedHeight : Self.compactHeight
+        let base = viewModel.saveErrorMessage != nil ? Self.expandedHeight : Self.compactHeight
+        return viewModel.shortcutChips.isEmpty ? base : base + Self.shortcutChipsHeight
     }
 
     public init(viewModel: QuickAddTaskViewModel) {
@@ -38,10 +39,7 @@ public struct QuickAddSheetView: View {
     public var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: VikuSpacing.md) {
-                TextField(String(localized: "Task title", bundle: .module), text: $viewModel.title)
-                    .font(VikuFont.body)
-                    .focused($isTitleFocused)
-                    .submitLabel(.done)
+                titleField
                     .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
                     .padding(.vertical, VikuSpacing.sm + VikuSpacing.xxs)
                     .background(
@@ -49,9 +47,14 @@ public struct QuickAddSheetView: View {
                         in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous),
                     )
 
+                QuickAddShortcutChips(input: viewModel.input, tokens: viewModel.shortcutChips)
+
                 projectSection
 
-                PriorityChipRow(selection: $viewModel.priority)
+                PriorityChipRow(selection: Binding(
+                    get: { viewModel.priority },
+                    set: { viewModel.pickPriority($0) },
+                ))
 
                 if let message = viewModel.saveErrorMessage {
                     SaveErrorBanner(message: message)
@@ -102,13 +105,39 @@ public struct QuickAddSheetView: View {
                 projects: viewModel.projects,
                 selectedProjectID: viewModel.selectedProjectID,
             ) { project in
-                viewModel.selectedProjectID = project?.id
+                viewModel.pickProject(project)
             }
         }
         .task {
             isTitleFocused = true
             await viewModel.load()
         }
+    }
+
+    /// On iOS the title is a `UITextView` so the shortcuts can be colored
+    /// as the user types. Elsewhere it stays a plain `TextField`.
+    @ViewBuilder
+    private var titleField: some View {
+        #if os(iOS)
+        ZStack(alignment: .leading) {
+            ShortcutTitleField(
+                text: $viewModel.input,
+                tokens: viewModel.parsed.tokens,
+                focusOnAppear: true,
+            )
+            if viewModel.input.isEmpty {
+                Text("Task title", bundle: .module)
+                    .font(VikuFont.body)
+                    .foregroundStyle(VikuColor.textTertiary)
+                    .allowsHitTesting(false)
+            }
+        }
+        #else
+        TextField(String(localized: "Task title", bundle: .module), text: $viewModel.input)
+            .font(VikuFont.body)
+            .focused($isTitleFocused)
+            .submitLabel(.done)
+        #endif
     }
 
     @ViewBuilder
@@ -139,4 +168,6 @@ public struct QuickAddSheetView: View {
     /// room for the error banner.
     private static let compactHeight: CGFloat = 300
     private static let expandedHeight: CGFloat = 366
+    /// Room for the shortcut chip row, added only while a shortcut needs a chip.
+    private static let shortcutChipsHeight: CGFloat = 36
 }

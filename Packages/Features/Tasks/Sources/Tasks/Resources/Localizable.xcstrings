@@ -620,6 +620,66 @@
           }
         }
       }
+    },
+    "Unknown project" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Proyecto desconocido"
+          }
+        }
+      }
+    },
+    "Several projects match" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Varios proyectos coinciden"
+          }
+        }
+      }
+    },
+    "New label" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nueva etiqueta"
+          }
+        }
+      }
+    },
+    "Several labels match" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Varias etiquetas coinciden"
+          }
+        }
+      }
+    },
+    "Labels aren't available right now. Try again once they load." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las etiquetas no están disponibles ahora. Intenta de nuevo cuando carguen."
+          }
+        }
+      }
+    },
+    "Task created, but some labels couldn't be added" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tarea creada, pero algunas etiquetas no se pudieron agregar"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
