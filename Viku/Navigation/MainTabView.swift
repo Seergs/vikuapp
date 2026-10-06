@@ -129,6 +129,7 @@ struct MainTabView: View {
                     router: settingsRouter,
                     account: account,
                     themeStore: container.themeCenter,
+                    quickAddSyntaxStore: container.quickAddSyntaxStore,
                     isDevBuild: BuildConfig.isDevBuild,
                     devBadgeStore: container.devToolsCenter,
                     networkLoggingStore: container.devToolsCenter,
