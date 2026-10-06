@@ -4,6 +4,7 @@
 /// app target and injected via `AppContainer`, the same way `TaskSortStore` is.
 @MainActor
 public protocol QuickAddSyntaxStore: AnyObject {
-    var syntax: QuickAddSyntax { get }
-    func setSyntax(_ syntax: QuickAddSyntax)
+    /// `nil` when shortcuts are off, which is the default.
+    var syntax: QuickAddSyntax? { get }
+    func setSyntax(_ syntax: QuickAddSyntax?)
 }
