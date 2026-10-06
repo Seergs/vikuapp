@@ -74,8 +74,8 @@ public enum QuickAddParser {
 
     // MARK: - Parsing
 
-    /// Parses `input`. A `nil` syntax means shortcuts are off: the title comes
-    /// back exactly as typed, with nothing applied.
+    /// Parses `input`. A `nil` syntax means shortcuts are off: nothing is applied,
+    /// and the title is only trimmed at its ends, as it was before shortcuts existed.
     public static func parse(
         _ input: String,
         projects: [Project],
@@ -84,7 +84,7 @@ public enum QuickAddParser {
     ) -> Result {
         guard let syntax else {
             return Result(
-                title: input,
+                title: input.trimmingCharacters(in: .whitespacesAndNewlines),
                 tokens: [],
                 projectID: nil,
                 priority: nil,

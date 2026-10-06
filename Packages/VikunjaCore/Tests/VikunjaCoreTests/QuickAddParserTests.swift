@@ -183,11 +183,11 @@ struct QuickAddParserTests {
     }
 
     @Test
-    func `with shortcuts off the title comes back exactly as typed`() {
+    func `with shortcuts off the title only loses its outer whitespace`() {
         let input = "  Leche  #Compras !3 @casa  "
         let result = QuickAddParser.parse(input, projects: projects, syntax: nil)
 
-        #expect(result.title == input)
+        #expect(result.title == "Leche  #Compras !3 @casa")
         #expect(result.tokens.isEmpty)
         #expect(result.projectID == nil)
         #expect(result.priority == nil)
