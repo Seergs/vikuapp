@@ -15,6 +15,7 @@ public struct SettingsRootView: View {
     private let router: Router<SettingsRoute>
     private let account: InstanceAccount
     private let themeStore: AppThemeStoring
+    private let quickAddSyntaxStore: QuickAddSyntaxStore
     private let isDevBuild: Bool
     private let devBadgeStore: DevBadgeVisibilityStoring
     private let networkLoggingStore: NetworkRequestLoggingStoring
@@ -38,6 +39,7 @@ public struct SettingsRootView: View {
         router: Router<SettingsRoute>,
         account: InstanceAccount,
         themeStore: AppThemeStoring,
+        quickAddSyntaxStore: QuickAddSyntaxStore,
         isDevBuild: Bool,
         devBadgeStore: DevBadgeVisibilityStoring,
         networkLoggingStore: NetworkRequestLoggingStoring,
@@ -49,6 +51,7 @@ public struct SettingsRootView: View {
         self.router = router
         self.account = account
         self.themeStore = themeStore
+        self.quickAddSyntaxStore = quickAddSyntaxStore
         self.isDevBuild = isDevBuild
         self.devBadgeStore = devBadgeStore
         self.networkLoggingStore = networkLoggingStore
@@ -68,6 +71,7 @@ public struct SettingsRootView: View {
             SettingsView(
                 activeAccountName: account.displayName,
                 themeStore: themeStore,
+                quickAddSyntaxStore: quickAddSyntaxStore,
                 isDevBuild: isDevBuild,
                 devBadgeStore: devBadgeStore,
                 networkLoggingStore: networkLoggingStore,

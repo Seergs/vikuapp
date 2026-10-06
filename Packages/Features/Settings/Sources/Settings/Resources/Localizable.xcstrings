@@ -830,6 +830,56 @@
           }
         }
       }
+    },
+    "Shortcuts for new tasks. Todoist: #Project, @label, p1-p4. Vikunja: +Project, *label, !1-!5." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Atajos para nuevas tareas. Todoist: #Proyecto, @etiqueta, p1-p4. Vikunja: +Proyecto, *etiqueta, !1-!5."
+          }
+        }
+      }
+    },
+    "Off" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desactivado"
+          }
+        }
+      }
+    },
+    "Experimental" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Experimental"
+          }
+        }
+      }
+    },
+    "Quick-Add" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Creación rápida"
+          }
+        }
+      }
+    },
+    "Features still being tested. They may change or be removed." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Funciones todavía en prueba. Pueden cambiar o eliminarse."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

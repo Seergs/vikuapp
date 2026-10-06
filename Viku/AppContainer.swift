@@ -85,6 +85,9 @@ final class AppContainer {
     /// overview view models.
     let taskSortStore: TaskSortStore = TaskSortCenter()
 
+    /// The shortcut dialect quick-add parses with, chosen in Settings.
+    let quickAddSyntaxStore: QuickAddSyntaxStore = QuickAddSyntaxCenter()
+
     /// Session-only dev-tools state (currently just whether the "DEV" badge
     /// overlay is shown) — see `DevToolsCenter`. Passed to `Settings` as
     /// `DevBadgeVisibilityStoring`, the same way `themeCenter` is passed as
@@ -336,6 +339,7 @@ final class AppContainer {
             ),
             toastPresenter: toastCenter,
             taskChangeBroadcaster: taskChangeCenter,
+            syntaxStore: quickAddSyntaxStore,
             labelRepository: clientFactory.makeLabelRepository(baseURL: account.baseURL, tokenProvider: tokenProvider),
         )
     }

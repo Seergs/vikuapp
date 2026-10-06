@@ -9,6 +9,7 @@ import VikunjaCore
 struct SettingsView: View {
     let activeAccountName: String
     let themeStore: AppThemeStoring
+    let quickAddSyntaxStore: QuickAddSyntaxStore
     let isDevBuild: Bool
     let devBadgeStore: DevBadgeVisibilityStoring
     let networkLoggingStore: NetworkRequestLoggingStoring
@@ -46,7 +47,39 @@ struct SettingsView: View {
                 ) {
                     router.push(.manageLabels)
                 }
+            }
 
+            Section {
+                Picker(selection: quickAddSyntaxBinding) {
+                    Text("Off", bundle: .module).tag(QuickAddSyntax?.none)
+                    ForEach(QuickAddSyntax.allCases, id: \.self) { syntax in
+                        Text(verbatim: syntax.displayName).tag(QuickAddSyntax?.some(syntax))
+                    }
+                } label: {
+                    HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
+                        SettingsRowIcon(systemName: "number")
+                        Text("Quick-Add", bundle: .module)
+                    }
+                }
+            } header: {
+                // Features still being tried out live here, separate from the
+                // stable settings above. Future experimental features go in this section.
+                VStack(alignment: .leading, spacing: VikuSpacing.xs) {
+                    Text("Experimental", bundle: .module)
+                    Text("Features still being tested. They may change or be removed.", bundle: .module)
+                        .font(VikuFont.footnote)
+                        .foregroundStyle(VikuColor.textSecondary)
+                        .textCase(nil)
+                }
+            } footer: {
+                Text(
+                    "Shortcuts for new tasks. Todoist: #Project, @label, p1-p4. Vikunja: +Project, *label, !1-!5.",
+                    bundle: .module,
+                )
+            }
+
+            // Last, on its own: reference info, not something people change.
+            Section {
                 SettingsNavigationRow(
                     icon: "info.circle",
                     title: String(localized: "About", bundle: .module),
@@ -92,6 +125,10 @@ struct SettingsView: View {
 
     private var themeBinding: Binding<AppTheme> {
         Binding(get: { themeStore.theme }, set: { themeStore.setTheme($0) })
+    }
+
+    private var quickAddSyntaxBinding: Binding<QuickAddSyntax?> {
+        Binding(get: { quickAddSyntaxStore.syntax }, set: { quickAddSyntaxStore.setSyntax($0) })
     }
 
     private var devBadgeBinding: Binding<Bool> {
