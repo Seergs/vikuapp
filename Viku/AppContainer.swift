@@ -336,6 +336,7 @@ final class AppContainer {
             ),
             toastPresenter: toastCenter,
             taskChangeBroadcaster: taskChangeCenter,
+            labelRepository: clientFactory.makeLabelRepository(baseURL: account.baseURL, tokenProvider: tokenProvider),
         )
     }
 
