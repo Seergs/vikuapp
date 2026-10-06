@@ -15,6 +15,14 @@ public enum QuickAddSyntax: String, CaseIterable, Sendable {
         }
     }
 
+    /// The character that starts a label shortcut.
+    public var labelSigil: Character {
+        switch self {
+        case .todoist: "@"
+        case .vikunja: "*"
+        }
+    }
+
     /// The text that starts a priority shortcut, followed by a level digit.
     public var priorityPrefix: String {
         switch self {

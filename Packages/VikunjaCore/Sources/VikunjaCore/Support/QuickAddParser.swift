@@ -5,6 +5,8 @@ import Foundation
 ///
 /// - `#Compras` (Todoist) or `+Compras` (Vikunja) names a project. Quoted
 ///   names may contain spaces: `#"Lista del super"`.
+/// - `@home` (Todoist) or `*home` (Vikunja) adds a label. Several can be used.
+///   A label that does not exist yet is created when the task is saved.
 /// - `p1`-`p4` (Todoist) or `!1`-`!5` (Vikunja) sets a priority.
 /// - A backslash before a sigil escapes it, so `\#` stays a literal `#`.
 ///
@@ -16,12 +18,13 @@ public enum QuickAddParser {
     /// sigil and quotes included, so a view can color it in place.
     public enum TokenKind: Equatable, Sendable {
         case project
+        case label
         case priority
     }
 
     public struct Token: Equatable, Sendable {
         public let kind: TokenKind
-        /// The project name, or the priority level digits as typed.
+        /// The project or label name, or the priority level digits as typed.
         public let value: String
         public let range: Range<String.Index>
     }
@@ -33,6 +36,11 @@ public enum QuickAddParser {
         case ambiguousProject([Project])
         case unmatchedProject
         case priority(VikunjaTask.Priority)
+        case label(Label)
+        /// More than one label matches. Left in the title so the user decides.
+        case ambiguousLabel([Label])
+        /// No label has this name. It is created when the task is saved.
+        case newLabel(String)
         /// A second token of the same kind. Only the first one applies.
         case superseded
     }
@@ -44,8 +52,8 @@ public enum QuickAddParser {
         /// Whether this token is removed from the title and applied to the task.
         public var isApplied: Bool {
             switch resolution {
-            case .project, .priority: true
-            case .ambiguousProject, .unmatchedProject, .superseded: false
+            case .project, .priority, .label, .newLabel: true
+            case .ambiguousProject, .unmatchedProject, .ambiguousLabel, .superseded: false
             }
         }
     }
@@ -58,6 +66,10 @@ public enum QuickAddParser {
         public let projectID: Int?
         /// The priority named by the first priority token.
         public let priority: VikunjaTask.Priority?
+        /// Existing labels named by the input, each once, in input order.
+        public let labelIDs: [Int]
+        /// Names of labels to create on save, each once, in input order.
+        public let newLabelNames: [String]
     }
 
     // MARK: - Parsing
@@ -65,10 +77,11 @@ public enum QuickAddParser {
     public static func parse(
         _ input: String,
         projects: [Project],
+        labels: [Label] = [],
         syntax: QuickAddSyntax,
     ) -> Result {
         let scan = scan(input, syntax: syntax)
-        let resolved = resolve(scan.tokens, projects: projects, syntax: syntax)
+        let resolved = resolve(scan.tokens, projects: projects, labels: labels, syntax: syntax)
 
         var projectID: Int?
         var priority: VikunjaTask.Priority?
@@ -83,6 +96,19 @@ public enum QuickAddParser {
             }
         }
 
+        var labelIDs: [Int] = []
+        var newLabelNames: [String] = []
+        for item in resolved {
+            switch item.resolution {
+            case let .label(label) where !labelIDs.contains(label.id):
+                labelIDs.append(label.id)
+            case let .newLabel(name) where !newLabelNames.contains(where: { fold($0) == fold(name) }):
+                newLabelNames.append(name)
+            default:
+                break
+            }
+        }
+
         let applied = resolved.filter(\.isApplied).map(\.token.range)
         let title = buildTitle(input: input, escapes: scan.escapes, removing: applied)
 
@@ -91,6 +117,8 @@ public enum QuickAddParser {
             tokens: resolved,
             projectID: projectID,
             priority: priority,
+            labelIDs: labelIDs,
+            newLabelNames: newLabelNames,
         )
     }
 
@@ -135,7 +163,11 @@ public enum QuickAddParser {
             }
 
             if character == syntax.projectSigil,
-               let shortcut = projectToken(at: offset, in: characters, indices: indices) {
+               let shortcut = namedToken(kind: .project, at: offset, in: characters, indices: indices) {
+                tokens.append(shortcut.token)
+                offset = shortcut.endOffset
+            } else if character == syntax.labelSigil,
+                      let shortcut = namedToken(kind: .label, at: offset, in: characters, indices: indices) {
                 tokens.append(shortcut.token)
                 offset = shortcut.endOffset
             } else if hasPrefix(prefix, at: offset, in: characters),
@@ -159,7 +191,7 @@ public enum QuickAddParser {
     /// True when the text right after a backslash is a sigil this dialect uses.
     private static func isSigil(_ rest: ArraySlice<Character>, syntax: QuickAddSyntax) -> Bool {
         guard let first = rest.first else { return false }
-        return first == syntax.projectSigil || first == syntax.priorityPrefix.first
+        return first == syntax.projectSigil || first == syntax.labelSigil || first == syntax.priorityPrefix.first
     }
 
     private static func hasPrefix(_ prefix: [Character], at offset: Int, in characters: [Character]) -> Bool {
@@ -167,8 +199,9 @@ public enum QuickAddParser {
         return Array(characters[offset ..< offset + prefix.count]) == prefix
     }
 
-    /// Reads a `#name` or `#"quoted name"` shortcut starting at `offset`.
-    private static func projectToken(
+    /// Reads a project or label shortcut such as `#name`, `@name` or `#"quoted name"`.
+    private static func namedToken(
+        kind: TokenKind,
         at offset: Int,
         in characters: [Character],
         indices: [String.Index],
@@ -194,7 +227,7 @@ public enum QuickAddParser {
         guard !value.trimmingCharacters(in: .whitespaces).isEmpty,
               endsShortcut(at: endOffset, in: characters) else { return nil }
 
-        let token = Token(kind: .project, value: value, range: indices[offset] ..< indices[endOffset])
+        let token = Token(kind: kind, value: value, range: indices[offset] ..< indices[endOffset])
         return (token, endOffset)
     }
 
@@ -232,6 +265,7 @@ public enum QuickAddParser {
     private static func resolve(
         _ tokens: [Token],
         projects: [Project],
+        labels: [Label],
         syntax: QuickAddSyntax,
     ) -> [ResolvedToken] {
         var seenProject = false
@@ -250,6 +284,16 @@ public enum QuickAddParser {
                 case 0: .unmatchedProject
                 case 1: .project(matches[0])
                 default: .ambiguousProject(matches)
+                }
+                return ResolvedToken(token: token, resolution: resolution)
+
+            case .label:
+                let key = fold(token.value)
+                let matches = labels.filter { fold($0.title) == key }
+                let resolution: Resolution = switch matches.count {
+                case 0: .newLabel(token.value)
+                case 1: .label(matches[0])
+                default: .ambiguousLabel(matches)
                 }
                 return ResolvedToken(token: token, resolution: resolution)
 
