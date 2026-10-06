@@ -59,11 +59,11 @@ struct QuickAddTaskViewModelTests {
             toastPresenter: FakeToastPresenter(),
         )
 
-        viewModel.title = "   "
+        viewModel.input = "   "
         viewModel.selectedProjectID = 1
         #expect(viewModel.canSave == false)
 
-        viewModel.title = "Buy milk"
+        viewModel.input = "Buy milk"
         viewModel.selectedProjectID = nil
         #expect(viewModel.canSave == false)
 
@@ -79,7 +79,7 @@ struct QuickAddTaskViewModelTests {
             projectRepository: FakeProjectRepository(),
             toastPresenter: FakeToastPresenter(),
         )
-        viewModel.title = "  Buy milk  "
+        viewModel.input = "  Buy milk  "
         viewModel.selectedProjectID = 7
         viewModel.priority = .high
 
@@ -101,7 +101,7 @@ struct QuickAddTaskViewModelTests {
             projectRepository: FakeProjectRepository(),
             toastPresenter: toastPresenter,
         )
-        viewModel.title = "Buy milk"
+        viewModel.input = "Buy milk"
         viewModel.selectedProjectID = 7
 
         _ = await viewModel.save()
@@ -120,7 +120,7 @@ struct QuickAddTaskViewModelTests {
             toastPresenter: FakeToastPresenter(),
             taskChangeBroadcaster: broadcaster,
         )
-        viewModel.title = "Buy milk"
+        viewModel.input = "Buy milk"
         viewModel.selectedProjectID = 7
 
         _ = await viewModel.save()
@@ -136,7 +136,7 @@ struct QuickAddTaskViewModelTests {
             projectRepository: FakeProjectRepository(),
             toastPresenter: FakeToastPresenter(),
         )
-        viewModel.title = "Buy milk"
+        viewModel.input = "Buy milk"
 
         let created = await viewModel.save()
 
@@ -188,7 +188,7 @@ struct QuickAddTaskViewModelTests {
             projectRepository: FakeProjectRepository(),
             toastPresenter: FakeToastPresenter(),
         )
-        viewModel.title = "Buy milk"
+        viewModel.input = "Buy milk"
         viewModel.selectedProjectID = 1
 
         let created = await viewModel.save()
