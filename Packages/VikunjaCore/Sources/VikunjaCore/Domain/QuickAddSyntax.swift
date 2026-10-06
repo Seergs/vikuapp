@@ -31,6 +31,30 @@ public enum QuickAddSyntax: String, CaseIterable, Sendable {
         }
     }
 
+    /// The level digit this dialect writes for a priority, or `nil` for
+    /// `.unset`, which has no shortcut. Inverse of `priority(forLevel:)`.
+    public func level(for priority: VikunjaTask.Priority) -> Int? {
+        switch self {
+        case .todoist:
+            switch priority {
+            case .unset: nil
+            case .urgent, .doNow: 1
+            case .high: 2
+            case .medium: 3
+            case .low: 4
+            }
+        case .vikunja:
+            switch priority {
+            case .unset: nil
+            case .low: 1
+            case .medium: 2
+            case .high: 3
+            case .urgent: 4
+            case .doNow: 5
+            }
+        }
+    }
+
     /// Maps a typed level onto Vikunja's priorities. Todoist's `p1` is the
     /// most urgent level, so it maps to `.urgent`, and `p4` (no priority in
     /// Todoist) maps to `.low`.
