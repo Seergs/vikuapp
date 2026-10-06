@@ -1,6 +1,16 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Add Task" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agregar tarea"
+          }
+        }
+      }
+    },
     "Calendar" : {
       "localizations" : {
         "es" : {
@@ -17,6 +27,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ahora no"
+          }
+        }
+      }
+    },
+    "Opens Viku's quick-add sheet to jot down a new task." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abre la hoja de agregado rápido de Viku para anotar una tarea nueva."
           }
         }
       }
