@@ -47,6 +47,14 @@ struct SettingsView: View {
                 ) {
                     router.push(.manageLabels)
                 }
+
+                SettingsNavigationRow(
+                    icon: "bell",
+                    title: String(localized: "Notifications", bundle: .module),
+                    subtitle: String(localized: "Push notifications via Viku Relay", bundle: .module),
+                ) {
+                    router.push(.notifications)
+                }
             }
 
             Section {

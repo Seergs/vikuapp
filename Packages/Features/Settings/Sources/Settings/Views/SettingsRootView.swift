@@ -23,6 +23,7 @@ public struct SettingsRootView: View {
     private let makeConnectionsListViewModel: () -> ConnectionsListViewModel
     private let makeConnectionFormViewModel: (ConnectionFormMode) -> ConnectionFormViewModel
     private let makeManageLabelsViewModel: () -> ManageLabelsViewModel
+    private let makeNotificationsViewModel: () -> NotificationsViewModel
 
     /// `router` is owned by the app target's `MainTabView`, alongside its
     /// other tab routers, so it can push a reconnect screen onto this stack
@@ -47,6 +48,7 @@ public struct SettingsRootView: View {
         makeConnectionsListViewModel: @escaping () -> ConnectionsListViewModel,
         makeConnectionFormViewModel: @escaping (ConnectionFormMode) -> ConnectionFormViewModel,
         makeManageLabelsViewModel: @escaping () -> ManageLabelsViewModel,
+        makeNotificationsViewModel: @escaping () -> NotificationsViewModel,
     ) {
         self.router = router
         self.account = account
@@ -59,6 +61,7 @@ public struct SettingsRootView: View {
         self.makeConnectionsListViewModel = makeConnectionsListViewModel
         self.makeConnectionFormViewModel = makeConnectionFormViewModel
         self.makeManageLabelsViewModel = makeManageLabelsViewModel
+        self.makeNotificationsViewModel = makeNotificationsViewModel
     }
 
     public var body: some View {
@@ -86,6 +89,8 @@ public struct SettingsRootView: View {
                     ConnectionFormView(makeViewModel: { makeConnectionFormViewModel(mode) }, router: router)
                 case .manageLabels:
                     ManageLabelsView(makeViewModel: makeManageLabelsViewModel)
+                case .notifications:
+                    NotificationsView(makeViewModel: makeNotificationsViewModel)
                 case .about:
                     AboutView()
                 }
