@@ -1,0 +1,18 @@
+[
+  "task.created",
+  "task.updated",
+  "task.deleted",
+  "task.assignee.created",
+  "task.assignee.deleted",
+  "task.comment.created",
+  "task.comment.edited",
+  "task.comment.deleted",
+  "task.attachment.created",
+  "task.attachment.deleted",
+  "task.relation.created",
+  "task.relation.deleted",
+  "project.updated",
+  "project.deleted",
+  "project.shared.user",
+  "project.shared.team"
+]
