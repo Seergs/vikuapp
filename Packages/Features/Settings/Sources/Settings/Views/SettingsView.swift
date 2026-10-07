@@ -47,14 +47,6 @@ struct SettingsView: View {
                 ) {
                     router.push(.manageLabels)
                 }
-
-                SettingsNavigationRow(
-                    icon: "bell",
-                    title: String(localized: "Notifications", bundle: .module),
-                    subtitle: String(localized: "Push notifications via Viku Relay", bundle: .module),
-                ) {
-                    router.push(.notifications)
-                }
             }
 
             Section {
@@ -68,6 +60,14 @@ struct SettingsView: View {
                         SettingsRowIcon(systemName: "number")
                         Text("Quick-Add", bundle: .module)
                     }
+                }
+
+                SettingsNavigationRow(
+                    icon: "bell",
+                    title: String(localized: "Notifications", bundle: .module),
+                    subtitle: String(localized: "Push notifications via Viku Relay", bundle: .module),
+                ) {
+                    router.push(.notifications)
                 }
             } header: {
                 // Features still being tried out live here, separate from the
