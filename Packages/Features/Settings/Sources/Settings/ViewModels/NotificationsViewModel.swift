@@ -18,13 +18,28 @@ public final class NotificationsViewModel {
     /// shows a banner pointing at the system Settings app instead of
     /// letting the toggle take effect.
     public private(set) var isPermissionDenied = false
-    /// True for the whole duration of a toggle's effect: the OS permission
-    /// prompt and relay round trip on first enable (which can take a few
-    /// seconds on a real device), plus the webhook sync that follows every
-    /// settings change. The view disables its toggles and shows a spinner
-    /// while this is true, so a slow round trip doesn't look like nothing
-    /// happened.
-    public private(set) var isSyncing = false
+
+    /// Which single row a change is currently in flight for — the OS
+    /// permission prompt and relay round trip on first enable (which can
+    /// take a few seconds on a real device), or the webhook sync that
+    /// follows any other change. Scoped per-row rather than one shared
+    /// flag: disabling (and `isSyncing`-driven styling) only ever applies
+    /// to the row actually being changed, so flipping one toggle doesn't
+    /// dim every other toggle on the screen at the same time.
+    public enum PendingChange: Equatable, Sendable {
+        case enabling
+        case disabling
+        case userLevel
+        case project(Int)
+    }
+
+    public private(set) var pendingChange: PendingChange?
+
+    /// Whether *anything* is in flight — drives the delayed "Setting up
+    /// notifications…" row, which isn't tied to any single toggle.
+    public var isSyncing: Bool {
+        pendingChange != nil
+    }
 
     public var isLoading: Bool {
         loadState == .loading
@@ -79,20 +94,21 @@ public final class NotificationsViewModel {
         }
 
         if settings.isEnabled {
-            isSyncing = true
-            defer { isSyncing = false }
+            pendingChange = .enabling
+            defer { pendingChange = nil }
             await refreshRegistration()
         }
     }
 
-    /// Called from the consent modal's confirm button. `isSyncing` covers
-    /// this whole flow, not just the webhook sync at the end — the OS
-    /// permission prompt and the relay round trip (`refreshRegistration()`)
-    /// can themselves take a few seconds on a real device, and the view
-    /// should show that something's happening rather than look stuck.
+    /// Called from the consent modal's confirm button. `pendingChange`
+    /// covers this whole flow, not just the webhook sync at the end — the
+    /// OS permission prompt and the relay round trip
+    /// (`refreshRegistration()`) can themselves take a few seconds on a
+    /// real device, and the view should show that something's happening
+    /// rather than look stuck.
     public func confirmEnable() async {
-        isSyncing = true
-        defer { isSyncing = false }
+        pendingChange = .enabling
+        defer { pendingChange = nil }
 
         guard await refreshRegistration() else { return }
         var updated = settings
@@ -101,8 +117,8 @@ public final class NotificationsViewModel {
     }
 
     public func disable() async {
-        isSyncing = true
-        defer { isSyncing = false }
+        pendingChange = .disabling
+        defer { pendingChange = nil }
 
         var updated = settings
         updated.isEnabled = false
@@ -112,8 +128,8 @@ public final class NotificationsViewModel {
     }
 
     public func setUserLevelEnabled(_ isEnabled: Bool) async {
-        isSyncing = true
-        defer { isSyncing = false }
+        pendingChange = .userLevel
+        defer { pendingChange = nil }
 
         var updated = settings
         updated.userLevelEnabled = isEnabled
@@ -121,8 +137,8 @@ public final class NotificationsViewModel {
     }
 
     public func setProject(_ project: Project, isEnabled: Bool) async {
-        isSyncing = true
-        defer { isSyncing = false }
+        pendingChange = .project(project.id)
+        defer { pendingChange = nil }
 
         var updated = settings
         if isEnabled {

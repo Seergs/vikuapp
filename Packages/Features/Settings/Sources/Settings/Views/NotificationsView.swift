@@ -97,7 +97,7 @@ struct NotificationsView: View {
                         .foregroundStyle(VikuColor.textSecondary)
                 }
             }
-            .disabled(viewModel.isSyncing)
+            .disabled(viewModel.pendingChange == .enabling || viewModel.pendingChange == .disabling)
 
             if showSyncIndicator {
                 syncingRow
@@ -136,7 +136,7 @@ struct NotificationsView: View {
     private var userLevelSection: some View {
         Section {
             Toggle(String(localized: "Reminders & Overdue Tasks", bundle: .module), isOn: userLevelBinding)
-                .disabled(viewModel.isSyncing)
+                .disabled(viewModel.pendingChange == .userLevel)
         } header: {
             Text("User Notifications", bundle: .module)
         }
@@ -150,7 +150,7 @@ struct NotificationsView: View {
             Section {
                 ForEach(viewModel.projects) { project in
                     Toggle(project.title, isOn: projectBinding(project))
-                        .disabled(viewModel.isSyncing)
+                        .disabled(viewModel.pendingChange == .project(project.id))
                 }
             } header: {
                 Text("Project Notifications", bundle: .module)
