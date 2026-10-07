@@ -1,10 +1,9 @@
 import Foundation
 
 /// Registers/unregisters this device with the relay (`relay.viku.app`, not
-/// Vikunja itself — see `docs/PUSH_NOTIFICATIONS.md`). The concrete
-/// implementation talks HTTP to the relay and APNs device-token handling,
-/// neither of which belongs in VikunjaCore; this protocol is only the seam
-/// `WebhookSyncing` and the composition root need.
+/// Vikunja itself). The concrete implementation talks HTTP to the relay and
+/// APNs device-token handling, neither of which belongs in VikunjaCore; this
+/// protocol is only the seam `WebhookSyncing` and the composition root need.
 public protocol PushRegistrationProviding: Sendable {
     /// Registers `deviceToken` (the raw token APNs handed the app) with the
     /// relay, returning where this device's Vikunja webhooks should point

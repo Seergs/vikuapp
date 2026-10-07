@@ -1,7 +1,7 @@
-/// The user's push-notification preferences (`docs/PUSH_NOTIFICATIONS.md`) —
-/// what `WebhookSyncing` reconciles Vikunja's webhooks against. Persisted by
-/// the composition root (plain app storage, not the Keychain: none of this
-/// is a credential), never read or written over the network directly.
+/// The user's push-notification preferences — what `WebhookSyncing`
+/// reconciles Vikunja's webhooks against. Persisted by the composition root
+/// (plain app storage, not the Keychain: none of this is a credential),
+/// never read or written over the network directly.
 public struct NotificationSettings: Equatable, Sendable, Codable {
     /// Master switch. `false` means no webhooks should exist for this
     /// device at all, regardless of the other fields below.
@@ -16,8 +16,7 @@ public struct NotificationSettings: Equatable, Sendable, Codable {
     /// partial/disabled state in between.
     public var enabledProjectIDs: Set<Int>
     /// The event set every enabled project's webhook subscribes to. Shared
-    /// across all enabled projects rather than configured per project, per
-    /// the plan in `docs/PUSH_NOTIFICATIONS.md`.
+    /// across all enabled projects rather than configured per project.
     public var enabledProjectEvents: Set<WebhookEvent>
 
     public init(
@@ -32,8 +31,8 @@ public struct NotificationSettings: Equatable, Sendable, Codable {
         self.enabledProjectEvents = enabledProjectEvents
     }
 
-    /// The project-level events `docs/PUSH_NOTIFICATIONS.md` calls out: task
-    /// created, updated, assigned, commented.
+    /// The default project-level events: task created, updated, assigned,
+    /// commented.
     public static let defaultProjectEvents: Set<WebhookEvent> = [
         .taskCreated,
         .taskUpdated,
