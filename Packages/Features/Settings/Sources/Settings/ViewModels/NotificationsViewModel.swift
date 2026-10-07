@@ -116,12 +116,19 @@ public final class NotificationsViewModel {
         await apply(updated)
     }
 
+    /// Resets the user-level and per-project selections along with turning
+    /// the feature off, rather than leaving them checked but inert — so
+    /// re-enabling later starts from a clean slate instead of silently
+    /// recreating whatever was on before, which would look like it came
+    /// back from nowhere.
     public func disable() async {
         pendingChange = .disabling
         defer { pendingChange = nil }
 
         var updated = settings
         updated.isEnabled = false
+        updated.userLevelEnabled = false
+        updated.enabledProjectIDs = []
         await apply(updated)
         try? await pushNotificationRegistering.disable()
         currentRegistration = nil

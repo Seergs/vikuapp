@@ -184,5 +184,33 @@ struct NotificationsViewModelTests {
         #expect(webhookRepository.deletedProjectWebhookIDs.map(\.projectID) == [4])
         #expect(registering.disableCallCount == 1)
         #expect(store.savedSettings.last?.isEnabled == false)
+        // The toggles reset along with the master switch — see the next test.
+        #expect(viewModel.settings.userLevelEnabled == false)
+        #expect(viewModel.settings.enabledProjectIDs.isEmpty)
+    }
+
+    @Test
+    func `re enabling after a disable starts from a clean slate instead of recreating what was on before`() async {
+        let project = Project(id: 4, title: "Work")
+        let webhookRepository = FakeWebhookRepository()
+        let projectRepository = FakeProjectRepository(projects: [project])
+        let viewModel = makeViewModel(webhookRepository: webhookRepository, projectRepository: projectRepository)
+        await viewModel.load()
+        await viewModel.confirmEnable()
+        await viewModel.setUserLevelEnabled(true)
+        await viewModel.setProject(project, isEnabled: true)
+        await viewModel.disable()
+        let userCreatesBeforeReenable = webhookRepository.createdUserWebhooks.count
+        let projectCreatesBeforeReenable = webhookRepository.createdProjectWebhooks.count
+
+        await viewModel.confirmEnable()
+
+        #expect(viewModel.settings.isEnabled)
+        #expect(viewModel.settings.userLevelEnabled == false)
+        #expect(viewModel.settings.enabledProjectIDs.isEmpty)
+        // Re-enabling alone creates no new webhooks: nothing is selected
+        // until the user opts back in to each one explicitly.
+        #expect(webhookRepository.createdUserWebhooks.count == userCreatesBeforeReenable)
+        #expect(webhookRepository.createdProjectWebhooks.count == projectCreatesBeforeReenable)
     }
 }
