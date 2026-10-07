@@ -61,8 +61,9 @@ struct RootView: View {
             // Seed the widgets' shared snapshots on launch, so the Today and
             // Calendar widgets have data even before the app is next
             // backgrounded.
-            if connectedAccount != nil {
+            if let connectedAccount {
                 Task { await container.refreshWidgetSnapshots() }
+                Task { await container.syncNotificationWebhooks(account: connectedAccount) }
             }
         }
         .onOpenURL { url in
