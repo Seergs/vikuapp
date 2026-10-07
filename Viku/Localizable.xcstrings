@@ -21,6 +21,16 @@
         }
       }
     },
+    "Couldn't reach Apple's push service. Try again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo conectar con el servicio push de Apple. Intenta de nuevo."
+          }
+        }
+      }
+    },
     "Not Now" : {
       "localizations" : {
         "es" : {

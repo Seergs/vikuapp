@@ -115,17 +115,32 @@ public final class NotificationsViewModel {
     /// registers with the relay. Sets `isPermissionDenied` either way, so
     /// the view's banner reflects the OS's current answer even when this is
     /// called from `load()` rather than a user tapping the toggle.
+    ///
+    /// `enable(vikunjaUserID:)` returning `nil` and it throwing are kept
+    /// distinct on purpose: `nil` means the OS denied authorization (the
+    /// view should point at the system Settings app), while a thrown error
+    /// is a transient failure — the device-token request timing out, or the
+    /// relay being unreachable — which the "re-enable in Settings" banner
+    /// would misdescribe, so that surfaces as a toast instead.
     @discardableResult
     private func refreshRegistration() async -> Bool {
         guard let userID = await resolveUserID() else { return false }
-        guard let registration = try? await pushNotificationRegistering.enable(vikunjaUserID: userID) else {
-            isPermissionDenied = true
-            currentRegistration = nil
+        do {
+            guard let registration = try await pushNotificationRegistering.enable(vikunjaUserID: userID) else {
+                isPermissionDenied = true
+                currentRegistration = nil
+                return false
+            }
+            isPermissionDenied = false
+            currentRegistration = registration
+            return true
+        } catch let error as VikunjaError {
+            toastPresenter.show(error.displayMessage, style: .error)
+            return false
+        } catch {
+            toastPresenter.show(error.localizedDescription, style: .error)
             return false
         }
-        isPermissionDenied = false
-        currentRegistration = registration
-        return true
     }
 
     private func resolveUserID() async -> Int? {
