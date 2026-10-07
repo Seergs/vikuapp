@@ -37,8 +37,8 @@ struct WebhookDTOTests {
 
     /// The acceptance criterion this ticket calls out explicitly: the two
     /// user-directed event names this app relies on for push notifications
-    /// (`VIKU-178`/`docs/PUSH_NOTIFICATIONS.md`) must round-trip exactly as
-    /// Vikunja's Swagger/OpenAPI spec names them.
+    /// (`VIKU-178`) must round-trip exactly as Vikunja's Swagger/OpenAPI
+    /// spec names them.
     @Test
     func `maps user webhooks to domain with the exact overdue and reminder event names`() throws {
         let dtos = try loadDTOs(resource: "user-webhooks")
