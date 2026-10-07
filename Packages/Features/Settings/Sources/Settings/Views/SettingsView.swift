@@ -61,14 +61,6 @@ struct SettingsView: View {
                         Text("Quick-Add", bundle: .module)
                     }
                 }
-
-                SettingsNavigationRow(
-                    icon: "bell",
-                    title: String(localized: "Notifications", bundle: .module),
-                    subtitle: String(localized: "Push notifications via Viku Relay", bundle: .module),
-                ) {
-                    router.push(.notifications)
-                }
             } header: {
                 // Features still being tried out live here, separate from the
                 // stable settings above. Future experimental features go in this section.
@@ -121,6 +113,18 @@ struct SettingsView: View {
                         subtitle: String(localized: "See the first-launch screen again", bundle: .module),
                     ) {
                         onPreviewOnboarding()
+                    }
+
+                    // TEMPORARY: the Notifications screen isn't ready for
+                    // general release yet — dev-build-only for now so UI
+                    // work on it can still be previewed. A follow-up ticket
+                    // removes this gate once the feature is ready to ship.
+                    SettingsNavigationRow(
+                        icon: "bell",
+                        title: String(localized: "Notifications", bundle: .module),
+                        subtitle: String(localized: "Push notifications via Viku Relay", bundle: .module),
+                    ) {
+                        router.push(.notifications)
                     }
                 } header: {
                     Text("Developer", bundle: .module)
