@@ -14,7 +14,14 @@ import UIKit
 struct NotificationsView: View {
     @State private var viewModel: NotificationsViewModel
     @State private var isShowingConsent = false
+    /// Mirrors `viewModel.isSyncing`, but only after it's been true for
+    /// `syncIndicatorDelay` — see `body`'s `.task(id:)`. A round trip that
+    /// finishes faster than that never shows anything, so a quick toggle
+    /// doesn't flash a spinner on and immediately back off.
+    @State private var showSyncIndicator = false
     @Environment(\.openURL) private var openURL
+
+    private static let syncIndicatorDelay: Duration = .seconds(1)
 
     /// Same rationale as `ManageLabelsView`: takes a factory and builds the
     /// view model inside `@State`'s initializer so SwiftUI keeps one
@@ -35,6 +42,18 @@ struct NotificationsView: View {
                 }
             }
             .onAppear { Task { await viewModel.load() } }
+            // `.task(id:)` cancels the previous task the instant `isSyncing`
+            // changes, so a sync that finishes within `syncIndicatorDelay`
+            // never reaches the `withAnimation` below at all.
+            .task(id: viewModel.isSyncing) {
+                if viewModel.isSyncing {
+                    try? await Task.sleep(for: Self.syncIndicatorDelay)
+                    guard !Task.isCancelled else { return }
+                }
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showSyncIndicator = viewModel.isSyncing
+                }
+            }
     }
 
     @ViewBuilder
@@ -80,8 +99,9 @@ struct NotificationsView: View {
             }
             .disabled(viewModel.isSyncing)
 
-            if viewModel.isSyncing {
+            if showSyncIndicator {
                 syncingRow
+                    .transition(.opacity)
             }
         } footer: {
             if viewModel.isPermissionDenied {
@@ -90,10 +110,10 @@ struct NotificationsView: View {
         }
     }
 
-    /// Shown while `confirmEnable()`/`disable()`/a toggle's sync is in
-    /// flight — the OS permission prompt and relay round trip can take a
-    /// few seconds on a real device, so without this the screen looks like
-    /// nothing happened after tapping "Agree & Continue".
+    /// Shown once `confirmEnable()`/`disable()`/a toggle's sync has been
+    /// running for longer than `syncIndicatorDelay` — a fast round trip
+    /// never reaches this, so the screen doesn't flash a spinner for
+    /// something that was over almost instantly.
     private var syncingRow: some View {
         HStack(spacing: VikuSpacing.sm) {
             ProgressView()
