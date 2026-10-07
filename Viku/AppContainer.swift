@@ -99,6 +99,10 @@ final class AppContainer {
     /// offers the notifications opt-in (the consent modal confirms before
     /// calling `enable(vikunjaUserID:)`).
     let pushNotificationRegistering: PushNotificationRegistering = PushNotificationCoordinator()
+    /// The user's notification preferences (master switch, user-level
+    /// toggle, enabled projects/events) — see `NotificationSettingsCenter`.
+    /// Pass this as `NotificationSettingsStore` to `makeNotificationsViewModel`.
+    let notificationSettingsStore: NotificationSettingsStore = NotificationSettingsCenter()
 
     init(
         accountStore: AccountStoreProtocol = KeychainAccountStore(
@@ -356,6 +360,24 @@ final class AppContainer {
             tokenProvider: tokenProvider(for: account),
         )
         return ManageLabelsViewModel(repository: repository, toastPresenter: toastCenter)
+    }
+
+    func makeNotificationsViewModel(account: InstanceAccount) -> NotificationsViewModel {
+        let tokenProvider = tokenProvider(for: account)
+        return NotificationsViewModel(
+            webhookRepository: clientFactory.makeWebhookRepository(
+                baseURL: account.baseURL,
+                tokenProvider: tokenProvider,
+            ),
+            projectRepository: clientFactory.makeProjectRepository(
+                baseURL: account.baseURL,
+                tokenProvider: tokenProvider,
+            ),
+            userRepository: clientFactory.makeUserRepository(baseURL: account.baseURL, tokenProvider: tokenProvider),
+            pushNotificationRegistering: pushNotificationRegistering,
+            notificationSettingsStore: notificationSettingsStore,
+            toastPresenter: toastCenter,
+        )
     }
 
     func makeConnectionsListViewModel(onActiveAccountChanged: @escaping () -> Void) -> ConnectionsListViewModel {

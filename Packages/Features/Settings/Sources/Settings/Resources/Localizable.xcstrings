@@ -21,6 +21,16 @@
         }
       }
     },
+    "API Token" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Token de API"
+          }
+        }
+      }
+    },
     "About" : {
       "localizations" : {
         "es" : {
@@ -41,22 +51,22 @@
         }
       }
     },
+    "Agree & Continue" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aceptar y continuar"
+          }
+        }
+      }
+    },
     "Allow Insecure Connection" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Permitir conexión insegura"
-          }
-        }
-      }
-    },
-    "API Token" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Token de API"
           }
         }
       }
@@ -211,6 +221,16 @@
         }
       }
     },
+    "Couldn't load projects" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudieron cargar los proyectos"
+          }
+        }
+      }
+    },
     "Create a label to organize tasks across every project." : {
       "localizations" : {
         "es" : {
@@ -311,6 +331,36 @@
         }
       }
     },
+    "Enable push notifications" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activar notificaciones push"
+          }
+        }
+      }
+    },
+    "Experimental" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Experimental"
+          }
+        }
+      }
+    },
+    "Features still being tested. They may change or be removed." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Funciones todavía en prueba. Pueden cambiar o eliminarse."
+          }
+        }
+      }
+    },
     "Generate it on your Vikunja instance: Settings → API Tokens." : {
       "localizations" : {
         "es" : {
@@ -341,12 +391,22 @@
         }
       }
     },
-    "https://tasks.yourcompany.com" : {
+    "Hosted by the Viku team" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "https://tasks.yourcompany.com"
+            "value" : "Alojado por el equipo de Viku"
+          }
+        }
+      }
+    },
+    "I understand my events will pass through Viku Relay, a service operated by the Viku team." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entiendo que mis eventos pasarán por Viku Relay, un servicio operado por el equipo de Viku."
           }
         }
       }
@@ -481,6 +541,46 @@
         }
       }
     },
+    "Notifications" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notificaciones"
+          }
+        }
+      }
+    },
+    "Notifications are turned off for Viku in iOS Settings." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las notificaciones están desactivadas para Viku en los ajustes de iOS."
+          }
+        }
+      }
+    },
+    "Off" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desactivado"
+          }
+        }
+      }
+    },
+    "Open Settings" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir ajustes"
+          }
+        }
+      }
+    },
     "Password" : {
       "localizations" : {
         "es" : {
@@ -511,6 +611,56 @@
         }
       }
     },
+    "Project Notifications" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notificaciones de proyecto"
+          }
+        }
+      }
+    },
+    "Push Notifications" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notificaciones push"
+          }
+        }
+      }
+    },
+    "Push notifications via Viku Relay" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notificaciones push vía Viku Relay"
+          }
+        }
+      }
+    },
+    "Quick-Add" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Creación rápida"
+          }
+        }
+      }
+    },
+    "Reminders & Overdue Tasks" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recordatorios y tareas vencidas"
+          }
+        }
+      }
+    },
     "Remove Connection" : {
       "localizations" : {
         "es" : {
@@ -537,6 +687,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Reportar un problema"
+          }
+        }
+      }
+    },
+    "Requires Viku Relay, a service hosted by the Viku team." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Requiere Viku Relay, un servicio alojado por el equipo de Viku."
           }
         }
       }
@@ -591,12 +751,32 @@
         }
       }
     },
+    "Setting up notifications…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configurando notificaciones…"
+          }
+        }
+      }
+    },
     "Settings" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Configuración"
+          }
+        }
+      }
+    },
+    "Shortcuts for new tasks. Todoist: #Project, @label, p1-p4. Vikunja: +Project, *label, !1-!5." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Atajos para nuevas tareas. Todoist: #Proyecto, @etiqueta, p1-p4. Vikunja: +Proyecto, *etiqueta, !1-!5."
           }
         }
       }
@@ -651,6 +831,16 @@
         }
       }
     },
+    "Task created, updated, assigned, or commented on." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tarea creada, actualizada, asignada o comentada."
+          }
+        }
+      }
+    },
     "Test Connection" : {
       "localizations" : {
         "es" : {
@@ -671,6 +861,26 @@
         }
       }
     },
+    "The event type, the task title, and the project name. Your token or password never leaves the device. The webhook signing secret is shared with the relay so it can verify deliveries." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El tipo de evento, el título de la tarea y el nombre del proyecto. Tu token o contraseña nunca salen del dispositivo. El secreto de firma del webhook se comparte con el relay para que pueda verificar las entregas."
+          }
+        }
+      }
+    },
+    "To receive them, Viku connects your instance's webhooks to an intermediary service." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para recibirlas, Viku conecta los webhooks de tu instancia a un servicio intermediario."
+          }
+        }
+      }
+    },
     "Traffic to this instance won't be encrypted. Only use http on a trusted local network." : {
       "localizations" : {
         "es" : {
@@ -687,6 +897,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Código de dos factores"
+          }
+        }
+      }
+    },
+    "User Notifications" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notificaciones de usuario"
           }
         }
       }
@@ -741,6 +961,16 @@
         }
       }
     },
+    "Viku Relay receives your instance's webhooks and forwards them to your iPhone through Apple Push Notification service. It is not self-hosted: APNs requires Apple credentials that only the Viku team holds." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Viku Relay recibe los webhooks de tu instancia y los reenvía a tu iPhone a través del servicio de notificaciones push de Apple. No es autoalojado: APNs requiere credenciales de Apple que solo tiene el equipo de Viku."
+          }
+        }
+      }
+    },
     "Viku is an independent, unofficial client and isn't affiliated with the Vikunja project. Vikunja itself is licensed under AGPLv3." : {
       "localizations" : {
         "es" : {
@@ -771,6 +1001,46 @@
         }
       }
     },
+    "Vikunja cannot send notifications to iOS by itself." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vikunja no puede enviar notificaciones a iOS por sí solo."
+          }
+        }
+      }
+    },
+    "Vikunja does not send push to iOS directly." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vikunja no envía notificaciones push a iOS directamente."
+          }
+        }
+      }
+    },
+    "Vikunja has to reach relay.viku.dev over HTTPS." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vikunja debe poder alcanzar relay.viku.dev mediante HTTPS."
+          }
+        }
+      }
+    },
+    "What data goes through the relay" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Qué datos pasan por el relay"
+          }
+        }
+      }
+    },
     "You need at least one connection" : {
       "localizations" : {
         "es" : {
@@ -791,12 +1061,32 @@
         }
       }
     },
+    "Your instance needs internet access" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu instancia necesita acceso a internet"
+          }
+        }
+      }
+    },
     "e.g. Office Server" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "p. ej. Servidor de la oficina"
+          }
+        }
+      }
+    },
+    "https://tasks.yourcompany.com" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "https://tasks.yourcompany.com"
           }
         }
       }
@@ -827,56 +1117,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "••••••••"
-          }
-        }
-      }
-    },
-    "Shortcuts for new tasks. Todoist: #Project, @label, p1-p4. Vikunja: +Project, *label, !1-!5." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Atajos para nuevas tareas. Todoist: #Proyecto, @etiqueta, p1-p4. Vikunja: +Proyecto, *etiqueta, !1-!5."
-          }
-        }
-      }
-    },
-    "Off" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Desactivado"
-          }
-        }
-      }
-    },
-    "Experimental" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Experimental"
-          }
-        }
-      }
-    },
-    "Quick-Add" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Creación rápida"
-          }
-        }
-      }
-    },
-    "Features still being tested. They may change or be removed." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Funciones todavía en prueba. Pueden cambiar o eliminarse."
           }
         }
       }

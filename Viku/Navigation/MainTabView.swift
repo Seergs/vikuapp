@@ -143,6 +143,9 @@ struct MainTabView: View {
                     makeManageLabelsViewModel: {
                         container.makeManageLabelsViewModel(account: account)
                     },
+                    makeNotificationsViewModel: {
+                        container.makeNotificationsViewModel(account: account)
+                    },
                 )
             }
 

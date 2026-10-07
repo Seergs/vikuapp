@@ -131,6 +131,42 @@ struct LocalizationTests {
         ("Connection added", "Conexión agregada"),
         ("You need at least one connection", "Necesitas al menos una conexión"),
         ("Connection removed", "Conexión eliminada"),
+        ("Notifications", "Notificaciones"),
+        ("Push notifications via Viku Relay", "Notificaciones push vía Viku Relay"),
+        ("Push Notifications", "Notificaciones push"),
+        ("Requires Viku Relay, a service hosted by the Viku team.", "Requiere Viku Relay, un servicio alojado por el equipo de Viku."),
+        ("Vikunja does not send push to iOS directly.", "Vikunja no envía notificaciones push a iOS directamente."),
+        ("Notifications are turned off for Viku in iOS Settings.", "Las notificaciones están desactivadas para Viku en los ajustes de iOS."),
+        ("Open Settings", "Abrir ajustes"),
+        ("User Notifications", "Notificaciones de usuario"),
+        ("Reminders & Overdue Tasks", "Recordatorios y tareas vencidas"),
+        ("Project Notifications", "Notificaciones de proyecto"),
+        ("Task created, updated, assigned, or commented on.", "Tarea creada, actualizada, asignada o comentada."),
+        ("Couldn't load projects", "No se pudieron cargar los proyectos"),
+        ("Enable push notifications", "Activar notificaciones push"),
+        ("Vikunja cannot send notifications to iOS by itself.", "Vikunja no puede enviar notificaciones a iOS por sí solo."),
+        (
+            "To receive them, Viku connects your instance's webhooks to an intermediary service.",
+            "Para recibirlas, Viku conecta los webhooks de tu instancia a un servicio intermediario.",
+        ),
+        ("Hosted by the Viku team", "Alojado por el equipo de Viku"),
+        (
+            "Viku Relay receives your instance's webhooks and forwards them to your iPhone through Apple Push Notification service. It is not self-hosted: APNs requires Apple credentials that only the Viku team holds.",
+            "Viku Relay recibe los webhooks de tu instancia y los reenvía a tu iPhone a través del servicio de notificaciones push de Apple. No es autoalojado: APNs requiere credenciales de Apple que solo tiene el equipo de Viku.",
+        ),
+        ("What data goes through the relay", "Qué datos pasan por el relay"),
+        (
+            "The event type, the task title, and the project name. Your token or password never leaves the device. The webhook signing secret is shared with the relay so it can verify deliveries.",
+            "El tipo de evento, el título de la tarea y el nombre del proyecto. Tu token o contraseña nunca salen del dispositivo. El secreto de firma del webhook se comparte con el relay para que pueda verificar las entregas.",
+        ),
+        ("Your instance needs internet access", "Tu instancia necesita acceso a internet"),
+        ("Vikunja has to reach relay.viku.dev over HTTPS.", "Vikunja debe poder alcanzar relay.viku.dev mediante HTTPS."),
+        (
+            "I understand my events will pass through Viku Relay, a service operated by the Viku team.",
+            "Entiendo que mis eventos pasarán por Viku Relay, un servicio operado por el equipo de Viku.",
+        ),
+        ("Agree & Continue", "Aceptar y continuar"),
+        ("Setting up notifications…", "Configurando notificaciones…"),
     ])
     func `key resolves to its Spanish translation`(key: String, expected: String) {
         #expect(Self.es(key) == expected)
