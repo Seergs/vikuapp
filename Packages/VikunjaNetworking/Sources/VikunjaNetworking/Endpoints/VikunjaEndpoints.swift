@@ -190,4 +190,44 @@ enum VikunjaEndpoints {
     static func currentUser() -> Endpoint {
         Endpoint(path: "/api/v1/user")
     }
+
+    static func webhooks(projectID: Int) -> Endpoint {
+        Endpoint(path: "/api/v1/projects/\(projectID)/webhooks")
+    }
+
+    static func createWebhook(projectID: Int, dto: WebhookDTO) throws -> Endpoint {
+        try .encoding(path: "/api/v1/projects/\(projectID)/webhooks", method: .put, body: dto)
+    }
+
+    static func updateWebhook(projectID: Int, webhookID: Int, dto: WebhookDTO) throws -> Endpoint {
+        try .encoding(path: "/api/v1/projects/\(projectID)/webhooks/\(webhookID)", method: .post, body: dto)
+    }
+
+    static func deleteWebhook(projectID: Int, webhookID: Int) -> Endpoint {
+        Endpoint(path: "/api/v1/projects/\(projectID)/webhooks/\(webhookID)", method: .delete)
+    }
+
+    static func webhookEvents() -> Endpoint {
+        Endpoint(path: "/api/v1/webhooks/events")
+    }
+
+    static func userWebhooks() -> Endpoint {
+        Endpoint(path: "/api/v1/user/settings/webhooks")
+    }
+
+    static func createUserWebhook(dto: WebhookDTO) throws -> Endpoint {
+        try .encoding(path: "/api/v1/user/settings/webhooks", method: .put, body: dto)
+    }
+
+    static func updateUserWebhook(webhookID: Int, dto: WebhookDTO) throws -> Endpoint {
+        try .encoding(path: "/api/v1/user/settings/webhooks/\(webhookID)", method: .post, body: dto)
+    }
+
+    static func deleteUserWebhook(webhookID: Int) -> Endpoint {
+        Endpoint(path: "/api/v1/user/settings/webhooks/\(webhookID)", method: .delete)
+    }
+
+    static func userWebhookEvents() -> Endpoint {
+        Endpoint(path: "/api/v1/user/settings/webhooks/events")
+    }
 }

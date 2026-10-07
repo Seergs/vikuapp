@@ -114,4 +114,16 @@ public struct VikunjaInstanceClientFactory: InstanceClientFactoryProtocol {
     ) -> BucketRepositoryProtocol {
         VikunjaBucketRepository(client: URLSessionAPIClient(baseURL: baseURL, authTokenProvider: tokenProvider))
     }
+
+    public func makeWebhookRepository(
+        baseURL: URL,
+        tokenProvider: @escaping @Sendable () async throws -> String?,
+    ) -> WebhookRepositoryProtocol {
+        let client = URLSessionAPIClient(baseURL: baseURL, authTokenProvider: tokenProvider)
+        return VikunjaWebhookRepositorySwitch(
+            v1: VikunjaWebhookRepository(client: client),
+            v2: VikunjaWebhookRepositoryV2(client: client),
+            capabilityProvider: VikunjaCapabilityProvider(client: client),
+        )
+    }
 }
