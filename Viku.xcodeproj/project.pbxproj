@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		0344D01DB80D7B74123FBB44 /* Projects in Frameworks */ = {isa = PBXBuildFile; productRef = 937703EA6DF786A17BC41E96 /* Projects */; };
 		062B1577A762434EAAEEAEAE /* Home in Frameworks */ = {isa = PBXBuildFile; productRef = 166A7A7237924DFA8CF44351 /* Home */; };
+		13222C99D726509EF1E32034 /* Kanban in Frameworks */ = {isa = PBXBuildFile; productRef = E8024A7799294F5CBCB0B3D8 /* Kanban */; };
 		3C9B0F98E67BE7DBE14B395C /* Search in Frameworks */ = {isa = PBXBuildFile; productRef = DF94C158DB50FABAA1B462AE /* Search */; };
 		638AD6AC5148FFCCE7C85848 /* VikunjaNetworking in Frameworks */ = {isa = PBXBuildFile; productRef = E2386D937B2547F27D7735C9 /* VikunjaNetworking */; };
 		6ACFD68581C4ED4510656534 /* Tasks in Frameworks */ = {isa = PBXBuildFile; productRef = CB1292EB9627A6D204BBA18B /* Tasks */; };
@@ -17,7 +18,6 @@
 		AF1A9958F7144C64A26AE7DE /* VikuAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 1EDAB22A2783416BA9F0AC6D /* VikuAuth */; };
 		B89F0AB3411531775B788526 /* Viku-widgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 092ABB4ABC46663D77A4333A /* Viku-widgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C0A0235CF7A4953CBF6775E2 /* VikuDesignSystem in Frameworks */ = {isa = PBXBuildFile; productRef = 887DB5E3A518911BD1897E4B /* VikuDesignSystem */; };
-		13222C99D726509EF1E32034 /* Kanban in Frameworks */ = {isa = PBXBuildFile; productRef = E8024A7799294F5CBCB0B3D8 /* Kanban */; };
 		CA1EDA0000000000000000B2 /* CalendarFeature in Frameworks */ = {isa = PBXBuildFile; productRef = CA1EDA0000000000000000C3 /* CalendarFeature */; };
 		CFBB516F15E3030F653FBDC1 /* VikuWidgetKit in Frameworks */ = {isa = PBXBuildFile; productRef = E436BCA8C1BEFFBB4869643D /* VikuWidgetKit */; };
 		EB2D2DA5CFF441EFB4450EF5 /* Onboarding in Frameworks */ = {isa = PBXBuildFile; productRef = 691135973B8B496295E14896 /* Onboarding */; };
@@ -521,6 +521,7 @@
 		EC3BB472303D1EF7002753FC /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				APS_ENVIRONMENT = development;
 				ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon-Dev";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Viku/Viku.entitlements;
@@ -557,6 +558,7 @@
 		EC3BB473303D1EF7002753FC /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				APS_ENVIRONMENT = production;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Viku/Viku.entitlements;
@@ -627,6 +629,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/VikuAuth;
 		};
+		11E80D27D54507DA50620543 /* XCLocalSwiftPackageReference "Packages/Features/Kanban" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Features/Kanban;
+		};
 		2D23BFA33FDFA54C75780CE1 /* XCLocalSwiftPackageReference "Packages/VikuWidgetKit" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/VikuWidgetKit;
@@ -674,10 +680,6 @@
 		FE450F8737274DC4914D99E8 /* XCLocalSwiftPackageReference "Packages/Features/Home" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/Features/Home;
-		};
-		11E80D27D54507DA50620543 /* XCLocalSwiftPackageReference "Packages/Features/Kanban" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/Features/Kanban;
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -727,11 +729,6 @@
 			package = CA1EDA0000000000000000A1 /* XCLocalSwiftPackageReference "Packages/Features/Calendar" */;
 			productName = CalendarFeature;
 		};
-		E8024A7799294F5CBCB0B3D8 /* Kanban */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 11E80D27D54507DA50620543 /* XCLocalSwiftPackageReference "Packages/Features/Kanban" */;
-			productName = Kanban;
-		};
 		CB1292EB9627A6D204BBA18B /* Tasks */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 52D3B6C5FA358E9E99B3F700 /* XCLocalSwiftPackageReference "Packages/Features/Tasks" */;
@@ -756,6 +753,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 2D23BFA33FDFA54C75780CE1 /* XCLocalSwiftPackageReference "Packages/VikuWidgetKit" */;
 			productName = VikuWidgetKit;
+		};
+		E8024A7799294F5CBCB0B3D8 /* Kanban */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 11E80D27D54507DA50620543 /* XCLocalSwiftPackageReference "Packages/Features/Kanban" */;
+			productName = Kanban;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

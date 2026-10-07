@@ -93,6 +93,12 @@ final class AppContainer {
     /// `DevBadgeVisibilityStoring`, the same way `themeCenter` is passed as
     /// `AppThemeStoring`.
     let devToolsCenter = DevToolsCenter()
+    /// Requests notification authorization, obtains the APNs device token,
+    /// and registers it with the push relay — see `PushNotificationCoordinator`.
+    /// Pass this as `PushNotificationRegistering` to any ViewModel that
+    /// offers the notifications opt-in (the consent modal confirms before
+    /// calling `enable(vikunjaUserID:)`).
+    let pushNotificationRegistering: PushNotificationRegistering = PushNotificationCoordinator()
 
     init(
         accountStore: AccountStoreProtocol = KeychainAccountStore(

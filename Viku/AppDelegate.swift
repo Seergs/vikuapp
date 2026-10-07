@@ -17,6 +17,17 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         configuration.delegateClass = SceneDelegate.self
         return configuration
     }
+
+    /// Forwards to `APNsPermissionCenter.shared`, which resumes whichever
+    /// continuation `requestDeviceToken()` is awaiting — see
+    /// `PushNotificationCoordinator.enable(vikunjaUserID:)`.
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        APNsPermissionCenter.shared.didReceive(deviceToken: deviceToken)
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        APNsPermissionCenter.shared.didFailToRegister(with: error)
+    }
 }
 
 /// Handles the quick action both when it cold-launches the app
