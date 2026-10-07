@@ -194,6 +194,12 @@ struct FakeClientFactory: InstanceClientFactoryProtocol {
     ) -> BucketRepositoryProtocol {
         fatalError("unused")
     }
+
+    func makeWebhookRepository(
+        baseURL _: URL, tokenProvider _: @escaping @Sendable () async throws -> String?,
+    ) -> WebhookRepositoryProtocol {
+        fatalError("unused")
+    }
 }
 
 enum TestSupport {

@@ -170,4 +170,11 @@ final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @unchecked
     ) -> BucketRepositoryProtocol {
         fatalError("not exercised by Onboarding tests")
     }
+
+    func makeWebhookRepository(
+        baseURL _: URL,
+        tokenProvider _: @escaping @Sendable () async throws -> String?,
+    ) -> WebhookRepositoryProtocol {
+        fatalError("not exercised by Onboarding tests")
+    }
 }

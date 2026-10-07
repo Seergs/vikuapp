@@ -194,4 +194,50 @@ extension VikunjaEndpoints {
             additionalHeaders: ["Cookie": "vikunja_refresh_token=\(refreshToken)"],
         )
     }
+
+    /// Verified against a real instance's `/api/v2/openapi.json`: webhooks
+    /// keep the exact same sub-paths as v1 (including `/user/settings/...`,
+    /// not shortened to `/user/...` the way `currentUserV2()` was), just
+    /// under the `/api/v2` prefix, with list responses wrapped in
+    /// `PaginatedWebhook` and create/update swapping methods the same way
+    /// every other v2 resource does (POST to create, PUT to update).
+    static func webhooksV2(projectID: Int) -> Endpoint {
+        Endpoint(path: "/api/v2/projects/\(projectID)/webhooks")
+    }
+
+    static func createWebhookV2(projectID: Int, dto: WebhookDTO) throws -> Endpoint {
+        try .encoding(path: "/api/v2/projects/\(projectID)/webhooks", method: .post, body: dto)
+    }
+
+    static func updateWebhookV2(projectID: Int, webhookID: Int, dto: WebhookDTO) throws -> Endpoint {
+        try .encoding(path: "/api/v2/projects/\(projectID)/webhooks/\(webhookID)", method: .put, body: dto)
+    }
+
+    static func deleteWebhookV2(projectID: Int, webhookID: Int) -> Endpoint {
+        Endpoint(path: "/api/v2/projects/\(projectID)/webhooks/\(webhookID)", method: .delete)
+    }
+
+    static func webhookEventsV2() -> Endpoint {
+        Endpoint(path: "/api/v2/webhooks/events")
+    }
+
+    static func userWebhooksV2() -> Endpoint {
+        Endpoint(path: "/api/v2/user/settings/webhooks")
+    }
+
+    static func createUserWebhookV2(dto: WebhookDTO) throws -> Endpoint {
+        try .encoding(path: "/api/v2/user/settings/webhooks", method: .post, body: dto)
+    }
+
+    static func updateUserWebhookV2(webhookID: Int, dto: WebhookDTO) throws -> Endpoint {
+        try .encoding(path: "/api/v2/user/settings/webhooks/\(webhookID)", method: .put, body: dto)
+    }
+
+    static func deleteUserWebhookV2(webhookID: Int) -> Endpoint {
+        Endpoint(path: "/api/v2/user/settings/webhooks/\(webhookID)", method: .delete)
+    }
+
+    static func userWebhookEventsV2() -> Endpoint {
+        Endpoint(path: "/api/v2/user/settings/webhooks/events")
+    }
 }
