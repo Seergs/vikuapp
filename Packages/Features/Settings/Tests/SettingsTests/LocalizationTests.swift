@@ -159,7 +159,7 @@ struct LocalizationTests {
             "The event type, the task title, and the project name. Your token or password never leaves the device. The webhook signing secret is shared with the relay so it can verify deliveries.",
             "El tipo de evento, el título de la tarea y el nombre del proyecto. Tu token o contraseña nunca salen del dispositivo. El secreto de firma del webhook se comparte con el relay para que pueda verificar las entregas.",
         ),
-        ("Your instance must be reachable from the internet", "Tu instancia debe ser accesible desde internet"),
+        ("Your instance needs internet access", "Tu instancia necesita acceso a internet"),
         ("Vikunja has to reach relay.viku.dev over HTTPS.", "Vikunja debe poder alcanzar relay.viku.dev mediante HTTPS."),
         (
             "I understand my events will pass through Viku Relay, a service operated by the Viku team.",

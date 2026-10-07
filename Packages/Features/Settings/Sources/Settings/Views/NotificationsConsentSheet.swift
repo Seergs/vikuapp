@@ -47,7 +47,7 @@ struct NotificationsConsentSheet: View {
                     )
 
                     section(
-                        title: String(localized: "Your instance must be reachable from the internet", bundle: .module),
+                        title: String(localized: "Your instance needs internet access", bundle: .module),
                         body: String(
                             localized: "Vikunja has to reach relay.viku.dev over HTTPS.",
                             bundle: .module,

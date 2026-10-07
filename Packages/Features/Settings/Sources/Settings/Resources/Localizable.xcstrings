@@ -1051,12 +1051,12 @@
         }
       }
     },
-    "Your instance must be reachable from the internet" : {
+    "Your instance needs internet access" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tu instancia debe ser accesible desde internet"
+            "value" : "Tu instancia necesita acceso a internet"
           }
         }
       }
