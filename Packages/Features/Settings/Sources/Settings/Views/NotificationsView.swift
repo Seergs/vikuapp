@@ -78,10 +78,28 @@ struct NotificationsView: View {
                         .foregroundStyle(VikuColor.textSecondary)
                 }
             }
+            .disabled(viewModel.isSyncing)
+
+            if viewModel.isSyncing {
+                syncingRow
+            }
         } footer: {
             if viewModel.isPermissionDenied {
                 deniedBanner
             }
+        }
+    }
+
+    /// Shown while `confirmEnable()`/`disable()`/a toggle's sync is in
+    /// flight — the OS permission prompt and relay round trip can take a
+    /// few seconds on a real device, so without this the screen looks like
+    /// nothing happened after tapping "Agree & Continue".
+    private var syncingRow: some View {
+        HStack(spacing: VikuSpacing.sm) {
+            ProgressView()
+            Text("Setting up notifications…", bundle: .module)
+                .font(VikuFont.footnote)
+                .foregroundStyle(VikuColor.textSecondary)
         }
     }
 
@@ -98,6 +116,7 @@ struct NotificationsView: View {
     private var userLevelSection: some View {
         Section {
             Toggle(String(localized: "Reminders & Overdue Tasks", bundle: .module), isOn: userLevelBinding)
+                .disabled(viewModel.isSyncing)
         } header: {
             Text("User Notifications", bundle: .module)
         }
@@ -111,6 +130,7 @@ struct NotificationsView: View {
             Section {
                 ForEach(viewModel.projects) { project in
                     Toggle(project.title, isOn: projectBinding(project))
+                        .disabled(viewModel.isSyncing)
                 }
             } header: {
                 Text("Project Notifications", bundle: .module)

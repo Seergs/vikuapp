@@ -166,6 +166,7 @@ struct LocalizationTests {
             "Entiendo que mis eventos pasarán por Viku Relay, un servicio operado por el equipo de Viku.",
         ),
         ("Agree & Continue", "Aceptar y continuar"),
+        ("Setting up notifications…", "Configurando notificaciones…"),
     ])
     func `key resolves to its Spanish translation`(key: String, expected: String) {
         #expect(Self.es(key) == expected)

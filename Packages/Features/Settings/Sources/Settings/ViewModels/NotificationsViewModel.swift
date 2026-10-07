@@ -18,6 +18,12 @@ public final class NotificationsViewModel {
     /// shows a banner pointing at the system Settings app instead of
     /// letting the toggle take effect.
     public private(set) var isPermissionDenied = false
+    /// True for the whole duration of a toggle's effect: the OS permission
+    /// prompt and relay round trip on first enable (which can take a few
+    /// seconds on a real device), plus the webhook sync that follows every
+    /// settings change. The view disables its toggles and shows a spinner
+    /// while this is true, so a slow round trip doesn't look like nothing
+    /// happened.
     public private(set) var isSyncing = false
 
     public var isLoading: Bool {
@@ -73,12 +79,21 @@ public final class NotificationsViewModel {
         }
 
         if settings.isEnabled {
+            isSyncing = true
+            defer { isSyncing = false }
             await refreshRegistration()
         }
     }
 
-    /// Called from the consent modal's confirm button.
+    /// Called from the consent modal's confirm button. `isSyncing` covers
+    /// this whole flow, not just the webhook sync at the end — the OS
+    /// permission prompt and the relay round trip (`refreshRegistration()`)
+    /// can themselves take a few seconds on a real device, and the view
+    /// should show that something's happening rather than look stuck.
     public func confirmEnable() async {
+        isSyncing = true
+        defer { isSyncing = false }
+
         guard await refreshRegistration() else { return }
         var updated = settings
         updated.isEnabled = true
@@ -86,6 +101,9 @@ public final class NotificationsViewModel {
     }
 
     public func disable() async {
+        isSyncing = true
+        defer { isSyncing = false }
+
         var updated = settings
         updated.isEnabled = false
         await apply(updated)
@@ -94,12 +112,18 @@ public final class NotificationsViewModel {
     }
 
     public func setUserLevelEnabled(_ isEnabled: Bool) async {
+        isSyncing = true
+        defer { isSyncing = false }
+
         var updated = settings
         updated.userLevelEnabled = isEnabled
         await apply(updated)
     }
 
     public func setProject(_ project: Project, isEnabled: Bool) async {
+        isSyncing = true
+        defer { isSyncing = false }
+
         var updated = settings
         if isEnabled {
             updated.enabledProjectIDs.insert(project.id)
@@ -166,8 +190,6 @@ public final class NotificationsViewModel {
             return
         }
 
-        isSyncing = true
-        defer { isSyncing = false }
         do {
             let userWebhooks = try await webhookRepository.fetchUserWebhooks()
             var projectWebhooks: [Int: [Webhook]] = [:]

@@ -751,6 +751,16 @@
         }
       }
     },
+    "Setting up notifications…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configurando notificaciones…"
+          }
+        }
+      }
+    },
     "Settings" : {
       "localizations" : {
         "es" : {
