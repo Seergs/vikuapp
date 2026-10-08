@@ -171,23 +171,38 @@ final class AppContainer {
         defaultProjectStore.setProjectID(user.defaultProjectID, forAccountID: account.id)
     }
 
-    /// Reconciles this device's webhooks with the stored notification
-    /// settings on launch — see `WebhookSyncCoordinator`. A no-op when
-    /// notifications aren't enabled: this never registers for push on its
-    /// own, only re-confirms a registration the user already opted into
-    /// (`Features/Settings`' Notifications screen). Called once on launch,
-    /// not on every foreground — the relay rate-limits registrations (5/min,
-    /// burst 5), and re-registering that often isn't needed anyway: Apple's
-    /// own guidance for the device token is to re-register on every launch,
-    /// not every foreground. Every failure is silent and leaves the stored
-    /// settings untouched; the next launch retries from the same state.
+    /// Reconciles every saved account's webhooks with its own stored
+    /// notification settings on launch — notifications can be enabled on
+    /// several accounts at once, each reconciled independently, so one
+    /// account's failure never blocks another's. Call once on launch, not
+    /// on every foreground (see `syncNotificationWebhooks`).
+    func syncNotificationWebhooksForAllAccounts() async {
+        guard let accounts = try? await accountStore.fetchAccounts() else { return }
+        for account in accounts {
+            await syncNotificationWebhooks(account: account)
+        }
+    }
+
+    /// Reconciles this account's webhooks with its stored notification
+    /// settings — see `WebhookSyncCoordinator`. A no-op when notifications
+    /// aren't enabled for this account: this never registers for push on
+    /// its own, only re-confirms a registration the user already opted into
+    /// (`Features/Settings`' Notifications screen). The relay rate-limits
+    /// registrations (5/min, burst 5), and re-registering that often isn't
+    /// needed anyway: Apple's own guidance for the device token is to
+    /// re-register on every launch, not every foreground. Every failure is
+    /// silent and leaves the stored settings untouched; the next launch
+    /// retries from the same state.
     func syncNotificationWebhooks(account: InstanceAccount) async {
-        guard notificationSettingsStore.settings.isEnabled else { return }
+        guard notificationSettingsStore.settings(for: account.id).isEnabled else { return }
 
         let tokenProvider = tokenProvider(for: account)
         let userRepository = clientFactory.makeUserRepository(baseURL: account.baseURL, tokenProvider: tokenProvider)
         guard let user = try? await userRepository.fetchCurrentUser() else { return }
-        guard let registration = try? await pushNotificationRegistering.enable(vikunjaUserID: user.id) else { return }
+        guard let registration = try? await pushNotificationRegistering.enable(
+            vikunjaUserID: user.id,
+            accountID: account.id,
+        ) else { return }
 
         let projectRepository = clientFactory.makeProjectRepository(
             baseURL: account.baseURL,
@@ -198,11 +213,11 @@ final class AppContainer {
         // Drop ids for projects that no longer exist (e.g. deleted after
         // being enabled), so the planner never tries to recreate a webhook
         // for a project that's gone.
-        var settings = notificationSettingsStore.settings
+        var settings = notificationSettingsStore.settings(for: account.id)
         let validProjectIDs = settings.enabledProjectIDs.intersection(projects.map(\.id))
         if validProjectIDs != settings.enabledProjectIDs {
             settings.enabledProjectIDs = validProjectIDs
-            notificationSettingsStore.save(settings)
+            notificationSettingsStore.save(settings, for: account.id)
         }
 
         let webhookRepository = clientFactory.makeWebhookRepository(
@@ -407,6 +422,7 @@ final class AppContainer {
     func makeNotificationsViewModel(account: InstanceAccount) -> NotificationsViewModel {
         let tokenProvider = tokenProvider(for: account)
         return NotificationsViewModel(
+            accountID: account.id,
             webhookRepository: clientFactory.makeWebhookRepository(
                 baseURL: account.baseURL,
                 tokenProvider: tokenProvider,

@@ -53,6 +53,7 @@ public final class NotificationsViewModel {
     private var currentRegistration: PushRegistration?
     private var currentUserID: Int?
 
+    private let accountID: InstanceAccount.ID
     private let projectRepository: ProjectRepositoryProtocol
     private let userRepository: UserRepositoryProtocol
     private let pushNotificationRegistering: PushNotificationRegistering
@@ -61,6 +62,7 @@ public final class NotificationsViewModel {
     private let syncCoordinator: WebhookSyncCoordinator
 
     public init(
+        accountID: InstanceAccount.ID,
         webhookRepository: WebhookRepositoryProtocol,
         projectRepository: ProjectRepositoryProtocol,
         userRepository: UserRepositoryProtocol,
@@ -69,13 +71,14 @@ public final class NotificationsViewModel {
         toastPresenter: ToastPresenting,
         syncPlanner: WebhookSyncing = WebhookSyncPlanner(),
     ) {
+        self.accountID = accountID
         self.projectRepository = projectRepository
         self.userRepository = userRepository
         self.pushNotificationRegistering = pushNotificationRegistering
         self.notificationSettingsStore = notificationSettingsStore
         self.toastPresenter = toastPresenter
         self.syncCoordinator = WebhookSyncCoordinator(webhookRepository: webhookRepository, syncPlanner: syncPlanner)
-        self.settings = notificationSettingsStore.settings
+        self.settings = notificationSettingsStore.settings(for: accountID)
     }
 
     public func load() async {
@@ -128,7 +131,7 @@ public final class NotificationsViewModel {
         updated.userLevelEnabled = false
         updated.enabledProjectIDs = []
         await apply(updated)
-        try? await pushNotificationRegistering.disable()
+        try? await pushNotificationRegistering.disable(accountID: accountID)
         currentRegistration = nil
     }
 
@@ -171,7 +174,10 @@ public final class NotificationsViewModel {
     private func refreshRegistration() async -> Bool {
         guard let userID = await resolveUserID() else { return false }
         do {
-            guard let registration = try await pushNotificationRegistering.enable(vikunjaUserID: userID) else {
+            guard let registration = try await pushNotificationRegistering.enable(
+                vikunjaUserID: userID,
+                accountID: accountID,
+            ) else {
                 isPermissionDenied = true
                 currentRegistration = nil
                 return false
@@ -207,14 +213,14 @@ public final class NotificationsViewModel {
             // disabled) — e.g. toggling a project off while the feature
             // itself is off. Persist and exit.
             settings = newSettings
-            notificationSettingsStore.save(newSettings)
+            notificationSettingsStore.save(newSettings, for: accountID)
             return
         }
 
         do {
             try await syncCoordinator.sync(settings: newSettings, registration: registration, projects: projects)
             settings = newSettings
-            notificationSettingsStore.save(newSettings)
+            notificationSettingsStore.save(newSettings, for: accountID)
         } catch let error as VikunjaError {
             toastPresenter.show(error.displayMessage, style: .error)
         } catch {

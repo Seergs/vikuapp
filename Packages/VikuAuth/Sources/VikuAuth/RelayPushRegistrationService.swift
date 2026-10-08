@@ -2,17 +2,16 @@ import CryptoKit
 import Foundation
 import VikunjaCore
 
-/// Concrete `PushRegistrationProviding` talking to `viku-apn-relay`
-/// (`https://relay.viku.dev`, see that repo's README for the exact contract
-/// this mirrors). The HMAC secret is generated on the device, once, and
-/// reused on every subsequent `register(deviceToken:vikunjaUserID:)` call —
-/// the relay replaces its stored secret on every call regardless, so resending
-/// the same one keeps the Vikunja-side webhook valid instead of forcing it to
-/// be recreated. The relay's `management_token` rotates on every call
-/// (the previous one stops working immediately), so it's always overwritten.
+/// Concrete `PushRegistrationProviding` talking to `viku-apn-relay` (see that
+/// repo's README for the exact contract this mirrors). The HMAC secret is
+/// generated on the device, once, and reused on every subsequent
+/// `register(deviceToken:vikunjaUserID:accountID:)` call — the relay
+/// replaces its stored secret on every call regardless, so resending the
+/// same one keeps the Vikunja-side webhook valid instead of forcing it to be
+/// recreated. The relay's `management_token` rotates on every call (the
+/// previous one stops working immediately), so it's always overwritten.
 public actor RelayPushRegistrationService: PushRegistrationProviding {
     public static let defaultBaseURL = URL(string: "https://relay.viku.dev")!
-    private static let keychainAccount = "registration"
 
     private let baseURL: URL
     private let session: URLSession
@@ -28,11 +27,17 @@ public actor RelayPushRegistrationService: PushRegistrationProviding {
         self.keychainService = keychainService
     }
 
-    public func register(deviceToken: Data, vikunjaUserID: Int) async throws -> PushRegistration {
+    public func register(deviceToken: Data, vikunjaUserID: Int, accountID: InstanceAccount.ID) async throws -> PushRegistration {
         let apnsTokenHex = deviceToken.hexEncoded
-        let secret = try loadRecord()?.webhookSecret ?? Self.generateSecret()
+        let account = Self.keychainAccount(for: accountID)
+        let secret = try loadRecord(account: account)?.webhookSecret ?? Self.generateSecret()
 
-        let body = RelayRegisterRequestDTO(apnsToken: apnsTokenHex, webhookSecret: secret, vikunjaUserID: vikunjaUserID)
+        let body = RelayRegisterRequestDTO(
+            apnsToken: apnsTokenHex,
+            webhookSecret: secret,
+            vikunjaUserID: vikunjaUserID,
+            accountKey: accountID.uuidString,
+        )
         let (data, response) = try await send(path: "/v1/registrations", method: "POST", body: body)
         try Self.validate(response, acceptableStatusCodes: [200])
 
@@ -43,18 +48,22 @@ public actor RelayPushRegistrationService: PushRegistrationProviding {
             throw PushRegistrationError.invalidResponse
         }
 
-        try saveRecord(PushRegistrationRecord(
-            id: decoded.id,
-            webhookSecret: secret,
-            webhookURL: decoded.webhookURL,
-            managementToken: decoded.managementToken,
-            apnsTokenHex: apnsTokenHex,
-        ))
+        try saveRecord(
+            PushRegistrationRecord(
+                id: decoded.id,
+                webhookSecret: secret,
+                webhookURL: decoded.webhookURL,
+                managementToken: decoded.managementToken,
+                apnsTokenHex: apnsTokenHex,
+            ),
+            account: account,
+        )
         return PushRegistration(targetURL: decoded.webhookURL, secret: secret)
     }
 
-    public func unregister() async throws {
-        guard let record = try loadRecord() else { return }
+    public func unregister(accountID: InstanceAccount.ID) async throws {
+        let account = Self.keychainAccount(for: accountID)
+        guard let record = try loadRecord(account: account) else { return }
 
         var request = URLRequest(url: baseURL.appendingPathComponent("/v1/registrations/\(record.id)"))
         request.httpMethod = "DELETE"
@@ -65,7 +74,7 @@ public actor RelayPushRegistrationService: PushRegistrationProviding {
         // relay's README, "a repeated call returns 401 ... the end state is
         // the same" — so that's treated as success here too.
         try Self.validate(response, acceptableStatusCodes: [204, 401])
-        try deleteRecord()
+        try deleteRecord(account: account)
     }
 
     // MARK: - HTTP
@@ -105,20 +114,28 @@ public actor RelayPushRegistrationService: PushRegistrationProviding {
 
     // MARK: - Keychain
 
-    private func loadRecord() throws -> PushRegistrationRecord? {
-        guard let data = try Keychain.read(service: keychainService, account: Self.keychainAccount) else {
+    /// One Keychain item per account, not one fixed item for the whole
+    /// device — otherwise registering a second account would overwrite the
+    /// first one's stored secret/management token locally, on top of the
+    /// relay-side collision that would cause.
+    private static func keychainAccount(for accountID: InstanceAccount.ID) -> String {
+        "registration.\(accountID.uuidString)"
+    }
+
+    private func loadRecord(account: String) throws -> PushRegistrationRecord? {
+        guard let data = try Keychain.read(service: keychainService, account: account) else {
             return nil
         }
         return try? JSONDecoder().decode(PushRegistrationRecord.self, from: data)
     }
 
-    private func saveRecord(_ record: PushRegistrationRecord) throws {
+    private func saveRecord(_ record: PushRegistrationRecord, account: String) throws {
         let data = try JSONEncoder().encode(record)
-        try Keychain.save(data, service: keychainService, account: Self.keychainAccount)
+        try Keychain.save(data, service: keychainService, account: account)
     }
 
-    private func deleteRecord() throws {
-        try Keychain.delete(service: keychainService, account: Self.keychainAccount)
+    private func deleteRecord(account: String) throws {
+        try Keychain.delete(service: keychainService, account: account)
     }
 }
 
