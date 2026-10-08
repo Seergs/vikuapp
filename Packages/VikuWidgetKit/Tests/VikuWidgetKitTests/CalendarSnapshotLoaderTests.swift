@@ -74,6 +74,22 @@ struct CalendarSnapshotLoaderTests {
     }
 
     @Test
+    func `ignores virtual projects so favorited tasks aren't counted twice`() async {
+        let projects = [Project(id: 1, title: "Work"), Project(id: -1, title: "Favorites")]
+        let tasks = [
+            VikunjaTask(id: 10, title: "Real", dueDate: Self.laterToday, projectID: 1),
+            VikunjaTask(id: 11, title: "Via favorites", dueDate: Self.laterToday, projectID: -1),
+        ]
+        let (loader, _) = makeLoader(projects: projects, tasks: tasks)
+
+        guard case let .content(content) = await loader.loadState() else {
+            Issue.record("expected content")
+            return
+        }
+        #expect(content.todayTasks.map(\.id) == [10])
+    }
+
+    @Test
     func `one project's failing task fetch does not sink the snapshot`() async {
         let projects = [Project(id: 1, title: "Work"), Project(id: 2, title: "Home")]
         let tasks = [

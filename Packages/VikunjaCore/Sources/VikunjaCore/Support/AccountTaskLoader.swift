@@ -5,6 +5,9 @@ import Foundation
 /// project" pattern the Today and Calendar screens share. Each screen wraps
 /// the result in its own load-state enum; this only does the fetching.
 ///
+/// Virtual projects (negative ids: Favorites, saved filters) are skipped so
+/// tasks aren't returned once per real project and again per virtual one.
+///
 /// A project whose task fetch fails is dropped from the result rather than
 /// failing the whole load, so one unreadable project can't blank the screen.
 public struct AccountTaskLoader: Sendable {
@@ -35,7 +38,11 @@ public struct AccountTaskLoader: Sendable {
         repository: TaskRepositoryProtocol,
     ) async -> [VikunjaTask] {
         await withTaskGroup(of: [VikunjaTask].self) { group in
-            for project in projects {
+            // Vikunja lists virtual projects (Favorites is -1, saved filters
+            // are other negative ids) alongside real ones. Their tasks are
+            // views over tasks that already live in a real project, so
+            // fetching them would show every such task twice.
+            for project in projects where project.id > 0 {
                 group.addTask {
                     await (try? repository.fetchTasks(projectID: project.id)) ?? []
                 }

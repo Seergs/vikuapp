@@ -67,9 +67,10 @@ public struct CalendarSnapshotLoader: Sendable {
         )
 
         do {
-            let projects = try await projectRepository.fetchProjects()
-            let projectsByID = Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0) })
-            let tasks = await Self.fetchAllTasks(projects: projects, repository: taskRepository)
+            let (tasks, projectsByID) = try await AccountTaskLoader(
+                taskRepository: taskRepository,
+                projectRepository: projectRepository,
+            ).loadAllTasks()
 
             let month = CalendarMonth(containing: now(), tasks: tasks, now: now())
             let content = CalendarWidgetContent.make(
@@ -97,25 +98,5 @@ public struct CalendarSnapshotLoader: Sendable {
         let age = now().timeIntervalSince(cached.generatedAt)
         cached.isStale = forceStale || age > VikuWidgetConfig.refreshInterval * 2
         return .content(cached)
-    }
-
-    /// Fetches every project's tasks concurrently and flattens them; a project
-    /// whose fetch fails is dropped rather than failing the whole refresh.
-    private static func fetchAllTasks(
-        projects: [Project],
-        repository: TaskRepositoryProtocol,
-    ) async -> [VikunjaTask] {
-        await withTaskGroup(of: [VikunjaTask].self) { group in
-            for project in projects {
-                group.addTask {
-                    await (try? repository.fetchTasks(projectID: project.id)) ?? []
-                }
-            }
-            var all: [VikunjaTask] = []
-            for await tasks in group {
-                all.append(contentsOf: tasks)
-            }
-            return all
-        }
     }
 }
