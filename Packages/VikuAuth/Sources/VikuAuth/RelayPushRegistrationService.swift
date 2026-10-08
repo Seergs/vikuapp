@@ -11,7 +11,17 @@ import VikunjaCore
 /// recreated. The relay's `management_token` rotates on every call (the
 /// previous one stops working immediately), so it's always overwritten.
 public actor RelayPushRegistrationService: PushRegistrationProviding {
+    // Split per build configuration: a Debug build's device
+    // token is APNs sandbox, which only `relay-stg.viku.dev` (configured
+    // with `APNS_ENDPOINT=https://api.sandbox.push.apple.com`) can deliver
+    // through. Sending a sandbox token to the production relay fails with
+    // a `BadDeviceToken` (400) from APNs. Mirrors the same `#if DEBUG`
+    // split `VikuWidgetConfig` uses for the App Group/Keychain/URL scheme.
+    #if DEBUG
+    public static let defaultBaseURL = URL(string: "https://relay-stg.viku.dev")!
+    #else
     public static let defaultBaseURL = URL(string: "https://relay.viku.dev")!
+    #endif
 
     private let baseURL: URL
     private let session: URLSession
