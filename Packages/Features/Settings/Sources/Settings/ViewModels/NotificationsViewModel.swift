@@ -53,13 +53,12 @@ public final class NotificationsViewModel {
     private var currentRegistration: PushRegistration?
     private var currentUserID: Int?
 
-    private let webhookRepository: WebhookRepositoryProtocol
     private let projectRepository: ProjectRepositoryProtocol
     private let userRepository: UserRepositoryProtocol
     private let pushNotificationRegistering: PushNotificationRegistering
     private let notificationSettingsStore: NotificationSettingsStore
     private let toastPresenter: ToastPresenting
-    private let syncPlanner: WebhookSyncing
+    private let syncCoordinator: WebhookSyncCoordinator
 
     public init(
         webhookRepository: WebhookRepositoryProtocol,
@@ -70,13 +69,12 @@ public final class NotificationsViewModel {
         toastPresenter: ToastPresenting,
         syncPlanner: WebhookSyncing = WebhookSyncPlanner(),
     ) {
-        self.webhookRepository = webhookRepository
         self.projectRepository = projectRepository
         self.userRepository = userRepository
         self.pushNotificationRegistering = pushNotificationRegistering
         self.notificationSettingsStore = notificationSettingsStore
         self.toastPresenter = toastPresenter
-        self.syncPlanner = syncPlanner
+        self.syncCoordinator = WebhookSyncCoordinator(webhookRepository: webhookRepository, syncPlanner: syncPlanner)
         self.settings = notificationSettingsStore.settings
     }
 
@@ -199,10 +197,10 @@ public final class NotificationsViewModel {
         return user.id
     }
 
-    /// Reconciles the server's webhooks to `newSettings` via `syncPlanner`,
-    /// then persists it — only once the sync succeeds, so a failed request
-    /// never leaves `notificationSettingsStore` claiming a state the server
-    /// doesn't actually have.
+    /// Reconciles the server's webhooks to `newSettings` via
+    /// `syncCoordinator`, then persists it — only once the sync succeeds,
+    /// so a failed request never leaves `notificationSettingsStore`
+    /// claiming a state the server doesn't actually have.
     private func apply(_ newSettings: NotificationSettings) async {
         guard let registration = currentRegistration else {
             // Nothing to reconcile against (never enabled, or already
@@ -214,80 +212,13 @@ public final class NotificationsViewModel {
         }
 
         do {
-            let userWebhooks = try await webhookRepository.fetchUserWebhooks()
-            var projectWebhooks: [Int: [Webhook]] = [:]
-            for project in projects {
-                projectWebhooks[project.id] = try await webhookRepository.fetchWebhooks(projectID: project.id)
-            }
-
-            let plan = syncPlanner.plan(
-                settings: newSettings,
-                registration: registration,
-                existingUserWebhooks: userWebhooks,
-                existingProjectWebhooks: projectWebhooks,
-            )
-            try await applyPlan(
-                plan,
-                registration: registration,
-                userWebhooks: userWebhooks,
-                projectWebhooks: projectWebhooks,
-            )
-
+            try await syncCoordinator.sync(settings: newSettings, registration: registration, projects: projects)
             settings = newSettings
             notificationSettingsStore.save(newSettings)
         } catch let error as VikunjaError {
             toastPresenter.show(error.displayMessage, style: .error)
         } catch {
             toastPresenter.show(error.localizedDescription, style: .error)
-        }
-    }
-
-    private func applyPlan(
-        _ plan: WebhookSyncPlan,
-        registration: PushRegistration,
-        userWebhooks: [Webhook],
-        projectWebhooks: [Int: [Webhook]],
-    ) async throws {
-        for create in plan.creates {
-            switch create.scope {
-            case .user:
-                _ = try await webhookRepository.createUserWebhook(
-                    targetURL: registration.targetURL,
-                    events: create.events,
-                    secret: registration.secret,
-                )
-            case let .project(projectID):
-                _ = try await webhookRepository.createWebhook(
-                    projectID: projectID,
-                    targetURL: registration.targetURL,
-                    events: create.events,
-                    secret: registration.secret,
-                )
-            }
-        }
-
-        for update in plan.updates {
-            switch update.scope {
-            case .user:
-                guard var webhook = userWebhooks.first(where: { $0.id == update.webhookID }) else { continue }
-                webhook.events = update.events
-                _ = try await webhookRepository.updateUserWebhook(webhook)
-            case let .project(projectID):
-                guard var webhook = projectWebhooks[projectID]?.first(where: { $0.id == update.webhookID }) else {
-                    continue
-                }
-                webhook.events = update.events
-                _ = try await webhookRepository.updateWebhook(projectID: projectID, webhook)
-            }
-        }
-
-        for delete in plan.deletes {
-            switch delete.scope {
-            case .user:
-                try await webhookRepository.deleteUserWebhook(webhookID: delete.webhookID)
-            case let .project(projectID):
-                try await webhookRepository.deleteWebhook(projectID: projectID, webhookID: delete.webhookID)
-            }
         }
     }
 }

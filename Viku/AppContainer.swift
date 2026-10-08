@@ -171,6 +171,48 @@ final class AppContainer {
         defaultProjectStore.setProjectID(user.defaultProjectID, forAccountID: account.id)
     }
 
+    /// Reconciles this device's webhooks with the stored notification
+    /// settings on launch — see `WebhookSyncCoordinator`. A no-op when
+    /// notifications aren't enabled: this never registers for push on its
+    /// own, only re-confirms a registration the user already opted into
+    /// (`Features/Settings`' Notifications screen). Called once on launch,
+    /// not on every foreground — the relay rate-limits registrations (5/min,
+    /// burst 5), and re-registering that often isn't needed anyway: Apple's
+    /// own guidance for the device token is to re-register on every launch,
+    /// not every foreground. Every failure is silent and leaves the stored
+    /// settings untouched; the next launch retries from the same state.
+    func syncNotificationWebhooks(account: InstanceAccount) async {
+        guard notificationSettingsStore.settings.isEnabled else { return }
+
+        let tokenProvider = tokenProvider(for: account)
+        let userRepository = clientFactory.makeUserRepository(baseURL: account.baseURL, tokenProvider: tokenProvider)
+        guard let user = try? await userRepository.fetchCurrentUser() else { return }
+        guard let registration = try? await pushNotificationRegistering.enable(vikunjaUserID: user.id) else { return }
+
+        let projectRepository = clientFactory.makeProjectRepository(
+            baseURL: account.baseURL,
+            tokenProvider: tokenProvider,
+        )
+        guard let projects = try? await projectRepository.fetchProjects() else { return }
+
+        // Drop ids for projects that no longer exist (e.g. deleted after
+        // being enabled), so the planner never tries to recreate a webhook
+        // for a project that's gone.
+        var settings = notificationSettingsStore.settings
+        let validProjectIDs = settings.enabledProjectIDs.intersection(projects.map(\.id))
+        if validProjectIDs != settings.enabledProjectIDs {
+            settings.enabledProjectIDs = validProjectIDs
+            notificationSettingsStore.save(settings)
+        }
+
+        let webhookRepository = clientFactory.makeWebhookRepository(
+            baseURL: account.baseURL,
+            tokenProvider: tokenProvider,
+        )
+        let coordinator = WebhookSyncCoordinator(webhookRepository: webhookRepository)
+        try? await coordinator.sync(settings: settings, registration: registration, projects: projects)
+    }
+
     func makeInstanceSetupViewModel() -> InstanceSetupViewModel {
         InstanceSetupViewModel(
             accountStore: accountStore,
