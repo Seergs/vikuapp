@@ -12,7 +12,18 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     private(set) var updatedTasks: [VikunjaTask] = []
     private(set) var deletedIDs: [Int] = []
 
+    private let fetchedLock = NSLock()
+    private var _fetchedProjectIDs: [Int] = []
+    /// Project ids `fetchTasks` was called with. Locked because
+    /// `AccountTaskLoader` fetches projects concurrently.
+    var fetchedProjectIDs: [Int] {
+        fetchedLock.lock()
+        defer { fetchedLock.unlock() }
+        return _fetchedProjectIDs
+    }
+
     func fetchTasks(projectID: Int) async throws -> [VikunjaTask] {
+        fetchedLock.withLock { _fetchedProjectIDs.append(projectID) }
         if let fetchError {
             throw fetchError
         }

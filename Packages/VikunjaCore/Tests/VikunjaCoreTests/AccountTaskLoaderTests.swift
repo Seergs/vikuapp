@@ -39,6 +39,24 @@ struct AccountTaskLoaderTests {
     }
 
     @Test
+    func `skips virtual projects so favorited tasks aren't returned twice`() async throws {
+        let projects = FakeProjectRepository()
+        projects.projects = [
+            Project(id: 1, title: "Work"),
+            Project(id: -1, title: "Favorites"),
+            Project(id: -2, title: "Saved filter"),
+        ]
+        let tasks = FakeTaskRepository()
+        tasks.tasks = [VikunjaTask(id: 10, title: "A", projectID: 1)]
+        let loader = AccountTaskLoader(taskRepository: tasks, projectRepository: projects)
+
+        let result = try await loader.loadAllTasks()
+
+        #expect(tasks.fetchedProjectIDs == [1])
+        #expect(result.tasks.map(\.id) == [10])
+    }
+
+    @Test
     func `propagates a project-list fetch failure`() async {
         let projects = FakeProjectRepository()
         projects.fetchError = .network("offline")
