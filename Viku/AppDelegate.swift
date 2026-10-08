@@ -1,4 +1,5 @@
 import UIKit
+import UserNotifications
 import VikuNavigation
 
 /// Backs the Home Screen long-press quick action ("New Task", declared as
@@ -7,7 +8,16 @@ import VikuNavigation
 /// thin `UIApplicationDelegate` exists only to hand the scene off to
 /// `SceneDelegate`, which routes the tap through the same
 /// `DeepLinkRouter.shared` a `viku://quick-add` URL or the Siri shortcut uses.
+/// Also the `UNUserNotificationCenterDelegate` for push, set on launch below.
 final class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?,
+    ) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        return true
+    }
+
     func application(
         _ application: UIApplication,
         configurationForConnecting connectingSceneSession: UISceneSession,
@@ -27,6 +37,22 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         APNsPermissionCenter.shared.didFailToRegister(with: error)
+    }
+}
+
+extension AppDelegate: UNUserNotificationCenterDelegate {
+    /// Without a delegate at all, iOS silently drops a push while the app is
+    /// in the foreground — delivery still succeeds (the relay/APNs logs show
+    /// it), the banner just never appears, which looks indistinguishable
+    /// from a broken delivery. This only restores the banner; routing a tap
+    /// to the right task isn't built yet — there's no
+    /// `userNotificationCenter(_:didReceive:)` implementation.
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void,
+    ) {
+        completionHandler([.banner, .sound, .badge])
     }
 }
 
