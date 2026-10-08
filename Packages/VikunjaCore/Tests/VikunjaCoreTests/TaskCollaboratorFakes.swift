@@ -23,9 +23,7 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     }
 
     func fetchTasks(projectID: Int) async throws -> [VikunjaTask] {
-        fetchedLock.lock()
-        _fetchedProjectIDs.append(projectID)
-        fetchedLock.unlock()
+        fetchedLock.withLock { _fetchedProjectIDs.append(projectID) }
         if let fetchError {
             throw fetchError
         }
