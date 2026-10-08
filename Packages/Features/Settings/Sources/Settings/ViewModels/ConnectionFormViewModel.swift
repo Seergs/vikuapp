@@ -20,6 +20,15 @@ public final class ConnectionFormViewModel {
 
     private let core: ConnectionEditorCore
     private let accountStore: AccountStoreProtocol
+    private let notificationSettingsStore: NotificationSettingsStore
+    /// Deletes `account`'s webhooks and unregisters it from the push relay.
+    /// Lives in the composition root, not here: resolving a working
+    /// credential for a password/OIDC account needs `PasswordSessionRefresher`
+    /// (`VikunjaNetworking`), which Features may never import — only
+    /// `AppContainer` is allowed to know about it. Called unconditionally;
+    /// it's this closure's own job to no-op when notifications aren't
+    /// enabled for the account.
+    private let teardownNotifications: (InstanceAccount) async -> Void
     private let toastPresenter: ToastPresenting
     /// Fired after a save/delete that may have changed which account is
     /// active, or edited the active account's own address — either way the
@@ -31,6 +40,8 @@ public final class ConnectionFormViewModel {
         mode: ConnectionFormMode,
         accountStore: AccountStoreProtocol,
         clientFactory: InstanceClientFactoryProtocol,
+        notificationSettingsStore: NotificationSettingsStore,
+        teardownNotifications: @escaping (InstanceAccount) async -> Void,
         toastPresenter: ToastPresenting,
         oidcAuthenticator: OIDCAuthenticating,
         oidcRedirectURI: URL,
@@ -38,6 +49,8 @@ public final class ConnectionFormViewModel {
     ) {
         self.mode = mode
         self.accountStore = accountStore
+        self.notificationSettingsStore = notificationSettingsStore
+        self.teardownNotifications = teardownNotifications
         self.toastPresenter = toastPresenter
         self.onActiveAccountChanged = onActiveAccountChanged
 
@@ -129,6 +142,11 @@ public final class ConnectionFormViewModel {
         core.isSaving
     }
 
+    /// Set while `deleteConnection()` is running — the webhook/relay
+    /// teardown is a few real network round trips, so the toast can take a
+    /// moment to appear and the screen would otherwise look stuck.
+    public private(set) var isDeleting = false
+
     public var canSave: Bool {
         core.canSave
     }
@@ -191,6 +209,15 @@ public final class ConnectionFormViewModel {
         await core.save()
     }
 
+    /// Whether notifications are currently enabled for the connection being
+    /// edited — `false` outside `.edit` mode. Drives the extra line in the
+    /// delete confirmation dialog warning that removing the connection also
+    /// turns off its notifications.
+    public var notificationsEnabledForThisConnection: Bool {
+        guard case let .edit(account) = mode else { return false }
+        return notificationSettingsStore.settings(for: account.id).isEnabled
+    }
+
     /// Deletes the connection being edited. No-op outside `.edit` mode.
     /// Refuses (with a toast) to delete the last remaining connection —
     /// there always has to be one active account for the main tab shell to
@@ -198,6 +225,8 @@ public final class ConnectionFormViewModel {
     @discardableResult
     public func deleteConnection() async -> Bool {
         guard case let .edit(account) = mode else { return false }
+        isDeleting = true
+        defer { isDeleting = false }
         do {
             let remaining = try await accountStore.fetchAccounts()
             guard remaining.count > 1 else {
@@ -208,6 +237,10 @@ public final class ConnectionFormViewModel {
                 return false
             }
             let activeID = try await accountStore.activeAccount()?.id
+            // Tear down notifications before removing the account — the
+            // credential needed to delete the webhook server-side goes away
+            // with it, so this is the last chance to do it cleanly.
+            await teardownNotifications(account)
             try await accountStore.removeAccount(id: account.id)
             toastPresenter.show(String(localized: "Connection removed", bundle: .module), style: .success)
             if activeID == account.id {

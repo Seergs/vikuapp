@@ -13,6 +13,8 @@ struct ConnectionFormViewModelTests {
         mode: ConnectionFormMode,
         store: FakeAccountStore = FakeAccountStore(),
         factory: FakeInstanceClientFactory = FakeInstanceClientFactory(),
+        notificationSettingsStore: FakeNotificationSettingsStore = FakeNotificationSettingsStore(),
+        teardownNotifications: @escaping (InstanceAccount) async -> Void = { _ in },
         toastPresenter: FakeToastPresenter = FakeToastPresenter(),
         oidcAuthenticator: FakeOIDCAuthenticating = FakeOIDCAuthenticating(),
         onActiveAccountChanged: @escaping () -> Void = {},
@@ -21,6 +23,8 @@ struct ConnectionFormViewModelTests {
             mode: mode,
             accountStore: store,
             clientFactory: factory,
+            notificationSettingsStore: notificationSettingsStore,
+            teardownNotifications: teardownNotifications,
             toastPresenter: toastPresenter,
             oidcAuthenticator: oidcAuthenticator,
             oidcRedirectURI: URL(string: "viku://oidc-callback")!,
@@ -228,6 +232,49 @@ struct ConnectionFormViewModelTests {
         _ = await viewModel.deleteConnection()
 
         #expect(notifiedCount == 1)
+    }
+
+    @Test
+    func `delete connection tears down notifications for that account before removing it`() async throws {
+        let store = FakeAccountStore()
+        let first = makeAccount(displayName: "Home")
+        let second = makeAccount(displayName: "Work")
+        try await store.addAccount(first, token: "first-token")
+        try await store.addAccount(second, token: "second-token")
+        var torndownAccountIDs: [InstanceAccount.ID] = []
+        var remainingAccountIDsAtTeardown: [InstanceAccount.ID] = []
+        let viewModel = makeViewModel(
+            mode: .edit(first),
+            store: store,
+            teardownNotifications: { account in
+                torndownAccountIDs.append(account.id)
+                remainingAccountIDsAtTeardown = await (try? store.fetchAccounts().map(\.id)) ?? []
+            },
+        )
+
+        let didDelete = await viewModel.deleteConnection()
+
+        #expect(didDelete == true)
+        #expect(torndownAccountIDs == [first.id])
+        // Teardown ran while the account's credential still existed — it
+        // needs it to delete the webhook server-side.
+        #expect(remainingAccountIDsAtTeardown.contains(first.id))
+    }
+
+    @Test
+    func `notificationsEnabledForThisConnection reflects this account's stored settings, not another's`() async throws {
+        let store = FakeAccountStore()
+        let first = makeAccount(displayName: "Home")
+        let second = makeAccount(displayName: "Work")
+        try await store.addAccount(first, token: "first-token")
+        try await store.addAccount(second, token: "second-token")
+        let settingsStore = FakeNotificationSettingsStore(
+            settings: NotificationSettings(isEnabled: true),
+            accountID: first.id,
+        )
+        let viewModel = makeViewModel(mode: .edit(second), store: store, notificationSettingsStore: settingsStore)
+
+        #expect(viewModel.notificationsEnabledForThisConnection == false)
     }
 
     @Test

@@ -455,11 +455,50 @@ final class AppContainer {
             mode: mode,
             accountStore: accountStore,
             clientFactory: clientFactory,
+            notificationSettingsStore: notificationSettingsStore,
+            teardownNotifications: { [weak self] account in await self?.teardownNotifications(for: account) },
             toastPresenter: toastCenter,
             oidcAuthenticator: oidcAuthCoordinator,
             oidcRedirectURI: oidcRedirectURI,
             onActiveAccountChanged: onActiveAccountChanged,
         )
+    }
+
+    /// Deletes `account`'s webhooks and unregisters it from the push relay
+    /// — called right before the account itself is removed
+    /// (`ConnectionFormViewModel.deleteConnection()`), since the credential
+    /// needed to delete the webhook server-side goes away with it. A no-op
+    /// when notifications aren't enabled for this account. Best effort:
+    /// every step is `try?` so a dead credential or an unreachable server
+    /// never blocks removing the account — the webhook/relay registration
+    /// are then orphaned, a known limitation (see the Notifications docs).
+    func teardownNotifications(for account: InstanceAccount) async {
+        guard notificationSettingsStore.settings(for: account.id).isEnabled else { return }
+
+        let tokenProvider = tokenProvider(for: account)
+        let userRepository = clientFactory.makeUserRepository(baseURL: account.baseURL, tokenProvider: tokenProvider)
+        if let user = try? await userRepository.fetchCurrentUser(),
+           let registration = try? await pushNotificationRegistering.enable(
+               vikunjaUserID: user.id,
+               accountID: account.id,
+           ) {
+            let projectRepository = clientFactory.makeProjectRepository(
+                baseURL: account.baseURL,
+                tokenProvider: tokenProvider,
+            )
+            let projects = await (try? projectRepository.fetchProjects()) ?? []
+            let webhookRepository = clientFactory.makeWebhookRepository(
+                baseURL: account.baseURL,
+                tokenProvider: tokenProvider,
+            )
+            let coordinator = WebhookSyncCoordinator(webhookRepository: webhookRepository)
+            try? await coordinator.sync(
+                settings: NotificationSettings(),
+                registration: registration,
+                projects: projects,
+            )
+        }
+        try? await pushNotificationRegistering.disable(accountID: account.id)
     }
 
     func makeSearchViewModel(account: InstanceAccount) -> SearchViewModel {

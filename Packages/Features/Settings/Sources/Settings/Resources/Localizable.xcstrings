@@ -681,6 +681,16 @@
         }
       }
     },
+    "Removing…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminando…"
+          }
+        }
+      }
+    },
     "Report a Problem" : {
       "localizations" : {
         "es" : {
@@ -867,6 +877,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "El tipo de evento, el título de la tarea y el nombre del proyecto. Tu token o contraseña nunca salen del dispositivo. El secreto de firma del webhook se comparte con el relay para que pueda verificar las entregas."
+          }
+        }
+      }
+    },
+    "This will also turn off push notifications and delete its webhooks." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esto también desactivará las notificaciones push y eliminará sus webhooks."
           }
         }
       }
