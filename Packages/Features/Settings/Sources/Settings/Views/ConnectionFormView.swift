@@ -92,13 +92,21 @@ struct ConnectionFormView: View {
                     Button(role: .destructive) {
                         isConfirmingDelete = true
                     } label: {
-                        Text("Delete Connection", bundle: .module)
-                            .font(VikuFont.body)
-                            .fontWeight(.bold)
-                            .foregroundStyle(VikuColor.Semantic.danger)
+                        HStack(spacing: VikuSpacing.sm) {
+                            if viewModel.isDeleting {
+                                ProgressView()
+                            }
+                            Text(viewModel.isDeleting
+                                ? String(localized: "Removing…", bundle: .module)
+                                : String(localized: "Delete Connection", bundle: .module))
+                                .font(VikuFont.body)
+                                .fontWeight(.bold)
+                                .foregroundStyle(VikuColor.Semantic.danger)
+                        }
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, VikuSpacing.sm)
+                    .disabled(viewModel.isDeleting)
                 }
             }
             .padding(VikuSpacing.md)
@@ -162,6 +170,10 @@ struct ConnectionFormView: View {
             }
             Button(role: .cancel) {} label: {
                 Text("Cancel", bundle: .module)
+            }
+        } message: {
+            if viewModel.notificationsEnabledForThisConnection {
+                Text("This will also turn off push notifications and delete its webhooks.", bundle: .module)
             }
         }
     }
