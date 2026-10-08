@@ -2,6 +2,12 @@ import Foundation
 @testable import Settings
 import VikunjaCore
 
+/// Shared account id for notification tests, so a `FakeNotificationSettingsStore`
+/// pre-seeded with settings lines up with the account id a test's
+/// `NotificationsViewModel` is constructed with, without every call site
+/// having to thread the same id through by hand.
+let fakeAccountID = UUID()
+
 final class FakeAccountStore: AccountStoreProtocol, @unchecked Sendable {
     private(set) var accounts: [InstanceAccount] = []
     private(set) var tokens: [InstanceAccount.ID: String] = [:]
@@ -413,29 +419,36 @@ final class FakePushNotificationRegistering: PushNotificationRegistering, @unche
         PushRegistration(targetURL: URL(string: "https://relay.example.com/h/device-1")!, secret: "test-secret"),
     )
     private(set) var enabledUserIDs: [Int] = []
-    private(set) var disableCallCount = 0
+    private(set) var disabledAccountIDs: [InstanceAccount.ID] = []
+    var disableCallCount: Int {
+        disabledAccountIDs.count
+    }
 
-    func enable(vikunjaUserID: Int) async throws -> PushRegistration? {
+    func enable(vikunjaUserID: Int, accountID: InstanceAccount.ID) async throws -> PushRegistration? {
         enabledUserIDs.append(vikunjaUserID)
         return try enableResult.get()
     }
 
-    func disable() async throws {
-        disableCallCount += 1
+    func disable(accountID: InstanceAccount.ID) async throws {
+        disabledAccountIDs.append(accountID)
     }
 }
 
 @MainActor
 final class FakeNotificationSettingsStore: NotificationSettingsStore {
-    private(set) var settings: NotificationSettings
+    private var allSettings: [InstanceAccount.ID: NotificationSettings]
     private(set) var savedSettings: [NotificationSettings] = []
 
-    init(settings: NotificationSettings = NotificationSettings()) {
-        self.settings = settings
+    init(settings: NotificationSettings = NotificationSettings(), accountID: InstanceAccount.ID = fakeAccountID) {
+        self.allSettings = [accountID: settings]
     }
 
-    func save(_ settings: NotificationSettings) {
-        self.settings = settings
+    func settings(for accountID: InstanceAccount.ID) -> NotificationSettings {
+        allSettings[accountID] ?? NotificationSettings()
+    }
+
+    func save(_ settings: NotificationSettings, for accountID: InstanceAccount.ID) {
+        allSettings[accountID] = settings
         savedSettings.append(settings)
     }
 }

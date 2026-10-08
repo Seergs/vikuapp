@@ -5,15 +5,19 @@ import Foundation
 /// string sent verbatim as the HMAC key — the same string later goes into
 /// the Vikunja webhook's own `secret` field, so whichever encoding is chosen
 /// here must match what `WebhookRepositoryProtocol` sends Vikunja with.
+/// `account_key` is this app's `InstanceAccount.id` as a string — the
+/// relay's registration identity, opaque to the relay itself.
 struct RelayRegisterRequestDTO: Encodable {
     let apnsToken: String
     let webhookSecret: String
     let vikunjaUserID: Int
+    let accountKey: String
 
     enum CodingKeys: String, CodingKey {
         case apnsToken = "apns_token"
         case webhookSecret = "webhook_secret"
         case vikunjaUserID = "vikunja_user_id"
+        case accountKey = "account_key"
     }
 }
 

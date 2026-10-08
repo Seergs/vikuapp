@@ -8,6 +8,9 @@ import VikunjaCore
 /// process to avoid clobbering state across parallel test runs.
 @Suite(.serialized)
 struct RelayPushRegistrationServiceTests {
+    private static let accountA = UUID()
+    private static let accountB = UUID()
+
     private func makeService(session: URLSession) -> RelayPushRegistrationService {
         RelayPushRegistrationService(
             baseURL: URL(string: "https://relay.example.com")!,
@@ -27,7 +30,11 @@ struct RelayPushRegistrationServiceTests {
         let session = MockURLProtocol.makeSession(responses: [(200, Self.registerResponse)])
         let service = makeService(session: session)
 
-        let registration = try await service.register(deviceToken: Data([0xAB, 0xCD]), vikunjaUserID: 42)
+        let registration = try await service.register(
+            deviceToken: Data([0xAB, 0xCD]),
+            vikunjaUserID: 42,
+            accountID: Self.accountA,
+        )
 
         #expect(registration.targetURL == URL(string: "https://relay.example.com/h/reg-1"))
         #expect(!registration.secret.isEmpty)
@@ -40,19 +47,38 @@ struct RelayPushRegistrationServiceTests {
         #expect(decoded.apnsToken == "abcd")
         #expect(decoded.webhookSecret == registration.secret)
         #expect(decoded.vikunjaUserID == 42)
+        #expect(decoded.accountKey == Self.accountA.uuidString)
     }
 
     @Test
-    func `registering again reuses the same secret instead of generating a new one`() async throws {
+    func `registering again for the same account reuses the same secret instead of generating a new one`() async throws {
         let session = MockURLProtocol.makeSession(
             responses: [(200, Self.registerResponse), (200, Self.registerResponse)],
         )
         let service = makeService(session: session)
 
-        let first = try await service.register(deviceToken: Data([0x01]), vikunjaUserID: 1)
-        let second = try await service.register(deviceToken: Data([0x01]), vikunjaUserID: 1)
+        let first = try await service.register(deviceToken: Data([0x01]), vikunjaUserID: 1, accountID: Self.accountA)
+        let second = try await service.register(deviceToken: Data([0x01]), vikunjaUserID: 1, accountID: Self.accountA)
 
         #expect(first.secret == second.secret)
+    }
+
+    @Test
+    func `registering a second account on the same device token keeps a separate secret`() async throws {
+        let session = MockURLProtocol.makeSession(
+            responses: [(200, Self.registerResponse), (200, Self.registerResponse)],
+        )
+        let service = makeService(session: session)
+
+        let accountA = try await service.register(deviceToken: Data([0x01]), vikunjaUserID: 1, accountID: Self.accountA)
+        let accountB = try await service.register(deviceToken: Data([0x01]), vikunjaUserID: 7, accountID: Self.accountB)
+
+        #expect(accountA.secret != accountB.secret)
+
+        let bodies = try MockURLProtocol.capturedRequests.map {
+            try JSONDecoder().decode(CapturedRegisterBody.self, from: #require($0.httpBody))
+        }
+        #expect(bodies.map(\.accountKey) == [Self.accountA.uuidString, Self.accountB.uuidString])
     }
 
     @Test
@@ -61,7 +87,7 @@ struct RelayPushRegistrationServiceTests {
         let service = makeService(session: session)
 
         await #expect(throws: PushRegistrationError.rateLimited) {
-            try await service.register(deviceToken: Data([0x01]), vikunjaUserID: 1)
+            try await service.register(deviceToken: Data([0x01]), vikunjaUserID: 1, accountID: Self.accountA)
         }
     }
 
@@ -71,7 +97,7 @@ struct RelayPushRegistrationServiceTests {
         let service = makeService(session: session)
 
         await #expect(throws: PushRegistrationError.invalidRequest) {
-            try await service.register(deviceToken: Data([0x01]), vikunjaUserID: 1)
+            try await service.register(deviceToken: Data([0x01]), vikunjaUserID: 1, accountID: Self.accountA)
         }
     }
 
@@ -81,7 +107,7 @@ struct RelayPushRegistrationServiceTests {
         let service = makeService(session: session)
 
         await #expect(throws: PushRegistrationError.invalidResponse) {
-            try await service.register(deviceToken: Data([0x01]), vikunjaUserID: 1)
+            try await service.register(deviceToken: Data([0x01]), vikunjaUserID: 1, accountID: Self.accountA)
         }
     }
 
@@ -91,9 +117,9 @@ struct RelayPushRegistrationServiceTests {
     func `unregister sends the management token as a bearer header against the registration id`() async throws {
         let session = MockURLProtocol.makeSession(responses: [(200, Self.registerResponse), (204, "")])
         let service = makeService(session: session)
-        _ = try await service.register(deviceToken: Data([0x01]), vikunjaUserID: 1)
+        _ = try await service.register(deviceToken: Data([0x01]), vikunjaUserID: 1, accountID: Self.accountA)
 
-        try await service.unregister()
+        try await service.unregister(accountID: Self.accountA)
 
         let request = try #require(MockURLProtocol.capturedRequests.last)
         #expect(request.httpMethod == "DELETE")
@@ -106,7 +132,7 @@ struct RelayPushRegistrationServiceTests {
         let session = MockURLProtocol.makeSession(responses: [])
         let service = makeService(session: session)
 
-        try await service.unregister()
+        try await service.unregister(accountID: Self.accountA)
 
         #expect(MockURLProtocol.capturedRequests.isEmpty)
     }
@@ -115,13 +141,29 @@ struct RelayPushRegistrationServiceTests {
     func `unregister treats a 401 as already gone rather than an error`() async throws {
         let session = MockURLProtocol.makeSession(responses: [(200, Self.registerResponse), (401, "")])
         let service = makeService(session: session)
-        _ = try await service.register(deviceToken: Data([0x01]), vikunjaUserID: 1)
+        _ = try await service.register(deviceToken: Data([0x01]), vikunjaUserID: 1, accountID: Self.accountA)
 
-        try await service.unregister()
+        try await service.unregister(accountID: Self.accountA)
 
         // The record is gone, so a second unregister has nothing to send.
-        try await service.unregister()
+        try await service.unregister(accountID: Self.accountA)
         #expect(MockURLProtocol.capturedRequests.count == 2)
+    }
+
+    @Test
+    func `unregistering one account leaves another account's registration on the same device untouched`() async throws {
+        let session = MockURLProtocol.makeSession(
+            responses: [(200, Self.registerResponse), (200, Self.registerResponse), (204, "")],
+        )
+        let service = makeService(session: session)
+        _ = try await service.register(deviceToken: Data([0x01]), vikunjaUserID: 1, accountID: Self.accountA)
+        _ = try await service.register(deviceToken: Data([0x01]), vikunjaUserID: 7, accountID: Self.accountB)
+
+        try await service.unregister(accountID: Self.accountA)
+
+        // Unregistering A must not have sent anything for B, and B's record
+        // must still be there for a later unregister to use.
+        #expect(MockURLProtocol.capturedRequests.count == 3)
     }
 
     @Test
@@ -130,10 +172,10 @@ struct RelayPushRegistrationServiceTests {
             responses: [(200, Self.registerResponse), (204, ""), (200, Self.registerResponse)],
         )
         let service = makeService(session: session)
-        let first = try await service.register(deviceToken: Data([0x01]), vikunjaUserID: 1)
-        try await service.unregister()
+        let first = try await service.register(deviceToken: Data([0x01]), vikunjaUserID: 1, accountID: Self.accountA)
+        try await service.unregister(accountID: Self.accountA)
 
-        let second = try await service.register(deviceToken: Data([0x01]), vikunjaUserID: 1)
+        let second = try await service.register(deviceToken: Data([0x01]), vikunjaUserID: 1, accountID: Self.accountA)
 
         #expect(first.secret != second.secret)
     }
@@ -143,10 +185,12 @@ private struct CapturedRegisterBody: Decodable {
     let apnsToken: String
     let webhookSecret: String
     let vikunjaUserID: Int
+    let accountKey: String
 
     enum CodingKeys: String, CodingKey {
         case apnsToken = "apns_token"
         case webhookSecret = "webhook_secret"
         case vikunjaUserID = "vikunja_user_id"
+        case accountKey = "account_key"
     }
 }

@@ -14,6 +14,7 @@ struct NotificationsViewModelTests {
         toastPresenter: FakeToastPresenter = FakeToastPresenter(),
     ) -> NotificationsViewModel {
         NotificationsViewModel(
+            accountID: fakeAccountID,
             webhookRepository: webhookRepository,
             projectRepository: projectRepository,
             userRepository: userRepository,

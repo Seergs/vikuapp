@@ -16,13 +16,17 @@ final class PushNotificationCoordinator: PushNotificationRegistering {
         self.registrationService = registrationService
     }
 
-    func enable(vikunjaUserID: Int) async throws -> PushRegistration? {
+    func enable(vikunjaUserID: Int, accountID: InstanceAccount.ID) async throws -> PushRegistration? {
         guard await permissionCenter.requestAuthorization() else { return nil }
         let deviceToken = try await permissionCenter.requestDeviceToken()
-        return try await registrationService.register(deviceToken: deviceToken, vikunjaUserID: vikunjaUserID)
+        return try await registrationService.register(
+            deviceToken: deviceToken,
+            vikunjaUserID: vikunjaUserID,
+            accountID: accountID,
+        )
     }
 
-    func disable() async throws {
-        try await registrationService.unregister()
+    func disable(accountID: InstanceAccount.ID) async throws {
+        try await registrationService.unregister(accountID: accountID)
     }
 }
