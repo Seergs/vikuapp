@@ -10,8 +10,11 @@ import VikuUI
 /// visible screen is a specific project (see `QuickAddContextTracking`),
 /// otherwise `accountDefaultProjectID` — the user's Vikunja default project,
 /// cached on device by `AppContainer` and refreshed once per app launch, so
-/// opening this sheet never hits the network for it. `canSave` stays false
-/// until a project is resolved or the user picks one.
+/// opening this sheet never hits the network for it. While `load()` is
+/// validating that id against the freshly fetched project list, `displayProject`
+/// shows the last known default from `defaultProjectCache` instead of a
+/// spinner; `load()` rewrites that cache once it confirms the real one.
+/// `canSave` stays false until a project is resolved or the user picks one.
 @MainActor
 @Observable
 public final class QuickAddTaskViewModel {
@@ -26,6 +29,11 @@ public final class QuickAddTaskViewModel {
     public var selectedProjectID: Int?
     private let preselectedProjectID: Int?
     private let accountDefaultProjectID: Int?
+    private let defaultProjectCache: DefaultProjectCaching?
+    /// Snapshotted once at init, not re-read later: the display cache only
+    /// matters before `load()` resolves, and `load()` is the only thing that
+    /// ever changes it afterwards.
+    private let cachedDefaultProject: CachedDefaultProject?
     /// The priority the task is saved with: the chips' value, or the last shortcut.
     public var priority: VikunjaTask.Priority = .unset
     public private(set) var projects: [Project] = []
@@ -76,6 +84,21 @@ public final class QuickAddTaskViewModel {
     public var selectedProject: Project? {
         guard let selectedProjectID else { return nil }
         return projects.first { $0.id == selectedProjectID }
+    }
+
+    /// What the project field shows before `load()` resolves: the last known
+    /// default project from the on-device cache, so the sheet never needs a
+    /// spinner there. Only used when nothing was preselected — a preselected
+    /// project has no cache to borrow from and briefly has nothing to show
+    /// instead, same as before this existed. Never drives `selectedProjectID`/
+    /// `canSave`; those still wait for `load()` to confirm the real default.
+    public var displayProject: Project? {
+        guard preselectedProjectID == nil, let cachedDefaultProject else { return nil }
+        return Project(
+            id: cachedDefaultProject.id,
+            title: cachedDefaultProject.title,
+            hexColor: cachedDefaultProject.hexColor,
+        )
     }
 
     /// The raw text of the project and priority shortcuts last copied into the
@@ -143,6 +166,9 @@ public final class QuickAddTaskViewModel {
     ///   - accountDefaultProjectID: the account's cached Vikunja default
     ///     project, used when `preselectedProjectID` is `nil`. Both `nil`
     ///     leaves the sheet with no project until the user picks one.
+    ///   - defaultProjectCache: the on-device display cache `displayProject`
+    ///     reads from and `load()` rewrites. `nil` for tests that don't care
+    ///     about the optimistic display (it just leaves `displayProject` nil).
     public init(
         preselectedProjectID: Int? = nil,
         accountDefaultProjectID: Int? = nil,
@@ -152,6 +178,7 @@ public final class QuickAddTaskViewModel {
         taskChangeBroadcaster: TaskChangeBroadcasting? = nil,
         syntaxStore: QuickAddSyntaxStore? = nil,
         labelRepository: LabelRepositoryProtocol? = nil,
+        defaultProjectCache: DefaultProjectCaching? = nil,
     ) {
         self.preselectedProjectID = preselectedProjectID
         self.accountDefaultProjectID = accountDefaultProjectID
@@ -162,6 +189,8 @@ public final class QuickAddTaskViewModel {
         self.taskChangeBroadcaster = taskChangeBroadcaster
         self.syntaxStore = syntaxStore
         self.labelRepository = labelRepository
+        self.defaultProjectCache = defaultProjectCache
+        self.cachedDefaultProject = defaultProjectCache?.cachedDefaultProject()
     }
 
     public func load() async {
@@ -178,8 +207,20 @@ public final class QuickAddTaskViewModel {
             // left showing as a broken selection.
             if preselectedProjectID == nil,
                let accountDefaultProjectID,
-               projects.contains(where: { $0.id == accountDefaultProjectID }) {
+               let matchedDefault = projects.first(where: { $0.id == accountDefaultProjectID }) {
                 selectedProjectID = accountDefaultProjectID
+                let fresh = CachedDefaultProject(
+                    id: matchedDefault.id,
+                    title: matchedDefault.title,
+                    hexColor: matchedDefault.hexColor,
+                )
+                if fresh != cachedDefaultProject {
+                    defaultProjectCache?.setCachedDefaultProject(fresh)
+                }
+            } else if preselectedProjectID == nil, cachedDefaultProject != nil {
+                // The account has no default anymore, or its cached project
+                // is gone (deleted/archived) — drop the stale optimistic cache.
+                defaultProjectCache?.setCachedDefaultProject(nil)
             }
             if let labelRepository {
                 // A label failure must not fail the whole sheet: the projects and

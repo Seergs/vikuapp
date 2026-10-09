@@ -257,6 +257,96 @@ struct QuickAddTaskViewModelTests {
 
         #expect(viewModel.selectedProjectID == 5)
     }
+
+    @Test
+    func `display project shows the cached default before load resolves`() {
+        let cache = FakeDefaultProjectCache()
+        cache.stored = CachedDefaultProject(id: 3, title: "Inbox", hexColor: "ff0000")
+        let viewModel = QuickAddTaskViewModel(
+            taskRepository: FakeTaskRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: FakeToastPresenter(),
+            defaultProjectCache: cache,
+        )
+
+        #expect(viewModel.displayProject?.id == 3)
+        #expect(viewModel.displayProject?.title == "Inbox")
+        #expect(viewModel.selectedProjectID == nil)
+        #expect(viewModel.canSave == false)
+    }
+
+    @Test
+    func `display project ignores the cache when A project was preselected`() {
+        let cache = FakeDefaultProjectCache()
+        cache.stored = CachedDefaultProject(id: 3, title: "Inbox", hexColor: "ff0000")
+        let viewModel = QuickAddTaskViewModel(
+            preselectedProjectID: 5,
+            taskRepository: FakeTaskRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: FakeToastPresenter(),
+            defaultProjectCache: cache,
+        )
+
+        #expect(viewModel.displayProject == nil)
+    }
+
+    @Test
+    func `load refreshes the cache when the confirmed default differs from the cached one`() async {
+        let cache = FakeDefaultProjectCache()
+        cache.stored = CachedDefaultProject(id: 3, title: "Old Inbox Name", hexColor: "000000")
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 3, title: "Inbox", hexColor: "ff0000")]
+        let viewModel = QuickAddTaskViewModel(
+            accountDefaultProjectID: 3,
+            taskRepository: FakeTaskRepository(),
+            projectRepository: projectRepository,
+            toastPresenter: FakeToastPresenter(),
+            defaultProjectCache: cache,
+        )
+
+        await viewModel.load()
+
+        #expect(cache.stored == CachedDefaultProject(id: 3, title: "Inbox", hexColor: "ff0000"))
+        #expect(cache.writes.count == 1)
+    }
+
+    @Test
+    func `load does not rewrite the cache when the confirmed default is unchanged`() async {
+        let cache = FakeDefaultProjectCache()
+        cache.stored = CachedDefaultProject(id: 3, title: "Inbox", hexColor: "ff0000")
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 3, title: "Inbox", hexColor: "ff0000")]
+        let viewModel = QuickAddTaskViewModel(
+            accountDefaultProjectID: 3,
+            taskRepository: FakeTaskRepository(),
+            projectRepository: projectRepository,
+            toastPresenter: FakeToastPresenter(),
+            defaultProjectCache: cache,
+        )
+
+        await viewModel.load()
+
+        #expect(cache.writes.isEmpty)
+    }
+
+    @Test
+    func `load clears the cache when the account no longer has A matching default`() async {
+        let cache = FakeDefaultProjectCache()
+        cache.stored = CachedDefaultProject(id: 3, title: "Inbox", hexColor: "ff0000")
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 1, title: "Work")]
+        let viewModel = QuickAddTaskViewModel(
+            taskRepository: FakeTaskRepository(),
+            projectRepository: projectRepository,
+            toastPresenter: FakeToastPresenter(),
+            defaultProjectCache: cache,
+        )
+
+        await viewModel.load()
+
+        #expect(cache.stored == nil)
+        #expect(cache.writes == [nil])
+    }
 }
 
 private final class FailingTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {

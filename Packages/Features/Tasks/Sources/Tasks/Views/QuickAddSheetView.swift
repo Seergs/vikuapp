@@ -148,13 +148,26 @@ public struct QuickAddSheetView: View {
                 .font(VikuFont.footnote)
                 .foregroundStyle(VikuColor.textSecondary)
         case .loading, .idle:
-            ProgressView()
+            // The default project rarely changes, so there's usually a
+            // cached one to show here instead of a spinner (see
+            // `QuickAddTaskViewModel.displayProject`). Only a preselected
+            // project, or a first-ever launch with nothing cached yet, falls
+            // through to the spinner.
+            if let project = viewModel.displayProject {
+                projectField(project)
+            } else {
+                ProgressView()
+            }
         case .loaded:
-            VStack(alignment: .leading, spacing: VikuSpacing.sm - VikuSpacing.xxs) {
-                FieldLabel(String(localized: "Project", bundle: .module))
-                ProjectField(project: viewModel.selectedProject) {
-                    isShowingProjectPicker = true
-                }
+            projectField(viewModel.selectedProject)
+        }
+    }
+
+    private func projectField(_ project: Project?) -> some View {
+        VStack(alignment: .leading, spacing: VikuSpacing.sm - VikuSpacing.xxs) {
+            FieldLabel(String(localized: "Project", bundle: .module))
+            ProjectField(project: project) {
+                isShowingProjectPicker = true
             }
         }
     }
