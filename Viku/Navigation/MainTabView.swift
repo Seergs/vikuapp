@@ -146,6 +146,9 @@ struct MainTabView: View {
                     makeNotificationsViewModel: {
                         container.makeNotificationsViewModel(account: account)
                     },
+                    makeAppIconBadgeViewModel: {
+                        container.makeAppIconBadgeViewModel()
+                    },
                 )
             }
 

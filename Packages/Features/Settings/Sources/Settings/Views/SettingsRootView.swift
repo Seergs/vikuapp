@@ -24,6 +24,10 @@ public struct SettingsRootView: View {
     private let makeConnectionFormViewModel: (ConnectionFormMode) -> ConnectionFormViewModel
     private let makeManageLabelsViewModel: () -> ManageLabelsViewModel
     private let makeNotificationsViewModel: () -> NotificationsViewModel
+    /// Built once in `init`, not lazily like `notificationsViewModelCache` —
+    /// unlike Notifications, the badge toggle lives directly on this
+    /// landing screen, so its view model needs to exist from the start.
+    @State private var badgeViewModel: AppIconBadgeViewModel
 
     /// `router` is owned by the app target's `MainTabView`, alongside its
     /// other tab routers, so it can push a reconnect screen onto this stack
@@ -49,6 +53,7 @@ public struct SettingsRootView: View {
         makeConnectionFormViewModel: @escaping (ConnectionFormMode) -> ConnectionFormViewModel,
         makeManageLabelsViewModel: @escaping () -> ManageLabelsViewModel,
         makeNotificationsViewModel: @escaping () -> NotificationsViewModel,
+        makeAppIconBadgeViewModel: @escaping () -> AppIconBadgeViewModel,
     ) {
         self.router = router
         self.account = account
@@ -62,6 +67,7 @@ public struct SettingsRootView: View {
         self.makeConnectionFormViewModel = makeConnectionFormViewModel
         self.makeManageLabelsViewModel = makeManageLabelsViewModel
         self.makeNotificationsViewModel = makeNotificationsViewModel
+        self._badgeViewModel = State(initialValue: makeAppIconBadgeViewModel())
     }
 
     /// Holds the one `NotificationsViewModel` instance for this screen's
@@ -86,6 +92,7 @@ public struct SettingsRootView: View {
                 activeAccountName: account.displayName,
                 themeStore: themeStore,
                 quickAddSyntaxStore: quickAddSyntaxStore,
+                badgeViewModel: badgeViewModel,
                 isDevBuild: isDevBuild,
                 devBadgeStore: devBadgeStore,
                 networkLoggingStore: networkLoggingStore,

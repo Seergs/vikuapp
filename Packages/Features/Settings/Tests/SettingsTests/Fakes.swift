@@ -452,3 +452,34 @@ final class FakeNotificationSettingsStore: NotificationSettingsStore {
         savedSettings.append(settings)
     }
 }
+
+@MainActor
+final class FakeAppIconBadgeStoring: AppIconBadgeStoring {
+    private(set) var isEnabled: Bool
+    private(set) var setEnabledCalls: [Bool] = []
+
+    init(isEnabled: Bool = false) {
+        self.isEnabled = isEnabled
+    }
+
+    func setEnabled(_ enabled: Bool) {
+        isEnabled = enabled
+        setEnabledCalls.append(enabled)
+    }
+}
+
+@MainActor
+final class FakeAppIconBadgePermissionRequesting: AppIconBadgePermissionRequesting {
+    var requestAuthorizationResult = true
+    var isAuthorizationDeniedResult = false
+    private(set) var requestAuthorizationCallCount = 0
+
+    func requestAuthorization() async -> Bool {
+        requestAuthorizationCallCount += 1
+        return requestAuthorizationResult
+    }
+
+    func isAuthorizationDenied() async -> Bool {
+        isAuthorizationDeniedResult
+    }
+}

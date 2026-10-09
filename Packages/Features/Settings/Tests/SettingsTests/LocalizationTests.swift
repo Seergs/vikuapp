@@ -213,6 +213,17 @@ struct LocalizationTests {
         ),
         ("Events That Notify You", "Eventos que te notifican"),
         ("%lld third-party webhooks", "%lld webhooks de terceros"),
+        ("App Icon Badge", "Insignia del ícono"),
+        (
+            "Shows the number of overdue and due-today tasks on Viku's Home Screen icon.",
+            "Muestra en el ícono de Viku la cantidad de tareas vencidas y las que vencen hoy.",
+        ),
+        ("Your Tasks, Without Opening the App", "Tus pendientes, sin abrir la app"),
+        (
+            "We'll show how many tasks you have due today or overdue right on Viku's icon. For that, iOS will ask for notification permission.",
+            "Mostraremos en el ícono de Viku cuántas tareas tienes para hoy o vencidas. Para eso, iOS te pedirá permiso de notificaciones.",
+        ),
+        ("Enable", "Activar"),
     ])
     func `key resolves to its Spanish translation`(key: String, expected: String) {
         #expect(Self.es(key) == expected)

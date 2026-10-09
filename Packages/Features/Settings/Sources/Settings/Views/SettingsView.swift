@@ -4,17 +4,25 @@ import VikuDesignSystem
 import VikuNavigation
 import VikunjaCore
 
+#if os(iOS)
+import UIKit
+#endif
+
 /// The Settings tab's landing screen. The entry points here today are
 /// appearance, connection management, and label management.
 struct SettingsView: View {
     let activeAccountName: String
     let themeStore: AppThemeStoring
     let quickAddSyntaxStore: QuickAddSyntaxStore
+    let badgeViewModel: AppIconBadgeViewModel
     let isDevBuild: Bool
     let devBadgeStore: DevBadgeVisibilityStoring
     let networkLoggingStore: NetworkRequestLoggingStoring
     let onPreviewOnboarding: () -> Void
     let router: Router<SettingsRoute>
+
+    @State private var isPresentingBadgeConsent = false
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         List {
@@ -47,6 +55,24 @@ struct SettingsView: View {
                 ) {
                     router.push(.manageLabels)
                 }
+            }
+
+            Section {
+                Toggle(isOn: badgeEnabledBinding) {
+                    HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
+                        SettingsRowIcon(systemName: "app.badge")
+                        Text("App Icon Badge", bundle: .module)
+                    }
+                }
+
+                if badgeViewModel.isPermissionDenied {
+                    badgeDeniedBanner
+                }
+            } footer: {
+                Text(
+                    "Shows the number of overdue and due-today tasks on Viku's Home Screen icon.",
+                    bundle: .module,
+                )
             }
 
             Section {
@@ -133,10 +159,51 @@ struct SettingsView: View {
         }
         .settingsListStyle()
         .navigationTitle(Text("Settings", bundle: .module))
+        .sheet(isPresented: $isPresentingBadgeConsent) {
+            AppIconBadgeConsentSheet {
+                Task { await badgeViewModel.confirmEnable() }
+            }
+        }
+        .task {
+            await badgeViewModel.refreshPermissionStatus()
+        }
+    }
+
+    private var badgeDeniedBanner: some View {
+        VStack(alignment: .leading, spacing: VikuSpacing.sm) {
+            Text("Notifications are turned off for Viku in iOS Settings.", bundle: .module)
+                .font(VikuFont.footnote)
+                .foregroundStyle(VikuColor.textSecondary)
+            Button(String(localized: "Open Settings", bundle: .module)) {
+                openSystemSettings()
+            }
+            .font(VikuFont.footnote)
+        }
+    }
+
+    private func openSystemSettings() {
+        #if os(iOS)
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+            openURL(url)
+        }
+        #endif
     }
 
     private var themeBinding: Binding<AppTheme> {
         Binding(get: { themeStore.theme }, set: { themeStore.setTheme($0) })
+    }
+
+    private var badgeEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { badgeViewModel.isEnabled },
+            set: { newValue in
+                if newValue {
+                    isPresentingBadgeConsent = true
+                } else {
+                    badgeViewModel.disable()
+                }
+            },
+        )
     }
 
     private var quickAddSyntaxBinding: Binding<QuickAddSyntax?> {

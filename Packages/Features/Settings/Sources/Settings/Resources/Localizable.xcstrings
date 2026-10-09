@@ -1540,6 +1540,56 @@
           }
         }
       }
+    },
+    "App Icon Badge" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Insignia del ícono"
+          }
+        }
+      }
+    },
+    "Shows the number of overdue and due-today tasks on Viku's Home Screen icon." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muestra en el ícono de Viku la cantidad de tareas vencidas y las que vencen hoy."
+          }
+        }
+      }
+    },
+    "Enable" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activar"
+          }
+        }
+      }
+    },
+    "Your Tasks, Without Opening the App" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tus pendientes, sin abrir la app"
+          }
+        }
+      }
+    },
+    "We'll show how many tasks you have due today or overdue right on Viku's icon. For that, iOS will ask for notification permission." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostraremos en el ícono de Viku cuántas tareas tienes para hoy o vencidas. Para eso, iOS te pedirá permiso de notificaciones."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
