@@ -29,7 +29,7 @@ public final class VikunjaTaskRepository: TaskRepositoryProtocol {
     /// Fetching the current state first and merging our change on top of it
     /// (`TaskMapper.merge`) is the only way to update just one field without
     /// silently wiping the rest — including fields `VikunjaTask` doesn't
-    /// even represent, like `percent_done` or `reminders`.
+    /// even represent, like `percent_done`.
     public func update(_ task: VikunjaTask) async throws -> VikunjaTask {
         let current: TaskDTO = try await client.send(VikunjaEndpoints.task(id: task.id))
         let endpoint = try VikunjaEndpoints.updateTask(id: task.id, dto: TaskMapper.merge(task, onto: current))

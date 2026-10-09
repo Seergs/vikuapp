@@ -26,6 +26,23 @@ struct TaskDTOTests {
     }
 
     @Test
+    func `maps reminders to domain model`() throws {
+        let dto = try loadTaskDTO()
+        let task = TaskMapper.toDomain(dto)
+
+        #expect(task.reminders.count == 1)
+        #expect(task.reminders.first?.relativePeriod == 0)
+        #expect(task.reminders.first?.relativeTo == nil)
+    }
+
+    @Test
+    func `drops an unrecognized relativeTo rather than failing the whole decode`() {
+        let dto = TaskReminderDTO(reminder: Date(), relativePeriod: -3600, relativeTo: "some_future_date")
+
+        #expect(ReminderMapper.toDomain(dto).relativeTo == nil)
+    }
+
+    @Test
     func `maps related tasks by subtask blocked and blocking kind`() throws {
         let dto = try loadTaskDTO()
         let task = TaskMapper.toDomain(dto)
@@ -84,9 +101,24 @@ struct TaskDTOTests {
         #expect(merged.repeatAfter == 604_800)
         #expect(merged.repeatMode == 1)
         #expect(merged.coverImageAttachmentId == 42)
-        #expect(merged.reminders == current.reminders)
         #expect(merged.assignees == current.assignees)
         #expect(merged.relatedTasks?["subtask"]?.first?.title == "Grind beans")
+    }
+
+    @Test
+    func `merge writes reminders from the domain model`() throws {
+        let current = try loadTaskDTO()
+        var task = TaskMapper.toDomain(current)
+        // Unlike `labels`/`assignees`, reminders have no dedicated endpoint —
+        // Vikunja only ever reads/writes them through the task body, so a
+        // merge must write whatever the domain model currently holds rather
+        // than preserving `current`'s.
+        let newReminder = Date(timeIntervalSince1970: 0)
+        task.reminders = [TaskReminder(reminder: newReminder)]
+
+        let merged = TaskMapper.merge(task, onto: current)
+
+        #expect(merged.reminders == [TaskReminderDTO(reminder: newReminder, relativePeriod: 0, relativeTo: nil)])
     }
 
     @Test
@@ -105,13 +137,14 @@ struct TaskDTOTests {
     }
 
     @Test
-    func `create DTO omits labels`() throws {
+    func `create DTO omits labels but carries reminders`() throws {
         let dto = try loadTaskDTO()
         let task = TaskMapper.toDomain(dto)
 
         let created = TaskMapper.toDTO(task)
 
         #expect(created.labels == nil)
+        #expect(created.reminders == dto.reminders)
     }
 
     @Test
@@ -133,6 +166,8 @@ struct TaskDTOTests {
         // DTO doesn't know about — proving it survives the round trip is the
         // whole point of `JSONValue` over a concretely-typed shape.
         #expect(decoded.assignees == current.assignees)
+        // `reminders` is concretely typed (`TaskReminderDTO`), not opaque —
+        // this just confirms that shape round-trips too.
         #expect(decoded.reminders == current.reminders)
         #expect(decoded.percentDone == current.percentDone)
     }

@@ -24,19 +24,19 @@ struct TaskDTO: Codable {
     /// documented there; the rest tolerate decoding but are otherwise
     /// unused.
     ///
-    /// This and every field below are never set by `VikunjaCore.VikunjaTask`
-    /// — they exist purely so `TaskMapper.merge(_:onto:)` can carry a
-    /// fetched task's full state through an update untouched. Vikunja's
-    /// update endpoint is a full replace: any field missing from the request
-    /// body gets reset to zero/null server-side rather than left alone
+    /// This and every field below (`reminders` excepted — see its own doc
+    /// comment) are never set by `VikunjaCore.VikunjaTask` — they exist
+    /// purely so `TaskMapper.merge(_:onto:)` can carry a fetched task's full
+    /// state through an update untouched. Vikunja's update endpoint is a
+    /// full replace: any field missing from the request body gets reset to
+    /// zero/null server-side rather than left alone
     /// (see https://github.com/go-vikunja/vikunja/issues/1459), so
     /// `VikunjaTaskRepository.update(_:)` fetches the current task first and
     /// only overwrites the fields it actually means to change — these
-    /// properties are what make that safe. `reminders`/`assignees` stay
-    /// opaque `JSONValue` rather than a concrete shape since their real
-    /// structure isn't verified against live swagger docs, and guessing
-    /// wrong would silently drop a sub-field — exactly the bug this exists
-    /// to prevent.
+    /// properties are what make that safe. `assignees` stays opaque
+    /// `JSONValue` rather than a concrete shape since its real structure
+    /// isn't verified against live swagger docs, and guessing wrong would
+    /// silently drop a sub-field — exactly the bug this exists to prevent.
     ///
     /// `var`, not `let`: a `let` property with a default value is excluded
     /// from the synthesized memberwise initializer entirely (Swift treats it
@@ -46,7 +46,12 @@ struct TaskDTO: Codable {
     var doneAt: Date?
     var startDate: Date?
     var endDate: Date?
-    var reminders: [JSONValue]?
+    /// Unlike the other fields in this group, `reminders` *is* set from
+    /// `VikunjaCore.VikunjaTask.reminders` (`TaskMapper.toDTO`/`.merge`) —
+    /// its shape (`TaskReminderDTO`) is verified against a live capture, so
+    /// it's safe to round-trip through the domain model like `dueDate`/
+    /// `priority` rather than staying opaque passthrough.
+    var reminders: [TaskReminderDTO]?
     var repeatAfter: Int?
     var repeatMode: Int?
     var hexColor: String?

@@ -47,12 +47,16 @@ enum TaskMapper {
             dependsOn: relations(dto, kind: "blocked"),
             blocks: relations(dto, kind: "blocking"),
             otherRelations: otherRelations(dto),
+            reminders: (dto.reminders ?? []).map(ReminderMapper.toDomain),
         )
     }
 
     /// `labels` is omitted (see `TaskDTO.labels`'s doc comment) — a newly
     /// created task starts with no labels; attach any via
     /// `LabelRepositoryProtocol.addLabel(_:toTask:)` once it has an id.
+    /// `reminders` isn't omitted the same way: Vikunja has no dedicated
+    /// reminders endpoint, so any reminder set before the task exists has to
+    /// ride along in the create body.
     static func toDTO(_ task: VikunjaTask) -> TaskDTO {
         TaskDTO(
             id: task.id,
@@ -63,6 +67,7 @@ enum TaskMapper {
             priority: task.priority.rawValue,
             projectId: task.projectID,
             labels: nil,
+            reminders: task.reminders.map(ReminderMapper.toDTO),
         )
     }
 
@@ -71,7 +76,8 @@ enum TaskMapper {
     /// only the fields `VikunjaTask` tracks, leaving everything else —
     /// including fields our domain model doesn't represent at all — exactly
     /// as the server last reported them. See `TaskDTO`'s doc comment for why
-    /// this exists.
+    /// this exists. `reminders` is one of the fields `VikunjaTask` *does*
+    /// track, so it's written from `task`, not carried over from `current`.
     static func merge(_ task: VikunjaTask, onto current: TaskDTO) -> TaskDTO {
         TaskDTO(
             id: current.id,
@@ -86,7 +92,7 @@ enum TaskMapper {
             doneAt: current.doneAt,
             startDate: current.startDate,
             endDate: current.endDate,
-            reminders: current.reminders,
+            reminders: task.reminders.map(ReminderMapper.toDTO),
             repeatAfter: current.repeatAfter,
             repeatMode: current.repeatMode,
             hexColor: current.hexColor,
