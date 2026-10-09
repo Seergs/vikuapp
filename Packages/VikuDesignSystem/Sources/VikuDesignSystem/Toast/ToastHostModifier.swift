@@ -10,7 +10,7 @@ private struct ToastHostModifier: ViewModifier {
                     ToastView(toast: toast)
                         .padding(.horizontal, VikuSpacing.md)
                         .transition(.move(edge: .top).combined(with: .opacity))
-                        .onTapGesture { center.dismissCurrent() }
+                        .onTapGesture { center.handleTap() }
                         .accessibilityAddTraits(.updatesFrequently)
                 }
             }

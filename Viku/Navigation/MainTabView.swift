@@ -183,6 +183,17 @@ struct MainTabView: View {
             isShowingSessionExpiredAlert = true
             container.sessionExpiryCenter.acknowledge()
         }
+        // A tapped toast (e.g. "Task created") publishes its `ToastAction`
+        // here rather than navigating itself - `ToastCenter` lives in
+        // `VikuDesignSystem`, which has no notion of `AppRoute`/`AppRouter`.
+        // This is the one place that knows both the active tab and all four
+        // `AppRouter`s, so it's the one place that can translate the action
+        // into a push onto the right stack.
+        .onChange(of: container.toastCenter.tappedAction) { _, action in
+            guard let action else { return }
+            navigate(to: action)
+            container.toastCenter.acknowledgeTappedAction()
+        }
         .alert(Text("Session Expired"), isPresented: $isShowingSessionExpiredAlert) {
             Button {
                 selection = .settings
@@ -215,6 +226,25 @@ struct MainTabView: View {
             )
             .padding(.trailing, VikuSpacing.md)
             .padding(.bottom, VikuSpacing.xxl + VikuSpacing.lg)
+        }
+    }
+
+    /// Pushes a tapped toast's action onto the active tab's `AppRouter`. The
+    /// Settings tab has none (it uses its own `Router<SettingsRoute>`), so a
+    /// toast tapped there switches to Home first rather than silently doing
+    /// nothing.
+    private func navigate(to action: ToastAction) {
+        let route: AppRoute = switch action {
+        case let .taskDetail(task, project): .taskDetail(task, project)
+        }
+        switch selection {
+        case .home: homeRouter.push(route)
+        case .projects: projectsRouter.push(route)
+        case .calendar: calendarRouter.push(route)
+        case .search: searchRouter.push(route)
+        case .settings:
+            selection = .home
+            homeRouter.push(route)
         }
     }
 }

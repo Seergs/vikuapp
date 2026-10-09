@@ -8,13 +8,20 @@ struct ToastView: View {
     let toast: Toast
 
     var body: some View {
-        Label {
-            Text(toast.message)
-                .font(VikuFont.subheadline)
-                .foregroundStyle(.primary)
-        } icon: {
-            Image(systemName: symbolName)
-                .foregroundStyle(tint)
+        HStack(spacing: VikuSpacing.sm) {
+            Label {
+                Text(toast.message)
+                    .font(VikuFont.subheadline)
+                    .foregroundStyle(.primary)
+            } icon: {
+                Image(systemName: symbolName)
+                    .foregroundStyle(tint)
+            }
+            if toast.action != nil {
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding(.horizontal, VikuSpacing.md)
         .padding(.vertical, VikuSpacing.sm)
@@ -22,6 +29,7 @@ struct ToastView: View {
         .overlay(Capsule().strokeBorder(tint.opacity(0.3)))
         .shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 4)
         .accessibilityElement(children: .combine)
+        .accessibilityHint(toast.action != nil ? Text("Opens the task", bundle: .module) : Text(verbatim: ""))
     }
 
     private var symbolName: String {
