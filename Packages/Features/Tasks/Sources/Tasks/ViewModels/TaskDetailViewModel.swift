@@ -178,6 +178,33 @@ public final class TaskDetailViewModel {
         await persist(previous: previous)
     }
 
+    /// Appends a new reminder and persists it, rolling back on failure the
+    /// same way `toggleDone()` does.
+    public func addReminder(_ reminder: TaskReminder) async {
+        let previous = task
+        task.reminders.append(reminder)
+        await persist(previous: previous)
+    }
+
+    /// Replaces the reminder at `index` and persists it, rolling back on
+    /// failure the same way `toggleDone()` does. A no-op if `index` is stale
+    /// (the reminder list changed underneath the caller).
+    public func updateReminder(at index: Int, to reminder: TaskReminder) async {
+        guard task.reminders.indices.contains(index) else { return }
+        let previous = task
+        task.reminders[index] = reminder
+        await persist(previous: previous)
+    }
+
+    /// Removes the reminder at `index` and persists it, rolling back on
+    /// failure the same way `toggleDone()` does. A no-op if `index` is stale.
+    public func removeReminder(at index: Int) async {
+        guard task.reminders.indices.contains(index) else { return }
+        let previous = task
+        task.reminders.remove(at: index)
+        await persist(previous: previous)
+    }
+
     /// Loads every label on the instance, for the label picker sheet. Failures
     /// leave `allLabels` at whatever it already was (empty on first failure),
     /// rather than surfacing an error — the sheet just shows fewer/no

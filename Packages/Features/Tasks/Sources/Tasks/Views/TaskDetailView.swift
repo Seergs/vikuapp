@@ -24,6 +24,7 @@ public struct TaskDetailView: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.dismiss) private var dismiss
     @State private var isShowingDueDatePicker = false
+    @State private var reminderEditTarget: ReminderEditTarget?
     @State private var isShowingLabelPicker = false
     @State private var isShowingMovePicker = false
     @State private var isShowingDuplicateSheet = false
@@ -57,6 +58,14 @@ public struct TaskDetailView: View {
     private enum EditableField: Hashable {
         case title
         case description
+    }
+
+    /// `nil` index means "creating a new reminder"; `reminder` is only used
+    /// to prefill the sheet when editing an existing one.
+    private struct ReminderEditTarget: Identifiable {
+        let id = UUID()
+        let index: Int?
+        let reminder: TaskReminder?
     }
 
     public init(viewModel: TaskDetailViewModel) {
@@ -139,6 +148,9 @@ public struct TaskDetailView: View {
                         Button(String(localized: "Labels", bundle: .module), systemImage: "tag") {
                             isShowingLabelPicker = true
                         }
+                        Button(String(localized: "Reminders", bundle: .module), systemImage: "bell") {
+                            reminderEditTarget = ReminderEditTarget(index: nil, reminder: nil)
+                        }
                         Divider()
                         Button(String(localized: "Add Relation", bundle: .module), systemImage: "link") {
                             relationEditStep = .pickKind(viewModel.task)
@@ -207,6 +219,24 @@ public struct TaskDetailView: View {
                 DueDatePickerSheet(initialDate: viewModel.task.dueDate) { newDate in
                     Task { await viewModel.setDueDate(newDate) }
                 }
+            }
+            .sheet(item: $reminderEditTarget) { target in
+                ReminderPickerSheet(
+                    initialReminder: target.reminder,
+                    dueDate: viewModel.task.dueDate,
+                    onSave: { reminder in
+                        Task {
+                            if let index = target.index {
+                                await viewModel.updateReminder(at: index, to: reminder)
+                            } else {
+                                await viewModel.addReminder(reminder)
+                            }
+                        }
+                    },
+                    onDelete: target.index.map { index in
+                        { Task { await viewModel.removeReminder(at: index) } }
+                    },
+                )
             }
             .sheet(isPresented: $isShowingLabelPicker) {
                 LabelPickerSheet(
@@ -432,6 +462,13 @@ public struct TaskDetailView: View {
         descriptionRow(task: task)
 
         DueDatePriorityRows(viewModel: viewModel) { isShowingDueDatePicker = true }
+
+        RemindersSection(
+            reminders: task.reminders,
+            onAdd: { reminderEditTarget = ReminderEditTarget(index: nil, reminder: nil) },
+            onEdit: { index in reminderEditTarget = ReminderEditTarget(index: index, reminder: task.reminders[index]) },
+            onRemove: { index in Task { await viewModel.removeReminder(at: index) } },
+        )
 
         LabelsSection(labels: task.labels) { isShowingLabelPicker = true }
 

@@ -414,6 +414,91 @@ struct TaskDetailViewModelTests {
     }
 
     @Test
+    func `add reminder appends and persists the new reminder`() async {
+        let repository = FakeTaskRepository()
+        let viewModel = TaskDetailViewModel(
+            task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
+            project: Project(id: 1, title: "Work"),
+            repository: repository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            commentRepository: FakeTaskCommentRepository(),
+            attachmentRepository: FakeTaskAttachmentRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: FakeToastPresenter(),
+        )
+        let reminder = TaskReminder(reminder: Date(timeIntervalSince1970: 1_700_000_000))
+
+        await viewModel.addReminder(reminder)
+
+        #expect(viewModel.task.reminders == [reminder])
+    }
+
+    @Test
+    func `add reminder reverts when the server rejects the update`() async {
+        let repository = FakeTaskRepository()
+        repository.updateError = .network("offline")
+        let viewModel = TaskDetailViewModel(
+            task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
+            project: Project(id: 1, title: "Work"),
+            repository: repository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            commentRepository: FakeTaskCommentRepository(),
+            attachmentRepository: FakeTaskAttachmentRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: FakeToastPresenter(),
+        )
+
+        await viewModel.addReminder(TaskReminder(reminder: Date()))
+
+        #expect(viewModel.task.reminders.isEmpty)
+    }
+
+    @Test
+    func `update reminder replaces the entry at the given index`() async {
+        let repository = FakeTaskRepository()
+        let original = TaskReminder(reminder: Date(timeIntervalSince1970: 1_700_000_000))
+        let viewModel = TaskDetailViewModel(
+            task: VikunjaTask(id: 1, title: "Write report", projectID: 1, reminders: [original]),
+            project: Project(id: 1, title: "Work"),
+            repository: repository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            commentRepository: FakeTaskCommentRepository(),
+            attachmentRepository: FakeTaskAttachmentRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: FakeToastPresenter(),
+        )
+        let replacement = TaskReminder(reminder: Date(timeIntervalSince1970: 1_800_000_000))
+
+        await viewModel.updateReminder(at: 0, to: replacement)
+
+        #expect(viewModel.task.reminders == [replacement])
+    }
+
+    @Test
+    func `remove reminder deletes the entry at the given index`() async {
+        let repository = FakeTaskRepository()
+        let reminder = TaskReminder(reminder: Date(timeIntervalSince1970: 1_700_000_000))
+        let viewModel = TaskDetailViewModel(
+            task: VikunjaTask(id: 1, title: "Write report", projectID: 1, reminders: [reminder]),
+            project: Project(id: 1, title: "Work"),
+            repository: repository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            commentRepository: FakeTaskCommentRepository(),
+            attachmentRepository: FakeTaskAttachmentRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: FakeToastPresenter(),
+        )
+
+        await viewModel.removeReminder(at: 0)
+
+        #expect(viewModel.task.reminders.isEmpty)
+    }
+
+    @Test
     func `load all labels populates from the repository`() async {
         let labelRepository = FakeLabelRepository()
         labelRepository.labels = [Label(id: 1, title: "Design", hexColor: "8B5CF6")]

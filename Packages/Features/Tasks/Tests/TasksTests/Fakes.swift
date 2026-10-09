@@ -50,7 +50,9 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
             throw createError
         }
         // Mirrors the real API: the server assigns the id. Relations/labels
-        // aren't accepted in the create body, so they're dropped here too.
+        // aren't accepted in the create body, so they're dropped here too —
+        // reminders, unlike those, ride along in the create body (see
+        // `TaskMapper.toDTO`'s doc comment), so they're carried through.
         let created = VikunjaTask(
             id: nextID,
             title: task.title,
@@ -59,6 +61,7 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
             dueDate: task.dueDate,
             priority: task.priority,
             projectID: task.projectID,
+            reminders: task.reminders,
         )
         nextID += 1
         tasks.append(created)

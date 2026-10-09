@@ -112,6 +112,8 @@ struct LocalizationTests {
         ("Couldn't update comment", "No se pudo actualizar el comentario"),
         ("Couldn't delete comment", "No se pudo eliminar el comentario"),
         ("Task moved to %@", "Tarea movida a %@"),
+        ("Reminders", "Recordatorios"),
+        ("No reminders set.", "No hay recordatorios."),
     ])
     func `key resolves to its Spanish translation`(key: String, expected: String) {
         #expect(Self.es(key) == expected)
