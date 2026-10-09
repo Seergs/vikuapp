@@ -6,8 +6,6 @@
 
 </div>
 
-**This is not an official Vikunja Client app**
-
 > ⚠️ Beta. Bugs are expected. Don't point it at a production Vikunja instance without a tested backup.
 
 This is an opinionated mobile client for Vikunja, not a full port of the web app. 
@@ -200,3 +198,7 @@ sure it has at least the following permissions:
 - No saved filters, no Gantt, no bulk editing.
 - No team or permission administration, no instance configuration.
 - Not a place for long planning sessions. It is tuned for glances and quick capture, not for restructuring your workload.
+
+---
+
+**This project is not affiliated with the official Vikunja project.**
