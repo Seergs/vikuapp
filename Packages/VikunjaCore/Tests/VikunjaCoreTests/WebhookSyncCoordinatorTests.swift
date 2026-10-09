@@ -13,7 +13,7 @@ struct WebhookSyncCoordinatorTests {
     func `creates the user webhook when none exists and one is desired`() async throws {
         let repository = FakeWebhookRepository()
         let coordinator = WebhookSyncCoordinator(webhookRepository: repository)
-        let settings = NotificationSettings(isEnabled: true, userLevelEnabled: true)
+        let settings = NotificationSettings(isEnabled: true, userLevelEvents: WebhookEvent.userDirected)
 
         try await coordinator.sync(settings: settings, registration: registration, projects: [])
 
@@ -30,8 +30,7 @@ struct WebhookSyncCoordinatorTests {
         let coordinator = WebhookSyncCoordinator(webhookRepository: repository)
         let settings = NotificationSettings(
             isEnabled: true,
-            enabledProjectIDs: [4],
-            enabledProjectEvents: [.taskCreated],
+            projectEvents: [4: [.taskCreated]],
         )
 
         try await coordinator.sync(settings: settings, registration: registration, projects: [project])
@@ -49,8 +48,7 @@ struct WebhookSyncCoordinatorTests {
         let coordinator = WebhookSyncCoordinator(webhookRepository: repository)
         let settings = NotificationSettings(
             isEnabled: true,
-            enabledProjectIDs: [4],
-            enabledProjectEvents: [.taskDeleted],
+            projectEvents: [4: [.taskDeleted]],
         )
 
         try await coordinator.sync(settings: settings, registration: registration, projects: [project])
@@ -65,7 +63,7 @@ struct WebhookSyncCoordinatorTests {
         let existing = Webhook(id: 9, targetURL: registration.targetURL, events: [.taskOverdue, .taskReminderFired])
         let repository = FakeWebhookRepository(userWebhooks: [existing])
         let coordinator = WebhookSyncCoordinator(webhookRepository: repository)
-        let settings = NotificationSettings(isEnabled: true, userLevelEnabled: false)
+        let settings = NotificationSettings(isEnabled: true, userLevelEvents: [])
 
         try await coordinator.sync(settings: settings, registration: registration, projects: [])
 
@@ -78,7 +76,7 @@ struct WebhookSyncCoordinatorTests {
         let existing = Webhook(id: 9, targetURL: registration.targetURL, events: sorted)
         let repository = FakeWebhookRepository(userWebhooks: [existing])
         let coordinator = WebhookSyncCoordinator(webhookRepository: repository)
-        let settings = NotificationSettings(isEnabled: true, userLevelEnabled: true)
+        let settings = NotificationSettings(isEnabled: true, userLevelEvents: WebhookEvent.userDirected)
 
         try await coordinator.sync(settings: settings, registration: registration, projects: [])
 
@@ -92,7 +90,7 @@ struct WebhookSyncCoordinatorTests {
         let someoneElses = try Webhook(id: 9, targetURL: #require(URL(string: "https://relay.example.com/h/other-device")), events: [.taskCreated])
         let repository = FakeWebhookRepository(userWebhooks: [someoneElses])
         let coordinator = WebhookSyncCoordinator(webhookRepository: repository)
-        let settings = NotificationSettings(isEnabled: true, userLevelEnabled: false)
+        let settings = NotificationSettings(isEnabled: true, userLevelEvents: [])
 
         try await coordinator.sync(settings: settings, registration: registration, projects: [])
 

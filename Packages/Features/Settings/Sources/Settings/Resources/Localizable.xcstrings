@@ -81,6 +81,26 @@
         }
       }
     },
+    "Attachment Added" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archivo adjunto agregado"
+          }
+        }
+      }
+    },
+    "Attachment Removed" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archivo adjunto eliminado"
+          }
+        }
+      }
+    },
     "Automatic" : {
       "localizations" : {
         "es" : {
@@ -117,6 +137,46 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Elige la instancia de Vikunja con la que quieres sincronizar tus tareas."
+          }
+        }
+      }
+    },
+    "Choose which events notify you for each project." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige qué eventos te notifican para cada proyecto."
+          }
+        }
+      }
+    },
+    "Comment Added" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comentario agregado"
+          }
+        }
+      }
+    },
+    "Comment Deleted" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comentario eliminado"
+          }
+        }
+      }
+    },
+    "Comment Edited" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comentario editado"
           }
         }
       }
@@ -581,6 +641,16 @@
         }
       }
     },
+    "Overdue Tasks" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tareas vencidas"
+          }
+        }
+      }
+    },
     "Password" : {
       "localizations" : {
         "es" : {
@@ -611,12 +681,52 @@
         }
       }
     },
+    "Project Deleted" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Proyecto eliminado"
+          }
+        }
+      }
+    },
     "Project Notifications" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Notificaciones de proyecto"
+          }
+        }
+      }
+    },
+    "Project Shared with a Team" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Proyecto compartido con un equipo"
+          }
+        }
+      }
+    },
+    "Project Shared with a User" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Proyecto compartido con un usuario"
+          }
+        }
+      }
+    },
+    "Project Updated" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Proyecto actualizado"
           }
         }
       }
@@ -651,12 +761,12 @@
         }
       }
     },
-    "Reminders & Overdue Tasks" : {
+    "Reminders" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Recordatorios y tareas vencidas"
+            "value" : "Recordatorios"
           }
         }
       }
@@ -841,12 +951,72 @@
         }
       }
     },
-    "Task created, updated, assigned, or commented on." : {
+    "Task Assigned" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tarea creada, actualizada, asignada o comentada."
+            "value" : "Tarea asignada"
+          }
+        }
+      }
+    },
+    "Task Created" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tarea creada"
+          }
+        }
+      }
+    },
+    "Task Deleted" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tarea eliminada"
+          }
+        }
+      }
+    },
+    "Task Relation Added" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Relación de tarea agregada"
+          }
+        }
+      }
+    },
+    "Task Relation Removed" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Relación de tarea eliminada"
+          }
+        }
+      }
+    },
+    "Task Unassigned" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tarea desasignada"
+          }
+        }
+      }
+    },
+    "Task Updated" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tarea actualizada"
           }
         }
       }

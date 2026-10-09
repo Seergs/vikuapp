@@ -92,24 +92,39 @@ struct NotificationsViewModelTests {
         #expect(store.savedSettings.isEmpty)
     }
 
-    // MARK: setUserLevelEnabled / setProject
+    // MARK: setUserLevelEvent / setProject
 
     @Test
-    func `enabling user level notifications creates the user webhook with the user directed events`() async {
+    func `enabling both user level events creates the user webhook with the user directed events`() async {
         let webhookRepository = FakeWebhookRepository()
         let viewModel = makeViewModel(webhookRepository: webhookRepository)
         await viewModel.confirmEnable()
 
-        await viewModel.setUserLevelEnabled(true)
+        await viewModel.setUserLevelEvent(.taskOverdue, isEnabled: true)
+        await viewModel.setUserLevelEvent(.taskReminderFired, isEnabled: true)
 
-        #expect(viewModel.settings.userLevelEnabled)
+        #expect(viewModel.settings.userLevelEvents == WebhookEvent.userDirected)
         #expect(webhookRepository.createdUserWebhooks.count == 1)
-        #expect(Set(webhookRepository.createdUserWebhooks[0].events) == WebhookEvent.userDirected)
         #expect(webhookRepository.createdUserWebhooks[0].secret == "test-secret")
+        #expect(webhookRepository.updatedUserWebhooks.count == 1)
+        #expect(Set(webhookRepository.updatedUserWebhooks[0].events) == WebhookEvent.userDirected)
     }
 
     @Test
-    func `enabling a project creates its webhook with the default project events`() async {
+    func `enabling a single user level event only subscribes to that event`() async {
+        let webhookRepository = FakeWebhookRepository()
+        let viewModel = makeViewModel(webhookRepository: webhookRepository)
+        await viewModel.confirmEnable()
+
+        await viewModel.setUserLevelEvent(.taskOverdue, isEnabled: true)
+
+        #expect(viewModel.settings.userLevelEvents == [.taskOverdue])
+        #expect(webhookRepository.createdUserWebhooks.count == 1)
+        #expect(webhookRepository.createdUserWebhooks[0].events == [.taskOverdue])
+    }
+
+    @Test
+    func `selecting a project's first event creates its webhook with just that event`() async {
         let project = Project(id: 4, title: "Work")
         let webhookRepository = FakeWebhookRepository()
         let projectRepository = FakeProjectRepository(projects: [project])
@@ -117,16 +132,16 @@ struct NotificationsViewModelTests {
         await viewModel.load()
         await viewModel.confirmEnable()
 
-        await viewModel.setProject(project, isEnabled: true)
+        await viewModel.setProjectEvent(.taskCreated, isEnabled: true, for: project)
 
-        #expect(viewModel.settings.enabledProjectIDs == [4])
+        #expect(viewModel.settings.events(for: project.id) == [.taskCreated])
         #expect(webhookRepository.createdProjectWebhooks.count == 1)
         #expect(webhookRepository.createdProjectWebhooks[0].projectID == 4)
-        #expect(Set(webhookRepository.createdProjectWebhooks[0].events) == NotificationSettings.defaultProjectEvents)
+        #expect(webhookRepository.createdProjectWebhooks[0].events == [.taskCreated])
     }
 
     @Test
-    func `disabling a project deletes only that project's webhook`() async {
+    func `customizing a project's events updates its webhook independently of other projects`() async {
         let projectA = Project(id: 1, title: "A")
         let projectB = Project(id: 2, title: "B")
         let webhookRepository = FakeWebhookRepository()
@@ -134,12 +149,33 @@ struct NotificationsViewModelTests {
         let viewModel = makeViewModel(webhookRepository: webhookRepository, projectRepository: projectRepository)
         await viewModel.load()
         await viewModel.confirmEnable()
-        await viewModel.setProject(projectA, isEnabled: true)
-        await viewModel.setProject(projectB, isEnabled: true)
+        await viewModel.setProjectEvent(.taskCreated, isEnabled: true, for: projectA)
+        await viewModel.setProjectEvent(.taskCreated, isEnabled: true, for: projectB)
 
-        await viewModel.setProject(projectA, isEnabled: false)
+        await viewModel.setProjectEvent(.taskDeleted, isEnabled: true, for: projectA)
+        await viewModel.setProjectEvent(.taskCreated, isEnabled: false, for: projectA)
 
-        #expect(viewModel.settings.enabledProjectIDs == [2])
+        #expect(viewModel.settings.events(for: projectA.id) == [.taskDeleted])
+        #expect(viewModel.settings.events(for: projectB.id) == [.taskCreated])
+        #expect(webhookRepository.updatedProjectWebhooks.last?.webhook.projectID == 1)
+    }
+
+    @Test
+    func `unchecking a project's only event deletes only that project's webhook`() async {
+        let projectA = Project(id: 1, title: "A")
+        let projectB = Project(id: 2, title: "B")
+        let webhookRepository = FakeWebhookRepository()
+        let projectRepository = FakeProjectRepository(projects: [projectA, projectB])
+        let viewModel = makeViewModel(webhookRepository: webhookRepository, projectRepository: projectRepository)
+        await viewModel.load()
+        await viewModel.confirmEnable()
+        await viewModel.setProjectEvent(.taskCreated, isEnabled: true, for: projectA)
+        await viewModel.setProjectEvent(.taskCreated, isEnabled: true, for: projectB)
+
+        await viewModel.setProjectEvent(.taskCreated, isEnabled: false, for: projectA)
+
+        #expect(viewModel.settings.events(for: projectA.id).isEmpty)
+        #expect(viewModel.settings.events(for: projectB.id) == [.taskCreated])
         #expect(webhookRepository.deletedProjectWebhookIDs.map(\.projectID) == [1])
         #expect(webhookRepository.projectWebhooks[2]?.count == 1)
     }
@@ -152,9 +188,9 @@ struct NotificationsViewModelTests {
         let viewModel = makeViewModel(webhookRepository: webhookRepository, projectRepository: projectRepository)
         await viewModel.load()
 
-        await viewModel.setProject(project, isEnabled: true)
+        await viewModel.setProjectEvent(.taskCreated, isEnabled: true, for: project)
 
-        #expect(viewModel.settings.enabledProjectIDs == [4])
+        #expect(viewModel.settings.events(for: project.id) == [.taskCreated])
         #expect(webhookRepository.createdProjectWebhooks.isEmpty)
     }
 
@@ -175,8 +211,9 @@ struct NotificationsViewModelTests {
         )
         await viewModel.load()
         await viewModel.confirmEnable()
-        await viewModel.setUserLevelEnabled(true)
-        await viewModel.setProject(project, isEnabled: true)
+        await viewModel.setUserLevelEvent(.taskOverdue, isEnabled: true)
+        await viewModel.setUserLevelEvent(.taskReminderFired, isEnabled: true)
+        await viewModel.setProjectEvent(.taskCreated, isEnabled: true, for: project)
 
         await viewModel.disable()
 
@@ -186,8 +223,8 @@ struct NotificationsViewModelTests {
         #expect(registering.disableCallCount == 1)
         #expect(store.savedSettings.last?.isEnabled == false)
         // The toggles reset along with the master switch — see the next test.
-        #expect(viewModel.settings.userLevelEnabled == false)
-        #expect(viewModel.settings.enabledProjectIDs.isEmpty)
+        #expect(viewModel.settings.userLevelEvents.isEmpty)
+        #expect(viewModel.settings.events(for: project.id).isEmpty)
     }
 
     @Test
@@ -198,8 +235,9 @@ struct NotificationsViewModelTests {
         let viewModel = makeViewModel(webhookRepository: webhookRepository, projectRepository: projectRepository)
         await viewModel.load()
         await viewModel.confirmEnable()
-        await viewModel.setUserLevelEnabled(true)
-        await viewModel.setProject(project, isEnabled: true)
+        await viewModel.setUserLevelEvent(.taskOverdue, isEnabled: true)
+        await viewModel.setUserLevelEvent(.taskReminderFired, isEnabled: true)
+        await viewModel.setProjectEvent(.taskCreated, isEnabled: true, for: project)
         await viewModel.disable()
         let userCreatesBeforeReenable = webhookRepository.createdUserWebhooks.count
         let projectCreatesBeforeReenable = webhookRepository.createdProjectWebhooks.count
@@ -207,8 +245,8 @@ struct NotificationsViewModelTests {
         await viewModel.confirmEnable()
 
         #expect(viewModel.settings.isEnabled)
-        #expect(viewModel.settings.userLevelEnabled == false)
-        #expect(viewModel.settings.enabledProjectIDs.isEmpty)
+        #expect(viewModel.settings.userLevelEvents.isEmpty)
+        #expect(viewModel.settings.events(for: project.id).isEmpty)
         // Re-enabling alone creates no new webhooks: nothing is selected
         // until the user opts back in to each one explicitly.
         #expect(webhookRepository.createdUserWebhooks.count == userCreatesBeforeReenable)

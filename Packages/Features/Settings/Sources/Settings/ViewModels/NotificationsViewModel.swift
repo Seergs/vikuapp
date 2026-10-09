@@ -4,9 +4,11 @@ import VikunjaCore
 import VikuUI
 
 /// Drives the "Notifications" screen: the opt-in toggle (behind the consent
-/// modal — see `NotificationsConsentSheet`), the user-level toggle, and a
-/// per-project toggle list. Every toggle change re-syncs Vikunja's webhooks
-/// to match (`WebhookSyncing`) and persists the result, so the server and
+/// modal — see `NotificationsConsentSheet`), the user-level event
+/// checkboxes, and each project's own event checkboxes — there's no
+/// separate per-project on/off switch, selecting at least one event is what
+/// turns a project's webhook on. Every change re-syncs Vikunja's webhooks to
+/// match (`WebhookSyncing`) and persists the result, so the server and
 /// `notificationSettingsStore` never drift from what's shown here.
 @MainActor
 @Observable
@@ -128,32 +130,38 @@ public final class NotificationsViewModel {
 
         var updated = settings
         updated.isEnabled = false
-        updated.userLevelEnabled = false
-        updated.enabledProjectIDs = []
+        updated.userLevelEvents = []
+        updated.projectEvents = [:]
         await apply(updated)
         try? await pushNotificationRegistering.disable(accountID: accountID)
         currentRegistration = nil
     }
 
-    public func setUserLevelEnabled(_ isEnabled: Bool) async {
+    public func setUserLevelEvent(_ event: WebhookEvent, isEnabled: Bool) async {
         pendingChange = .userLevel
         defer { pendingChange = nil }
 
         var updated = settings
-        updated.userLevelEnabled = isEnabled
+        if isEnabled {
+            updated.userLevelEvents.insert(event)
+        } else {
+            updated.userLevelEvents.remove(event)
+        }
         await apply(updated)
     }
 
-    public func setProject(_ project: Project, isEnabled: Bool) async {
+    public func setProjectEvent(_ event: WebhookEvent, isEnabled: Bool, for project: Project) async {
         pendingChange = .project(project.id)
         defer { pendingChange = nil }
 
         var updated = settings
+        var events = updated.events(for: project.id)
         if isEnabled {
-            updated.enabledProjectIDs.insert(project.id)
+            events.insert(event)
         } else {
-            updated.enabledProjectIDs.remove(project.id)
+            events.remove(event)
         }
+        updated.projectEvents[project.id] = events
         await apply(updated)
     }
 

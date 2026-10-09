@@ -214,9 +214,10 @@ final class AppContainer {
         // being enabled), so the planner never tries to recreate a webhook
         // for a project that's gone.
         var settings = notificationSettingsStore.settings(for: account.id)
-        let validProjectIDs = settings.enabledProjectIDs.intersection(projects.map(\.id))
-        if validProjectIDs != settings.enabledProjectIDs {
-            settings.enabledProjectIDs = validProjectIDs
+        let validProjectIDs = Set(projects.map(\.id))
+        let prunedProjectEvents = settings.projectEvents.filter { validProjectIDs.contains($0.key) }
+        if prunedProjectEvents.count != settings.projectEvents.count {
+            settings.projectEvents = prunedProjectEvents
             notificationSettingsStore.save(settings, for: account.id)
         }
 

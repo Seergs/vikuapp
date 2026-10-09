@@ -30,4 +30,11 @@ public enum WebhookEvent: String, Sendable, CaseIterable, Hashable, Codable {
     /// The subset `/user/settings/webhooks/events` reports, i.e. the only
     /// events a user-level webhook may subscribe to.
     public static let userDirected: Set<WebhookEvent> = [.taskOverdue, .taskReminderFired]
+
+    /// `userDirected`, in a stable display order.
+    public static let userDirectedOrdered: [WebhookEvent] = [.taskOverdue, .taskReminderFired]
+
+    /// Every event a project-level webhook may subscribe to, i.e. every
+    /// case except the two user-directed ones, in declaration order.
+    public static let projectOrdered: [WebhookEvent] = allCases.filter { !userDirected.contains($0) }
 }

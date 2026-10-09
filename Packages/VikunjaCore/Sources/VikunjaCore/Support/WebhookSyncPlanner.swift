@@ -39,22 +39,22 @@ public struct WebhookSyncPlanner: WebhookSyncing {
         apply(
             .user,
             reconcile(
-                desiredEvents: settings.isEnabled && settings.userLevelEnabled ? WebhookEvent.userDirected : [],
+                desiredEvents: settings.isEnabled ? settings.userLevelEvents : [],
                 existing: existingUserWebhooks,
                 registration: registration,
             ),
         )
 
         // Every project with an existing webhook needs to be considered for
-        // deletion even if it's no longer (or never was) in
-        // `enabledProjectIDs` — not just the ones currently desired.
-        let enabledProjectIDs = settings.isEnabled ? settings.enabledProjectIDs : []
-        let allProjectIDs = Set(existingProjectWebhooks.keys).union(enabledProjectIDs)
+        // deletion even if it currently has no events selected — not just
+        // the ones with a non-empty selection.
+        let desiredProjectIDs = settings.isEnabled ? Set(settings.projectEvents.keys) : []
+        let allProjectIDs = Set(existingProjectWebhooks.keys).union(desiredProjectIDs)
         for projectID in allProjectIDs.sorted() {
             apply(
                 .project(projectID),
                 reconcile(
-                    desiredEvents: enabledProjectIDs.contains(projectID) ? settings.enabledProjectEvents : [],
+                    desiredEvents: settings.isEnabled ? settings.events(for: projectID) : [],
                     existing: existingProjectWebhooks[projectID] ?? [],
                     registration: registration,
                 ),

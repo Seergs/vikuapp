@@ -41,7 +41,7 @@ struct WebhookSyncPlannerTests {
     @Test
     func `disabled settings delete every enabled project's webhook`() {
         let planner = WebhookSyncPlanner()
-        let settings = NotificationSettings(isEnabled: false, enabledProjectIDs: [4])
+        let settings = NotificationSettings(isEnabled: false, projectEvents: [4: [.taskCreated]])
         let ours = Webhook(id: 2, targetURL: registration.targetURL, events: [.taskCreated], projectID: 4)
 
         let plan = planner.plan(
@@ -72,7 +72,7 @@ struct WebhookSyncPlannerTests {
     @Test
     func `enabling user level with no existing webhook creates one with the user directed events`() {
         let planner = WebhookSyncPlanner()
-        let settings = NotificationSettings(isEnabled: true, userLevelEnabled: true)
+        let settings = NotificationSettings(isEnabled: true, userLevelEvents: WebhookEvent.userDirected)
 
         let plan = planner.plan(
             settings: settings,
@@ -91,7 +91,7 @@ struct WebhookSyncPlannerTests {
     @Test
     func `an already correct user webhook needs no change`() {
         let planner = WebhookSyncPlanner()
-        let settings = NotificationSettings(isEnabled: true, userLevelEnabled: true)
+        let settings = NotificationSettings(isEnabled: true, userLevelEvents: WebhookEvent.userDirected)
         let ours = Webhook(id: 1, targetURL: registration.targetURL, events: sortedUserDirectedEvents)
 
         let plan = planner.plan(
@@ -107,7 +107,7 @@ struct WebhookSyncPlannerTests {
     @Test
     func `turning user level off deletes this device's webhook but leaves someone else's alone`() {
         let planner = WebhookSyncPlanner()
-        let settings = NotificationSettings(isEnabled: true, userLevelEnabled: false)
+        let settings = NotificationSettings(isEnabled: true, userLevelEvents: [])
         let ours = Webhook(id: 1, targetURL: registration.targetURL, events: [.taskOverdue, .taskReminderFired])
 
         let plan = planner.plan(
@@ -127,8 +127,7 @@ struct WebhookSyncPlannerTests {
         let planner = WebhookSyncPlanner()
         let settings = NotificationSettings(
             isEnabled: true,
-            enabledProjectIDs: [4],
-            enabledProjectEvents: [.taskCreated],
+            projectEvents: [4: [.taskCreated]],
         )
 
         let plan = planner.plan(
@@ -146,8 +145,7 @@ struct WebhookSyncPlannerTests {
         let planner = WebhookSyncPlanner()
         let settings = NotificationSettings(
             isEnabled: true,
-            enabledProjectIDs: [4],
-            enabledProjectEvents: [.taskDeleted],
+            projectEvents: [4: [.taskDeleted]],
         )
         let ours = Webhook(id: 3, targetURL: registration.targetURL, events: [.taskCreated], projectID: 4)
 
@@ -164,13 +162,12 @@ struct WebhookSyncPlannerTests {
     @Test
     func `disabling one project deletes only that project's webhook`() {
         let planner = WebhookSyncPlanner()
-        let settings = NotificationSettings(isEnabled: true, enabledProjectIDs: [5])
-        let sortedDefaultEvents = NotificationSettings.defaultProjectEvents.sorted { $0.rawValue < $1.rawValue }
+        let settings = NotificationSettings(isEnabled: true, projectEvents: [5: [.taskCreated]])
         let project4Webhook = Webhook(id: 3, targetURL: registration.targetURL, events: [.taskCreated], projectID: 4)
         let project5Webhook = Webhook(
             id: 4,
             targetURL: registration.targetURL,
-            events: sortedDefaultEvents,
+            events: [.taskCreated],
             projectID: 5,
         )
 
@@ -189,7 +186,7 @@ struct WebhookSyncPlannerTests {
     @Test
     func `a project webhook belonging to another device is never touched`() {
         let planner = WebhookSyncPlanner()
-        let settings = NotificationSettings(isEnabled: true, enabledProjectIDs: [])
+        let settings = NotificationSettings(isEnabled: true)
         let someoneElsesProjectWebhook = Webhook(
             id: 10,
             targetURL: someoneElsesWebhook.targetURL,
@@ -212,8 +209,7 @@ struct WebhookSyncPlannerTests {
         let planner = WebhookSyncPlanner()
         let settings = NotificationSettings(
             isEnabled: true,
-            enabledProjectIDs: [1, 2],
-            enabledProjectEvents: [.taskCreated],
+            projectEvents: [1: [.taskCreated], 2: [.taskCreated]],
         )
         let project2Webhook = Webhook(id: 20, targetURL: registration.targetURL, events: [.taskCreated], projectID: 2)
         let project3Webhook = Webhook(id: 30, targetURL: registration.targetURL, events: [.taskCreated], projectID: 3)
