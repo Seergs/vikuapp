@@ -64,6 +64,17 @@ public struct SettingsRootView: View {
         self.makeNotificationsViewModel = makeNotificationsViewModel
     }
 
+    /// Holds the one `NotificationsViewModel` instance for this screen's
+    /// lifetime, built lazily on first visit to `.notifications` — plain
+    /// reference-type storage (not `@State`) so filling it while building a
+    /// `.projectNotifications` destination never mutates SwiftUI state
+    /// mid-render. `.notifications` and `.projectNotifications(_:)` both
+    /// read/write the same `settings`, so they need the same instance:
+    /// unlike `ConnectionFormView`/`ManageLabelsView`, which each get a fresh
+    /// view model from their factory per push, these two must share state
+    /// without a reload. Mirrors `ProjectsRootView.overviewViewModelCache`.
+    @State private var notificationsViewModelCache = NotificationsViewModelCache()
+
     public var body: some View {
         // `router` is a reference type owned outside this view (unlike the
         // other tab roots, which get an `@State`-owned router and can use
@@ -90,11 +101,32 @@ public struct SettingsRootView: View {
                 case .manageLabels:
                     ManageLabelsView(makeViewModel: makeManageLabelsViewModel)
                 case .notifications:
-                    NotificationsView(makeViewModel: makeNotificationsViewModel)
+                    NotificationsView(viewModel: cachedNotificationsViewModel(), router: router)
+                case let .projectNotifications(project):
+                    ProjectNotificationsView(viewModel: cachedNotificationsViewModel(), project: project)
                 case .about:
                     AboutView()
                 }
             }
         }
     }
+
+    /// Returns the cached `NotificationsViewModel`, creating and storing one
+    /// on first visit — see `notificationsViewModelCache`'s doc comment.
+    private func cachedNotificationsViewModel() -> NotificationsViewModel {
+        if let existing = notificationsViewModelCache.instance {
+            return existing
+        }
+        let viewModel = makeNotificationsViewModel()
+        notificationsViewModelCache.instance = viewModel
+        return viewModel
+    }
+}
+
+/// Backs `SettingsRootView.notificationsViewModelCache` — a class rather
+/// than a struct so `@State` only needs to preserve *its identity*, mirrors
+/// `ProjectsRootView.OverviewViewModelCache`.
+@MainActor
+private final class NotificationsViewModelCache {
+    var instance: NotificationsViewModel?
 }

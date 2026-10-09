@@ -194,6 +194,80 @@ struct NotificationsViewModelTests {
         #expect(webhookRepository.createdProjectWebhooks.isEmpty)
     }
 
+    // MARK: setProjectEvents / disableProjectWebhook
+
+    @Test
+    func `setProjectEvents replaces a project's whole selection in one sync call`() async {
+        let project = Project(id: 4, title: "Work")
+        let webhookRepository = FakeWebhookRepository()
+        let projectRepository = FakeProjectRepository(projects: [project])
+        let viewModel = makeViewModel(webhookRepository: webhookRepository, projectRepository: projectRepository)
+        await viewModel.load()
+        await viewModel.confirmEnable()
+
+        await viewModel.setProjectEvents([.taskCreated, .taskDeleted], for: project)
+
+        #expect(viewModel.settings.events(for: project.id) == [.taskCreated, .taskDeleted])
+        #expect(webhookRepository.createdProjectWebhooks.count == 1)
+        #expect(Set(webhookRepository.createdProjectWebhooks[0].events) == [.taskCreated, .taskDeleted])
+    }
+
+    @Test
+    func `disableProjectWebhook clears the project's events and deletes its webhook`() async {
+        let project = Project(id: 4, title: "Work")
+        let webhookRepository = FakeWebhookRepository()
+        let projectRepository = FakeProjectRepository(projects: [project])
+        let viewModel = makeViewModel(webhookRepository: webhookRepository, projectRepository: projectRepository)
+        await viewModel.load()
+        await viewModel.confirmEnable()
+        await viewModel.setProjectEvent(.taskCreated, isEnabled: true, for: project)
+
+        await viewModel.disableProjectWebhook(project)
+
+        #expect(viewModel.settings.events(for: project.id).isEmpty)
+        #expect(webhookRepository.deletedProjectWebhookIDs.map(\.projectID) == [4])
+    }
+
+    // MARK: otherWebhooks
+
+    @Test
+    func `otherWebhooks excludes only this device's own webhook`() async throws {
+        let project = Project(id: 4, title: "Work")
+        let ourTargetURL = try #require(URL(string: "https://relay.example.com/h/device-1"))
+        let theirWebhook = try Webhook(
+            id: 999, targetURL: #require(URL(string: "https://hooks.slack.com/services/x")),
+            events: [.taskCreated], projectID: project.id,
+        )
+        let webhookRepository = FakeWebhookRepository(projectWebhooks: [project.id: [theirWebhook]])
+        let projectRepository = FakeProjectRepository(projects: [project])
+        let viewModel = makeViewModel(webhookRepository: webhookRepository, projectRepository: projectRepository)
+        await viewModel.load()
+        await viewModel.confirmEnable()
+        await viewModel.setProjectEvent(.taskCreated, isEnabled: true, for: project)
+
+        let others = await viewModel.otherWebhooks(for: project.id)
+
+        #expect(others.map(\.id) == [999])
+        #expect(others.allSatisfy { $0.targetURL != ourTargetURL })
+    }
+
+    @Test
+    func `otherWebhooks returns everything when this device was never registered`() async throws {
+        let project = Project(id: 4, title: "Work")
+        let theirWebhook = try Webhook(
+            id: 999, targetURL: #require(URL(string: "https://hooks.slack.com/services/x")),
+            events: [.taskCreated], projectID: project.id,
+        )
+        let webhookRepository = FakeWebhookRepository(projectWebhooks: [project.id: [theirWebhook]])
+        let projectRepository = FakeProjectRepository(projects: [project])
+        let viewModel = makeViewModel(webhookRepository: webhookRepository, projectRepository: projectRepository)
+        await viewModel.load()
+
+        let others = await viewModel.otherWebhooks(for: project.id)
+
+        #expect(others.map(\.id) == [999])
+    }
+
     // MARK: disable
 
     @Test
