@@ -661,6 +661,26 @@
         }
       }
     },
+    "Won't ring on this iPhone: push notifications are off. Turn them on in Settings.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No sonarán en este iPhone: las notificaciones push están desactivadas. Puedes activarlas en Configuración."
+          }
+        }
+      }
+    },
+    "Won't ring on this iPhone: reminders are off for this project. Turn them on in Settings.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No sonarán en este iPhone: los recordatorios están desactivados para este proyecto. Puedes activarlos en Configuración."
+          }
+        }
+      }
+    },
     "Write a comment...": {
       "localizations": {
         "es": {

@@ -114,6 +114,16 @@ struct LocalizationTests {
         ("Task moved to %@", "Tarea movida a %@"),
         ("Reminders", "Recordatorios"),
         ("No reminders set.", "No hay recordatorios."),
+        (
+            "Won't ring on this iPhone: push notifications are off. Turn them on in Settings.",
+            "No sonarán en este iPhone: las notificaciones push están desactivadas. "
+                + "Puedes activarlas en Configuración.",
+        ),
+        (
+            "Won't ring on this iPhone: reminders are off for this project. Turn them on in Settings.",
+            "No sonarán en este iPhone: los recordatorios están desactivados para este proyecto. "
+                + "Puedes activarlos en Configuración.",
+        ),
     ])
     func `key resolves to its Spanish translation`(key: String, expected: String) {
         #expect(Self.es(key) == expected)

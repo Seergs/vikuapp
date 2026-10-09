@@ -385,6 +385,8 @@ final class AppContainer {
             toastPresenter: toastCenter,
             hapticPresenter: hapticCenter,
             quickAddContext: quickAddContext,
+            notificationSettingsStore: notificationSettingsStore,
+            accountID: account.id,
         )
     }
 

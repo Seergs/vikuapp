@@ -465,6 +465,7 @@ public struct TaskDetailView: View {
 
         RemindersSection(
             reminders: task.reminders,
+            deliveryWarning: viewModel.reminderDeliveryWarning,
             onAdd: { reminderEditTarget = ReminderEditTarget(index: nil, reminder: nil) },
             onEdit: { index in reminderEditTarget = ReminderEditTarget(index: index, reminder: task.reminders[index]) },
             onRemove: { index in Task { await viewModel.removeReminder(at: index) } },

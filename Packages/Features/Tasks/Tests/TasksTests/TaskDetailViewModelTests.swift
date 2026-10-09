@@ -1575,4 +1575,137 @@ struct TaskDetailViewModelTests {
         #expect(succeeded == false)
         #expect(toastPresenter.shownMessages.last?.style == .error)
     }
+
+    @Test
+    func `reminder delivery warning is nil when the task has no reminders`() {
+        let viewModel = TaskDetailViewModel(
+            task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
+            project: Project(id: 1, title: "Work"),
+            repository: FakeTaskRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            commentRepository: FakeTaskCommentRepository(),
+            attachmentRepository: FakeTaskAttachmentRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: FakeToastPresenter(),
+            notificationSettingsStore: FakeNotificationSettingsStore(settings: NotificationSettings(isEnabled: false)),
+            accountID: fakeAccountID,
+        )
+
+        #expect(viewModel.reminderDeliveryWarning == nil)
+    }
+
+    @Test
+    func `reminder delivery warning is nil when notification dependencies are not provided`() {
+        let viewModel = TaskDetailViewModel(
+            task: VikunjaTask(
+                id: 1, title: "Write report", projectID: 1,
+                reminders: [TaskReminder(reminder: Date())],
+            ),
+            project: Project(id: 1, title: "Work"),
+            repository: FakeTaskRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            commentRepository: FakeTaskCommentRepository(),
+            attachmentRepository: FakeTaskAttachmentRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: FakeToastPresenter(),
+        )
+
+        #expect(viewModel.reminderDeliveryWarning == nil)
+    }
+
+    @Test
+    func `reminder delivery warning flags push disabled before checking webhook events`() {
+        let viewModel = TaskDetailViewModel(
+            task: VikunjaTask(
+                id: 1, title: "Write report", projectID: 1,
+                reminders: [TaskReminder(reminder: Date())],
+            ),
+            project: Project(id: 1, title: "Work"),
+            repository: FakeTaskRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            commentRepository: FakeTaskCommentRepository(),
+            attachmentRepository: FakeTaskAttachmentRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: FakeToastPresenter(),
+            notificationSettingsStore: FakeNotificationSettingsStore(
+                settings: NotificationSettings(isEnabled: false, projectEvents: [1: [.taskReminderFired]]),
+            ),
+            accountID: fakeAccountID,
+        )
+
+        #expect(viewModel.reminderDeliveryWarning == .pushDisabled)
+    }
+
+    @Test
+    func `reminder delivery warning flags an unsubscribed project when push is on`() {
+        let viewModel = TaskDetailViewModel(
+            task: VikunjaTask(
+                id: 1, title: "Write report", projectID: 1,
+                reminders: [TaskReminder(reminder: Date())],
+            ),
+            project: Project(id: 1, title: "Work"),
+            repository: FakeTaskRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            commentRepository: FakeTaskCommentRepository(),
+            attachmentRepository: FakeTaskAttachmentRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: FakeToastPresenter(),
+            notificationSettingsStore: FakeNotificationSettingsStore(settings: NotificationSettings(isEnabled: true)),
+            accountID: fakeAccountID,
+        )
+
+        #expect(viewModel.reminderDeliveryWarning == .eventNotSubscribed)
+    }
+
+    @Test
+    func `reminder delivery warning is nil when the project webhook is subscribed`() {
+        let viewModel = TaskDetailViewModel(
+            task: VikunjaTask(
+                id: 1, title: "Write report", projectID: 1,
+                reminders: [TaskReminder(reminder: Date())],
+            ),
+            project: Project(id: 1, title: "Work"),
+            repository: FakeTaskRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            commentRepository: FakeTaskCommentRepository(),
+            attachmentRepository: FakeTaskAttachmentRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: FakeToastPresenter(),
+            notificationSettingsStore: FakeNotificationSettingsStore(
+                settings: NotificationSettings(isEnabled: true, projectEvents: [1: [.taskReminderFired]]),
+            ),
+            accountID: fakeAccountID,
+        )
+
+        #expect(viewModel.reminderDeliveryWarning == nil)
+    }
+
+    @Test
+    func `reminder delivery warning is nil when only the user level webhook is subscribed`() {
+        let viewModel = TaskDetailViewModel(
+            task: VikunjaTask(
+                id: 1, title: "Write report", projectID: 1,
+                reminders: [TaskReminder(reminder: Date())],
+            ),
+            project: Project(id: 1, title: "Work"),
+            repository: FakeTaskRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            commentRepository: FakeTaskCommentRepository(),
+            attachmentRepository: FakeTaskAttachmentRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: FakeToastPresenter(),
+            notificationSettingsStore: FakeNotificationSettingsStore(
+                settings: NotificationSettings(isEnabled: true, userLevelEvents: [.taskReminderFired]),
+            ),
+            accountID: fakeAccountID,
+        )
+
+        #expect(viewModel.reminderDeliveryWarning == nil)
+    }
 }

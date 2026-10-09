@@ -10,6 +10,7 @@ import VikuUI
 /// icon+label/trailing "x" shape.
 struct RemindersSection: View {
     let reminders: [TaskReminder]
+    let deliveryWarning: ReminderDeliveryWarning?
     let onAdd: () -> Void
     let onEdit: (Int) -> Void
     let onRemove: (Int) -> Void
@@ -31,9 +32,13 @@ struct RemindersSection: View {
                     ForEach(Array(reminders.enumerated()), id: \.offset) { index, reminder in
                         ReminderRow(
                             label: ReminderFormatter.label(for: reminder),
+                            preciseLabel: ReminderFormatter.preciseLabel(for: reminder),
                             onTap: { onEdit(index) },
                             onRemove: { onRemove(index) },
                         )
+                    }
+                    if let deliveryWarning {
+                        ReminderDeliveryWarningBanner(warning: deliveryWarning)
                     }
                 }
             }
@@ -41,8 +46,49 @@ struct RemindersSection: View {
     }
 }
 
+private struct ReminderDeliveryWarningBanner: View {
+    let warning: ReminderDeliveryWarning
+
+    private var message: String {
+        switch warning {
+        case .pushDisabled:
+            String(
+                localized: "Won't ring on this iPhone: push notifications are off. Turn them on in Settings.",
+                bundle: .module,
+            )
+        case .eventNotSubscribed:
+            String(
+                localized: "Won't ring on this iPhone: reminders are off for this project. Turn them on in Settings.",
+                bundle: .module,
+            )
+        }
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: VikuSpacing.sm - VikuSpacing.xxs) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 12))
+                .foregroundStyle(VikuColor.Semantic.dangerText)
+            Text(verbatim: message)
+                .font(VikuFont.footnote)
+                .foregroundStyle(VikuColor.Semantic.dangerText)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
+        .padding(.vertical, VikuSpacing.sm)
+        .background(
+            VikuColor.Semantic.danger.opacity(0.12),
+            in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous),
+        )
+    }
+}
+
 private struct ReminderRow: View {
     let label: String
+    /// The reminder's resolved date/time, always shown below `label` in a
+    /// smaller, subtler style — most useful for a relative reminder, whose
+    /// `label` ("5 weeks after due date") never shows a clock time at all.
+    let preciseLabel: String
     let onTap: () -> Void
     let onRemove: () -> Void
 
@@ -53,9 +99,14 @@ private struct ReminderRow: View {
                     Image(systemName: "bell")
                         .font(.system(size: 13))
                         .foregroundStyle(VikuColor.brandPrimary)
-                    Text(verbatim: label)
-                        .font(.system(size: 14.5, weight: .medium))
-                        .foregroundStyle(Color.primary)
+                    VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
+                        Text(verbatim: label)
+                            .font(.system(size: 14.5, weight: .medium))
+                            .foregroundStyle(Color.primary)
+                        Text(verbatim: preciseLabel)
+                            .font(VikuFont.caption2)
+                            .foregroundStyle(VikuColor.textTertiary)
+                    }
                     Spacer()
                 }
                 .contentShape(Rectangle())

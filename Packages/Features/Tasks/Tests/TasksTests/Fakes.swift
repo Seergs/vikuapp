@@ -394,3 +394,22 @@ final class FakeDefaultProjectCache: DefaultProjectCaching {
         writes.append(project)
     }
 }
+
+let fakeAccountID = UUID()
+
+@MainActor
+final class FakeNotificationSettingsStore: NotificationSettingsStore {
+    private var allSettings: [InstanceAccount.ID: NotificationSettings]
+
+    init(settings: NotificationSettings = NotificationSettings(), accountID: InstanceAccount.ID = fakeAccountID) {
+        self.allSettings = [accountID: settings]
+    }
+
+    func settings(for accountID: InstanceAccount.ID) -> NotificationSettings {
+        allSettings[accountID] ?? NotificationSettings()
+    }
+
+    func save(_ settings: NotificationSettings, for accountID: InstanceAccount.ID) {
+        allSettings[accountID] = settings
+    }
+}
