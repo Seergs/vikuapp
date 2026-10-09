@@ -24,6 +24,7 @@ public struct VikunjaTask: Identifiable, Equatable, Hashable, Sendable {
     /// treatment, so they're kept generic here rather than as one named
     /// property each.
     public var otherRelations: [RelationKind: [TaskRelation]]
+    public var reminders: [TaskReminder]
 
     public init(
         id: Int,
@@ -38,6 +39,7 @@ public struct VikunjaTask: Identifiable, Equatable, Hashable, Sendable {
         dependsOn: [TaskRelation] = [],
         blocks: [TaskRelation] = [],
         otherRelations: [RelationKind: [TaskRelation]] = [:],
+        reminders: [TaskReminder] = [],
     ) {
         self.id = id
         self.title = title
@@ -51,6 +53,7 @@ public struct VikunjaTask: Identifiable, Equatable, Hashable, Sendable {
         self.dependsOn = dependsOn
         self.blocks = blocks
         self.otherRelations = otherRelations
+        self.reminders = reminders
     }
 
     /// Whether this task is still waiting on an incomplete `dependsOn` task.
