@@ -381,7 +381,7 @@ final class FakeWebhookRepository: WebhookRepositoryProtocol, @unchecked Sendabl
     }
 
     func fetchAvailableEvents() async throws -> [WebhookEvent] {
-        Array(WebhookEvent.allCases.filter { !WebhookEvent.userDirected.contains($0) })
+        Array(WebhookEvent.allCases)
     }
 
     func fetchUserWebhooks() async throws -> [Webhook] {
