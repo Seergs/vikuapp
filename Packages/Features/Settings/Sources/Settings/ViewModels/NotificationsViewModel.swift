@@ -56,6 +56,7 @@ public final class NotificationsViewModel {
     private var currentUserID: Int?
 
     private let accountID: InstanceAccount.ID
+    private let webhookRepository: WebhookRepositoryProtocol
     private let projectRepository: ProjectRepositoryProtocol
     private let userRepository: UserRepositoryProtocol
     private let pushNotificationRegistering: PushNotificationRegistering
@@ -74,6 +75,7 @@ public final class NotificationsViewModel {
         syncPlanner: WebhookSyncing = WebhookSyncPlanner(),
     ) {
         self.accountID = accountID
+        self.webhookRepository = webhookRepository
         self.projectRepository = projectRepository
         self.userRepository = userRepository
         self.pushNotificationRegistering = pushNotificationRegistering
@@ -81,6 +83,13 @@ public final class NotificationsViewModel {
         self.toastPresenter = toastPresenter
         self.syncCoordinator = WebhookSyncCoordinator(webhookRepository: webhookRepository, syncPlanner: syncPlanner)
         self.settings = notificationSettingsStore.settings(for: accountID)
+    }
+
+    /// This device's relay URL, once registered — what a screen shows as
+    /// "this is where your instance's webhooks point." `nil` until
+    /// `confirmEnable()`/`load()` has successfully registered.
+    public var relayTargetURL: URL? {
+        currentRegistration?.targetURL
     }
 
     public func load() async {
@@ -163,6 +172,37 @@ public final class NotificationsViewModel {
         }
         updated.projectEvents[project.id] = events
         await apply(updated)
+    }
+
+    /// Replaces a project's whole event selection in one sync round trip —
+    /// backs the event-group presets (Recommended/All/None) on the
+    /// per-project screen, where applying each event individually would mean
+    /// one sync call per toggle instead of one for the whole preset.
+    public func setProjectEvents(_ events: Set<WebhookEvent>, for project: Project) async {
+        pendingChange = .project(project.id)
+        defer { pendingChange = nil }
+
+        var updated = settings
+        updated.projectEvents[project.id] = events
+        await apply(updated)
+    }
+
+    /// Clears a project's event selection, which is what tears down its
+    /// webhook — mirrors unchecking every event by hand, in one call.
+    public func disableProjectWebhook(_ project: Project) async {
+        await setProjectEvents([], for: project)
+    }
+
+    /// The webhooks already configured on this project that this device
+    /// didn't create (a teammate's own Viku install, or one set up by hand —
+    /// e.g. a Slack integration). Read-only: shown so a project's webhook
+    /// screen doesn't look like it's the only thing pointed at that project
+    /// when it isn't. Matches `WebhookSyncPlanner`'s own notion of "ours" —
+    /// an exact `targetURL` match against this device's relay registration.
+    public func otherWebhooks(for projectID: Int) async -> [Webhook] {
+        guard let webhooks = try? await webhookRepository.fetchWebhooks(projectID: projectID) else { return [] }
+        guard let relayTargetURL else { return webhooks }
+        return webhooks.filter { $0.targetURL != relayTargetURL }
     }
 
     // MARK: - Private

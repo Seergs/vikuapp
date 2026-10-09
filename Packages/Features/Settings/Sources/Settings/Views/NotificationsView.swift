@@ -1,5 +1,6 @@
 import SwiftUI
 import VikuDesignSystem
+import VikuNavigation
 import VikunjaCore
 import VikuUI
 
@@ -9,14 +10,16 @@ import UIKit
 
 /// The push-notification opt-in screen: a master toggle gated behind
 /// `NotificationsConsentSheet`, and — once enabled — individual checkboxes
-/// for the two user-directed events, plus one expandable row per project
-/// holding that project's own individual event checkboxes (there's no
-/// separate per-project on/off switch: selecting an event is what turns it
-/// on). See `NotificationsViewModel` for the sync that keeps Vikunja's
-/// webhooks matching whatever's shown here.
+/// for the two user-directed events, plus a searchable list of projects that
+/// drills into `ProjectNotificationsView` for that project's own event
+/// selection (there's no separate per-project on/off switch: selecting an
+/// event there is what turns it on). See `NotificationsViewModel` for the
+/// sync that keeps Vikunja's webhooks matching whatever's shown here.
 struct NotificationsView: View {
-    @State private var viewModel: NotificationsViewModel
+    let viewModel: NotificationsViewModel
+    let router: Router<SettingsRoute>
     @State private var isShowingConsent = false
+    @State private var projectQuery = ""
     /// Mirrors `viewModel.isSyncing`, but only after it's been true for
     /// `syncIndicatorDelay` — see `body`'s `.task(id:)`. A round trip that
     /// finishes faster than that never shows anything, so a quick toggle
@@ -26,15 +29,51 @@ struct NotificationsView: View {
 
     private static let syncIndicatorDelay: Duration = .seconds(1)
 
-    /// Same rationale as `ManageLabelsView`: takes a factory and builds the
-    /// view model inside `@State`'s initializer so SwiftUI keeps one
-    /// instance across any re-invocation of the destination closure.
-    init(makeViewModel: @escaping () -> NotificationsViewModel) {
-        _viewModel = State(initialValue: makeViewModel())
+    /// `viewModel` is built once by `SettingsRootView`'s cache and handed
+    /// down (see `NotificationsViewModelCache`), not via a factory held in
+    /// `@State` here — `ProjectNotificationsView` needs the exact same
+    /// instance so a project's event selection shows up back on this list
+    /// without a reload, and only the caller that already stabilizes it
+    /// across `.navigationDestination` re-invocations can guarantee that.
+    init(viewModel: NotificationsViewModel, router: Router<SettingsRoute>) {
+        self.viewModel = viewModel
+        self.router = router
+    }
+
+    /// `viewModel.projects` (a flat array) reordered so each project is
+    /// immediately followed by its own children, recursively, with `depth`
+    /// tracking how many ancestors it has — `ProjectNotificationRow` uses
+    /// that to indent subprojects instead of showing everything flat.
+    private var orderedProjects: [(project: Project, depth: Int)] {
+        let byParent = Dictionary(grouping: viewModel.projects, by: \.parentProjectID)
+        var result: [(project: Project, depth: Int)] = []
+        func append(parentID: Int?, depth: Int) {
+            let children = (byParent[parentID] ?? []).sorted { $0.position < $1.position }
+            for child in children {
+                result.append((child, depth))
+                append(parentID: child.id, depth: depth + 1)
+            }
+        }
+        append(parentID: nil, depth: 0)
+        return result
+    }
+
+    private var filteredProjects: [(project: Project, depth: Int)] {
+        guard !projectQuery.isEmpty else { return orderedProjects }
+        return orderedProjects.filter { $0.project.title.localizedCaseInsensitiveContains(projectQuery) }
+    }
+
+    /// How many projects currently have at least one event selected — a
+    /// project can be present in `settings.projectEvents` with an empty set
+    /// (its webhook was just torn down but the key wasn't removed), so this
+    /// can't just count that dictionary's keys.
+    private var connectedProjectCount: Int {
+        viewModel.projects.count { !viewModel.settings.events(for: $0.id).isEmpty }
     }
 
     var body: some View {
         content
+            .background(VikuColor.Surface.page)
             .navigationTitle(Text("Notifications", bundle: .module))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -76,41 +115,83 @@ struct NotificationsView: View {
             }
             .padding(.top, VikuSpacing.xxl)
         case .loaded:
-            List {
-                enableSection
-                if viewModel.settings.isEnabled {
-                    userLevelSection
-                    projectsSection
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    enableSection
+                    if viewModel.settings.isEnabled {
+                        userLevelSection
+                        projectsSection
+                    }
+                    // Keeps the last card clear of the tab bar.
+                    Color.clear.frame(height: VikuSpacing.xxl)
                 }
             }
-            .notificationsListStyle()
+            .searchable(
+                text: $projectQuery,
+                placement: .automatic,
+                prompt: Text("Search projects...", bundle: .module),
+            )
         }
     }
 
     private var enableSection: some View {
-        Section {
-            Toggle(isOn: enabledBinding) {
-                VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
-                    Text("Push Notifications", bundle: .module)
-                    Text("Requires Viku Relay, a service hosted by the Viku team.", bundle: .module)
-                        .font(VikuFont.footnote)
-                        .foregroundStyle(VikuColor.textSecondary)
-                    Text("Vikunja does not send push to iOS directly.", bundle: .module)
-                        .font(VikuFont.footnote)
-                        .foregroundStyle(VikuColor.textSecondary)
+        VStack(alignment: .leading, spacing: VikuSpacing.sm) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    Toggle(isOn: enabledBinding) {
+                        VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
+                            Text("Push Notifications", bundle: .module)
+                            Text("Via Viku Relay", bundle: .module)
+                                .font(VikuFont.footnote)
+                                .foregroundStyle(VikuColor.textSecondary)
+                        }
+                    }
+                    .disabled(viewModel.pendingChange == .enabling || viewModel.pendingChange == .disabling)
+                }
+                .padding(.vertical, VikuSpacing.xs)
+
+                if viewModel.settings.isEnabled, let relayTargetURL = viewModel.relayTargetURL {
+                    Divider()
+                    HStack(spacing: VikuSpacing.sm) {
+                        Circle()
+                            .fill(VikuColor.Semantic.success)
+                            .frame(width: 8, height: 8)
+                        Text(String(localized: "Registered with \(relayTargetURL.host ?? relayTargetURL.absoluteString)", bundle: .module))
+                            .font(VikuFont.footnote)
+                            .foregroundStyle(VikuColor.textSecondary)
+                    }
+                    .padding(.vertical, VikuSpacing.sm)
+                }
+
+                if showSyncIndicator {
+                    Divider()
+                    syncingRow
+                        .padding(.vertical, VikuSpacing.sm)
+                        .transition(.opacity)
                 }
             }
-            .disabled(viewModel.pendingChange == .enabling || viewModel.pendingChange == .disabling)
+            .vikuCardRow(index: 0, count: 1)
 
-            if showSyncIndicator {
-                syncingRow
-                    .transition(.opacity)
+            VStack(alignment: .leading, spacing: VikuSpacing.sm) {
+                Group {
+                    if viewModel.settings.isEnabled {
+                        Text("Turning this off removes the webhooks Viku created on your instance.", bundle: .module)
+                    } else {
+                        Text("Requires Viku Relay, a service hosted by the Viku team.", bundle: .module)
+                            + Text(verbatim: " ")
+                            + Text("Vikunja does not send push to iOS directly.", bundle: .module)
+                    }
+                }
+                .font(VikuFont.caption)
+                .foregroundStyle(VikuColor.textTertiary)
+
+                if viewModel.isPermissionDenied {
+                    deniedBanner
+                }
             }
-        } footer: {
-            if viewModel.isPermissionDenied {
-                deniedBanner
-            }
+            .padding(.horizontal, VikuSpacing.md)
         }
+        .padding(.top, VikuSpacing.sm)
     }
 
     /// Shown once `confirmEnable()`/`disable()`/a toggle's sync has been
@@ -137,41 +218,70 @@ struct NotificationsView: View {
     }
 
     private var userLevelSection: some View {
-        Section {
-            ForEach(WebhookEvent.userDirectedOrdered, id: \.self) { event in
-                Toggle(eventLabel(event), isOn: userLevelEventBinding(event))
-                    .disabled(viewModel.pendingChange == .userLevel)
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader {
+                Text("User Notifications", bundle: .module)
+                    .vikuSectionHeader()
             }
-        } header: {
-            Text("User Notifications", bundle: .module)
+            VStack(spacing: 0) {
+                ForEach(Array(WebhookEvent.userDirectedOrdered.enumerated()), id: \.element) { index, event in
+                    Toggle(isOn: userLevelEventBinding(event)) {
+                        VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
+                            Text(eventLabel(event))
+                            Text(verbatim: event.rawValue)
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(VikuColor.textTertiary)
+                        }
+                    }
+                    .disabled(viewModel.pendingChange == .userLevel)
+                    .vikuCardRow(index: index, count: WebhookEvent.userDirectedOrdered.count)
+                }
+            }
         }
     }
 
     @ViewBuilder
     private var projectsSection: some View {
-        if viewModel.projects.isEmpty {
-            EmptyView()
-        } else {
-            Section {
-                ForEach(viewModel.projects) { project in
-                    projectRow(project)
+        if !viewModel.projects.isEmpty {
+            VStack(alignment: .leading, spacing: 0) {
+                sectionHeader {
+                    HStack(alignment: .lastTextBaseline) {
+                        Text("Project Notifications", bundle: .module)
+                            .vikuSectionHeader()
+                        Spacer()
+                        Text(verbatim: "\(connectedProjectCount)")
+                            .font(VikuFont.footnote)
+                            .foregroundStyle(VikuColor.textTertiary)
+                    }
                 }
-            } header: {
-                Text("Project Notifications", bundle: .module)
-            } footer: {
-                Text("Choose which events notify you for each project.", bundle: .module)
+                VStack(spacing: 0) {
+                    ForEach(Array(filteredProjects.enumerated()), id: \.element.project.id) { index, entry in
+                        Button {
+                            router.push(.projectNotifications(entry.project))
+                        } label: {
+                            ProjectNotificationRow(
+                                viewModel: viewModel,
+                                project: entry.project,
+                                depth: entry.depth,
+                                eventCount: viewModel.settings.events(for: entry.project.id).count,
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .vikuCardRow(index: index, count: filteredProjects.count)
+                    }
+                }
             }
         }
     }
 
-    private func projectRow(_ project: Project) -> some View {
-        let isProjectDisabled = viewModel.pendingChange == .project(project.id)
-        return DisclosureGroup(project.title) {
-            ForEach(WebhookEvent.projectOrdered, id: \.self) { event in
-                Toggle(eventLabel(event), isOn: projectEventBinding(project, event))
-                    .disabled(isProjectDisabled)
-            }
-        }
+    /// The shared padding recipe for a plain section header above a card —
+    /// mirrors `ProjectOverviewView`'s own section headers (flush with the
+    /// nav title horizontally, a bit more breathing room above than below).
+    private func sectionHeader(@ViewBuilder content: () -> some View) -> some View {
+        content()
+            .padding(.horizontal, VikuSpacing.md)
+            .padding(.top, VikuSpacing.md + VikuSpacing.xs)
+            .padding(.bottom, VikuSpacing.sm)
     }
 
     private var enabledBinding: Binding<Bool> {
@@ -194,38 +304,6 @@ struct NotificationsView: View {
         )
     }
 
-    private func projectEventBinding(_ project: Project, _ event: WebhookEvent) -> Binding<Bool> {
-        Binding(
-            get: { viewModel.settings.events(for: project.id).contains(event) },
-            set: { newValue in Task { await viewModel.setProjectEvent(event, isEnabled: newValue, for: project) } },
-        )
-    }
-
-    /// Display name for an individual webhook event, used by both the
-    /// user-level and per-project checkbox lists.
-    private func eventLabel(_ event: WebhookEvent) -> String {
-        switch event {
-        case .taskCreated: String(localized: "Task Created", bundle: .module)
-        case .taskUpdated: String(localized: "Task Updated", bundle: .module)
-        case .taskDeleted: String(localized: "Task Deleted", bundle: .module)
-        case .taskAssigneeCreated: String(localized: "Task Assigned", bundle: .module)
-        case .taskAssigneeDeleted: String(localized: "Task Unassigned", bundle: .module)
-        case .taskCommentCreated: String(localized: "Comment Added", bundle: .module)
-        case .taskCommentEdited: String(localized: "Comment Edited", bundle: .module)
-        case .taskCommentDeleted: String(localized: "Comment Deleted", bundle: .module)
-        case .taskAttachmentCreated: String(localized: "Attachment Added", bundle: .module)
-        case .taskAttachmentDeleted: String(localized: "Attachment Removed", bundle: .module)
-        case .taskRelationCreated: String(localized: "Task Relation Added", bundle: .module)
-        case .taskRelationDeleted: String(localized: "Task Relation Removed", bundle: .module)
-        case .projectUpdated: String(localized: "Project Updated", bundle: .module)
-        case .projectDeleted: String(localized: "Project Deleted", bundle: .module)
-        case .projectSharedUser: String(localized: "Project Shared with a User", bundle: .module)
-        case .projectSharedTeam: String(localized: "Project Shared with a Team", bundle: .module)
-        case .taskOverdue: String(localized: "Overdue Tasks", bundle: .module)
-        case .taskReminderFired: String(localized: "Reminders", bundle: .module)
-        }
-    }
-
     private func openSystemSettings() {
         #if os(iOS)
         if let url = URL(string: UIApplication.openSettingsURLString) {
@@ -235,13 +313,94 @@ struct NotificationsView: View {
     }
 }
 
-private extension View {
-    @ViewBuilder
-    func notificationsListStyle() -> some View {
-        #if os(iOS)
-        listStyle(.insetGrouped)
-        #else
-        self
-        #endif
+/// Display name for an individual webhook event — shared by `NotificationsView`'s
+/// user-level toggles and `ProjectNotificationsView`'s per-project checkbox list.
+func eventLabel(_ event: WebhookEvent) -> String {
+    switch event {
+    case .taskCreated: String(localized: "Task Created", bundle: .module)
+    case .taskUpdated: String(localized: "Task Updated", bundle: .module)
+    case .taskDeleted: String(localized: "Task Deleted", bundle: .module)
+    case .taskAssigneeCreated: String(localized: "Task Assigned", bundle: .module)
+    case .taskAssigneeDeleted: String(localized: "Task Unassigned", bundle: .module)
+    case .taskCommentCreated: String(localized: "Comment Added", bundle: .module)
+    case .taskCommentEdited: String(localized: "Comment Edited", bundle: .module)
+    case .taskCommentDeleted: String(localized: "Comment Deleted", bundle: .module)
+    case .taskAttachmentCreated: String(localized: "Attachment Added", bundle: .module)
+    case .taskAttachmentDeleted: String(localized: "Attachment Removed", bundle: .module)
+    case .taskRelationCreated: String(localized: "Task Relation Added", bundle: .module)
+    case .taskRelationDeleted: String(localized: "Task Relation Removed", bundle: .module)
+    case .projectUpdated: String(localized: "Project Updated", bundle: .module)
+    case .projectDeleted: String(localized: "Project Deleted", bundle: .module)
+    case .projectSharedUser: String(localized: "Project Shared with a User", bundle: .module)
+    case .projectSharedTeam: String(localized: "Project Shared with a Team", bundle: .module)
+    case .taskOverdue: String(localized: "Overdue Tasks", bundle: .module)
+    case .taskReminderFired: String(localized: "Reminders", bundle: .module)
+    }
+}
+
+/// One row in the project search list: a color swatch (indented by `depth`
+/// for a subproject), the project's name and its count of third-party
+/// webhooks (if any), and either a bell badge showing how many events are
+/// selected or a plain "Not Connected" label when none are.
+private struct ProjectNotificationRow: View {
+    let viewModel: NotificationsViewModel
+    let project: Project
+    let depth: Int
+    let eventCount: Int
+
+    /// Fetched lazily via `.task` once this row appears — see
+    /// `NotificationsViewModel.otherWebhooks(for:)`. Not loaded eagerly for
+    /// every project up front, only for rows the list actually renders.
+    @State private var otherWebhookCount = 0
+
+    private var swatchColor: Color {
+        Color(vikuHex: project.hexColor) ?? VikuColor.brandPrimary
+    }
+
+    var body: some View {
+        HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(swatchColor)
+                .frame(width: 10, height: 10)
+
+            VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
+                Text(project.title)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                if otherWebhookCount > 0 {
+                    Text(String(localized: "\(otherWebhookCount) third-party webhooks", bundle: .module))
+                        .font(VikuFont.caption)
+                        .foregroundStyle(VikuColor.textTertiary)
+                }
+            }
+
+            Spacer(minLength: VikuSpacing.sm)
+
+            if eventCount > 0 {
+                HStack(spacing: VikuSpacing.xxs) {
+                    Image(systemName: "bell.fill")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text(verbatim: "\(eventCount)")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .foregroundStyle(VikuColor.brandPrimary)
+                .padding(.horizontal, VikuSpacing.sm)
+                .padding(.vertical, VikuSpacing.xxs)
+                .background(Capsule().fill(VikuColor.brandPrimary.opacity(0.12)))
+            } else {
+                Text("Not Connected", bundle: .module)
+                    .font(VikuFont.footnote)
+                    .foregroundStyle(VikuColor.textTertiary)
+            }
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(VikuColor.textTertiary)
+        }
+        .padding(.vertical, VikuSpacing.xs)
+        .padding(.leading, CGFloat(depth) * (VikuSpacing.md + VikuSpacing.xxs))
+        .task(id: project.id) {
+            otherWebhookCount = await viewModel.otherWebhooks(for: project.id).count
+        }
     }
 }

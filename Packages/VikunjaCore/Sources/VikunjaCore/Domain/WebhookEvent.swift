@@ -28,13 +28,21 @@ public enum WebhookEvent: String, Sendable, CaseIterable, Hashable, Codable {
     case taskReminderFired = "task.reminder.fired"
 
     /// The subset `/user/settings/webhooks/events` reports, i.e. the only
-    /// events a user-level webhook may subscribe to.
+    /// events a user-level webhook may subscribe to. This is a one-way
+    /// restriction: Vikunja's server-side validation (`Webhook.Create` in
+    /// `pkg/models/webhooks.go`) only enforces it for a webhook with
+    /// `UserID` set. A *project* webhook has no such restriction — it may
+    /// subscribe to any event `/webhooks/events` lists, `taskOverdue`/
+    /// `taskReminderFired` included, since the server registers both of
+    /// them into that same pool via `RegisterUserDirectedEventForWebhook`
+    /// (which calls `RegisterEventForWebhook` first). See `projectOrdered`.
     public static let userDirected: Set<WebhookEvent> = [.taskOverdue, .taskReminderFired]
 
     /// `userDirected`, in a stable display order.
     public static let userDirectedOrdered: [WebhookEvent] = [.taskOverdue, .taskReminderFired]
 
-    /// Every event a project-level webhook may subscribe to, i.e. every
-    /// case except the two user-directed ones, in declaration order.
-    public static let projectOrdered: [WebhookEvent] = allCases.filter { !userDirected.contains($0) }
+    /// Every event a project-level webhook may subscribe to — every case,
+    /// `userDirected` included (see its doc comment for why that's not
+    /// excluded here), in declaration order.
+    public static let projectOrdered: [WebhookEvent] = allCases
 }

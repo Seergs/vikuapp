@@ -1310,6 +1310,236 @@
           }
         }
       }
+    },
+    "Search projects..." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar proyectos..."
+          }
+        }
+      }
+    },
+    "Registered with %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Registrado con %@"
+          }
+        }
+      }
+    },
+    "Not Connected" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin conectar"
+          }
+        }
+      }
+    },
+    "Tasks" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tareas"
+          }
+        }
+      }
+    },
+    "Collaboration" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Colaboración"
+          }
+        }
+      }
+    },
+    "Project" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Proyecto"
+          }
+        }
+      }
+    },
+    "Disconnect this project's webhook?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Desconectar el webhook de este proyecto?"
+          }
+        }
+      }
+    },
+    "Disconnect Webhook" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desconectar webhook"
+          }
+        }
+      }
+    },
+    "Destination" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Destino"
+          }
+        }
+      }
+    },
+    "Signature" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Firma"
+          }
+        }
+      }
+    },
+    "HMAC secret generated" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secreto HMAC generado"
+          }
+        }
+      }
+    },
+    "Status" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estado"
+          }
+        }
+      }
+    },
+    "Connected" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectado"
+          }
+        }
+      }
+    },
+    "Recommended" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recomendados"
+          }
+        }
+      }
+    },
+    "All" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todos"
+          }
+        }
+      }
+    },
+    "None" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ninguno"
+          }
+        }
+      }
+    },
+    "%lld events · created outside Viku · read-only" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld eventos · creado fuera de Viku · solo lectura"
+          }
+        }
+      }
+    },
+    "Other Webhooks on This Project" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otros webhooks en este proyecto"
+          }
+        }
+      }
+    },
+    "Not Now" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ahora no"
+          }
+        }
+      }
+    },
+    "Via Viku Relay" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mediante Viku Relay"
+          }
+        }
+      }
+    },
+    "Turning this off removes the webhooks Viku created on your instance." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Al desactivarlo se eliminarán de tu instancia los webhooks creados por Viku."
+          }
+        }
+      }
+    },
+    "Events That Notify You" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eventos que te notifican"
+          }
+        }
+      }
+    },
+    "%lld third-party webhooks" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld webhooks de terceros"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
