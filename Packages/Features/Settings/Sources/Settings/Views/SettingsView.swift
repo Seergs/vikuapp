@@ -26,8 +26,8 @@ struct SettingsView: View {
 
     var body: some View {
         List {
-            // One section, not three, so these render as a single grouped
-            // card (matching Settings.app) instead of one card per row.
+            // App-wide preferences — nothing here navigates anywhere, unlike
+            // Connections/Manage Labels below.
             Section {
                 Picker(selection: themeBinding) {
                     ForEach(AppTheme.allCases, id: \.self) { theme in
@@ -40,6 +40,28 @@ struct SettingsView: View {
                     }
                 }
 
+                Toggle(isOn: badgeEnabledBinding) {
+                    HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
+                        SettingsRowIcon(systemName: "app.badge")
+                        VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
+                            Text("App Icon Badge", bundle: .module)
+                            Text("Overdue and due-today tasks", bundle: .module)
+                                .font(VikuFont.footnote)
+                                .foregroundStyle(VikuColor.textTertiary)
+                        }
+                    }
+                }
+
+                if badgeViewModel.isPermissionDenied {
+                    badgeDeniedBanner
+                }
+            } header: {
+                Text("General", bundle: .module)
+            }
+
+            // One section, not two, so these render as a single grouped
+            // card (matching Settings.app) instead of one card per row.
+            Section {
                 SettingsNavigationRow(
                     icon: "server.rack",
                     title: String(localized: "Connections", bundle: .module),
@@ -55,24 +77,6 @@ struct SettingsView: View {
                 ) {
                     router.push(.manageLabels)
                 }
-            }
-
-            Section {
-                Toggle(isOn: badgeEnabledBinding) {
-                    HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
-                        SettingsRowIcon(systemName: "app.badge")
-                        Text("App Icon Badge", bundle: .module)
-                    }
-                }
-
-                if badgeViewModel.isPermissionDenied {
-                    badgeDeniedBanner
-                }
-            } footer: {
-                Text(
-                    "Shows the number of overdue and due-today tasks on Viku's Home Screen icon.",
-                    bundle: .module,
-                )
             }
 
             Section {

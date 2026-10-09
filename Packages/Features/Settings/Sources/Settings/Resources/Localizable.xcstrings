@@ -1551,16 +1551,6 @@
         }
       }
     },
-    "Shows the number of overdue and due-today tasks on Viku's Home Screen icon." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Muestra en el ícono de Viku la cantidad de tareas vencidas y las que vencen hoy."
-          }
-        }
-      }
-    },
     "Enable" : {
       "localizations" : {
         "es" : {
@@ -1587,6 +1577,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mostraremos en el ícono de Viku cuántas tareas tienes para hoy o vencidas. Para eso, iOS te pedirá permiso de notificaciones."
+          }
+        }
+      }
+    },
+    "General" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "General"
+          }
+        }
+      }
+    },
+    "Overdue and due-today tasks" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tareas vencidas y de hoy"
           }
         }
       }
