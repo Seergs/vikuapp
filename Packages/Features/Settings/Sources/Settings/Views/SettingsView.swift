@@ -172,10 +172,12 @@ struct SettingsView: View {
     private var badgeDeniedBanner: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm) {
             Text("Notifications are turned off for Viku in iOS Settings.", bundle: .module)
-                .foregroundStyle(VikuColor.Semantic.dangerText)
+                .font(VikuFont.footnote)
+                .foregroundStyle(VikuColor.textSecondary)
             Button(String(localized: "Open Settings", bundle: .module)) {
                 openSystemSettings()
             }
+            .font(VikuFont.footnote)
         }
     }
 
