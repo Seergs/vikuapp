@@ -621,42 +621,12 @@
         }
       }
     },
-    "Unknown project" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Proyecto desconocido"
-          }
-        }
-      }
-    },
-    "Several projects match" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Varios proyectos coinciden"
-          }
-        }
-      }
-    },
     "New label" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nueva etiqueta"
-          }
-        }
-      }
-    },
-    "Several labels match" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Varias etiquetas coinciden"
           }
         }
       }

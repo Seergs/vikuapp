@@ -11,9 +11,10 @@ import VikunjaCore
 /// (the system pins that bar to the top of the sheet, so it can't drift when
 /// the keyboard opens and nudges the sheet to its taller detent), switching
 /// between two fixed `presentationDetents` heights (see `compactHeight`/
-/// `expandedHeight`) so it only grows when the error banner needs the room.
-/// Content is anchored to the top rather than centered, so the extra space at
-/// the taller detent pools below the fields instead of above the title.
+/// `expandedHeight`) so it only grows when the error banner or a shortcut
+/// chip needs the room. Content is anchored to the top rather than
+/// centered, so the extra space at the taller detent pools below the fields
+/// instead of above the title.
 /// Presented as a plain `.sheet` by whichever screen owns the FAB.
 public struct QuickAddSheetView: View {
     @Bindable var viewModel: QuickAddTaskViewModel
@@ -25,11 +26,20 @@ public struct QuickAddSheetView: View {
     /// when a sheet offers more than one detent and the keyboard appears,
     /// iOS jumps it to the *largest* one — which left a big gap between the
     /// priority chips and the keyboard. One height, grown only when the
-    /// error banner needs the room, keeps the sheet exactly as tall as its
-    /// content.
+    /// error banner or the shortcut chip needs the room, keeps the sheet
+    /// exactly as tall as its content — never leaving dead space either
+    /// above the project field (a slot reserved even when empty) or below
+    /// the priority row (a slot baked in permanently). The added amount
+    /// matches `QuickAddShortcutChips.height` plus the one extra
+    /// `VikuSpacing.md` gap its insertion adds to the VStack, so the row's
+    /// own appearance and the sheet's resize move by the same amount and in
+    /// the same beat — see that type's doc comment for why this animates
+    /// cleanly despite being driven by two different systems (SwiftUI's
+    /// layout and the sheet's own UIKit-bridged resize).
     private var detentHeight: CGFloat {
         let base = viewModel.saveErrorMessage != nil ? Self.expandedHeight : Self.compactHeight
-        return viewModel.shortcutChips.isEmpty ? base : base + Self.shortcutChipsHeight
+        guard QuickAddShortcutChips.hasChip(in: viewModel.shortcutChips) else { return base }
+        return base + QuickAddShortcutChips.height + VikuSpacing.md
     }
 
     public init(viewModel: QuickAddTaskViewModel) {
@@ -71,6 +81,11 @@ public struct QuickAddSheetView: View {
             // A spring rather than `.easeInOut`: closer to the curve the
             // system itself uses to animate a sheet's own detent resize, so
             // our content's own transition doesn't visibly race against it.
+            // Deliberately not applied to `shortcutChips`: animating that
+            // row's insertion reflows `projectSection` underneath it at the
+            // same time the sheet's own detent resize is animating, and the
+            // two never looked like one smooth motion no matter how the
+            // spring was tuned, so this one row just pops instead.
             .animation(.spring(response: 0.35, dampingFraction: 0.86), value: viewModel.saveErrorMessage)
             .navigationTitle(Text("New Task", bundle: .module))
             #if os(iOS)
@@ -178,9 +193,8 @@ public struct QuickAddSheetView: View {
     /// `.fixedSize` just report that already-capped size back — a feedback
     /// loop that can never settle. `compactHeight` fits the title/project/
     /// priority rows above the keyboard with no slack; `expandedHeight` adds
-    /// room for the error banner.
+    /// room for the error banner. Neither includes the shortcut chip row:
+    /// `detentHeight` adds that on top only while one is showing.
     private static let compactHeight: CGFloat = 300
     private static let expandedHeight: CGFloat = 366
-    /// Room for the shortcut chip row, added only while a shortcut needs a chip.
-    private static let shortcutChipsHeight: CGFloat = 36
 }
