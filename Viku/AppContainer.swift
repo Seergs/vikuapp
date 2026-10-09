@@ -409,6 +409,7 @@ final class AppContainer {
             taskChangeBroadcaster: taskChangeCenter,
             syntaxStore: quickAddSyntaxStore,
             labelRepository: clientFactory.makeLabelRepository(baseURL: account.baseURL, tokenProvider: tokenProvider),
+            defaultProjectCache: AccountDefaultProjectCache(store: defaultProjectStore, accountID: account.id),
         )
     }
 

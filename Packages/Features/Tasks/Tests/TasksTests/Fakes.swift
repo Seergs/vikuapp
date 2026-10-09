@@ -376,3 +376,18 @@ final class FakeHapticPresenter: HapticFeedbackPresenting, @unchecked Sendable {
         played.append(style)
     }
 }
+
+@MainActor
+final class FakeDefaultProjectCache: DefaultProjectCaching {
+    var stored: CachedDefaultProject?
+    private(set) var writes: [CachedDefaultProject?] = []
+
+    func cachedDefaultProject() -> CachedDefaultProject? {
+        stored
+    }
+
+    func setCachedDefaultProject(_ project: CachedDefaultProject?) {
+        stored = project
+        writes.append(project)
+    }
+}
