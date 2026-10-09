@@ -279,12 +279,17 @@ public final class QuickAddTaskViewModel {
                 ),
             )
             let failedAttachments = await attachLabels(shortcut.labelIDs + newLabelIDs, to: created.id)
+            // Only available when the project list has already loaded (see
+            // `canSave`'s doc comment) - the toast just isn't tappable in
+            // that edge case rather than guessing at a `Project` value.
+            let action = projects.first { $0.id == projectID }.map { ToastAction.taskDetail(created, $0) }
             if failedAttachments == 0 {
-                toastPresenter.show(String(localized: "Task created", bundle: .module), style: .success)
+                toastPresenter.show(String(localized: "Task created", bundle: .module), style: .success, action: action)
             } else {
                 toastPresenter.show(
                     String(localized: "Task created, but some labels couldn't be added", bundle: .module),
                     style: .error,
+                    action: action,
                 )
             }
             taskChangeBroadcaster?.taskCreated(projectID: projectID)

@@ -9,6 +9,9 @@ public struct Toast: Identifiable, Equatable {
     public let id = UUID()
     public let message: String
     public let style: ToastStyle
+    /// What tapping this toast does, if anything. `nil` for a plain,
+    /// dismiss-only toast.
+    public let action: ToastAction?
 
     var duration: TimeInterval {
         style == .error ? 4 : 2.5

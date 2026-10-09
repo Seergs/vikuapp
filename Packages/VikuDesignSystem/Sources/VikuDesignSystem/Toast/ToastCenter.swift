@@ -12,6 +12,12 @@ import VikunjaCore
 @MainActor
 public final class ToastCenter: ToastPresenting {
     public private(set) var current: Toast?
+    /// The action of a toast the user just tapped, published here for the
+    /// app's navigation layer to observe and act on, then clear via
+    /// `acknowledgeTappedAction()`. `ToastCenter` has no navigation
+    /// knowledge of its own (see `ToastAction`'s doc comment), so it only
+    /// hands this off rather than acting on it.
+    public private(set) var tappedAction: ToastAction?
 
     private var queue: [Toast] = []
     private var dismissTask: Task<Void, Never>?
@@ -19,7 +25,11 @@ public final class ToastCenter: ToastPresenting {
     public init() {}
 
     public func show(_ message: String, style: ToastStyle) {
-        queue.append(Toast(message: message, style: style))
+        show(message, style: style, action: nil)
+    }
+
+    public func show(_ message: String, style: ToastStyle, action: ToastAction?) {
+        queue.append(Toast(message: message, style: style, action: action))
         advanceIfNeeded()
     }
 
@@ -30,6 +40,18 @@ public final class ToastCenter: ToastPresenting {
         dismissTask = nil
         current = nil
         advanceIfNeeded()
+    }
+
+    /// Called when the user taps the current toast (`ToastHostModifier`).
+    /// One with no `action` just dismisses, like before; one with an action
+    /// publishes it to `tappedAction` on the way out.
+    public func handleTap() {
+        tappedAction = current?.action
+        dismissCurrent()
+    }
+
+    public func acknowledgeTappedAction() {
+        tappedAction = nil
     }
 
     private func advanceIfNeeded() {

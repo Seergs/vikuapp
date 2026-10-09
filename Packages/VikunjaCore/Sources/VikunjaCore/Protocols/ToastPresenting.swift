@@ -6,12 +6,22 @@
 @MainActor
 public protocol ToastPresenting {
     func show(_ message: String, style: ToastStyle)
+    /// Same as `show(_:style:)`, but the toast becomes tappable: tapping it
+    /// (instead of just dismissing it) triggers `action`. The default
+    /// implementation ignores `action` and forwards to `show(_:style:)`, so
+    /// existing conformers need no changes; `ToastCenter` is the only type
+    /// that overrides this to make the tap do something.
+    func show(_ message: String, style: ToastStyle, action: ToastAction?)
 }
 
 public extension ToastPresenting {
     /// Convenience for the common case: a neutral, informational toast.
     func show(_ message: String) {
         show(message, style: .info)
+    }
+
+    func show(_ message: String, style: ToastStyle, action: ToastAction?) {
+        show(message, style: style)
     }
 }
 
