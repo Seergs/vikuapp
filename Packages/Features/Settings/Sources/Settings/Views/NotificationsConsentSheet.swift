@@ -151,6 +151,7 @@ struct NotificationsConsentSheet: View {
                 .font(VikuFont.footnote)
                 .foregroundStyle(.primary)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
             .padding(.vertical, VikuSpacing.sm + VikuSpacing.xs)
             .background(VikuColor.Surface.field, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
