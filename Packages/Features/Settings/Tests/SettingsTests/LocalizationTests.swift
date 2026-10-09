@@ -57,6 +57,8 @@ struct LocalizationTests {
         ("Manage Labels", "Administrar etiquetas"),
         ("View, edit, and create labels", "Ver, editar y crear etiquetas"),
         ("Version, links, and privacy", "Versión, enlaces y privacidad"),
+        ("General", "General"),
+        ("Overdue and due-today tasks", "Tareas vencidas y de hoy"),
         ("Show DEV Badge", "Mostrar insignia DEV"),
         ("Log Network Requests", "Registrar solicitudes de red"),
         ("Preview Onboarding", "Previsualizar onboarding"),
@@ -214,10 +216,6 @@ struct LocalizationTests {
         ("Events That Notify You", "Eventos que te notifican"),
         ("%lld third-party webhooks", "%lld webhooks de terceros"),
         ("App Icon Badge", "Insignia del ícono"),
-        (
-            "Shows the number of overdue and due-today tasks on Viku's Home Screen icon.",
-            "Muestra en el ícono de Viku la cantidad de tareas vencidas y las que vencen hoy.",
-        ),
         ("Your Tasks, Without Opening the App", "Tus pendientes, sin abrir la app"),
         (
             "We'll show how many tasks you have due today or overdue right on Viku's icon. For that, iOS will ask for notification permission.",
