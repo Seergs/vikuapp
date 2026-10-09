@@ -43,6 +43,35 @@ public final class TaskDetailViewModel {
         loadState == .loading
     }
 
+    /// Why a reminder on this task might not actually fire a push
+    /// notification on this device — `nil` when delivery looks fine, or
+    /// there are no reminders to warn about. Read from
+    /// `NotificationSettingsStore`, the same locally-persisted settings that
+    /// drive the toggles in `Features/Settings` (kept in sync with the
+    /// server by `WebhookSyncing`) — not a live webhook fetch, so this is a
+    /// cheap, synchronous check rather than another network round trip the
+    /// screen would need to wait on.
+    ///
+    /// `DEBUG`-only for now: push notifications aren't a launched feature
+    /// yet (the relay is still staging-only, see
+    /// `RelayPushRegistrationService.defaultBaseURL`'s own `#if DEBUG`
+    /// split) — a reminder itself still fires correctly either way (Vikunja
+    /// surfaces it in its own UI regardless of this device's push state),
+    /// so showing this warning to every user would read as a real bug
+    /// rather than the dev-only caveat it actually is.
+    public var reminderDeliveryWarning: ReminderDeliveryWarning? {
+        #if DEBUG
+        guard !task.reminders.isEmpty, let notificationSettingsStore, let accountID else { return nil }
+        let settings = notificationSettingsStore.settings(for: accountID)
+        guard settings.isEnabled else { return .pushDisabled }
+        let subscribed = settings.events(for: task.projectID).contains(.taskReminderFired)
+            || settings.userLevelEvents.contains(.taskReminderFired)
+        return subscribed ? nil : .eventNotSubscribed
+        #else
+        return nil
+        #endif
+    }
+
     private let repository: TaskRepositoryProtocol
     private let labelRepository: LabelRepositoryProtocol
     private let relationRepository: TaskRelationRepositoryProtocol
@@ -55,6 +84,11 @@ public final class TaskDetailViewModel {
     /// screen defaults to the task's project. Optional so tests and any
     /// caller that doesn't care can skip it.
     private let quickAddContext: QuickAddContextTracking?
+    /// Backs `reminderDeliveryWarning`. Optional, alongside `accountID`, so
+    /// tests and any caller that doesn't care about the warning can skip
+    /// both — in which case it always reads `nil`.
+    private let notificationSettingsStore: NotificationSettingsStore?
+    private let accountID: InstanceAccount.ID?
     private var cachedRelatedTaskIDs: Set<Int> = []
 
     /// Bumped at the start of every operation that will eventually write
@@ -87,6 +121,8 @@ public final class TaskDetailViewModel {
         toastPresenter: ToastPresenting,
         hapticPresenter: HapticFeedbackPresenting = NoopHapticFeedback(),
         quickAddContext: QuickAddContextTracking? = nil,
+        notificationSettingsStore: NotificationSettingsStore? = nil,
+        accountID: InstanceAccount.ID? = nil,
     ) {
         self.task = task
         self.project = project
@@ -99,6 +135,8 @@ public final class TaskDetailViewModel {
         self.toastPresenter = toastPresenter
         self.hapticPresenter = hapticPresenter
         self.quickAddContext = quickAddContext
+        self.notificationSettingsStore = notificationSettingsStore
+        self.accountID = accountID
         updateRelatedTaskIDsCache()
     }
 
@@ -175,6 +213,33 @@ public final class TaskDetailViewModel {
     public func setDescription(_ description: String?) async {
         let previous = task
         task.description = description
+        await persist(previous: previous)
+    }
+
+    /// Appends a new reminder and persists it, rolling back on failure the
+    /// same way `toggleDone()` does.
+    public func addReminder(_ reminder: TaskReminder) async {
+        let previous = task
+        task.reminders.append(reminder)
+        await persist(previous: previous)
+    }
+
+    /// Replaces the reminder at `index` and persists it, rolling back on
+    /// failure the same way `toggleDone()` does. A no-op if `index` is stale
+    /// (the reminder list changed underneath the caller).
+    public func updateReminder(at index: Int, to reminder: TaskReminder) async {
+        guard task.reminders.indices.contains(index) else { return }
+        let previous = task
+        task.reminders[index] = reminder
+        await persist(previous: previous)
+    }
+
+    /// Removes the reminder at `index` and persists it, rolling back on
+    /// failure the same way `toggleDone()` does. A no-op if `index` is stale.
+    public func removeReminder(at index: Int) async {
+        guard task.reminders.indices.contains(index) else { return }
+        let previous = task
+        task.reminders.remove(at: index)
         await persist(previous: previous)
     }
 
@@ -671,4 +736,16 @@ public final class TaskDetailViewModel {
             task = previous
         }
     }
+}
+
+/// The reason `TaskDetailViewModel.reminderDeliveryWarning` surfaces a
+/// warning in the Reminders section — the view maps each case to its own
+/// message; see `RemindersSection`.
+public enum ReminderDeliveryWarning: Equatable, Sendable {
+    /// The app-level push master switch (`NotificationSettings.isEnabled`)
+    /// is off — nothing fires regardless of per-project/user subscriptions.
+    case pushDisabled
+    /// Push is on, but neither this task's project nor the user-level
+    /// webhook subscribes to `WebhookEvent.taskReminderFired`.
+    case eventNotSubscribed
 }

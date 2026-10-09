@@ -1,109 +1,109 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "Add" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Agregar"
+  "sourceLanguage": "en",
+  "strings": {
+    "Add": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agregar"
           }
         }
       }
     },
-    "Add Relation" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Agregar relación"
+    "Add Relation": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agregar relación"
           }
         }
       }
     },
-    "Add description..." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Agregar descripción..."
+    "Add description...": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agregar descripción..."
           }
         }
       }
     },
-    "Add labels…" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Agregar etiquetas…"
+    "Add labels…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agregar etiquetas…"
           }
         }
       }
     },
-    "Attachment added" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Adjunto agregado"
+    "Attachment added": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adjunto agregado"
           }
         }
       }
     },
-    "Attachment deleted" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Adjunto eliminado"
+    "Attachment deleted": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adjunto eliminado"
           }
         }
       }
     },
-    "Attachments" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Adjuntos"
+    "Attachments": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adjuntos"
           }
         }
       }
     },
-    "Blocked · waiting on %lld tasks" : {
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Blocked · waiting on %lld task"
+    "Blocked · waiting on %lld tasks": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Blocked · waiting on %lld task"
                 }
               },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Blocked · waiting on %lld tasks"
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Blocked · waiting on %lld tasks"
                 }
               }
             }
           }
         },
-        "es" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Bloqueada · a la espera de %lld tarea"
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bloqueada · a la espera de %lld tarea"
                 }
               },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Bloqueada · a la espera de %lld tareas"
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bloqueada · a la espera de %lld tareas"
                 }
               }
             }
@@ -111,546 +111,586 @@
         }
       }
     },
-    "Cancel" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cancelar"
+    "Cancel": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelar"
           }
         }
       }
     },
-    "Choose Project" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Elegir proyecto"
+    "Choose Project": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elegir proyecto"
           }
         }
       }
     },
-    "Comment" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Comentario"
+    "Comment": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comentario"
           }
         }
       }
     },
-    "Comments" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Comentarios"
+    "Comments": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comentarios"
           }
         }
       }
     },
-    "Couldn't delete attachment" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se pudo eliminar el adjunto"
+    "Couldn't delete attachment": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo eliminar el adjunto"
           }
         }
       }
     },
-    "Couldn't delete comment" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se pudo eliminar el comentario"
+    "Couldn't delete comment": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo eliminar el comentario"
           }
         }
       }
     },
-    "Couldn't load this task" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se pudo cargar esta tarea"
+    "Couldn't load this task": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo cargar esta tarea"
           }
         }
       }
     },
-    "Couldn't post comment" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se pudo publicar el comentario"
+    "Couldn't post comment": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo publicar el comentario"
           }
         }
       }
     },
-    "Couldn't read that file" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se pudo leer ese archivo"
+    "Couldn't read that file": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo leer ese archivo"
           }
         }
       }
     },
-    "Couldn't update comment" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se pudo actualizar el comentario"
+    "Couldn't update comment": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo actualizar el comentario"
           }
         }
       }
     },
-    "Delete Attachment" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Eliminar adjunto"
+    "Delete Attachment": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar adjunto"
           }
         }
       }
     },
-    "Delete Comment" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Eliminar comentario"
+    "Delete Comment": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar comentario"
           }
         }
       }
     },
-    "Delete Task" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Eliminar tarea"
+    "Delete Task": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar tarea"
           }
         }
       }
     },
-    "Due" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vence"
+    "Due": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vence"
           }
         }
       }
     },
-    "Due Date" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fecha de vencimiento"
+    "Due Date": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fecha de vencimiento"
           }
         }
       }
     },
-    "Duplicate Task" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Duplicar tarea"
+    "Duplicate Task": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duplicar tarea"
           }
         }
       }
     },
-    "Edit" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Editar"
+    "Edit": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editar"
           }
         }
       }
     },
-    "Edit Comment" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Editar comentario"
+    "Edit Comment": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editar comentario"
           }
         }
       }
     },
-    "High" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alta"
+    "High": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alta"
           }
         }
       }
     },
-    "Labels" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Etiquetas"
+    "Labels": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Etiquetas"
           }
         }
       }
     },
-    "Low" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Baja"
+    "Labels aren't available right now. Try again once they load.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las etiquetas no están disponibles ahora. Intenta de nuevo cuando carguen."
           }
         }
       }
     },
-    "Mark as Done" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Marcar como hecha"
+    "Low": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Baja"
           }
         }
       }
     },
-    "Mark as Not Done" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Marcar como no hecha"
+    "Mark as Done": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marcar como hecha"
           }
         }
       }
     },
-    "Medium" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Media"
+    "Mark as Not Done": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marcar como no hecha"
           }
         }
       }
     },
-    "Move to Project" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mover a proyecto"
+    "Medium": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Media"
           }
         }
       }
     },
-    "New Task" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nueva tarea"
+    "Move to Project": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mover a proyecto"
           }
         }
       }
     },
-    "No attachments yet." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aún no hay adjuntos."
+    "New Task": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nueva tarea"
           }
         }
       }
     },
-    "No comments yet." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aún no hay comentarios."
+    "New label": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nueva etiqueta"
           }
         }
       }
     },
-    "No relations with other tasks." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sin relaciones con otras tareas."
+    "No attachments yet.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no hay adjuntos."
           }
         }
       }
     },
-    "None" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ninguna"
+    "No comments yet.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no hay comentarios."
           }
         }
       }
     },
-    "Priority" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Prioridad"
+    "No relations with other tasks.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin relaciones con otras tareas."
           }
         }
       }
     },
-    "Project" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Proyecto"
+    "No reminders set.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay recordatorios."
           }
         }
       }
     },
-    "Relation added" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Relación agregada"
+    "None": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ninguna"
           }
         }
       }
     },
-    "Relations" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Relaciones"
+    "Priority": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prioridad"
           }
         }
       }
     },
-    "Save" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Guardar"
+    "Project": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proyecto"
           }
         }
       }
     },
-    "Set due date" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Definir fecha de vencimiento"
+    "Relation added": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Relación agregada"
           }
         }
       }
     },
-    "Set priority" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Definir prioridad"
+    "Relations": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Relaciones"
           }
         }
       }
     },
-    "Show %lld more" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostrar %lld más"
+    "Reminders": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recordatorios"
           }
         }
       }
     },
-    "Show less" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostrar menos"
+    "Save": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar"
           }
         }
       }
     },
-    "Subtasks" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Subtareas"
+    "Set due date": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Definir fecha de vencimiento"
           }
         }
       }
     },
-    "Task Details" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Detalles de la tarea"
+    "Set priority": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Definir prioridad"
           }
         }
       }
     },
-    "Task created" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tarea creada"
+    "Show %lld more": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar %lld más"
           }
         }
       }
     },
-    "Task deleted" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tarea eliminada"
+    "Show less": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar menos"
           }
         }
       }
     },
-    "Task moved to %@" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tarea movida a %@"
+    "Subtasks": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subtareas"
           }
         }
       }
     },
-    "Task title" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Título de la tarea"
+    "Task Details": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Detalles de la tarea"
           }
         }
       }
     },
-    "This permanently deletes the attachment." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Esto elimina el adjunto de forma permanente."
+    "Task created": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tarea creada"
           }
         }
       }
     },
-    "This permanently deletes the comment." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Esto elimina el comentario de forma permanente."
+    "Task created, but some labels couldn't be added": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tarea creada, pero algunas etiquetas no se pudieron agregar"
           }
         }
       }
     },
-    "This permanently deletes the task." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Esto elimina la tarea de forma permanente."
+    "Task deleted": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tarea eliminada"
           }
         }
       }
     },
-    "Uploading…" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Subiendo…"
+    "Task moved to %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tarea movida a %@"
           }
         }
       }
     },
-    "Urgent" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Urgente"
+    "Task title": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Título de la tarea"
           }
         }
       }
     },
-    "Write a comment..." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Escribe un comentario..."
+    "This permanently deletes the attachment.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esto elimina el adjunto de forma permanente."
           }
         }
       }
     },
-    "New label" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nueva etiqueta"
+    "This permanently deletes the comment.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esto elimina el comentario de forma permanente."
           }
         }
       }
     },
-    "Labels aren't available right now. Try again once they load." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Las etiquetas no están disponibles ahora. Intenta de nuevo cuando carguen."
+    "This permanently deletes the task.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esto elimina la tarea de forma permanente."
           }
         }
       }
     },
-    "Task created, but some labels couldn't be added" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tarea creada, pero algunas etiquetas no se pudieron agregar"
+    "Uploading…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subiendo…"
+          }
+        }
+      }
+    },
+    "Urgent": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Urgente"
+          }
+        }
+      }
+    },
+    "Won't ring on this iPhone: push notifications are off. Turn them on in Settings.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No sonarán en este iPhone: las notificaciones push están desactivadas. Puedes activarlas en Configuración."
+          }
+        }
+      }
+    },
+    "Won't ring on this iPhone: reminders are off for this project. Turn them on in Settings.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No sonarán en este iPhone: los recordatorios están desactivados para este proyecto. Puedes activarlos en Configuración."
+          }
+        }
+      }
+    },
+    "Write a comment...": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escribe un comentario..."
           }
         }
       }
     }
   },
-  "version" : "1.0"
+  "version": "1.0"
 }
