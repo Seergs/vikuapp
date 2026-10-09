@@ -6,37 +6,30 @@ public struct NotificationSettings: Equatable, Sendable, Codable {
     /// Master switch. `false` means no webhooks should exist for this
     /// device at all, regardless of the other fields below.
     public var isEnabled: Bool
-    /// Whether the user-level webhook (`task.overdue` + `task.reminder.fired`
-    /// — see `WebhookEvent.userDirected`) should exist. Unlike project-level
-    /// events, this isn't itself configurable per event: the two user-
-    /// directed events are both-or-nothing.
-    public var userLevelEnabled: Bool
-    /// Which projects should have a webhook. A project's absence here means
-    /// "no webhook for this project", not "default events" — there's no
-    /// partial/disabled state in between.
-    public var enabledProjectIDs: Set<Int>
-    /// The event set every enabled project's webhook subscribes to. Shared
-    /// across all enabled projects rather than configured per project.
-    public var enabledProjectEvents: Set<WebhookEvent>
+    /// Which of the two user-directed events (`WebhookEvent.userDirected`)
+    /// the user-level webhook should subscribe to. Empty means no
+    /// user-level webhook at all.
+    public var userLevelEvents: Set<WebhookEvent>
+    /// Each project's event selection, keyed by project id. A project
+    /// that's absent, or present with an empty set, means no webhook for
+    /// that project — there's no separate "enabled but nothing selected"
+    /// on/off state, selecting at least one event is what turns it on. Use
+    /// `events(for:)` rather than reading this directly.
+    public var projectEvents: [Int: Set<WebhookEvent>]
 
     public init(
         isEnabled: Bool = false,
-        userLevelEnabled: Bool = false,
-        enabledProjectIDs: Set<Int> = [],
-        enabledProjectEvents: Set<WebhookEvent> = NotificationSettings.defaultProjectEvents,
+        userLevelEvents: Set<WebhookEvent> = [],
+        projectEvents: [Int: Set<WebhookEvent>] = [:],
     ) {
         self.isEnabled = isEnabled
-        self.userLevelEnabled = userLevelEnabled
-        self.enabledProjectIDs = enabledProjectIDs
-        self.enabledProjectEvents = enabledProjectEvents
+        self.userLevelEvents = userLevelEvents
+        self.projectEvents = projectEvents
     }
 
-    /// The default project-level events: task created, updated, assigned,
-    /// commented.
-    public static let defaultProjectEvents: Set<WebhookEvent> = [
-        .taskCreated,
-        .taskUpdated,
-        .taskAssigneeCreated,
-        .taskCommentCreated,
-    ]
+    /// `projectEvents[projectID]`, or empty if nothing's been selected for
+    /// that project yet.
+    public func events(for projectID: Int) -> Set<WebhookEvent> {
+        projectEvents[projectID] ?? []
+    }
 }

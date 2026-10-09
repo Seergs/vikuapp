@@ -8,9 +8,12 @@ import UIKit
 #endif
 
 /// The push-notification opt-in screen: a master toggle gated behind
-/// `NotificationsConsentSheet`, and — once enabled — a user-level toggle
-/// plus one toggle per project. See `NotificationsViewModel` for the sync
-/// that keeps Vikunja's webhooks matching whatever's shown here.
+/// `NotificationsConsentSheet`, and — once enabled — individual checkboxes
+/// for the two user-directed events, plus one expandable row per project
+/// holding that project's own individual event checkboxes (there's no
+/// separate per-project on/off switch: selecting an event is what turns it
+/// on). See `NotificationsViewModel` for the sync that keeps Vikunja's
+/// webhooks matching whatever's shown here.
 struct NotificationsView: View {
     @State private var viewModel: NotificationsViewModel
     @State private var isShowingConsent = false
@@ -135,8 +138,10 @@ struct NotificationsView: View {
 
     private var userLevelSection: some View {
         Section {
-            Toggle(String(localized: "Reminders & Overdue Tasks", bundle: .module), isOn: userLevelBinding)
-                .disabled(viewModel.pendingChange == .userLevel)
+            ForEach(WebhookEvent.userDirectedOrdered, id: \.self) { event in
+                Toggle(eventLabel(event), isOn: userLevelEventBinding(event))
+                    .disabled(viewModel.pendingChange == .userLevel)
+            }
         } header: {
             Text("User Notifications", bundle: .module)
         }
@@ -149,13 +154,22 @@ struct NotificationsView: View {
         } else {
             Section {
                 ForEach(viewModel.projects) { project in
-                    Toggle(project.title, isOn: projectBinding(project))
-                        .disabled(viewModel.pendingChange == .project(project.id))
+                    projectRow(project)
                 }
             } header: {
                 Text("Project Notifications", bundle: .module)
             } footer: {
-                Text("Task created, updated, assigned, or commented on.", bundle: .module)
+                Text("Choose which events notify you for each project.", bundle: .module)
+            }
+        }
+    }
+
+    private func projectRow(_ project: Project) -> some View {
+        let isProjectDisabled = viewModel.pendingChange == .project(project.id)
+        return DisclosureGroup(project.title) {
+            ForEach(WebhookEvent.projectOrdered, id: \.self) { event in
+                Toggle(eventLabel(event), isOn: projectEventBinding(project, event))
+                    .disabled(isProjectDisabled)
             }
         }
     }
@@ -173,18 +187,43 @@ struct NotificationsView: View {
         )
     }
 
-    private var userLevelBinding: Binding<Bool> {
+    private func userLevelEventBinding(_ event: WebhookEvent) -> Binding<Bool> {
         Binding(
-            get: { viewModel.settings.userLevelEnabled },
-            set: { newValue in Task { await viewModel.setUserLevelEnabled(newValue) } },
+            get: { viewModel.settings.userLevelEvents.contains(event) },
+            set: { newValue in Task { await viewModel.setUserLevelEvent(event, isEnabled: newValue) } },
         )
     }
 
-    private func projectBinding(_ project: Project) -> Binding<Bool> {
+    private func projectEventBinding(_ project: Project, _ event: WebhookEvent) -> Binding<Bool> {
         Binding(
-            get: { viewModel.settings.enabledProjectIDs.contains(project.id) },
-            set: { newValue in Task { await viewModel.setProject(project, isEnabled: newValue) } },
+            get: { viewModel.settings.events(for: project.id).contains(event) },
+            set: { newValue in Task { await viewModel.setProjectEvent(event, isEnabled: newValue, for: project) } },
         )
+    }
+
+    /// Display name for an individual webhook event, used by both the
+    /// user-level and per-project checkbox lists.
+    private func eventLabel(_ event: WebhookEvent) -> String {
+        switch event {
+        case .taskCreated: String(localized: "Task Created", bundle: .module)
+        case .taskUpdated: String(localized: "Task Updated", bundle: .module)
+        case .taskDeleted: String(localized: "Task Deleted", bundle: .module)
+        case .taskAssigneeCreated: String(localized: "Task Assigned", bundle: .module)
+        case .taskAssigneeDeleted: String(localized: "Task Unassigned", bundle: .module)
+        case .taskCommentCreated: String(localized: "Comment Added", bundle: .module)
+        case .taskCommentEdited: String(localized: "Comment Edited", bundle: .module)
+        case .taskCommentDeleted: String(localized: "Comment Deleted", bundle: .module)
+        case .taskAttachmentCreated: String(localized: "Attachment Added", bundle: .module)
+        case .taskAttachmentDeleted: String(localized: "Attachment Removed", bundle: .module)
+        case .taskRelationCreated: String(localized: "Task Relation Added", bundle: .module)
+        case .taskRelationDeleted: String(localized: "Task Relation Removed", bundle: .module)
+        case .projectUpdated: String(localized: "Project Updated", bundle: .module)
+        case .projectDeleted: String(localized: "Project Deleted", bundle: .module)
+        case .projectSharedUser: String(localized: "Project Shared with a User", bundle: .module)
+        case .projectSharedTeam: String(localized: "Project Shared with a Team", bundle: .module)
+        case .taskOverdue: String(localized: "Overdue Tasks", bundle: .module)
+        case .taskReminderFired: String(localized: "Reminders", bundle: .module)
+        }
     }
 
     private func openSystemSettings() {
