@@ -1,12 +1,16 @@
 import UIKit
 import UserNotifications
+import VikunjaCore
 
 /// Bridges UIKit's callback-based APNs registration flow into `async`.
 /// `AppDelegate.application(_:didRegisterForRemoteNotificationsWithDeviceToken:)`/
 /// `application(_:didFailToRegisterForRemoteNotificationsWithError:)` forward
 /// to the shared instance, which resumes whichever continuation
-/// `requestDeviceToken()` is awaiting.
-final class APNsPermissionCenter {
+/// `requestDeviceToken()` is awaiting. Also the `AppIconBadgePermissionRequesting`
+/// the app icon badge toggle uses — iOS exposes one combined `.alert`/
+/// `.sound`/`.badge` authorization, so the badge and push notifications
+/// share this same OS permission.
+final class APNsPermissionCenter: AppIconBadgePermissionRequesting {
     static let shared = APNsPermissionCenter()
 
     enum DeviceTokenError: LocalizedError, Equatable {
@@ -47,6 +51,13 @@ final class APNsPermissionCenter {
         } catch {
             return false
         }
+    }
+
+    /// Checked without prompting, so a screen can show the "denied" banner
+    /// as soon as it appears — e.g. the user revoked the permission from the
+    /// system Settings app since the last launch.
+    func isAuthorizationDenied() async -> Bool {
+        await UNUserNotificationCenter.current().notificationSettings().authorizationStatus == .denied
     }
 
     /// Calls `UIApplication.shared.registerForRemoteNotifications()` and

@@ -103,6 +103,16 @@ final class AppContainer {
     /// toggle, enabled projects/events) — see `NotificationSettingsCenter`.
     /// Pass this as `NotificationSettingsStore` to `makeNotificationsViewModel`.
     let notificationSettingsStore: NotificationSettingsStore = NotificationSettingsCenter()
+    /// The user's app-icon-badge preference, and the only thing that calls
+    /// `setBadgeCount` — see `AppIconBadgeCenter`. Kept as the concrete type
+    /// (not just `AppIconBadgeStoring`) since `refreshWidgetSnapshots()`
+    /// below calls its `updateBadge(from:)`, which isn't part of that
+    /// protocol.
+    let appIconBadgeCenter = AppIconBadgeCenter()
+    /// Requests the OS authorization the app icon badge needs — shared with
+    /// push notifications, since iOS exposes one combined permission. Pass
+    /// this as `AppIconBadgePermissionRequesting` to `makeAppIconBadgeViewModel`.
+    let appIconBadgePermissionRequester: AppIconBadgePermissionRequesting = APNsPermissionCenter.shared
 
     init(
         accountStore: AccountStoreProtocol = KeychainAccountStore(
@@ -151,9 +161,12 @@ final class AppContainer {
             cache: CalendarSnapshotCache(appGroupIdentifier: VikuWidgetConfig.appGroupIdentifier),
             tokenResolver: resolver,
         )
-        _ = await todayLoader.loadState()
+        let todayState = await todayLoader.loadState()
         _ = await calendarLoader.loadState()
         WidgetCenter.shared.reloadAllTimelines()
+        // Reuses the fetch above instead of hitting the network again just
+        // for the badge.
+        await appIconBadgeCenter.updateBadge(from: todayState)
     }
 
     /// Refreshes the cached Vikunja default project for `account` from
@@ -440,6 +453,10 @@ final class AppContainer {
             notificationSettingsStore: notificationSettingsStore,
             toastPresenter: toastCenter,
         )
+    }
+
+    func makeAppIconBadgeViewModel() -> AppIconBadgeViewModel {
+        AppIconBadgeViewModel(store: appIconBadgeCenter, permissionRequester: appIconBadgePermissionRequester)
     }
 
     func makeConnectionsListViewModel(onActiveAccountChanged: @escaping () -> Void) -> ConnectionsListViewModel {
