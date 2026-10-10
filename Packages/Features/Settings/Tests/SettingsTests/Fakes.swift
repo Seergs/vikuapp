@@ -352,6 +352,10 @@ final class FakeDefaultProjectCaching: DefaultProjectCaching, @unchecked Sendabl
     private(set) var cached: CachedDefaultProject?
     private(set) var setCallCount = 0
 
+    init(cached: CachedDefaultProject? = nil) {
+        self.cached = cached
+    }
+
     func cachedDefaultProject() -> CachedDefaultProject? {
         cached
     }
@@ -359,6 +363,24 @@ final class FakeDefaultProjectCaching: DefaultProjectCaching, @unchecked Sendabl
     func setCachedDefaultProject(_ project: CachedDefaultProject?) {
         setCallCount += 1
         cached = project
+    }
+}
+
+final class FakeAccountTimezoneCaching: AccountTimezoneCaching, @unchecked Sendable {
+    private(set) var cached: String?
+    private(set) var setCallCount = 0
+
+    init(cached: String? = nil) {
+        self.cached = cached
+    }
+
+    func cachedTimezone() -> String? {
+        cached
+    }
+
+    func setCachedTimezone(_ timezone: String?) {
+        setCallCount += 1
+        cached = timezone
     }
 }
 

@@ -8,12 +8,14 @@ struct DefaultProjectSettingsViewModelTests {
         userRepository: FakeUserRepository = FakeUserRepository(),
         projectRepository: FakeProjectRepository = FakeProjectRepository(),
         defaultProjectCache: FakeDefaultProjectCaching = FakeDefaultProjectCaching(),
+        timezoneCache: FakeAccountTimezoneCaching = FakeAccountTimezoneCaching(),
         toastPresenter: FakeToastPresenter = FakeToastPresenter(),
     ) -> DefaultProjectSettingsViewModel {
         DefaultProjectSettingsViewModel(
             userRepository: userRepository,
             projectRepository: projectRepository,
             defaultProjectCache: defaultProjectCache,
+            timezoneCache: timezoneCache,
             toastPresenter: toastPresenter,
         )
     }
@@ -77,6 +79,62 @@ struct DefaultProjectSettingsViewModelTests {
         await viewModel.load()
 
         #expect(viewModel.loadState == .failure(VikunjaError.notFound.displayMessage))
+    }
+
+    @Test
+    func `shows the cached default project title and time zone before load resolves`() {
+        let cachedProject = CachedDefaultProject(id: 6, title: "Inbox", hexColor: "ff0000")
+        let viewModel = makeViewModel(
+            defaultProjectCache: FakeDefaultProjectCaching(cached: cachedProject),
+            timezoneCache: FakeAccountTimezoneCaching(cached: "Europe/Madrid"),
+        )
+
+        #expect(viewModel.defaultProjectTitle == "Inbox")
+        #expect(viewModel.accountTimezone == "Europe/Madrid")
+    }
+
+    @Test
+    func `load overwrites the cached title and time zone once it resolves`() async {
+        let userRepository = FakeUserRepository(
+            user: User(id: 1, username: "alex", defaultProjectID: 7, timezone: "America/Mexico_City"),
+        )
+        let projectRepository = FakeProjectRepository(projects: [Project(id: 7, title: "Work", hexColor: "00ff00")])
+        let defaultProjectCache = FakeDefaultProjectCaching(
+            cached: CachedDefaultProject(id: 6, title: "Inbox", hexColor: "ff0000"),
+        )
+        let timezoneCache = FakeAccountTimezoneCaching(cached: "Europe/Madrid")
+        let viewModel = makeViewModel(
+            userRepository: userRepository,
+            projectRepository: projectRepository,
+            defaultProjectCache: defaultProjectCache,
+            timezoneCache: timezoneCache,
+        )
+
+        await viewModel.load()
+
+        #expect(viewModel.defaultProjectTitle == "Work")
+        #expect(viewModel.accountTimezone == "America/Mexico_City")
+        #expect(defaultProjectCache.cached == CachedDefaultProject(id: 7, title: "Work", hexColor: "00ff00"))
+        #expect(timezoneCache.cached == "America/Mexico_City")
+    }
+
+    @Test
+    func `a failed load keeps showing the cached title and time zone`() async {
+        let projectRepository = FakeProjectRepository()
+        projectRepository.fetchError = .notFound
+        let viewModel = makeViewModel(
+            projectRepository: projectRepository,
+            defaultProjectCache: FakeDefaultProjectCaching(
+                cached: CachedDefaultProject(id: 6, title: "Inbox", hexColor: "ff0000"),
+            ),
+            timezoneCache: FakeAccountTimezoneCaching(cached: "Europe/Madrid"),
+        )
+
+        await viewModel.load()
+
+        #expect(viewModel.loadState == .failure(VikunjaError.notFound.displayMessage))
+        #expect(viewModel.defaultProjectTitle == "Inbox")
+        #expect(viewModel.accountTimezone == "Europe/Madrid")
     }
 
     // MARK: selectDefaultProject
