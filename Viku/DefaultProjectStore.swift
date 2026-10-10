@@ -73,7 +73,17 @@ struct AccountDefaultProjectCache: DefaultProjectCaching {
         store.cachedProject(forAccountID: accountID)
     }
 
+    /// Every writer through this protocol (quick-add's own `load()`
+    /// re-affirming the existing default, and Settings' "Default Project"
+    /// picker confirming a changed one) is reporting the *real* account-wide
+    /// default, never a one-off per-task pick (`pickProject(_:)` never calls
+    /// this) — so it's safe to keep `projectID` in lockstep here too. Without
+    /// this, a change made in Settings would only update the display
+    /// snapshot, and the next quick-add open would still seed
+    /// `accountDefaultProjectID` from the stale `projectID`, since that's
+    /// only otherwise refreshed once per launch/account-switch.
     func setCachedDefaultProject(_ project: CachedDefaultProject?) {
         store.setCachedProject(project, forAccountID: accountID)
+        store.setProjectID(project?.id, forAccountID: accountID)
     }
 }

@@ -459,6 +459,19 @@ final class AppContainer {
         AppIconBadgeViewModel(store: appIconBadgeCenter, permissionRequester: appIconBadgePermissionRequester)
     }
 
+    func makeDefaultProjectSettingsViewModel(account: InstanceAccount) -> DefaultProjectSettingsViewModel {
+        let tokenProvider = tokenProvider(for: account)
+        return DefaultProjectSettingsViewModel(
+            userRepository: clientFactory.makeUserRepository(baseURL: account.baseURL, tokenProvider: tokenProvider),
+            projectRepository: clientFactory.makeProjectRepository(
+                baseURL: account.baseURL,
+                tokenProvider: tokenProvider,
+            ),
+            defaultProjectCache: AccountDefaultProjectCache(store: defaultProjectStore, accountID: account.id),
+            toastPresenter: toastCenter,
+        )
+    }
+
     func makeConnectionsListViewModel(onActiveAccountChanged: @escaping () -> Void) -> ConnectionsListViewModel {
         ConnectionsListViewModel(
             accountStore: accountStore,

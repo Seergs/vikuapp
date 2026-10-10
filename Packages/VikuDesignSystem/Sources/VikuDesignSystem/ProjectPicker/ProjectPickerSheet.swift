@@ -119,12 +119,21 @@ public struct ProjectPickerSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
+                // A compact "xmark" glyph rather than a localized "Cancel"
+                // label: a long title (e.g. "Proyecto predeterminado") still
+                // isn't mathematically centered with only one leading bar
+                // item (no trailing item can balance that on iOS 26 — any
+                // content placed in a toolbar item slot, even an invisible
+                // one, gets its own Liquid Glass background drawn around
+                // it), but the narrower icon leaves the title more room and
+                // makes the asymmetry much less noticeable.
                 ToolbarItem(placement: .cancellationAction) {
                     Button {
                         dismiss()
                     } label: {
-                        Text("Cancel", bundle: .module)
+                        Image(systemName: "xmark")
                     }
+                    .accessibilityLabel(Text("Cancel", bundle: .module))
                 }
             }
         }

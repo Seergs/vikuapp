@@ -19,4 +19,9 @@ final class VikunjaUserRepositorySwitch: UserRepositoryProtocol {
         let repository = await capabilityProvider.supports(.apiV2) ? v2 : v1
         return try await repository.fetchCurrentUser()
     }
+
+    func updateDefaultProject(id: Int?) async throws -> User {
+        let repository = await capabilityProvider.supports(.apiV2) ? v2 : v1
+        return try await repository.updateDefaultProject(id: id)
+    }
 }

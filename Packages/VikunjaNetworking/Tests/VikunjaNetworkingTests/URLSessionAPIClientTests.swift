@@ -272,6 +272,71 @@ struct URLSessionAPIClientTests {
         #expect(sentJSON["cover_image_attachment_id"] as? Int == 42)
     }
 
+    // `VikunjaUserRepository.updateDefaultProject(id:)`'s read-modify-write
+    // behavior is tested here for the same reason as
+    // `VikunjaTaskRepository.update(_:)` above.
+    @Test
+    func `update default project fetches the current user merges only the project then refetches`() async throws {
+        let getResponse = #"""
+        {
+          "id": 3, "name": "QA User", "username": "qa-user",
+          "settings": {
+            "name": "QA User", "email_reminders_enabled": false, "discoverable_by_name": false,
+            "discoverable_by_email": false, "overdue_tasks_reminders_enabled": true,
+            "overdue_tasks_reminders_time": "9:00", "default_project_id": 6, "week_start": 0,
+            "language": "en", "timezone": "UTC", "frontend_settings": null
+          }
+        }
+        """#
+        // Simulates the real write endpoint's full-object-replace contract:
+        // the POST response shape isn't part of this app's verified
+        // contract, so the repository discards it and refetches instead.
+        let postResponse = #"{"message": "ok"}"#
+        let refetchResponse = #"""
+        {
+          "id": 3, "name": "QA User", "username": "qa-user",
+          "settings": {
+            "name": "QA User", "email_reminders_enabled": false, "discoverable_by_name": false,
+            "discoverable_by_email": false, "overdue_tasks_reminders_enabled": true,
+            "overdue_tasks_reminders_time": "9:00", "default_project_id": 9, "week_start": 0,
+            "language": "en", "timezone": "UTC", "frontend_settings": null
+          }
+        }
+        """#
+        let (session, capture) = MockURLProtocol.makeSession(responses: [
+            (200, getResponse),
+            (200, postResponse),
+            (200, refetchResponse),
+        ])
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaUserRepository(client: client)
+
+        let updated = try await repository.updateDefaultProject(id: 9)
+
+        #expect(updated.defaultProjectID == 9)
+
+        let requests = await capture.requests
+        #expect(requests.count == 3)
+        #expect(requests[0].httpMethod == "GET")
+        #expect(requests[0].url?.path == "/api/v1/user")
+        #expect(requests[1].httpMethod == "POST")
+        #expect(requests[1].url?.path == "/api/v1/user/settings/general")
+        #expect(requests[2].httpMethod == "GET")
+        #expect(requests[2].url?.path == "/api/v1/user")
+
+        // The write must carry every other settings field forward unchanged
+        // (full-object replace) with only `default_project_id` updated.
+        let sentBody = try #require(requests[1].httpBody)
+        let sentJSON = try #require(JSONSerialization.jsonObject(with: sentBody) as? [String: Any])
+        #expect(sentJSON["default_project_id"] as? Int == 9)
+        #expect(sentJSON["name"] as? String == "QA User")
+        #expect(sentJSON["email_reminders_enabled"] as? Bool == false)
+        #expect(sentJSON["overdue_tasks_reminders_enabled"] as? Bool == true)
+        #expect(sentJSON["overdue_tasks_reminders_time"] as? String == "9:00")
+        #expect(sentJSON["timezone"] as? String == "UTC")
+        #expect(sentJSON["language"] as? String == "en")
+    }
+
     // `VikunjaTaskRepositoryV2` and the v1/v2 parity for
     // `TaskRepositoryProtocol` are tested here for the same reason as
     // `VikunjaTaskRepository.update(_:)` above.

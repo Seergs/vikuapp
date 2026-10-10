@@ -18,4 +18,12 @@ public final class VikunjaUserRepositoryV2: UserRepositoryProtocol {
         let dto: UserDTO = try await client.send(VikunjaEndpoints.currentUserV2())
         return UserMapper.toDomain(dto)
     }
+
+    public func updateDefaultProject(id: Int?) async throws -> User {
+        let current: UserDTO = try await client.send(VikunjaEndpoints.currentUserV2())
+        let settings = (current.settings ?? UserSettingsDTO()).updatingDefaultProjectId(id ?? 0)
+        try await client.send(VikunjaEndpoints.updateUserSettingsV2(dto: settings))
+        let refreshed: UserDTO = try await client.send(VikunjaEndpoints.currentUserV2())
+        return UserMapper.toDomain(refreshed)
+    }
 }
