@@ -19,6 +19,36 @@ struct UserDTOTests {
         #expect(user.defaultProjectID == 6)
     }
 
+    @Test
+    func `maps the nested overdue tasks reminders time onto the domain user`() throws {
+        let user = try UserMapper.toDomain(loadUserDTO())
+
+        #expect(user.overdueTasksRemindersTime == "9:00")
+    }
+
+    @Test
+    func `maps the nested time zone onto the domain user`() throws {
+        let user = try UserMapper.toDomain(loadUserDTO())
+
+        #expect(user.timezone == "UTC")
+    }
+
+    /// Vikunja returns `""` (never null) when the user hasn't set a time
+    /// zone; the mapper must normalize that to `nil` the same way it does
+    /// for an unset default project.
+    @Test
+    func `normalizes an unset time zone to nil`() {
+        let dto = UserDTO(
+            id: 1,
+            username: "x",
+            name: nil,
+            email: nil,
+            settings: UserSettingsDTO(timezone: ""),
+        )
+
+        #expect(UserMapper.toDomain(dto).timezone == nil)
+    }
+
     /// Vikunja returns `0` (never null) when the user hasn't picked a default
     /// project; the mapper must normalize that to `nil` so quick-add doesn't
     /// try to preselect a project with id 0.

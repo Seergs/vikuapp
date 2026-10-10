@@ -38,8 +38,11 @@ public enum WebhookEvent: String, Sendable, CaseIterable, Hashable, Codable {
     /// (which calls `RegisterEventForWebhook` first). See `projectOrdered`.
     public static let userDirected: Set<WebhookEvent> = [.taskOverdue, .taskReminderFired]
 
-    /// `userDirected`, in a stable display order.
-    public static let userDirectedOrdered: [WebhookEvent] = [.taskOverdue, .taskReminderFired]
+    /// `userDirected`, in a stable display order. `taskOverdue` is listed
+    /// last on purpose — `NotificationsView` appends the overdue-reminders
+    /// time picker right after it, and that only reads as "this time is for
+    /// Overdue Tasks" when the two rows are adjacent.
+    public static let userDirectedOrdered: [WebhookEvent] = [.taskReminderFired, .taskOverdue]
 
     /// Every event a project-level webhook may subscribe to — every case,
     /// `userDirected` included (see its doc comment for why that's not

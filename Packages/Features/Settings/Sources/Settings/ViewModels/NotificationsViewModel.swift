@@ -37,6 +37,22 @@ public final class NotificationsViewModel {
 
     public private(set) var pendingChange: PendingChange?
 
+    /// The time of day (`HH:mm`, 24-hour) Vikunja checks this user's
+    /// overdue tasks at — the "Overdue Tasks" row's own settings control.
+    /// Drives both the server's daily overdue-tasks email and the
+    /// `task.overdue` webhook this app subscribes to via `userLevelEvents`.
+    /// Defaults to Vikunja's own default until `load()` fetches the real
+    /// value, so the picker never flashes an empty state.
+    public private(set) var overdueTasksRemindersTime = "09:00"
+    /// The user's account-wide IANA zone (`User.timezone`) — not something
+    /// specific to overdue reminders. It's what Vikunja uses to localize any
+    /// of the user's reminder times, overdue reminders included, so
+    /// `overdueTasksRemindersTime` must be read against this, not the
+    /// device's own zone. `nil` until `load()` reports a value Vikunja
+    /// actually has on file (the user never set one, or the fetch hasn't
+    /// completed yet).
+    public private(set) var accountTimezone: String?
+
     /// Whether *anything* is in flight — drives the delayed "Setting up
     /// notifications…" row, which isn't tied to any single toggle.
     public var isSyncing: Bool {
@@ -97,7 +113,13 @@ public final class NotificationsViewModel {
             loadState = .loading
         }
         do {
-            projects = try await projectRepository.fetchProjects()
+            async let fetchedProjects = projectRepository.fetchProjects()
+            async let currentUser = userRepository.fetchCurrentUser()
+            projects = try await fetchedProjects
+            let user = try await currentUser
+            currentUserID = user.id
+            overdueTasksRemindersTime = user.overdueTasksRemindersTime ?? overdueTasksRemindersTime
+            accountTimezone = user.timezone
             loadState = .loaded
         } catch let error as VikunjaError {
             loadState = .failure(error.displayMessage)
@@ -157,6 +179,26 @@ public final class NotificationsViewModel {
             updated.userLevelEvents.remove(event)
         }
         await apply(updated)
+    }
+
+    /// Commits a new overdue-reminders time to Vikunja. Optimistic, with
+    /// rollback on failure — matches `DefaultProjectSettingsViewModel`'s
+    /// toast-on-failure convention. Not folded into `apply(_:)`: this is a
+    /// plain user-settings write (`UserRepositoryProtocol`), not a webhook
+    /// sync, so there's no registration/`syncCoordinator` round trip to do.
+    public func setOverdueTasksRemindersTime(_ time: String) async {
+        let previous = overdueTasksRemindersTime
+        overdueTasksRemindersTime = time
+        do {
+            let updated = try await userRepository.updateOverdueTasksRemindersTime(time)
+            overdueTasksRemindersTime = updated.overdueTasksRemindersTime ?? time
+        } catch let error as VikunjaError {
+            overdueTasksRemindersTime = previous
+            toastPresenter.show(error.displayMessage, style: .error)
+        } catch {
+            overdueTasksRemindersTime = previous
+            toastPresenter.show(error.localizedDescription, style: .error)
+        }
     }
 
     public func setProjectEvent(_ event: WebhookEvent, isEnabled: Bool, for project: Project) async {

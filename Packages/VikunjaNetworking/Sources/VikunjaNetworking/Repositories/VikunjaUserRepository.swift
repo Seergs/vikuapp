@@ -22,4 +22,12 @@ public final class VikunjaUserRepository: UserRepositoryProtocol {
         let refreshed: UserDTO = try await client.send(VikunjaEndpoints.currentUser())
         return UserMapper.toDomain(refreshed)
     }
+
+    public func updateOverdueTasksRemindersTime(_ time: String) async throws -> User {
+        let current: UserDTO = try await client.send(VikunjaEndpoints.currentUser())
+        let settings = (current.settings ?? UserSettingsDTO()).updatingOverdueTasksRemindersTime(time)
+        try await client.send(VikunjaEndpoints.updateUserSettings(dto: settings))
+        let refreshed: UserDTO = try await client.send(VikunjaEndpoints.currentUser())
+        return UserMapper.toDomain(refreshed)
+    }
 }

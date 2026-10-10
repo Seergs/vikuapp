@@ -337,6 +337,67 @@ struct URLSessionAPIClientTests {
         #expect(sentJSON["language"] as? String == "en")
     }
 
+    // `VikunjaUserRepository.updateOverdueTasksRemindersTime(_:)`'s
+    // read-modify-write behavior is tested here for the same reason as
+    // `updateDefaultProject(id:)` above.
+    @Test
+    func `update overdue tasks reminders time fetches the current user merges only the time then refetches`() async throws {
+        let getResponse = #"""
+        {
+          "id": 3, "name": "QA User", "username": "qa-user",
+          "settings": {
+            "name": "QA User", "email_reminders_enabled": false, "discoverable_by_name": false,
+            "discoverable_by_email": false, "overdue_tasks_reminders_enabled": true,
+            "overdue_tasks_reminders_time": "9:00", "default_project_id": 6, "week_start": 0,
+            "language": "en", "timezone": "UTC", "frontend_settings": null
+          }
+        }
+        """#
+        let postResponse = #"{"message": "ok"}"#
+        let refetchResponse = #"""
+        {
+          "id": 3, "name": "QA User", "username": "qa-user",
+          "settings": {
+            "name": "QA User", "email_reminders_enabled": false, "discoverable_by_name": false,
+            "discoverable_by_email": false, "overdue_tasks_reminders_enabled": true,
+            "overdue_tasks_reminders_time": "14:30", "default_project_id": 6, "week_start": 0,
+            "language": "en", "timezone": "UTC", "frontend_settings": null
+          }
+        }
+        """#
+        let (session, capture) = MockURLProtocol.makeSession(responses: [
+            (200, getResponse),
+            (200, postResponse),
+            (200, refetchResponse),
+        ])
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaUserRepository(client: client)
+
+        let updated = try await repository.updateOverdueTasksRemindersTime("14:30")
+
+        #expect(updated.overdueTasksRemindersTime == "14:30")
+
+        let requests = await capture.requests
+        #expect(requests.count == 3)
+        #expect(requests[0].httpMethod == "GET")
+        #expect(requests[0].url?.path == "/api/v1/user")
+        #expect(requests[1].httpMethod == "POST")
+        #expect(requests[1].url?.path == "/api/v1/user/settings/general")
+        #expect(requests[2].httpMethod == "GET")
+        #expect(requests[2].url?.path == "/api/v1/user")
+
+        // The write must carry every other settings field forward unchanged
+        // (full-object replace) with only `overdue_tasks_reminders_time` updated.
+        let sentBody = try #require(requests[1].httpBody)
+        let sentJSON = try #require(JSONSerialization.jsonObject(with: sentBody) as? [String: Any])
+        #expect(sentJSON["overdue_tasks_reminders_time"] as? String == "14:30")
+        #expect(sentJSON["default_project_id"] as? Int == 6)
+        #expect(sentJSON["name"] as? String == "QA User")
+        #expect(sentJSON["overdue_tasks_reminders_enabled"] as? Bool == true)
+        #expect(sentJSON["timezone"] as? String == "UTC")
+        #expect(sentJSON["language"] as? String == "en")
+    }
+
     // `VikunjaTaskRepositoryV2` and the v1/v2 parity for
     // `TaskRepositoryProtocol` are tested here for the same reason as
     // `VikunjaTaskRepository.update(_:)` above.

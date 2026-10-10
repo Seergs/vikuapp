@@ -222,6 +222,9 @@ struct LocalizationTests {
             "Mostraremos en el ícono de Viku cuántas tareas tienes para hoy o vencidas. Para eso, iOS te pedirá permiso de notificaciones.",
         ),
         ("Enable", "Activar"),
+        ("Fires Daily At", "Se activa diariamente a las"),
+        ("In %@", "En %@"),
+        ("In your Vikunja account's time zone", "En la zona horaria de tu cuenta de Vikunja"),
     ])
     func `key resolves to its Spanish translation`(key: String, expected: String) {
         #expect(Self.es(key) == expected)

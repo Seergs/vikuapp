@@ -24,4 +24,9 @@ final class VikunjaUserRepositorySwitch: UserRepositoryProtocol {
         let repository = await capabilityProvider.supports(.apiV2) ? v2 : v1
         return try await repository.updateDefaultProject(id: id)
     }
+
+    func updateOverdueTasksRemindersTime(_ time: String) async throws -> User {
+        let repository = await capabilityProvider.supports(.apiV2) ? v2 : v1
+        return try await repository.updateOverdueTasksRemindersTime(time)
+    }
 }

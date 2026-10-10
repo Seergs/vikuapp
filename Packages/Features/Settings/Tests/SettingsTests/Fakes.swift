@@ -312,6 +312,8 @@ final class FakeUserRepository: UserRepositoryProtocol, @unchecked Sendable {
     private(set) var fetchCallCount = 0
     private(set) var updateDefaultProjectCallCount = 0
     private(set) var lastUpdatedDefaultProjectID: Int??
+    private(set) var updateOverdueTasksRemindersTimeCallCount = 0
+    private(set) var lastUpdatedOverdueTasksRemindersTime: String?
 
     init(user: User = User(id: 1, username: "alex")) {
         self.user = user
@@ -332,6 +334,16 @@ final class FakeUserRepository: UserRepositoryProtocol, @unchecked Sendable {
             throw updateError
         }
         user.defaultProjectID = id
+        return user
+    }
+
+    func updateOverdueTasksRemindersTime(_ time: String) async throws -> User {
+        updateOverdueTasksRemindersTimeCallCount += 1
+        lastUpdatedOverdueTasksRemindersTime = time
+        if let updateError {
+            throw updateError
+        }
+        user.overdueTasksRemindersTime = time
         return user
     }
 }
