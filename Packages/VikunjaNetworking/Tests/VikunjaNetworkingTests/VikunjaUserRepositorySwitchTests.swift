@@ -58,12 +58,41 @@ struct VikunjaUserRepositorySwitchTests {
         #expect(v1.updateDefaultProjectCallCount == 0)
         #expect(v2.updateDefaultProjectCallCount == 1)
     }
+
+    @Test
+    func `routes updateOverdueTasksRemindersTime to v1 when the capability provider does not support apiV2`() async throws {
+        let v1 = SpyUserRepository(label: "v1")
+        let v2 = SpyUserRepository(label: "v2")
+        let capabilityProvider = FakeUserCapabilityProvider(supportsAPIV2: false)
+        let repository = VikunjaUserRepositorySwitch(v1: v1, v2: v2, capabilityProvider: capabilityProvider)
+
+        let user = try await repository.updateOverdueTasksRemindersTime("09:30")
+
+        #expect(user.username == "v1")
+        #expect(v1.updateOverdueTasksRemindersTimeCallCount == 1)
+        #expect(v2.updateOverdueTasksRemindersTimeCallCount == 0)
+    }
+
+    @Test
+    func `routes updateOverdueTasksRemindersTime to v2 when the capability provider supports apiV2`() async throws {
+        let v1 = SpyUserRepository(label: "v1")
+        let v2 = SpyUserRepository(label: "v2")
+        let capabilityProvider = FakeUserCapabilityProvider(supportsAPIV2: true)
+        let repository = VikunjaUserRepositorySwitch(v1: v1, v2: v2, capabilityProvider: capabilityProvider)
+
+        let user = try await repository.updateOverdueTasksRemindersTime("09:30")
+
+        #expect(user.username == "v2")
+        #expect(v1.updateOverdueTasksRemindersTimeCallCount == 0)
+        #expect(v2.updateOverdueTasksRemindersTimeCallCount == 1)
+    }
 }
 
 private final class SpyUserRepository: UserRepositoryProtocol, @unchecked Sendable {
     let label: String
     private(set) var fetchCurrentUserCallCount = 0
     private(set) var updateDefaultProjectCallCount = 0
+    private(set) var updateOverdueTasksRemindersTimeCallCount = 0
 
     init(label: String) {
         self.label = label
@@ -76,6 +105,11 @@ private final class SpyUserRepository: UserRepositoryProtocol, @unchecked Sendab
 
     func updateDefaultProject(id _: Int?) async throws -> User {
         updateDefaultProjectCallCount += 1
+        return User(id: 1, username: label)
+    }
+
+    func updateOverdueTasksRemindersTime(_: String) async throws -> User {
+        updateOverdueTasksRemindersTimeCallCount += 1
         return User(id: 1, username: label)
     }
 }

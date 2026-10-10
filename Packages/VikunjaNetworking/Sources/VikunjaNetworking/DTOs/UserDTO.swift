@@ -97,4 +97,23 @@ struct UserSettingsDTO: Codable {
             frontendSettings: frontendSettings,
         )
     }
+
+    /// Returns a copy with only `overdue_tasks_reminders_time` changed,
+    /// keeping every other field as-is for the required read-modify-write
+    /// round trip.
+    func updatingOverdueTasksRemindersTime(_ newValue: String) -> UserSettingsDTO {
+        UserSettingsDTO(
+            name: name,
+            emailRemindersEnabled: emailRemindersEnabled,
+            discoverableByName: discoverableByName,
+            discoverableByEmail: discoverableByEmail,
+            overdueTasksRemindersEnabled: overdueTasksRemindersEnabled,
+            overdueTasksRemindersTime: newValue,
+            defaultProjectId: defaultProjectId,
+            weekStart: weekStart,
+            language: language,
+            timezone: timezone,
+            frontendSettings: frontendSettings,
+        )
+    }
 }

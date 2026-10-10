@@ -11,4 +11,9 @@ public protocol UserRepositoryProtocol: Sendable {
     /// object on write, so implementations must read-modify-write the other
     /// fields (name, language, reminders, …) rather than resetting them.
     func updateDefaultProject(id: Int?) async throws -> User
+
+    /// Sets the time of day (`HH:mm`, 24-hour) Vikunja checks this user's
+    /// overdue tasks at — see `User.overdueTasksRemindersTime`. Same
+    /// read-modify-write requirement as `updateDefaultProject`.
+    func updateOverdueTasksRemindersTime(_ time: String) async throws -> User
 }
