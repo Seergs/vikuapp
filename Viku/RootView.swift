@@ -81,6 +81,10 @@ struct RootView: View {
         // follows the user's theme preference. `nil` (the `.system` case)
         // leaves the view hierarchy following the device setting.
         .preferredColorScheme(container.themeCenter.colorScheme)
+        // Wires the palette Environment up for later migration phases.
+        // `.standard` is the only palette today, so this is not yet a visual
+        // change.
+        .environment(\.vikuPalette, .standard)
         // Dev-only: lets a saved-in user look at the first-launch screen
         // again without deleting their real connection. Saving a connection
         // here still goes through the normal flow and switches the active
