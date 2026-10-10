@@ -66,6 +66,10 @@ final class AppContainer {
     /// once per launch by `refreshDefaultProject(account:)` and read
     /// synchronously by `makeQuickAddTaskViewModel`.
     let defaultProjectStore = DefaultProjectStore()
+    /// On-device cache of each account's Vikunja time zone, backing
+    /// `DefaultProjectSettingsViewModel`'s "Time Zone" row the same way
+    /// `defaultProjectStore` backs its "Default Project" row.
+    let accountTimezoneStore = AccountTimezoneStore()
     /// The app's single OIDC browser-authentication coordinator — see
     /// `OIDCAuthCoordinator`. Pass this as `OIDCAuthenticating` to any
     /// ViewModel that offers OIDC sign-in.
@@ -468,6 +472,7 @@ final class AppContainer {
                 tokenProvider: tokenProvider,
             ),
             defaultProjectCache: AccountDefaultProjectCache(store: defaultProjectStore, accountID: account.id),
+            timezoneCache: AccountTimezoneCache(store: accountTimezoneStore, accountID: account.id),
             toastPresenter: toastCenter,
         )
     }
