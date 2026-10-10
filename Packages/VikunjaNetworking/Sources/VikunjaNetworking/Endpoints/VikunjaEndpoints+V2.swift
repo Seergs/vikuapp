@@ -105,6 +105,15 @@ extension VikunjaEndpoints {
         Endpoint(path: "/api/v2/user")
     }
 
+    /// Verified against Vikunja's backend source (`pkg/routes/api/v2/user_settings.go`,
+    /// handler `userUpdateSettings`) rather than a live instance's OpenAPI
+    /// spec: same `/user/settings/general` sub-path as v1, methods swapped
+    /// to `PUT` the way every other v2 resource does. Full-object replace,
+    /// same as v1 — see `UserSettingsDTO`'s doc comment.
+    static func updateUserSettingsV2(dto: UserSettingsDTO) throws -> Endpoint {
+        try .encoding(path: "/api/v2/user/settings/general", method: .put, body: dto)
+    }
+
     static func tasksV2(projectID: Int) -> Endpoint {
         Endpoint(path: "/api/v2/projects/\(projectID)/tasks")
     }

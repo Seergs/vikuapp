@@ -191,6 +191,14 @@ enum VikunjaEndpoints {
         Endpoint(path: "/api/v1/user")
     }
 
+    /// Verified against Vikunja's backend source (`pkg/routes/api/v1/user_settings.go`,
+    /// handler `UpdateGeneralUserSettings`) rather than a live instance's
+    /// OpenAPI spec: `POST`, full-object replace. See `UserSettingsDTO`'s doc
+    /// comment for why callers must read-modify-write.
+    static func updateUserSettings(dto: UserSettingsDTO) throws -> Endpoint {
+        try .encoding(path: "/api/v1/user/settings/general", method: .post, body: dto)
+    }
+
     static func webhooks(projectID: Int) -> Endpoint {
         Endpoint(path: "/api/v1/projects/\(projectID)/webhooks")
     }
