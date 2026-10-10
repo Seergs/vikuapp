@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import VikuDesignSystem
 import VikuNavigation
@@ -217,6 +218,16 @@ struct NotificationsView: View {
         }
     }
 
+    /// Whether the "Overdue Tasks" webhook event is selected — the time row
+    /// only means something once this app is actually subscribed to it.
+    private var showsOverdueTasksTimeRow: Bool {
+        viewModel.settings.userLevelEvents.contains(.taskOverdue)
+    }
+
+    private var userLevelRowCount: Int {
+        WebhookEvent.userDirectedOrdered.count + (showsOverdueTasksTimeRow ? 1 : 0)
+    }
+
     private var userLevelSection: some View {
         VStack(alignment: .leading, spacing: 0) {
             sectionHeader {
@@ -234,10 +245,71 @@ struct NotificationsView: View {
                         }
                     }
                     .disabled(viewModel.pendingChange == .userLevel)
-                    .vikuCardRow(index: index, count: WebhookEvent.userDirectedOrdered.count)
+                    .vikuCardRow(index: index, count: userLevelRowCount)
+                }
+                if showsOverdueTasksTimeRow {
+                    overdueTasksRemindersTimeRow
+                        .vikuCardRow(index: WebhookEvent.userDirectedOrdered.count, count: userLevelRowCount)
                 }
             }
         }
+    }
+
+    private var overdueTasksRemindersTimeRow: some View {
+        DatePicker(
+            selection: overdueTasksRemindersTimeBinding,
+            displayedComponents: .hourAndMinute,
+        ) {
+            VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
+                Text("Fires Daily At", bundle: .module)
+                Text(accountTimezoneLabel)
+                    .font(VikuFont.footnote)
+                    .foregroundStyle(VikuColor.textSecondary)
+            }
+        }
+    }
+
+    /// Clarifies which clock "Fires Daily At" is in — Vikunja evaluates that
+    /// time against the user's account-wide time zone (`User.timezone`, the
+    /// same one used for every other reminder, not something specific to
+    /// overdue tasks), not this device's, so a bare "9:00" would otherwise
+    /// read as local time when it might not be. Falls back to a zone-less
+    /// note when the user hasn't set one on the server (it then uses the
+    /// server's own default).
+    private var accountTimezoneLabel: String {
+        if let timezone = viewModel.accountTimezone {
+            String(localized: "In \(timezone)", bundle: .module)
+        } else {
+            String(localized: "In your Vikunja account's time zone", bundle: .module)
+        }
+    }
+
+    private var overdueTasksRemindersTimeBinding: Binding<Date> {
+        Binding(
+            get: { Self.date(fromTime: viewModel.overdueTasksRemindersTime) },
+            set: { newDate in
+                let time = Self.timeString(from: newDate)
+                Task { await viewModel.setOverdueTasksRemindersTime(time) }
+            },
+        )
+    }
+
+    /// Parses Vikunja's `HH:mm` wire format into a `Date` carrying just
+    /// those hour/minute components (on today's date — `DatePicker`'s
+    /// `.hourAndMinute` display ignores the rest). Tolerant of an unpadded
+    /// hour (`"9:00"`), which some server responses use.
+    private static func date(fromTime time: String) -> Date {
+        let parts = time.split(separator: ":")
+        let hour = parts.first.flatMap { Int($0) } ?? 9
+        let minute = parts.count > 1 ? (Int(parts[1]) ?? 0) : 0
+        return Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: Date()) ?? Date()
+    }
+
+    /// Formats a `DatePicker` selection back into Vikunja's `HH:mm` wire
+    /// format, zero-padded — required by the server's `"15:04"` time parse.
+    private static func timeString(from date: Date) -> String {
+        let components = Calendar.current.dateComponents([.hour, .minute], from: date)
+        return String(format: "%02d:%02d", components.hour ?? 9, components.minute ?? 0)
     }
 
     @ViewBuilder

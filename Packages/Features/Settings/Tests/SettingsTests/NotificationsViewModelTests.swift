@@ -41,6 +41,46 @@ struct NotificationsViewModelTests {
     }
 
     @Test
+    func `load populates the overdue tasks reminders time from the current user`() async {
+        let userRepository = FakeUserRepository(user: User(id: 1, username: "alex", overdueTasksRemindersTime: "14:30"))
+        let viewModel = makeViewModel(userRepository: userRepository)
+
+        await viewModel.load()
+
+        #expect(viewModel.overdueTasksRemindersTime == "14:30")
+    }
+
+    @Test
+    func `load populates the account time zone from the current user`() async {
+        let userRepository = FakeUserRepository(user: User(id: 1, username: "alex", timezone: "Europe/Madrid"))
+        let viewModel = makeViewModel(userRepository: userRepository)
+
+        await viewModel.load()
+
+        #expect(viewModel.accountTimezone == "Europe/Madrid")
+    }
+
+    @Test
+    func `load leaves the account time zone nil when the user has none set`() async {
+        let userRepository = FakeUserRepository(user: User(id: 1, username: "alex", timezone: nil))
+        let viewModel = makeViewModel(userRepository: userRepository)
+
+        await viewModel.load()
+
+        #expect(viewModel.accountTimezone == nil)
+    }
+
+    @Test
+    func `load keeps the default reminders time when the user has none set`() async {
+        let userRepository = FakeUserRepository(user: User(id: 1, username: "alex", overdueTasksRemindersTime: nil))
+        let viewModel = makeViewModel(userRepository: userRepository)
+
+        await viewModel.load()
+
+        #expect(viewModel.overdueTasksRemindersTime == "09:00")
+    }
+
+    @Test
     func `load re checks permission and flags it denied when it was enabled but is no longer granted`() async {
         let store = FakeNotificationSettingsStore(settings: NotificationSettings(isEnabled: true))
         let registering = FakePushNotificationRegistering()
@@ -90,6 +130,34 @@ struct NotificationsViewModelTests {
         #expect(viewModel.settings.isEnabled == false)
         #expect(viewModel.isPermissionDenied)
         #expect(store.savedSettings.isEmpty)
+    }
+
+    // MARK: setOverdueTasksRemindersTime
+
+    @Test
+    func `setting the reminders time updates it and persists it to the user`() async {
+        let userRepository = FakeUserRepository(user: User(id: 1, username: "alex", overdueTasksRemindersTime: "09:00"))
+        let viewModel = makeViewModel(userRepository: userRepository)
+        await viewModel.load()
+
+        await viewModel.setOverdueTasksRemindersTime("14:30")
+
+        #expect(viewModel.overdueTasksRemindersTime == "14:30")
+        #expect(userRepository.lastUpdatedOverdueTasksRemindersTime == "14:30")
+    }
+
+    @Test
+    func `a failed reminders time update rolls back and shows A toast`() async {
+        let userRepository = FakeUserRepository(user: User(id: 1, username: "alex", overdueTasksRemindersTime: "09:00"))
+        userRepository.updateError = .network("offline")
+        let toastPresenter = FakeToastPresenter()
+        let viewModel = makeViewModel(userRepository: userRepository, toastPresenter: toastPresenter)
+        await viewModel.load()
+
+        await viewModel.setOverdueTasksRemindersTime("14:30")
+
+        #expect(viewModel.overdueTasksRemindersTime == "09:00")
+        #expect(toastPresenter.shownMessages.count == 1)
     }
 
     // MARK: setUserLevelEvent / setProject

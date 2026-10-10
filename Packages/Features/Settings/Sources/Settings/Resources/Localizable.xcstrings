@@ -441,6 +441,16 @@
         }
       }
     },
+    "Fires Daily At" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se activa diariamente a las"
+          }
+        }
+      }
+    },
     "Generate it on your Vikunja instance: Settings → API Tokens." : {
       "localizations" : {
         "es" : {
@@ -491,12 +501,32 @@
         }
       }
     },
+    "In %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En %@"
+          }
+        }
+      }
+    },
     "Instance URL" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "URL de la instancia"
+          }
+        }
+      }
+    },
+    "In your Vikunja account's time zone" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En la zona horaria de tu cuenta de Vikunja"
           }
         }
       }
