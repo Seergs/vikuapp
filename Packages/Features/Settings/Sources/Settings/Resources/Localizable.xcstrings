@@ -1101,6 +1101,16 @@
         }
       }
     },
+    "Time Zone" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zona horaria"
+          }
+        }
+      }
+    },
     "This will also turn off push notifications and delete its webhooks." : {
       "localizations" : {
         "es" : {

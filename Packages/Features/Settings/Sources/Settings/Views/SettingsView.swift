@@ -90,6 +90,14 @@ struct SettingsView: View {
                 ) {
                     isPresentingDefaultProjectPicker = true
                 }
+
+                if let accountTimezone = defaultProjectViewModel.accountTimezone {
+                    SettingsInfoRow(
+                        icon: "clock",
+                        title: String(localized: "Time Zone", bundle: .module),
+                        value: accountTimezone,
+                    )
+                }
             } header: {
                 Text("Connection: \(activeAccountName)", bundle: .module)
             }
@@ -289,6 +297,28 @@ private struct SettingsNavigationRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// A non-interactive settings row: tinted icon tile, title, and a trailing
+/// value — for read-only account info like the Default Project row's time
+/// zone, which has no editing flow yet and so doesn't navigate anywhere.
+private struct SettingsInfoRow: View {
+    let icon: String
+    let title: String
+    let value: String
+
+    var body: some View {
+        HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
+            SettingsRowIcon(systemName: icon)
+            Text(verbatim: title)
+                .font(VikuFont.body)
+                .foregroundStyle(Color.primary)
+            Spacer()
+            Text(verbatim: value)
+                .font(VikuFont.body)
+                .foregroundStyle(VikuColor.textSecondary)
+        }
     }
 }
 
