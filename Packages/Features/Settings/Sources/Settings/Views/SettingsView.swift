@@ -61,6 +61,9 @@ struct SettingsView: View {
 
             // One section, not two, so these render as a single grouped
             // card (matching Settings.app) instead of one card per row.
+            // The header names the active connection so it's clear these
+            // rows (unlike General/Experimental above) are scoped to it,
+            // not to the app as a whole.
             Section {
                 SettingsNavigationRow(
                     icon: "server.rack",
@@ -77,6 +80,8 @@ struct SettingsView: View {
                 ) {
                     router.push(.manageLabels)
                 }
+            } header: {
+                Text("Connection: \(activeAccountName)", bundle: .module)
             }
 
             Section {
