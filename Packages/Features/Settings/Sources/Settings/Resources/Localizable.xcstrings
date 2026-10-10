@@ -241,6 +241,16 @@
         }
       }
     },
+    "Connection: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conexión: %@"
+          }
+        }
+      }
+    },
     "Connections" : {
       "localizations" : {
         "es" : {
