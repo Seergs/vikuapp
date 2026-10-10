@@ -308,7 +308,10 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
 final class FakeUserRepository: UserRepositoryProtocol, @unchecked Sendable {
     var user: User
     var fetchError: VikunjaError?
+    var updateError: VikunjaError?
     private(set) var fetchCallCount = 0
+    private(set) var updateDefaultProjectCallCount = 0
+    private(set) var lastUpdatedDefaultProjectID: Int??
 
     init(user: User = User(id: 1, username: "alex")) {
         self.user = user
@@ -320,6 +323,30 @@ final class FakeUserRepository: UserRepositoryProtocol, @unchecked Sendable {
             throw fetchError
         }
         return user
+    }
+
+    func updateDefaultProject(id: Int?) async throws -> User {
+        updateDefaultProjectCallCount += 1
+        lastUpdatedDefaultProjectID = id
+        if let updateError {
+            throw updateError
+        }
+        user.defaultProjectID = id
+        return user
+    }
+}
+
+final class FakeDefaultProjectCaching: DefaultProjectCaching, @unchecked Sendable {
+    private(set) var cached: CachedDefaultProject?
+    private(set) var setCallCount = 0
+
+    func cachedDefaultProject() -> CachedDefaultProject? {
+        cached
+    }
+
+    func setCachedDefaultProject(_ project: CachedDefaultProject?) {
+        setCallCount += 1
+        cached = project
     }
 }
 

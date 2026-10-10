@@ -15,6 +15,7 @@ struct SettingsView: View {
     let themeStore: AppThemeStoring
     let quickAddSyntaxStore: QuickAddSyntaxStore
     let badgeViewModel: AppIconBadgeViewModel
+    let defaultProjectViewModel: DefaultProjectSettingsViewModel
     let isDevBuild: Bool
     let devBadgeStore: DevBadgeVisibilityStoring
     let networkLoggingStore: NetworkRequestLoggingStoring
@@ -22,6 +23,7 @@ struct SettingsView: View {
     let router: Router<SettingsRoute>
 
     @State private var isPresentingBadgeConsent = false
+    @State private var isPresentingDefaultProjectPicker = false
     @Environment(\.openURL) private var openURL
 
     var body: some View {
@@ -79,6 +81,14 @@ struct SettingsView: View {
                     subtitle: String(localized: "View, edit, and create labels", bundle: .module),
                 ) {
                     router.push(.manageLabels)
+                }
+
+                SettingsNavigationRow(
+                    icon: "folder",
+                    title: String(localized: "Default Project", bundle: .module),
+                    subtitle: defaultProjectViewModel.defaultProjectTitle ?? String(localized: "None", bundle: .module),
+                ) {
+                    isPresentingDefaultProjectPicker = true
                 }
             } header: {
                 Text("Connection: \(activeAccountName)", bundle: .module)
@@ -173,8 +183,21 @@ struct SettingsView: View {
                 Task { await badgeViewModel.confirmEnable() }
             }
         }
+        .sheet(isPresented: $isPresentingDefaultProjectPicker) {
+            ProjectPickerSheet(
+                title: String(localized: "Default Project", bundle: .module),
+                projects: defaultProjectViewModel.projects.filter { !$0.isArchived },
+                selectedProjectID: defaultProjectViewModel.defaultProjectID,
+                showsNoneOption: true,
+            ) { project in
+                Task { await defaultProjectViewModel.selectDefaultProject(project) }
+            }
+        }
         .task {
             await badgeViewModel.refreshPermissionStatus()
+        }
+        .task {
+            await defaultProjectViewModel.load()
         }
     }
 

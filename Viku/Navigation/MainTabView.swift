@@ -149,6 +149,9 @@ struct MainTabView: View {
                     makeAppIconBadgeViewModel: {
                         container.makeAppIconBadgeViewModel()
                     },
+                    makeDefaultProjectSettingsViewModel: {
+                        container.makeDefaultProjectSettingsViewModel(account: account)
+                    },
                 )
             }
 

@@ -331,6 +331,16 @@
         }
       }
     },
+    "Default Project" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Proyecto predeterminado"
+          }
+        }
+      }
+    },
     "Delete \"%@\"" : {
       "localizations" : {
         "es" : {
