@@ -12,6 +12,11 @@ public final class DefaultProjectSettingsViewModel {
     public private(set) var projects: [Project] = []
     public private(set) var defaultProjectID: Int?
     public private(set) var loadState: ScreenLoadState<Void> = .idle
+    /// The account's own IANA zone (`User.timezone`), shown read-only below
+    /// the "Default Project" row — there's no editing flow for it yet. `nil`
+    /// until `load()` reports a value Vikunja actually has on file (the user
+    /// never set one, or the load hasn't completed/failed).
+    public private(set) var accountTimezone: String?
 
     public var isLoading: Bool {
         loadState == .loading
@@ -49,7 +54,9 @@ public final class DefaultProjectSettingsViewModel {
             async let fetchedProjects = projectRepository.fetchProjects()
             async let currentUser = userRepository.fetchCurrentUser()
             projects = try await fetchedProjects
-            defaultProjectID = try await currentUser.defaultProjectID
+            let user = try await currentUser
+            defaultProjectID = user.defaultProjectID
+            accountTimezone = user.timezone
             loadState = .loaded
         } catch let error as VikunjaError {
             loadState = .failure(error.displayMessage)

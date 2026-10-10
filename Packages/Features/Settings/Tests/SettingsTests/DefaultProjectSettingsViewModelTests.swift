@@ -49,6 +49,26 @@ struct DefaultProjectSettingsViewModelTests {
     }
 
     @Test
+    func `load populates the account time zone from the current user`() async {
+        let userRepository = FakeUserRepository(user: User(id: 1, username: "alex", timezone: "Europe/Madrid"))
+        let viewModel = makeViewModel(userRepository: userRepository)
+
+        await viewModel.load()
+
+        #expect(viewModel.accountTimezone == "Europe/Madrid")
+    }
+
+    @Test
+    func `load leaves the account time zone nil when the user has none set`() async {
+        let userRepository = FakeUserRepository(user: User(id: 1, username: "alex", timezone: nil))
+        let viewModel = makeViewModel(userRepository: userRepository)
+
+        await viewModel.load()
+
+        #expect(viewModel.accountTimezone == nil)
+    }
+
+    @Test
     func `load surfaces a failure state when fetching projects fails`() async {
         let projectRepository = FakeProjectRepository()
         projectRepository.fetchError = .notFound
