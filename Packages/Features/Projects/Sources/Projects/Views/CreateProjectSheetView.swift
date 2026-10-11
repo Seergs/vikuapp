@@ -12,6 +12,7 @@ import VikunjaCore
 public struct CreateProjectSheetView: View {
     @State private var viewModel: CreateProjectViewModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.vikuPalette) private var palette
     @FocusState private var isTitleFocused: Bool
     @State private var isShowingParentPicker = false
     /// Called with the newly created project right before the sheet
@@ -111,7 +112,7 @@ public struct CreateProjectSheetView: View {
         }
         .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
         .padding(.vertical, VikuSpacing.sm + VikuSpacing.xxs)
-        .background(VikuColor.Surface.field, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
+        .background(palette.fieldBackground, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
     }
 
     private var colorSection: some View {
@@ -213,6 +214,8 @@ private struct ParentProjectField: View {
     let project: Project?
     let action: () -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: VikuSpacing.sm) {
@@ -235,7 +238,7 @@ private struct ParentProjectField: View {
             }
             .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
             .padding(.vertical, VikuSpacing.sm + VikuSpacing.xs)
-            .background(VikuColor.Surface.field, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
+            .background(palette.fieldBackground, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
         }
         .buttonStyle(.plain)
     }

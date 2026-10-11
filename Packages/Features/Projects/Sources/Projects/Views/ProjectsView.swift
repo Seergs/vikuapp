@@ -303,12 +303,14 @@ private struct ProjectProgressCount: View {
     let summary: ProjectTaskSummary
     let color: Color
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         HStack(spacing: VikuSpacing.sm) {
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(VikuColor.Surface.field)
+                        .fill(palette.fieldBackground)
                     Capsule()
                         .fill(color)
                         .frame(width: proxy.size.width * summary.fraction)
