@@ -14,6 +14,7 @@ struct EditCommentSheet: View {
     private let initialText: String
     private let onSave: (String) -> Void
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.vikuPalette) private var palette
 
     init(initialText: String, onSave: @escaping (String) -> Void) {
         self.initialText = initialText
@@ -34,7 +35,7 @@ struct EditCommentSheet: View {
                     .foregroundStyle(Color.primary)
                     .padding(VikuSpacing.sm)
                     .background(
-                        VikuColor.Surface.card,
+                        palette.cardBackground,
                         in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous),
                     )
                     .padding(.horizontal, VikuSpacing.md)

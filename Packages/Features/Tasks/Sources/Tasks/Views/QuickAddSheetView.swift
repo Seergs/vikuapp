@@ -19,6 +19,7 @@ import VikunjaCore
 public struct QuickAddSheetView: View {
     @Bindable var viewModel: QuickAddTaskViewModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.vikuPalette) private var palette
     @State private var isShowingProjectPicker = false
     @FocusState private var isTitleFocused: Bool
 
@@ -53,7 +54,7 @@ public struct QuickAddSheetView: View {
                     .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
                     .padding(.vertical, VikuSpacing.sm + VikuSpacing.xxs)
                     .background(
-                        VikuColor.Surface.field,
+                        palette.fieldBackground,
                         in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous),
                     )
 
