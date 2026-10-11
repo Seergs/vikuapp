@@ -46,11 +46,14 @@ public struct VikuPalette: Sendable, Equatable {
 }
 
 public extension VikuPalette {
+    /// `pageBackground`/`cardBackground`/`fieldBackground` read the platform
+    /// providers directly, not `VikuColor.Surface`, which now forwards here
+    /// instead (forwarding the other way would recurse).
     static let standard = VikuPalette(
         brand: VikuColor.brandPrimary,
-        pageBackground: VikuColor.Surface.page,
-        cardBackground: VikuColor.Surface.card,
-        fieldBackground: VikuColor.Surface.field,
+        pageBackground: Color.platformPageBackground,
+        cardBackground: Color.platformCardBackground,
+        fieldBackground: Color.platformFieldBackground,
         textSecondary: VikuColor.textSecondary,
         textTertiary: VikuColor.textTertiary,
         semanticSuccess: VikuColor.Semantic.success,
