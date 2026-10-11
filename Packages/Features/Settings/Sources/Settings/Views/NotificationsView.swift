@@ -27,6 +27,7 @@ struct NotificationsView: View {
     /// doesn't flash a spinner on and immediately back off.
     @State private var showSyncIndicator = false
     @Environment(\.openURL) private var openURL
+    @Environment(\.vikuPalette) private var palette
 
     private static let syncIndicatorDelay: Duration = .seconds(1)
 
@@ -74,7 +75,7 @@ struct NotificationsView: View {
 
     var body: some View {
         content
-            .background(VikuColor.Surface.page)
+            .background(palette.pageBackground)
             .navigationTitle(Text("Notifications", bundle: .module))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

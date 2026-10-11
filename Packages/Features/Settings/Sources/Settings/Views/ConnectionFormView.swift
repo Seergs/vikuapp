@@ -21,6 +21,7 @@ struct ConnectionFormView: View {
     @FocusState private var isNameFocused: Bool
     @State private var hasLoaded = false
     @State private var hasSettled = false
+    @Environment(\.vikuPalette) private var palette
 
     /// Takes a factory rather than an already-built view model — see
     /// `ConnectionsListView.init`'s doc comment for why this has to be
@@ -228,7 +229,7 @@ struct ConnectionFormView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, VikuSpacing.sm + VikuSpacing.xxs)
                 .background(
-                    VikuColor.Surface.field,
+                    palette.fieldBackground,
                     in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous),
                 )
         }
@@ -298,7 +299,7 @@ struct ConnectionFormView: View {
             }
             .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
             .padding(.vertical, VikuSpacing.sm + VikuSpacing.xxs)
-            .background(VikuColor.Surface.field, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
+            .background(palette.fieldBackground, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
         }
     }
 
@@ -335,7 +336,7 @@ struct ConnectionFormView: View {
             }
             .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
             .padding(.vertical, VikuSpacing.sm + VikuSpacing.xxs)
-            .background(VikuColor.Surface.field, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
+            .background(palette.fieldBackground, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
 
             Text("Generate it on your Vikunja instance: Settings → API Tokens.", bundle: .module)
                 .font(VikuFont.caption)
@@ -360,7 +361,7 @@ struct ConnectionFormView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, VikuSpacing.sm + VikuSpacing.xxs)
-            .background(VikuColor.Surface.field, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
+            .background(palette.fieldBackground, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
         }
         .buttonStyle(.plain)
         .disabled(!viewModel.canTestConnection)
@@ -412,6 +413,8 @@ private struct FormField: View {
     let placeholder: String
     @Binding var text: String
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm - VikuSpacing.xxs) {
             FieldLabel(label)
@@ -420,7 +423,7 @@ private struct FormField: View {
                 .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
                 .padding(.vertical, VikuSpacing.sm + VikuSpacing.xxs)
                 .background(
-                    VikuColor.Surface.field,
+                    palette.fieldBackground,
                     in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous),
                 )
         }

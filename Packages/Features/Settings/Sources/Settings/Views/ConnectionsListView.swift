@@ -12,6 +12,8 @@ struct ConnectionsListView: View {
     @State private var viewModel: ConnectionsListViewModel
     let router: Router<SettingsRoute>
 
+    @Environment(\.vikuPalette) private var palette
+
     /// Takes a factory rather than an already-built view model: this view is
     /// pushed from `SettingsRootView`'s `navigationDestination(for:)`, whose
     /// content closure SwiftUI can re-invoke independently of this view's own
@@ -28,7 +30,7 @@ struct ConnectionsListView: View {
 
     var body: some View {
         content
-            .background(VikuColor.Surface.page)
+            .background(palette.pageBackground)
             .navigationTitle(Text("Connections", bundle: .module))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -92,7 +94,7 @@ struct ConnectionsListView: View {
                     }
                     .padding(.vertical, VikuSpacing.xs)
                     .background(
-                        VikuColor.Surface.card,
+                        palette.cardBackground,
                         in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous),
                     )
 
@@ -150,6 +152,8 @@ private struct ConnectionRow: View {
     let onSelect: () -> Void
     let onEdit: () -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
             Button(action: onSelect) {
@@ -198,7 +202,7 @@ private struct ConnectionRow: View {
                             .lineLimit(1)
                             .padding(.horizontal, VikuSpacing.xs + VikuSpacing.xxs)
                             .padding(.vertical, VikuSpacing.xxs)
-                            .background(VikuColor.Surface.field, in: Capsule())
+                            .background(palette.fieldBackground, in: Capsule())
 
                             if let serverVersion {
                                 Text(verbatim: serverVersion.hasPrefix("v") ? serverVersion : "v\(serverVersion)")
@@ -207,7 +211,7 @@ private struct ConnectionRow: View {
                                     .lineLimit(1)
                                     .padding(.horizontal, VikuSpacing.xs + VikuSpacing.xxs)
                                     .padding(.vertical, VikuSpacing.xxs)
-                                    .background(VikuColor.Surface.field, in: Capsule())
+                                    .background(palette.fieldBackground, in: Capsule())
                             }
                         }
                         .padding(.top, VikuSpacing.sm)
@@ -224,7 +228,7 @@ private struct ConnectionRow: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(VikuColor.textSecondary)
                     .frame(width: 30, height: 30)
-                    .background(VikuColor.Surface.field, in: Circle())
+                    .background(palette.fieldBackground, in: Circle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Text("Edit \(account.displayName)", bundle: .module))
