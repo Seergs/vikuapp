@@ -9,6 +9,7 @@ public struct InstanceSetupView: View {
     @State private var viewModel: InstanceSetupViewModel
     @State private var isTokenVisible = false
     @State private var isPasswordVisible = false
+    @Environment(\.vikuPalette) private var palette
     private let onConnectionSaved: (InstanceAccount) -> Void
 
     /// Takes a factory rather than an already-built view model — both call
@@ -176,7 +177,7 @@ public struct InstanceSetupView: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(.primary)
-        .background(VikuColor.Surface.field, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
+        .background(palette.fieldBackground, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
         .opacity(viewModel.canSignInWithOIDC ? 1 : 0.5)
         .disabled(!viewModel.canSignInWithOIDC)
     }
@@ -249,7 +250,7 @@ public struct InstanceSetupView: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(.primary)
-        .background(VikuColor.Surface.field, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
+        .background(palette.fieldBackground, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
         .opacity(viewModel.canTestConnection ? 1 : 0.5)
         .disabled(!viewModel.canTestConnection || viewModel.isSaving)
     }
@@ -312,6 +313,8 @@ private struct OnboardingField: View {
     var trailingSystemImage: String?
     var trailingAction: (() -> Void)?
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.xs) {
             Text(verbatim: label)
@@ -340,7 +343,7 @@ private struct OnboardingField: View {
             }
             .padding(.horizontal, VikuSpacing.md)
             .padding(.vertical, VikuSpacing.sm + VikuSpacing.xxs)
-            .background(VikuColor.Surface.field, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
+            .background(palette.fieldBackground, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
 
             if let hint {
                 Text(verbatim: hint)
