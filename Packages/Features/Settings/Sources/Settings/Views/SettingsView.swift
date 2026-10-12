@@ -61,6 +61,7 @@ struct SettingsView: View {
             } header: {
                 Text("General", bundle: .module)
             }
+            .listRowBackground(palette.cardBackground)
 
             // One section, not two, so these render as a single grouped
             // card (matching Settings.app) instead of one card per row.
@@ -102,6 +103,7 @@ struct SettingsView: View {
             } header: {
                 Text("Connection: \(activeAccountName)", bundle: .module)
             }
+            .listRowBackground(palette.cardBackground)
 
             Section {
                 Picker(selection: quickAddSyntaxBinding) {
@@ -131,6 +133,7 @@ struct SettingsView: View {
                     bundle: .module,
                 )
             }
+            .listRowBackground(palette.cardBackground)
 
             // Last, on its own: reference info, not something people change.
             Section {
@@ -142,6 +145,7 @@ struct SettingsView: View {
                     router.push(.about)
                 }
             }
+            .listRowBackground(palette.cardBackground)
 
             // Dev-only tools, never shown in a release build — see
             // `BuildConfig.isDevBuild`.
@@ -183,9 +187,12 @@ struct SettingsView: View {
                 } header: {
                     Text("Developer", bundle: .module)
                 }
+                .listRowBackground(palette.cardBackground)
             }
         }
         .settingsListStyle()
+        .scrollContentBackground(.hidden)
+        .background(palette.pageBackground)
         .navigationTitle(Text("Settings", bundle: .module))
         .sheet(isPresented: $isPresentingBadgeConsent) {
             AppIconBadgeConsentSheet {

@@ -9,6 +9,8 @@ struct AboutView: View {
     private let appVersion: String
     private let buildNumber: String
 
+    @Environment(\.vikuPalette) private var palette
+
     /// `bundle` defaults to `.main` but is overridable for previews/tests.
     init(bundle: Bundle = .main) {
         self.appVersion = bundle.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
@@ -29,6 +31,7 @@ struct AboutView: View {
                     value: buildNumber,
                 )
             }
+            .listRowBackground(palette.cardBackground)
 
             Section {
                 SettingsLinkRow(
@@ -47,6 +50,7 @@ struct AboutView: View {
                     url: AboutLinks.vikunjaProject,
                 )
             }
+            .listRowBackground(palette.cardBackground)
 
             Section {
                 HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
@@ -59,6 +63,7 @@ struct AboutView: View {
                 // swiftlint:disable:next line_length
                 Text("Viku only talks to the Vikunja instance you connect it to. Your tasks and credentials never pass through any other server.", bundle: .module)
             }
+            .listRowBackground(palette.cardBackground)
 
             Section {
                 SettingsLinkRow(
@@ -70,8 +75,11 @@ struct AboutView: View {
                 // swiftlint:disable:next line_length
                 Text("Viku is an independent, unofficial client and isn't affiliated with the Vikunja project. Vikunja itself is licensed under AGPLv3.", bundle: .module)
             }
+            .listRowBackground(palette.cardBackground)
         }
         .settingsListStyle()
+        .scrollContentBackground(.hidden)
+        .background(palette.pageBackground)
         .navigationTitle(Text("About", bundle: .module))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)

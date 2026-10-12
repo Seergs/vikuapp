@@ -112,6 +112,7 @@ struct ConnectionFormView: View {
             }
             .padding(VikuSpacing.md)
         }
+        .background(palette.pageBackground)
         .navigationTitle(
             viewModel.isEditing
                 ? Text("Edit Connection", bundle: .module)

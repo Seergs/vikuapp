@@ -52,4 +52,40 @@ struct ThemeCenterTests {
 
         #expect(storing.theme == .dark)
     }
+
+    @Test
+    func `warm persists, forces the light color scheme, and selects the warm palette`() {
+        let defaults = makeDefaults()
+        let center = ThemeCenter(defaults: defaults)
+
+        center.setTheme(.warm)
+
+        #expect(center.theme == .warm)
+        #expect(center.colorScheme == .light)
+        #expect(center.palette == .warm)
+        #expect(defaults.string(forKey: "appTheme") == "warm")
+    }
+
+    @Test
+    func `a new instance reads back a persisted warm theme`() {
+        let defaults = makeDefaults()
+        ThemeCenter(defaults: defaults).setTheme(.warm)
+
+        let reloaded = ThemeCenter(defaults: defaults)
+
+        #expect(reloaded.theme == .warm)
+        #expect(reloaded.colorScheme == .light)
+    }
+
+    @Test
+    func `system light and dark select the standard palette`() {
+        let center = ThemeCenter(defaults: makeDefaults())
+
+        center.setTheme(.system)
+        #expect(center.palette == .standard)
+        center.setTheme(.light)
+        #expect(center.palette == .standard)
+        center.setTheme(.dark)
+        #expect(center.palette == .standard)
+    }
 }
