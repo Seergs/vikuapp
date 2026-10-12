@@ -327,14 +327,16 @@ private struct SettingsInfoRow: View {
 struct SettingsRowIcon: View {
     let systemName: String
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         RoundedRectangle(cornerRadius: VikuRadius.sm - VikuSpacing.xs, style: .continuous)
-            .fill(VikuColor.brandPrimary.opacity(0.14))
+            .fill(palette.brand.opacity(0.14))
             .frame(width: 34, height: 34)
             .overlay {
                 Image(systemName: systemName)
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(VikuColor.brandPrimary)
+                    .foregroundStyle(palette.brand)
             }
     }
 }

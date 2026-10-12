@@ -112,7 +112,7 @@ struct AppIconBadgeConsentSheet: View {
                         .font(.system(size: 20, weight: .bold))
                         .foregroundStyle(.white)
                         .frame(minWidth: 34, minHeight: 34)
-                        .background(VikuColor.Semantic.danger, in: Circle())
+                        .background(palette.semanticDanger, in: Circle())
                         .offset(x: 12, y: -12)
                         .transition(.scale.combined(with: .opacity))
                 }

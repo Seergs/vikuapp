@@ -102,7 +102,7 @@ struct ConnectionFormView: View {
                                 : String(localized: "Delete Connection", bundle: .module))
                                 .font(VikuFont.body)
                                 .fontWeight(.bold)
-                                .foregroundStyle(VikuColor.Semantic.danger)
+                                .foregroundStyle(palette.semanticDanger)
                         }
                     }
                     .frame(maxWidth: .infinity)
@@ -189,7 +189,7 @@ struct ConnectionFormView: View {
             Toggle(isOn: $viewModel.allowInsecureConnection) {
                 FieldLabel(String(localized: "Allow Insecure Connection", bundle: .module))
             }
-            .tint(VikuColor.brandPrimary)
+            .tint(palette.brand)
 
             if viewModel.allowInsecureConnection {
                 HStack(alignment: .firstTextBaseline, spacing: VikuSpacing.xs) {
@@ -199,7 +199,7 @@ struct ConnectionFormView: View {
                 }
                 .font(VikuFont.caption)
                 .fontWeight(.medium)
-                .foregroundStyle(VikuColor.Semantic.dangerText)
+                .foregroundStyle(palette.semanticDangerText)
                 .transition(.opacity)
             }
         }
@@ -381,7 +381,7 @@ struct ConnectionFormView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, VikuSpacing.sm + VikuSpacing.xs)
                 .background(
-                    VikuColor.brandPrimary,
+                    palette.brand,
                     in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous),
                 )
         }
@@ -440,6 +440,8 @@ private struct StatusBanner: View {
     let style: Style
     let message: String
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         HStack(alignment: .center, spacing: VikuSpacing.sm - VikuSpacing.xxs) {
             Image(systemName: style == .success ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
@@ -458,11 +460,11 @@ private struct StatusBanner: View {
     }
 
     private var foreground: Color {
-        style == .success ? VikuColor.Semantic.successText : VikuColor.Semantic.dangerText
+        style == .success ? palette.semanticSuccessText : palette.semanticDangerText
     }
 
     private var background: Color {
-        style == .success ? VikuColor.Semantic.success : VikuColor.Semantic.danger
+        style == .success ? palette.semanticSuccess : palette.semanticDanger
     }
 }
 

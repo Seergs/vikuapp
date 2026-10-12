@@ -115,8 +115,8 @@ struct ManageLabelsView: View {
                         .buttonStyle(.plain)
                         .swipeActions(edge: .trailing) {
                             // `role: .destructive` alone renders blue here, not
-                            // red: the tab bar's `.tint(VikuColor.brandPrimary)`
-                            // leaks into the swipe action, so tint it explicitly.
+                            // red: the tab bar's brand tint leaks into the
+                            // swipe action, so tint it explicitly.
                             Button(
                                 String(localized: "Delete", bundle: .module),
                                 systemImage: "trash",
@@ -124,7 +124,7 @@ struct ManageLabelsView: View {
                             ) {
                                 pendingDeletion = label
                             }
-                            .tint(VikuColor.Semantic.danger)
+                            .tint(palette.semanticDanger)
                         }
                     }
                 }
