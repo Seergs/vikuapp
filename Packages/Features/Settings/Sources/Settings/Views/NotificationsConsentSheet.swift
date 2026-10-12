@@ -60,7 +60,7 @@ struct NotificationsConsentSheet: View {
                 VStack(alignment: .leading, spacing: VikuSpacing.sm) {
                     ZStack {
                         RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous)
-                            .fill(VikuColor.brandPrimary)
+                            .fill(palette.brand)
                             .frame(width: 52, height: 52)
                         Image(systemName: "bell.fill")
                             .font(.system(size: 22, weight: .semibold))
@@ -144,7 +144,7 @@ struct NotificationsConsentSheet: View {
             HStack(alignment: .top, spacing: VikuSpacing.sm) {
                 Image(systemName: hasAcknowledged ? "checkmark.square.fill" : "square")
                     .font(.system(size: 18))
-                    .foregroundStyle(hasAcknowledged ? VikuColor.brandPrimary : VikuColor.textTertiary)
+                    .foregroundStyle(hasAcknowledged ? palette.brand : VikuColor.textTertiary)
                 Text(
                     "I understand my events will pass through Viku Relay, a service operated by the Viku team.",
                     bundle: .module,

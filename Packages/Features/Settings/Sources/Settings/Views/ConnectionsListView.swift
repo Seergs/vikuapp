@@ -112,6 +112,8 @@ struct ConnectionsListView: View {
 private struct AddConnectionButton: View {
     let action: () -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: VikuSpacing.sm) {
@@ -121,7 +123,7 @@ private struct AddConnectionButton: View {
                     .font(VikuFont.body)
                     .fontWeight(.semibold)
             }
-            .foregroundStyle(VikuColor.brandPrimary)
+            .foregroundStyle(palette.brand)
             .frame(maxWidth: .infinity)
             .padding(.vertical, VikuSpacing.md)
             .background {
@@ -159,12 +161,12 @@ private struct ConnectionRow: View {
             Button(action: onSelect) {
                 HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
                     RoundedRectangle(cornerRadius: VikuRadius.sm - VikuSpacing.xs, style: .continuous)
-                        .fill(VikuColor.brandPrimary.opacity(isActive ? 0.18 : 0.08))
+                        .fill(palette.brand.opacity(isActive ? 0.18 : 0.08))
                         .frame(width: 40, height: 40)
                         .overlay {
                             Image(systemName: "server.rack")
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(isActive ? VikuColor.brandPrimary : VikuColor.textTertiary)
+                                .foregroundStyle(isActive ? palette.brand : VikuColor.textTertiary)
                         }
 
                     VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
@@ -178,10 +180,10 @@ private struct ConnectionRow: View {
                             if isActive {
                                 Text("ACTIVE", bundle: .module)
                                     .font(.system(size: 11, weight: .bold))
-                                    .foregroundStyle(VikuColor.brandPrimary)
+                                    .foregroundStyle(palette.brand)
                                     .padding(.horizontal, VikuSpacing.xs + VikuSpacing.xxs)
                                     .padding(.vertical, VikuSpacing.xxs)
-                                    .background(VikuColor.brandPrimary.opacity(0.14), in: Capsule())
+                                    .background(palette.brand.opacity(0.14), in: Capsule())
                             }
                         }
 

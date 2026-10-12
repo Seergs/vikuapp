@@ -156,7 +156,7 @@ struct NotificationsView: View {
                     Divider()
                     HStack(spacing: VikuSpacing.sm) {
                         Circle()
-                            .fill(VikuColor.Semantic.success)
+                            .fill(palette.semanticSuccess)
                             .frame(width: 8, height: 8)
                         Text(String(localized: "Registered with \(relayTargetURL.host ?? relayTargetURL.absoluteString)", bundle: .module))
                             .font(VikuFont.footnote)
@@ -212,7 +212,7 @@ struct NotificationsView: View {
     private var deniedBanner: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm) {
             Text("Notifications are turned off for Viku in iOS Settings.", bundle: .module)
-                .foregroundStyle(VikuColor.Semantic.dangerText)
+                .foregroundStyle(palette.semanticDangerText)
             Button(String(localized: "Open Settings", bundle: .module)) {
                 openSystemSettings()
             }
@@ -426,8 +426,10 @@ private struct ProjectNotificationRow: View {
     /// every project up front, only for rows the list actually renders.
     @State private var otherWebhookCount = 0
 
+    @Environment(\.vikuPalette) private var palette
+
     private var swatchColor: Color {
-        Color(vikuHex: project.hexColor) ?? VikuColor.brandPrimary
+        Color(vikuHex: project.hexColor) ?? palette.brand
     }
 
     var body: some View {
@@ -456,10 +458,10 @@ private struct ProjectNotificationRow: View {
                     Text(verbatim: "\(eventCount)")
                         .font(.system(size: 12, weight: .semibold))
                 }
-                .foregroundStyle(VikuColor.brandPrimary)
+                .foregroundStyle(palette.brand)
                 .padding(.horizontal, VikuSpacing.sm)
                 .padding(.vertical, VikuSpacing.xxs)
-                .background(Capsule().fill(VikuColor.brandPrimary.opacity(0.12)))
+                .background(Capsule().fill(palette.brand.opacity(0.12)))
             } else {
                 Text("Not Connected", bundle: .module)
                     .font(VikuFont.footnote)

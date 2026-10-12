@@ -57,7 +57,7 @@ struct ProjectNotificationsView: View {
     }
 
     private var swatchColor: Color {
-        Color(vikuHex: project.hexColor) ?? VikuColor.brandPrimary
+        Color(vikuHex: project.hexColor) ?? palette.brand
     }
 
     var body: some View {
@@ -126,7 +126,7 @@ struct ProjectNotificationsView: View {
                     value: selectedEvents.isEmpty
                         ? String(localized: "Not Connected", bundle: .module)
                         : String(localized: "Connected", bundle: .module),
-                    valueColor: selectedEvents.isEmpty ? VikuColor.textSecondary : VikuColor.Semantic.success,
+                    valueColor: selectedEvents.isEmpty ? VikuColor.textSecondary : palette.semanticSuccess,
                 )
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -190,7 +190,7 @@ struct ProjectNotificationsView: View {
                 .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
                 .padding(.vertical, VikuSpacing.sm - VikuSpacing.xxs)
                 .foregroundStyle(isSelected ? Color.white : VikuColor.textSecondary)
-                .background(Capsule().fill(isSelected ? VikuColor.brandPrimary : palette.fieldBackground))
+                .background(Capsule().fill(isSelected ? palette.brand : palette.fieldBackground))
         }
         .buttonStyle(.plain)
         .disabled(isDisabled)
