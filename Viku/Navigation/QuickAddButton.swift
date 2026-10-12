@@ -15,15 +15,17 @@ struct QuickAddButton: View {
 
     var onTap: () -> Void = {}
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         Button(action: onTap) {
             Image(systemName: "plus")
                 .font(.system(size: 24, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: diameter, height: diameter)
-                .background(VikuColor.brandPrimary, in: Circle())
-                .shadow(color: VikuColor.brandPrimary.opacity(0.4), radius: 10, x: 0, y: 6)
-                .shadow(color: VikuColor.brandPrimary.opacity(0.3), radius: 3, x: 0, y: 2)
+                .background(palette.brand, in: Circle())
+                .shadow(color: palette.brand.opacity(0.4), radius: 10, x: 0, y: 6)
+                .shadow(color: palette.brand.opacity(0.3), radius: 3, x: 0, y: 2)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text("Quick Add"))

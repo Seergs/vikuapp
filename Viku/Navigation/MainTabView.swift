@@ -34,6 +34,8 @@ struct MainTabView: View {
     /// Settings' dev-only "Preview Onboarding" row.
     let onPreviewOnboarding: () -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     @State private var selection: AppTab = .home
 
     // One `AppRouter` per tab stack: the tab's `NavigationStack` binds to its
@@ -164,7 +166,7 @@ struct MainTabView: View {
             }
         }
         .tabBarMinimizeBehavior(.onScrollDown)
-        .tint(VikuColor.brandPrimary)
+        .tint(palette.brand)
         // A light selection tick whenever the active tab changes — including a
         // programmatic switch from a `viku://` deep link. Doesn't fire on
         // first render, or on re-tapping the current tab (which pops to root
