@@ -5,18 +5,20 @@ import VikunjaCore
 extension QuickAddParser.Resolution {
     /// The color a shortcut's text is drawn in inside the title field. `nil`
     /// leaves the text plain, which is what a superseded shortcut gets.
-    var tint: Color? {
+    /// Priority keeps its own literal mapping (`PriorityOption`), which
+    /// doesn't depend on the active theme.
+    func tint(in palette: VikuPalette) -> Color? {
         switch self {
         case .project:
-            VikuColor.brandPrimary
+            palette.brand
         case let .priority(priority):
             PriorityOption.all.first { $0.priority == (priority == .doNow ? .urgent : priority) }?.color
         case let .label(label):
-            Color(vikuMutedHex: label.hexColor) ?? VikuColor.brandPrimary
+            Color(vikuMutedHex: label.hexColor) ?? palette.brand
         case .newLabel:
-            VikuColor.brandPrimary
+            palette.brand
         case .unmatchedProject, .ambiguousProject, .ambiguousLabel:
-            VikuColor.Semantic.dangerText
+            palette.semanticDangerText
         case .superseded:
             nil
         }
