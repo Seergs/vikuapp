@@ -204,8 +204,10 @@ private struct ProjectRow: View {
     let onEdit: (Project) -> Void
     let onDelete: () -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     private var swatchColor: Color {
-        Color(vikuHex: project.hexColor) ?? VikuColor.brandPrimary
+        Color(vikuHex: project.hexColor) ?? palette.brand
     }
 
     var body: some View {
@@ -281,15 +283,15 @@ private struct ProjectRow: View {
                 action: { onEdit(project) },
             )
             // `role: .destructive` alone renders blue here, not red: the tab
-            // bar's `.tint(VikuColor.brandPrimary)` leaks into the context
-            // menu and overrides the role's tint. Pin it back to danger.
+            // bar's brand tint leaks into the context menu and overrides the
+            // role's tint. Pin it back to danger.
             Button(
                 String(localized: "Delete Project", bundle: .module),
                 systemImage: "trash",
                 role: .destructive,
                 action: onDelete,
             )
-            .tint(VikuColor.Semantic.danger)
+            .tint(palette.semanticDanger)
         }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
