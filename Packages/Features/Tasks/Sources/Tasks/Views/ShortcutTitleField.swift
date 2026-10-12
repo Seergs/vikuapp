@@ -6,11 +6,13 @@ import VikunjaCore
 
 /// The quick-add title field. A `UITextView` rather than a `TextField`, because
 /// SwiftUI's text fields cannot color part of their text. Each shortcut is drawn
-/// in its tint (see `QuickAddParser.Resolution.tint`) while the text stays in place.
+/// in its tint (see `QuickAddParser.Resolution.tint(in:)`) while the text stays in place.
 struct ShortcutTitleField: UIViewRepresentable {
     @Binding var text: String
     let tokens: [QuickAddParser.ResolvedToken]
     let focusOnAppear: Bool
+
+    @Environment(\.vikuPalette) private var palette
 
     func makeCoordinator() -> Coordinator {
         Coordinator(text: $text)
@@ -56,7 +58,7 @@ struct ShortcutTitleField: UIViewRepresentable {
         storage.beginEditing()
         storage.setAttributes(base, range: NSRange(location: 0, length: storage.length))
         for item in tokens {
-            guard let tint = item.resolution.tint else { continue }
+            guard let tint = item.resolution.tint(in: palette) else { continue }
             let range = NSRange(item.token.range, in: view.text)
             storage.addAttributes(
                 [
