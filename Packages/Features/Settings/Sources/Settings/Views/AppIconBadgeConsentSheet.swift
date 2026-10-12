@@ -13,6 +13,7 @@ struct AppIconBadgeConsentSheet: View {
     let onAgree: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.vikuPalette) private var palette
     /// Whether the 4 mock Home Screen icons have animated in — all together,
     /// not staggered, since they're meant to read as one row appearing at
     /// once. See `animateIn()`.
@@ -118,7 +119,7 @@ struct AppIconBadgeConsentSheet: View {
             }
         } else {
             RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous)
-                .fill(VikuColor.Surface.field)
+                .fill(palette.fieldBackground)
                 .frame(width: Self.skeletonIconSize, height: Self.skeletonIconSize)
         }
     }

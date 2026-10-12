@@ -11,6 +11,7 @@ struct NotificationsConsentSheet: View {
     let onAgree: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.vikuPalette) private var palette
     @State private var hasAcknowledged = false
 
     private struct Point {
@@ -86,7 +87,7 @@ struct NotificationsConsentSheet: View {
                     ForEach(points, id: \.title) { point in
                         HStack(alignment: .top, spacing: VikuSpacing.sm + VikuSpacing.xxs) {
                             RoundedRectangle(cornerRadius: VikuRadius.sm - VikuSpacing.xs, style: .continuous)
-                                .fill(VikuColor.Surface.field)
+                                .fill(palette.fieldBackground)
                                 .frame(width: 32, height: 32)
                                 .overlay {
                                     Image(systemName: point.systemImage)
@@ -131,7 +132,7 @@ struct NotificationsConsentSheet: View {
                     .foregroundStyle(VikuColor.textSecondary)
             }
             .padding(VikuSpacing.md)
-            .background(VikuColor.Surface.page)
+            .background(palette.pageBackground)
         }
         .presentationDragIndicator(.visible)
     }
@@ -154,7 +155,7 @@ struct NotificationsConsentSheet: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
             .padding(.vertical, VikuSpacing.sm + VikuSpacing.xs)
-            .background(VikuColor.Surface.field, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
+            .background(palette.fieldBackground, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
         }
         .buttonStyle(.plain)
     }
