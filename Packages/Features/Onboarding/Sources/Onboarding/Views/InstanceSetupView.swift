@@ -64,7 +64,7 @@ public struct InstanceSetupView: View {
     private var header: some View {
         VStack(spacing: VikuSpacing.md) {
             RoundedRectangle(cornerRadius: VikuRadius.lg, style: .continuous)
-                .fill(VikuColor.brandPrimary)
+                .fill(palette.brand)
                 .frame(width: 64, height: 64)
                 .overlay {
                     Image(systemName: "checkmark")
@@ -133,7 +133,7 @@ public struct InstanceSetupView: View {
                     .fontWeight(.semibold)
                     .foregroundStyle(VikuColor.textSecondary)
             }
-            .tint(VikuColor.brandPrimary)
+            .tint(palette.brand)
 
             if viewModel.allowInsecureConnection {
                 HStack(alignment: .firstTextBaseline, spacing: VikuSpacing.xs) {
@@ -145,7 +145,7 @@ public struct InstanceSetupView: View {
                 }
                 .font(VikuFont.caption)
                 .fontWeight(.medium)
-                .foregroundStyle(VikuColor.Semantic.dangerText)
+                .foregroundStyle(palette.semanticDangerText)
                 .transition(.opacity)
             }
         }
@@ -256,8 +256,8 @@ public struct InstanceSetupView: View {
     }
 
     private func statusBanner(text: String, isSuccess: Bool) -> some View {
-        let backgroundTint = isSuccess ? VikuColor.Semantic.success : VikuColor.Semantic.danger
-        let textTint = isSuccess ? VikuColor.Semantic.successText : VikuColor.Semantic.dangerText
+        let backgroundTint = isSuccess ? palette.semanticSuccess : palette.semanticDanger
+        let textTint = isSuccess ? palette.semanticSuccessText : palette.semanticDangerText
         return HStack(spacing: VikuSpacing.sm) {
             Image(systemName: isSuccess ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
             Text(verbatim: text)
@@ -284,7 +284,7 @@ public struct InstanceSetupView: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(.white)
-        .background(VikuColor.brandPrimary, in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
+        .background(palette.brand, in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
         .opacity(viewModel.canSave ? 1 : 0.4)
         .disabled(!viewModel.canSave || viewModel.isSaving)
     }
