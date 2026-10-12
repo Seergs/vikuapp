@@ -11,6 +11,7 @@ import VikuUI
 struct ProjectsView: View {
     @Bindable var viewModel: ProjectsListViewModel
     @Environment(AppRouter.self) private var router
+    @Environment(\.vikuPalette) private var palette
     let makeCreateProjectViewModel: (Int?) -> CreateProjectViewModel
     let makeEditProjectViewModel: (Project) -> EditProjectViewModel
     @State private var expandedProjectIDs: Set<Int> = []
@@ -127,7 +128,7 @@ struct ProjectsView: View {
                 } header: {
                     Text(Self.countText(for: viewModel.rootNodes))
                         .font(VikuFont.subheadline)
-                        .foregroundStyle(VikuColor.textSecondary)
+                        .foregroundStyle(palette.textSecondary)
                         .textCase(nil)
                 }
             }
@@ -241,7 +242,7 @@ private struct ProjectRow: View {
                         } else {
                             Text("No tasks", bundle: .module)
                                 .font(VikuFont.caption)
-                                .foregroundStyle(VikuColor.textTertiary)
+                                .foregroundStyle(palette.textTertiary)
                         }
                     } else {
                         ProjectProgressCount(
@@ -260,7 +261,7 @@ private struct ProjectRow: View {
                 Button(action: onToggleExpand) {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(VikuColor.textTertiary)
+                        .foregroundStyle(palette.textTertiary)
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
                         .frame(width: 32, height: 32)
                         .contentShape(Rectangle())
@@ -322,7 +323,7 @@ private struct ProjectProgressCount: View {
 
             Text(verbatim: "\(summary.done)/\(summary.total)")
                 .font(VikuFont.caption)
-                .foregroundStyle(VikuColor.textTertiary)
+                .foregroundStyle(palette.textTertiary)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(

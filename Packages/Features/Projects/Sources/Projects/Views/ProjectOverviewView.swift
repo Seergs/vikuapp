@@ -398,7 +398,7 @@ private struct ProjectProgressHeader: View {
             Text(verbatim: subtitle)
                 .font(VikuFont.subheadline)
                 .fontWeight(.medium)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
         }
     }
 
@@ -472,14 +472,14 @@ private struct SubprojectCard: View {
 
                     Text(verbatim: summaryText)
                         .font(VikuFont.caption)
-                        .foregroundStyle(VikuColor.textTertiary)
+                        .foregroundStyle(palette.textTertiary)
                 }
 
                 Spacer(minLength: VikuSpacing.xs)
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(VikuColor.textTertiary)
+                    .foregroundStyle(palette.textTertiary)
             }
             .padding(VikuSpacing.sm + VikuSpacing.xxs)
             // Fixed (not just minimum) width: the `Spacer` above needs a
@@ -574,7 +574,7 @@ private struct FilterChip: View {
                 .fontWeight(.semibold)
                 .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
                 .padding(.vertical, VikuSpacing.sm - VikuSpacing.xxs)
-                .foregroundStyle(isSelected ? Color.white : VikuColor.textSecondary)
+                .foregroundStyle(isSelected ? Color.white : palette.textSecondary)
                 .background(
                     Capsule().fill(isSelected ? palette.brand : palette.fieldBackground),
                 )
@@ -684,7 +684,7 @@ private struct DisplayModeSwitcher: View {
                     .opacity(isSelected ? 1 : 0)
                     .clipped()
             }
-            .foregroundStyle(isSelected ? Color.primary : VikuColor.textTertiary)
+            .foregroundStyle(isSelected ? Color.primary : palette.textTertiary)
             .padding(.horizontal, isSelected ? VikuSpacing.sm + VikuSpacing.xxs : VikuSpacing.sm)
             .padding(.vertical, VikuSpacing.xs + VikuSpacing.xxs)
             .background {
