@@ -105,8 +105,7 @@ struct NotificationsView: View {
         switch viewModel.loadState {
         case .idle, .loading:
             ProgressView()
-                .frame(maxWidth: .infinity)
-                .padding(.top, VikuSpacing.xxl)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         case let .failure(message):
             VikuStatusView(
                 systemImage: "exclamationmark.triangle.fill",
