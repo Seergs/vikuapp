@@ -224,8 +224,8 @@ public enum QuickAddParser {
 
         let value: String
         let endOffset: Int
-        if characters[bodyStart] == "\"" {
-            guard let closing = characters[(bodyStart + 1)...].firstIndex(of: "\"") else { return nil }
+        if isQuote(characters[bodyStart]) {
+            guard let closing = characters[(bodyStart + 1)...].firstIndex(where: isQuote) else { return nil }
             value = String(characters[(bodyStart + 1) ..< closing])
             endOffset = closing + 1
         } else {
@@ -271,6 +271,12 @@ public enum QuickAddParser {
     /// A shortcut ends at the end of the input or at whitespace.
     private static func endsShortcut(at offset: Int, in characters: [Character]) -> Bool {
         offset == characters.count || characters[offset].isWhitespace
+    }
+
+    /// Matches the straight quote as well as the curly quotes iOS autocorrect substitutes
+    /// for it (smart punctuation), so pasted or dictated text still resolves quoted names.
+    private static func isQuote(_ character: Character) -> Bool {
+        character == "\"" || character == "\u{201C}" || character == "\u{201D}"
     }
 
     // MARK: - Resolution

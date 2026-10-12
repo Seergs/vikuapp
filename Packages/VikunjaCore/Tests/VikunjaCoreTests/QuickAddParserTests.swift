@@ -50,6 +50,15 @@ struct QuickAddParserTests {
     }
 
     @Test
+    func `curly quotes from autocorrect are matched like straight quotes`() {
+        let input = "Pan #\u{201C}Lista del super\u{201D}"
+        let tokens = QuickAddParser.tokenize(input, syntax: .todoist)
+
+        #expect(tokens.count == 1)
+        #expect(tokens[0].value == "Lista del super")
+    }
+
+    @Test
     func `shortcuts inside words are not tokens`() {
         #expect(QuickAddParser.tokenize("mail a foo#bar", syntax: .todoist).isEmpty)
         #expect(QuickAddParser.tokenize("mail a foo+bar", syntax: .vikunja).isEmpty)
