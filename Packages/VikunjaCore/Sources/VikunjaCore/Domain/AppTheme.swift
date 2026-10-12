@@ -6,4 +6,7 @@ public enum AppTheme: String, Sendable, Equatable, CaseIterable, Codable {
     case system
     case light
     case dark
+    /// A light-scheme palette with warm off-white surfaces instead of the
+    /// standard cool grays, same brand accent. Forces the light scheme.
+    case warm
 }

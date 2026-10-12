@@ -71,6 +71,69 @@ private func assertMeetsWCAG(_ label: String, text: ReferenceRGB, background: Re
     #expect(ratio >= minimumRatio, "\(label): contrast ratio \(ratio) is below the required \(minimumRatio):1")
 }
 
+private extension ReferenceRGB {
+    /// Only safe for colors built from literal components (e.g. `Color(hex:)`
+    /// or `Color(.sRGB, red:green:blue:)`) — resolving a platform-adaptive
+    /// color hangs outside a live rendering host, which is what `swift test`
+    /// runs in. `VikuPalette.warm` is entirely literal, so this is safe for it.
+    init(resolving color: Color) {
+        let resolved = color.resolve(in: EnvironmentValues())
+        self.init(red: Double(resolved.red), green: Double(resolved.green), blue: Double(resolved.blue))
+    }
+}
+
+struct WarmPaletteContrastTests {
+    @Test
+    func `textSecondary meets normal text contrast on page, card and field`() {
+        let palette = VikuPalette.warm
+        let text = ReferenceRGB(resolving: palette.textSecondary)
+
+        assertMeetsWCAG(
+            "warm textSecondary on page",
+            text: text,
+            background: ReferenceRGB(resolving: palette.pageBackground),
+            minimumRatio: WCAGThreshold.normalText,
+        )
+        assertMeetsWCAG(
+            "warm textSecondary on card",
+            text: text,
+            background: ReferenceRGB(resolving: palette.cardBackground),
+            minimumRatio: WCAGThreshold.normalText,
+        )
+        assertMeetsWCAG(
+            "warm textSecondary on field",
+            text: text,
+            background: ReferenceRGB(resolving: palette.fieldBackground),
+            minimumRatio: WCAGThreshold.normalText,
+        )
+    }
+
+    @Test
+    func `textTertiary meets the large text and non-text UI floor on page, card and field`() {
+        let palette = VikuPalette.warm
+        let text = ReferenceRGB(resolving: palette.textTertiary)
+
+        assertMeetsWCAG(
+            "warm textTertiary on page",
+            text: text,
+            background: ReferenceRGB(resolving: palette.pageBackground),
+            minimumRatio: WCAGThreshold.tertiaryText,
+        )
+        assertMeetsWCAG(
+            "warm textTertiary on card",
+            text: text,
+            background: ReferenceRGB(resolving: palette.cardBackground),
+            minimumRatio: WCAGThreshold.tertiaryText,
+        )
+        assertMeetsWCAG(
+            "warm textTertiary on field",
+            text: text,
+            background: ReferenceRGB(resolving: palette.fieldBackground),
+            minimumRatio: WCAGThreshold.tertiaryText,
+        )
+    }
+}
+
 struct StandardPaletteContrastTests {
     @Test
     func `textSecondary meets normal text contrast on page and card, light and dark`() {

@@ -9,6 +9,7 @@ extension AppTheme {
         case .system: String(localized: "Automatic", bundle: .module)
         case .light: String(localized: "Light", bundle: .module)
         case .dark: String(localized: "Dark", bundle: .module)
+        case .warm: String(localized: "Warm", bundle: .module)
         }
     }
 }
