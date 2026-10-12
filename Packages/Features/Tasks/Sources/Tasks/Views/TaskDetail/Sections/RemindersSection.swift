@@ -49,6 +49,8 @@ struct RemindersSection: View {
 private struct ReminderDeliveryWarningBanner: View {
     let warning: ReminderDeliveryWarning
 
+    @Environment(\.vikuPalette) private var palette
+
     private var message: String {
         switch warning {
         case .pushDisabled:
@@ -68,16 +70,16 @@ private struct ReminderDeliveryWarningBanner: View {
         HStack(alignment: .top, spacing: VikuSpacing.sm - VikuSpacing.xxs) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 12))
-                .foregroundStyle(VikuColor.Semantic.dangerText)
+                .foregroundStyle(palette.semanticDangerText)
             Text(verbatim: message)
                 .font(VikuFont.footnote)
-                .foregroundStyle(VikuColor.Semantic.dangerText)
+                .foregroundStyle(palette.semanticDangerText)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
         .padding(.vertical, VikuSpacing.sm)
         .background(
-            VikuColor.Semantic.danger.opacity(0.12),
+            palette.semanticDanger.opacity(0.12),
             in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous),
         )
     }
@@ -100,7 +102,7 @@ private struct ReminderRow: View {
                 HStack(spacing: VikuSpacing.sm) {
                     Image(systemName: "bell")
                         .font(.system(size: 13))
-                        .foregroundStyle(VikuColor.brandPrimary)
+                        .foregroundStyle(palette.brand)
                     VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
                         Text(verbatim: label)
                             .font(.system(size: 14.5, weight: .medium))

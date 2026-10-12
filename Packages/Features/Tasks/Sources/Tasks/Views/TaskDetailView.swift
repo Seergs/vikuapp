@@ -167,9 +167,9 @@ public struct TaskDetailView: View {
                         }
                         Divider()
                         // `role: .destructive` alone renders blue here, not red:
-                        // the tab bar's `.tint(VikuColor.brandPrimary)` leaks
-                        // into this menu and overrides the role's tint — mirrors
-                        // `ProjectTaskRow`'s context menu in `Features/Projects`.
+                        // the tab bar's brand tint leaks into this menu and
+                        // overrides the role's tint, mirroring `ProjectTaskRow`'s
+                        // context menu in `Features/Projects`.
                         Button(
                             String(localized: "Delete Task", bundle: .module),
                             systemImage: "trash",
@@ -177,7 +177,7 @@ public struct TaskDetailView: View {
                         ) {
                             isShowingDeleteConfirmation = true
                         }
-                        .tint(VikuColor.Semantic.danger)
+                        .tint(palette.semanticDanger)
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
@@ -542,6 +542,6 @@ public struct TaskDetailView: View {
     }
 
     private func swatchColor(_ project: Project) -> Color {
-        Color(vikuHex: project.hexColor) ?? VikuColor.brandPrimary
+        Color(vikuHex: project.hexColor) ?? palette.brand
     }
 }
