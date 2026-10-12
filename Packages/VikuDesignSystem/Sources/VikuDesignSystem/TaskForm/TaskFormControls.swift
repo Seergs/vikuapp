@@ -39,6 +39,8 @@ public struct ProjectField: View {
     let project: Project?
     let action: () -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     public init(project: Project?, action: @escaping () -> Void) {
         self.project = project
         self.action = action
@@ -66,7 +68,7 @@ public struct ProjectField: View {
             }
             .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
             .padding(.vertical, VikuSpacing.sm + VikuSpacing.xs)
-            .background(VikuColor.Surface.field, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
+            .background(palette.fieldBackground, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -135,6 +137,8 @@ private struct PriorityChip: View {
     let isSelected: Bool
     let action: () -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: VikuSpacing.xs) {
@@ -147,7 +151,7 @@ private struct PriorityChip: View {
             .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xs)
             .padding(.vertical, VikuSpacing.xs + VikuSpacing.xxs)
             .background(
-                Capsule().fill(isSelected ? option.color.opacity(0.14) : VikuColor.Surface.field),
+                Capsule().fill(isSelected ? option.color.opacity(0.14) : palette.fieldBackground),
             )
             .overlay(
                 Capsule().strokeBorder(isSelected ? option.color : Color.clear, lineWidth: 1.5),
