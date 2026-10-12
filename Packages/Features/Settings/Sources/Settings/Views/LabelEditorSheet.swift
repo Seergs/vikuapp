@@ -98,7 +98,7 @@ struct LabelEditorSheet: View {
             Text("Color", bundle: .module)
                 .font(VikuFont.footnote)
                 .fontWeight(.semibold)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
 
             HStack(spacing: VikuSpacing.sm) {
                 ForEach(VikuColor.SwatchPalette.labelSwatches, id: \.self) { swatch in

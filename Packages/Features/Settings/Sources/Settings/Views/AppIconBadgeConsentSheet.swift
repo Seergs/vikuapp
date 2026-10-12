@@ -49,7 +49,7 @@ struct AppIconBadgeConsentSheet: View {
                 // swiftlint:disable:next line_length
                 Text("We'll show how many tasks you have due today or overdue right on Viku's icon. For that, iOS will ask for notification permission.", bundle: .module)
                     .font(VikuFont.subheadline)
-                    .foregroundStyle(VikuColor.textSecondary)
+                    .foregroundStyle(palette.textSecondary)
                     .multilineTextAlignment(.center)
             }
 
@@ -68,7 +68,7 @@ struct AppIconBadgeConsentSheet: View {
                 Button(String(localized: "Not Now", bundle: .module)) { dismiss() }
                     .font(VikuFont.subheadline)
                     .fontWeight(.medium)
-                    .foregroundStyle(VikuColor.textSecondary)
+                    .foregroundStyle(palette.textSecondary)
             }
         }
         .padding(.horizontal, VikuSpacing.md)

@@ -25,6 +25,7 @@ struct SettingsView: View {
     @State private var isPresentingBadgeConsent = false
     @State private var isPresentingDefaultProjectPicker = false
     @Environment(\.openURL) private var openURL
+    @Environment(\.vikuPalette) private var palette
 
     var body: some View {
         List {
@@ -49,7 +50,7 @@ struct SettingsView: View {
                             Text("App Icon Badge", bundle: .module)
                             Text("Overdue and due-today tasks", bundle: .module)
                                 .font(VikuFont.footnote)
-                                .foregroundStyle(VikuColor.textTertiary)
+                                .foregroundStyle(palette.textTertiary)
                         }
                     }
                 }
@@ -121,7 +122,7 @@ struct SettingsView: View {
                     Text("Experimental", bundle: .module)
                     Text("Features still being tested. They may change or be removed.", bundle: .module)
                         .font(VikuFont.footnote)
-                        .foregroundStyle(VikuColor.textSecondary)
+                        .foregroundStyle(palette.textSecondary)
                         .textCase(nil)
                 }
             } footer: {
@@ -213,7 +214,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm) {
             Text("Notifications are turned off for Viku in iOS Settings.", bundle: .module)
                 .font(VikuFont.footnote)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
             Button(String(localized: "Open Settings", bundle: .module)) {
                 openSystemSettings()
             }
@@ -270,6 +271,8 @@ private struct SettingsNavigationRow: View {
     let subtitle: String
     let action: () -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
@@ -281,7 +284,7 @@ private struct SettingsNavigationRow: View {
                         .foregroundStyle(Color.primary)
                     Text(verbatim: subtitle)
                         .font(VikuFont.footnote)
-                        .foregroundStyle(VikuColor.textTertiary)
+                        .foregroundStyle(palette.textTertiary)
                         .lineLimit(1)
                 }
 
@@ -289,7 +292,7 @@ private struct SettingsNavigationRow: View {
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(VikuColor.textTertiary)
+                    .foregroundStyle(palette.textTertiary)
             }
             // Without this, `.buttonStyle(.plain)` only treats the
             // icon/text/chevron themselves as tappable, not the transparent
@@ -308,6 +311,8 @@ private struct SettingsInfoRow: View {
     let title: String
     let value: String
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
             SettingsRowIcon(systemName: icon)
@@ -317,7 +322,7 @@ private struct SettingsInfoRow: View {
             Spacer()
             Text(verbatim: value)
                 .font(VikuFont.body)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
         }
     }
 }
