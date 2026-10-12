@@ -15,6 +15,7 @@ public struct ReminderPickerSheet: View {
     }
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.vikuPalette) private var palette
     @State private var mode: Mode
     @State private var date: Date
     @State private var quantity: Int
@@ -215,14 +216,14 @@ public struct ReminderPickerSheet: View {
     private var previewFooter: some View {
         HStack(alignment: .top, spacing: VikuSpacing.sm) {
             Image(systemName: isPast ? "bell" : "bell.fill")
-                .foregroundStyle(isPast ? VikuColor.Semantic.dangerText : VikuColor.brandPrimary)
+                .foregroundStyle(isPast ? palette.semanticDangerText : palette.brand)
             VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
                 if isPast {
                     Text(verbatim: String(
                         localized: "That time has already passed: \(pastDateLabel)",
                         bundle: .module,
                     ))
-                    .foregroundStyle(VikuColor.Semantic.dangerText)
+                    .foregroundStyle(palette.semanticDangerText)
                     if mode == .relative {
                         Text("It will move if you change the due date.", bundle: .module)
                     }

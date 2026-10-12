@@ -90,7 +90,7 @@ public struct DuplicateTaskSheetView: View {
                         .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
-            .tint(VikuColor.brandPrimary)
+            .tint(palette.brand)
             .padding(.horizontal, VikuSpacing.md)
             .padding(.top, VikuSpacing.md)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

@@ -10,6 +10,7 @@ import VikunjaCore
 /// without importing another feature, mirroring `LabelPickerSheet`.
 public struct RelationKindPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.vikuPalette) private var palette
     let onPick: (RelationKind) -> Void
 
     public init(onPick: @escaping (RelationKind) -> Void) {
@@ -29,7 +30,7 @@ public struct RelationKindPickerSheet: View {
                     HStack(spacing: VikuSpacing.sm) {
                         Image(systemName: "link")
                             .font(.system(size: 15))
-                            .foregroundStyle(VikuColor.brandPrimary)
+                            .foregroundStyle(palette.brand)
                         Text(verbatim: kind.localizedDisplayName)
                             .foregroundStyle(Color.primary)
                         Spacer()
