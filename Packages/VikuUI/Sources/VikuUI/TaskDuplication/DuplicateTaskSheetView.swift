@@ -144,7 +144,7 @@ public struct DuplicateTaskSheetView: View {
         case let .failure(message):
             Text(message)
                 .font(VikuFont.footnote)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
         case .loading, .idle:
             ProgressView()
         case .loaded:

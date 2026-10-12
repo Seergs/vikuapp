@@ -97,7 +97,7 @@ private struct LabelPickerRow: View {
     @Environment(\.vikuPalette) private var palette
 
     private var color: Color {
-        Color(vikuMutedHex: label.hexColor) ?? VikuColor.textSecondary
+        Color(vikuMutedHex: label.hexColor) ?? palette.textSecondary
     }
 
     var body: some View {
@@ -135,16 +135,18 @@ private struct LabelSelectionIndicator: View {
     let isSelected: Bool
     var size: CGFloat = 22
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         Circle()
-            .strokeBorder(VikuColor.textTertiary.opacity(isSelected ? 0 : 0.4), lineWidth: 1.5)
-            .background(Circle().fill(VikuColor.textTertiary.opacity(isSelected ? 0.22 : 0)))
+            .strokeBorder(palette.textTertiary.opacity(isSelected ? 0 : 0.4), lineWidth: 1.5)
+            .background(Circle().fill(palette.textTertiary.opacity(isSelected ? 0.22 : 0)))
             .frame(width: size, height: size)
             .overlay {
                 if isSelected {
                     Image(systemName: "checkmark")
                         .font(.system(size: size * 0.46, weight: .bold))
-                        .foregroundStyle(VikuColor.textSecondary)
+                        .foregroundStyle(palette.textSecondary)
                 }
             }
     }
@@ -165,7 +167,7 @@ private struct CreateLabelCard: View {
             Text("Create New Label", bundle: .module)
                 .font(VikuFont.footnote)
                 .fontWeight(.semibold)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
 
             HStack(spacing: VikuSpacing.sm) {
                 Circle()

@@ -36,7 +36,7 @@ public struct RelationKindPickerSheet: View {
                         Spacer()
                         Image(systemName: "chevron.right")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(VikuColor.textTertiary)
+                            .foregroundStyle(palette.textTertiary)
                     }
                     .contentShape(Rectangle())
                 }
