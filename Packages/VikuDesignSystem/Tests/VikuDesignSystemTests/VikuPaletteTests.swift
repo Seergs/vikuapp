@@ -13,24 +13,29 @@ struct VikuPaletteTests {
         // already proves they're the same color.
         let palette = VikuPalette.standard
 
-        #expect(palette.brand == VikuColor.brandPrimary)
+        #expect(palette.brand == Color(hex: 0x196AFF))
         #expect(palette.pageBackground == Color.platformPageBackground)
         #expect(palette.cardBackground == Color.platformCardBackground)
         #expect(palette.fieldBackground == Color.platformFieldBackground)
         #expect(palette.textSecondary == VikuColor.textSecondary)
         #expect(palette.textTertiary == VikuColor.textTertiary)
-        #expect(palette.semanticSuccess == VikuColor.Semantic.success)
-        #expect(palette.semanticSuccessText == VikuColor.Semantic.successText)
-        #expect(palette.semanticDanger == VikuColor.Semantic.danger)
-        #expect(palette.semanticDangerText == VikuColor.Semantic.dangerText)
+        #expect(palette.semanticSuccess == Color(hex: 0x1FA669))
+        #expect(palette.semanticSuccessText == Color(hex: 0x15753F))
+        #expect(palette.semanticDanger == Color(hex: 0xDF202E))
+        #expect(palette.semanticDangerText == Color.platformDangerText)
     }
 
     @Test
-    @available(*, deprecated, message: "Exercises the deprecated VikuColor.Surface aliases on purpose.")
-    func `deprecated VikuColor Surface aliases still forward to standard`() {
+    @available(*, deprecated, message: "Exercises the deprecated VikuColor aliases on purpose.")
+    func `deprecated VikuColor aliases still forward to standard`() {
         #expect(VikuColor.Surface.page == VikuPalette.standard.pageBackground)
         #expect(VikuColor.Surface.card == VikuPalette.standard.cardBackground)
         #expect(VikuColor.Surface.field == VikuPalette.standard.fieldBackground)
+        #expect(VikuColor.brandPrimary == VikuPalette.standard.brand)
+        #expect(VikuColor.Semantic.success == VikuPalette.standard.semanticSuccess)
+        #expect(VikuColor.Semantic.successText == VikuPalette.standard.semanticSuccessText)
+        #expect(VikuColor.Semantic.danger == VikuPalette.standard.semanticDanger)
+        #expect(VikuColor.Semantic.dangerText == VikuPalette.standard.semanticDangerText)
     }
 
     @Test

@@ -27,6 +27,8 @@ public struct VikuTaskRow<Menu: View>: View {
     private let onOpen: () -> Void
     @ViewBuilder private let contextMenu: () -> Menu
 
+    @Environment(\.vikuPalette) private var palette
+
     /// - Parameters:
     ///   - task: the task to render.
     ///   - project: the task's project. Drives the checkbox tint and, when
@@ -60,7 +62,7 @@ public struct VikuTaskRow<Menu: View>: View {
     }
 
     private var checkboxColor: Color {
-        project.flatMap { Color(vikuHex: $0.hexColor) } ?? VikuColor.brandPrimary
+        project.flatMap { Color(vikuHex: $0.hexColor) } ?? palette.brand
     }
 
     private var isOverdue: Bool {
@@ -167,7 +169,7 @@ public struct VikuTaskRow<Menu: View>: View {
                 if isOverdue {
                     Text("Overdue", bundle: .module)
                         .font(.system(size: 12.5, weight: .semibold))
-                        .foregroundStyle(VikuColor.Semantic.dangerText)
+                        .foregroundStyle(palette.semanticDangerText)
                 } else if let dueDate = task.dueDate {
                     Text(DueDateFormatter.compact(dueDate))
                         .font(.system(size: 12.5, weight: .regular))

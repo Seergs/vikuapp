@@ -46,20 +46,21 @@ public struct VikuPalette: Sendable, Equatable {
 }
 
 public extension VikuPalette {
-    /// `pageBackground`/`cardBackground`/`fieldBackground` read the platform
-    /// providers directly, not `VikuColor.Surface`, which now forwards here
-    /// instead (forwarding the other way would recurse).
+    /// `brand`/`pageBackground`/`cardBackground`/`fieldBackground`/
+    /// `semanticSuccess`/`semanticDanger`/etc. read their underlying color
+    /// providers directly, not `VikuColor`, which now forwards here instead
+    /// (forwarding the other way would recurse).
     static let standard = VikuPalette(
-        brand: VikuColor.brandPrimary,
+        brand: Color(hex: 0x196AFF),
         pageBackground: Color.platformPageBackground,
         cardBackground: Color.platformCardBackground,
         fieldBackground: Color.platformFieldBackground,
         textSecondary: VikuColor.textSecondary,
         textTertiary: VikuColor.textTertiary,
-        semanticSuccess: VikuColor.Semantic.success,
-        semanticSuccessText: VikuColor.Semantic.successText,
-        semanticDanger: VikuColor.Semantic.danger,
-        semanticDangerText: VikuColor.Semantic.dangerText,
+        semanticSuccess: Color(hex: 0x1FA669),
+        semanticSuccessText: Color(hex: 0x15753F),
+        semanticDanger: Color(hex: 0xDF202E),
+        semanticDangerText: Color.platformDangerText,
     )
 }
 

@@ -137,13 +137,15 @@ private struct RichTextTaskListView: View {
     let items: [RichTextTaskItem]
     let baseFont: Font
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.xs) {
             ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                 HStack(alignment: .firstTextBaseline, spacing: VikuSpacing.sm) {
                     Image(systemName: item.isChecked ? "checkmark.square.fill" : "square")
                         .font(baseFont)
-                        .foregroundStyle(item.isChecked ? VikuColor.brandPrimary : VikuColor.textTertiary)
+                        .foregroundStyle(item.isChecked ? palette.brand : VikuColor.textTertiary)
                     RichTextBlocksView(blocks: item.content, baseFont: baseFont)
                         .opacity(item.isChecked ? 0.6 : 1)
                 }

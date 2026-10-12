@@ -177,6 +177,8 @@ public struct ProjectPickerIcon: View {
     private let hexColor: String
     private let hasChildren: Bool
 
+    @Environment(\.vikuPalette) private var palette
+
     public init(hexColor: String, hasChildren: Bool = false) {
         self.hexColor = hexColor
         self.hasChildren = hasChildren
@@ -185,7 +187,7 @@ public struct ProjectPickerIcon: View {
     public var body: some View {
         Image(systemName: hasChildren ? "folder.fill" : "list.bullet.rectangle.fill")
             .font(VikuFont.body)
-            .foregroundStyle(Color(vikuHex: hexColor) ?? VikuColor.brandPrimary)
+            .foregroundStyle(Color(vikuHex: hexColor) ?? palette.brand)
             .frame(width: 24, alignment: .center)
     }
 }
@@ -198,6 +200,8 @@ private struct ProjectRow: View {
     let isSelected: Bool
     let onToggleExpand: () -> Void
     let onSelect: () -> Void
+
+    @Environment(\.vikuPalette) private var palette
 
     var body: some View {
         HStack(spacing: VikuSpacing.sm) {
@@ -231,7 +235,7 @@ private struct ProjectRow: View {
                         Image(systemName: "checkmark")
                             .font(VikuFont.body)
                             .fontWeight(.semibold)
-                            .foregroundStyle(VikuColor.brandPrimary)
+                            .foregroundStyle(palette.brand)
                     }
                 }
                 .contentShape(Rectangle())
@@ -245,6 +249,8 @@ private struct ProjectRow: View {
 private struct NoneRow: View {
     let isSelected: Bool
     let onSelect: () -> Void
+
+    @Environment(\.vikuPalette) private var palette
 
     var body: some View {
         HStack(spacing: VikuSpacing.sm) {
@@ -267,7 +273,7 @@ private struct NoneRow: View {
                         Image(systemName: "checkmark")
                             .font(VikuFont.body)
                             .fontWeight(.semibold)
-                            .foregroundStyle(VikuColor.brandPrimary)
+                            .foregroundStyle(palette.brand)
                     }
                 }
                 .contentShape(Rectangle())

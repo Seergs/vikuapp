@@ -144,7 +144,7 @@ public struct AuthMethodAccordion<APIToken: View, Password: View, OIDC: View>: V
     private func header(_ spec: Spec, isEnabled: Bool, isOpen: Bool) -> some View {
         HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
             RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous)
-                .fill(isOpen ? VikuColor.brandPrimary : palette.cardBackground)
+                .fill(isOpen ? palette.brand : palette.cardBackground)
                 .frame(width: 36, height: 36)
                 .overlay {
                     Image(systemName: spec.icon)
@@ -163,10 +163,10 @@ public struct AuthMethodAccordion<APIToken: View, Password: View, OIDC: View>: V
                         Text("Current", bundle: .module)
                             .font(VikuFont.caption2)
                             .fontWeight(.bold)
-                            .foregroundStyle(VikuColor.brandPrimary)
+                            .foregroundStyle(palette.brand)
                             .padding(.horizontal, VikuSpacing.xs + VikuSpacing.xxs)
                             .padding(.vertical, 1)
-                            .background(VikuColor.brandPrimary.opacity(0.14), in: Capsule())
+                            .background(palette.brand.opacity(0.14), in: Capsule())
                     }
                 }
 
