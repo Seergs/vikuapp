@@ -94,6 +94,8 @@ private struct LabelPickerRow: View {
     let isSelected: Bool
     let action: () -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     private var color: Color {
         Color(vikuMutedHex: label.hexColor) ?? VikuColor.textSecondary
     }
@@ -116,7 +118,7 @@ private struct LabelPickerRow: View {
             .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
             .padding(.vertical, VikuSpacing.sm + VikuSpacing.xs)
             .background(
-                isSelected ? VikuColor.Surface.field : Color.clear,
+                isSelected ? palette.fieldBackground : Color.clear,
                 in: RoundedRectangle(cornerRadius: VikuRadius.sm - VikuSpacing.xxs, style: .continuous),
             )
         }
@@ -155,6 +157,8 @@ private struct CreateLabelCard: View {
     let title: String
     @Binding var pickedColor: String
     let action: () -> Void
+
+    @Environment(\.vikuPalette) private var palette
 
     var body: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm) {
@@ -200,7 +204,7 @@ private struct CreateLabelCard: View {
             .buttonStyle(.plain)
         }
         .padding(VikuSpacing.md - VikuSpacing.xxs)
-        .background(VikuColor.Surface.field, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
+        .background(palette.fieldBackground, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
         .padding(.horizontal, VikuSpacing.sm)
         .padding(.top, VikuSpacing.xs)
     }

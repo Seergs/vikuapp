@@ -57,6 +57,7 @@ public struct AuthMethodAccordion<APIToken: View, Password: View, OIDC: View>: V
     }
 
     @Binding private var expanded: InstanceAccount.AuthMethod
+    @Environment(\.vikuPalette) private var palette
     private let isPasswordEnabled: Bool
     private let isOIDCEnabled: Bool
     private let currentMethod: InstanceAccount.AuthMethod?
@@ -136,14 +137,14 @@ public struct AuthMethodAccordion<APIToken: View, Password: View, OIDC: View>: V
                     .transition(.opacity)
             }
         }
-        .background(VikuColor.Surface.field, in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
+        .background(palette.fieldBackground, in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
         .opacity(enabled ? 1 : 0.55)
     }
 
     private func header(_ spec: Spec, isEnabled: Bool, isOpen: Bool) -> some View {
         HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
             RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous)
-                .fill(isOpen ? VikuColor.brandPrimary : VikuColor.Surface.card)
+                .fill(isOpen ? VikuColor.brandPrimary : palette.cardBackground)
                 .frame(width: 36, height: 36)
                 .overlay {
                     Image(systemName: spec.icon)
