@@ -42,6 +42,8 @@ private struct CommentsList: View {
     var isComposerFocused: FocusState<Bool>.Binding
     @State private var draft = ""
 
+    @Environment(\.vikuPalette) private var palette
+
     private var emptyStateMessage: String {
         if case let .failure(message) = loadState {
             return message
@@ -54,7 +56,7 @@ private struct CommentsList: View {
             if comments.isEmpty {
                 Text(verbatim: emptyStateMessage)
                     .font(VikuFont.subheadline)
-                    .foregroundStyle(VikuColor.textTertiary)
+                    .foregroundStyle(palette.textTertiary)
             } else {
                 VStack(alignment: .leading, spacing: VikuSpacing.md - VikuSpacing.xxs) {
                     ForEach(comments) { comment in
@@ -105,7 +107,7 @@ private struct CommentRow: View {
                 .overlay {
                     Text(verbatim: initials)
                         .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(VikuColor.textSecondary)
+                        .foregroundStyle(palette.textSecondary)
                 }
 
             VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
@@ -115,10 +117,10 @@ private struct CommentRow: View {
                         .foregroundStyle(Color.primary)
                     Text(verbatim: RelativeTimeFormatter.string(for: comment.created))
                         .font(.system(size: 12))
-                        .foregroundStyle(VikuColor.textTertiary)
+                        .foregroundStyle(palette.textTertiary)
                 }
                 RichTextView(html: comment.comment, baseFont: VikuFont.subheadline)
-                    .foregroundStyle(VikuColor.textSecondary)
+                    .foregroundStyle(palette.textSecondary)
             }
             .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
             .padding(.vertical, VikuSpacing.xs + VikuSpacing.xxs)
@@ -129,16 +131,16 @@ private struct CommentRow: View {
         .contextMenu {
             Button(String(localized: "Edit Comment", bundle: .module), systemImage: "pencil", action: onEdit)
             // `role: .destructive` alone renders blue here, not red: the tab
-            // bar's `.tint(VikuColor.brandPrimary)` leaks into the context
-            // menu — an explicit `.tint` is what forces the red, mirroring
-            // `ProjectTaskRow`'s context menu in `Features/Projects`.
+            // bar's brand tint leaks into the context menu, so an explicit
+            // `.tint` is what forces the red, mirroring `ProjectTaskRow`'s
+            // context menu in `Features/Projects`.
             Button(
                 String(localized: "Delete Comment", bundle: .module),
                 systemImage: "trash",
                 role: .destructive,
                 action: onDelete,
             )
-            .tint(VikuColor.Semantic.danger)
+            .tint(palette.semanticDanger)
         }
     }
 }
@@ -168,9 +170,9 @@ private struct CommentComposer: View {
             Button(action: onSubmit) {
                 Image(systemName: "paperplane.fill")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(canSubmit ? .white : VikuColor.textTertiary)
+                    .foregroundStyle(canSubmit ? .white : palette.textTertiary)
                     .frame(width: 34, height: 34)
-                    .background(canSubmit ? VikuColor.brandPrimary : palette.fieldBackground, in: Circle())
+                    .background(canSubmit ? palette.brand : palette.fieldBackground, in: Circle())
             }
             .buttonStyle(.plain)
             .disabled(!canSubmit)

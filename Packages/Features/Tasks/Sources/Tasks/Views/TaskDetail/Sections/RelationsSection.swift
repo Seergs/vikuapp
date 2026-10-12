@@ -13,6 +13,8 @@ struct RelationsSection: View {
     let onAdd: () -> Void
     let onOpenRelation: (TaskRelation) -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         let task = viewModel.task
         let groups = relationGroups(for: task)
@@ -27,7 +29,7 @@ struct RelationsSection: View {
             if groups.isEmpty {
                 Text("No relations with other tasks.", bundle: .module)
                     .font(VikuFont.subheadline)
-                    .foregroundStyle(VikuColor.textTertiary)
+                    .foregroundStyle(palette.textTertiary)
             } else {
                 VStack(alignment: .leading, spacing: VikuSpacing.md) {
                     ForEach(groups, id: \.kind) { group in
@@ -94,6 +96,8 @@ private struct RelationGroupView: View {
 
     @State private var isExpanded = false
 
+    @Environment(\.vikuPalette) private var palette
+
     private static let collapseThreshold = 3
 
     private var isCollapsible: Bool {
@@ -109,7 +113,7 @@ private struct RelationGroupView: View {
             Text(verbatim: kind.localizedDisplayName)
                 .font(VikuFont.caption)
                 .fontWeight(.semibold)
-                .foregroundStyle(VikuColor.textTertiary)
+                .foregroundStyle(palette.textTertiary)
             VStack(spacing: VikuSpacing.sm) {
                 ForEach(visibleRelations) { relation in
                     DependencyRow(
@@ -136,7 +140,7 @@ private struct RelationGroupView: View {
                     }
                     .font(VikuFont.caption)
                     .fontWeight(.semibold)
-                    .foregroundStyle(VikuColor.brandPrimary)
+                    .foregroundStyle(palette.brand)
                 }
                 .buttonStyle(.plain)
                 .padding(.top, VikuSpacing.xxs)
@@ -158,8 +162,8 @@ private struct DependencyRow: View {
             Button(action: onTap) {
                 HStack(spacing: VikuSpacing.sm) {
                     Circle()
-                        .strokeBorder(relation.isDone ? Color.clear : VikuColor.textTertiary, lineWidth: 2)
-                        .background(Circle().fill(relation.isDone ? VikuColor.Semantic.success : Color.clear))
+                        .strokeBorder(relation.isDone ? Color.clear : palette.textTertiary, lineWidth: 2)
+                        .background(Circle().fill(relation.isDone ? palette.semanticSuccess : Color.clear))
                         .frame(width: 20, height: 20)
                         .overlay {
                             if relation.isDone {
@@ -177,7 +181,7 @@ private struct DependencyRow: View {
                         if let projectTitle {
                             Text(verbatim: projectTitle)
                                 .font(VikuFont.caption)
-                                .foregroundStyle(VikuColor.textTertiary)
+                                .foregroundStyle(palette.textTertiary)
                         }
                     }
 
@@ -190,7 +194,7 @@ private struct DependencyRow: View {
             Button(action: onRemove) {
                 Image(systemName: "xmark")
                     .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(VikuColor.textSecondary)
+                    .foregroundStyle(palette.textSecondary)
                     .frame(width: 26, height: 26)
                     .background(palette.fieldBackground, in: Circle())
             }

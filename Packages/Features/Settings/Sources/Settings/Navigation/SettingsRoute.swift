@@ -2,6 +2,8 @@ import VikunjaCore
 
 /// Destinations pushable within the Settings tab's own navigation stack.
 public enum SettingsRoute: Hashable, Sendable {
+    /// The appearance/theme picker.
+    case appearance
     /// The list of saved instance connections.
     case connections
     /// The add/edit form for a single connection.

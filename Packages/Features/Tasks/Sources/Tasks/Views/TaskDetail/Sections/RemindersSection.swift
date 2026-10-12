@@ -15,6 +15,8 @@ struct RemindersSection: View {
     let onEdit: (Int) -> Void
     let onRemove: (Int) -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         SectionBlock(
             title: String(localized: "Reminders", bundle: .module),
@@ -26,7 +28,7 @@ struct RemindersSection: View {
             if reminders.isEmpty {
                 Text("No reminders set.", bundle: .module)
                     .font(VikuFont.subheadline)
-                    .foregroundStyle(VikuColor.textTertiary)
+                    .foregroundStyle(palette.textTertiary)
             } else {
                 VStack(spacing: VikuSpacing.sm) {
                     ForEach(Array(reminders.enumerated()), id: \.offset) { index, reminder in
@@ -49,6 +51,8 @@ struct RemindersSection: View {
 private struct ReminderDeliveryWarningBanner: View {
     let warning: ReminderDeliveryWarning
 
+    @Environment(\.vikuPalette) private var palette
+
     private var message: String {
         switch warning {
         case .pushDisabled:
@@ -68,16 +72,16 @@ private struct ReminderDeliveryWarningBanner: View {
         HStack(alignment: .top, spacing: VikuSpacing.sm - VikuSpacing.xxs) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 12))
-                .foregroundStyle(VikuColor.Semantic.dangerText)
+                .foregroundStyle(palette.semanticDangerText)
             Text(verbatim: message)
                 .font(VikuFont.footnote)
-                .foregroundStyle(VikuColor.Semantic.dangerText)
+                .foregroundStyle(palette.semanticDangerText)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
         .padding(.vertical, VikuSpacing.sm)
         .background(
-            VikuColor.Semantic.danger.opacity(0.12),
+            palette.semanticDanger.opacity(0.12),
             in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous),
         )
     }
@@ -100,14 +104,14 @@ private struct ReminderRow: View {
                 HStack(spacing: VikuSpacing.sm) {
                     Image(systemName: "bell")
                         .font(.system(size: 13))
-                        .foregroundStyle(VikuColor.brandPrimary)
+                        .foregroundStyle(palette.brand)
                     VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
                         Text(verbatim: label)
                             .font(.system(size: 14.5, weight: .medium))
                             .foregroundStyle(Color.primary)
                         Text(verbatim: preciseLabel)
                             .font(VikuFont.caption2)
-                            .foregroundStyle(VikuColor.textTertiary)
+                            .foregroundStyle(palette.textTertiary)
                     }
                     Spacer()
                 }
@@ -118,7 +122,7 @@ private struct ReminderRow: View {
             Button(action: onRemove) {
                 Image(systemName: "xmark")
                     .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(VikuColor.textSecondary)
+                    .foregroundStyle(palette.textSecondary)
                     .frame(width: 26, height: 26)
                     .background(palette.fieldBackground, in: Circle())
             }

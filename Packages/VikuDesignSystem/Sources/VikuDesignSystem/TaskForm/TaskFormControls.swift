@@ -20,6 +20,8 @@ import VikunjaCore
 public struct FieldLabel: View {
     let title: String
 
+    @Environment(\.vikuPalette) private var palette
+
     public init(_ title: String) {
         self.title = title
     }
@@ -28,7 +30,7 @@ public struct FieldLabel: View {
         Text(verbatim: title)
             .font(VikuFont.footnote)
             .fontWeight(.semibold)
-            .foregroundStyle(VikuColor.textSecondary)
+            .foregroundStyle(palette.textSecondary)
     }
 }
 
@@ -57,14 +59,14 @@ public struct ProjectField: View {
                 } else {
                     Text("Choose project", bundle: .module)
                         .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(VikuColor.textTertiary)
+                        .foregroundStyle(palette.textTertiary)
                 }
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(VikuColor.textTertiary)
+                    .foregroundStyle(palette.textTertiary)
             }
             .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
             .padding(.vertical, VikuSpacing.sm + VikuSpacing.xs)
@@ -147,7 +149,7 @@ private struct PriorityChip: View {
                 Text(verbatim: option.label)
                     .font(.system(size: 13.5, weight: .semibold))
             }
-            .foregroundStyle(isSelected ? option.color : VikuColor.textTertiary)
+            .foregroundStyle(isSelected ? option.color : palette.textTertiary)
             .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xs)
             .padding(.vertical, VikuSpacing.xs + VikuSpacing.xxs)
             .background(
@@ -167,6 +169,8 @@ private struct PriorityChip: View {
 public struct SaveErrorBanner: View {
     let message: String
 
+    @Environment(\.vikuPalette) private var palette
+
     public init(message: String) {
         self.message = message
     }
@@ -175,18 +179,18 @@ public struct SaveErrorBanner: View {
         HStack(alignment: .center, spacing: VikuSpacing.sm - VikuSpacing.xxs) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 13))
-                .foregroundStyle(VikuColor.Semantic.dangerText)
+                .foregroundStyle(palette.semanticDangerText)
             Text(verbatim: message)
                 .font(VikuFont.footnote)
                 .fontWeight(.semibold)
-                .foregroundStyle(VikuColor.Semantic.dangerText)
+                .foregroundStyle(palette.semanticDangerText)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
         .padding(.vertical, VikuSpacing.sm)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            VikuColor.Semantic.danger.opacity(0.12),
+            palette.semanticDanger.opacity(0.12),
             in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous),
         )
     }

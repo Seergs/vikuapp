@@ -79,7 +79,7 @@ struct LabelEditorSheet: View {
     private var nameField: some View {
         HStack(spacing: VikuSpacing.sm - VikuSpacing.xxs) {
             Circle()
-                .fill(Color(vikuMutedHex: hexColor) ?? VikuColor.brandPrimary)
+                .fill(Color(vikuMutedHex: hexColor) ?? palette.brand)
                 .frame(width: 10, height: 10)
 
             TextField(String(localized: "Label name", bundle: .module), text: $title)
@@ -98,11 +98,11 @@ struct LabelEditorSheet: View {
             Text("Color", bundle: .module)
                 .font(VikuFont.footnote)
                 .fontWeight(.semibold)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
 
             HStack(spacing: VikuSpacing.sm) {
                 ForEach(VikuColor.SwatchPalette.labelSwatches, id: \.self) { swatch in
-                    let swatchColor = Color(vikuHex: swatch) ?? VikuColor.brandPrimary
+                    let swatchColor = Color(vikuHex: swatch) ?? palette.brand
                     Circle()
                         .fill(swatchColor)
                         .frame(width: 24, height: 24)

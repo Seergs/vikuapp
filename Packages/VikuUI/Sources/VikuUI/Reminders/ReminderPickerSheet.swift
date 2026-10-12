@@ -15,6 +15,7 @@ public struct ReminderPickerSheet: View {
     }
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.vikuPalette) private var palette
     @State private var mode: Mode
     @State private var date: Date
     @State private var quantity: Int
@@ -184,7 +185,7 @@ public struct ReminderPickerSheet: View {
             Text("Relative to", bundle: .module)
             Spacer()
             Text("Due Date", bundle: .module)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
         }
     }
 
@@ -215,14 +216,14 @@ public struct ReminderPickerSheet: View {
     private var previewFooter: some View {
         HStack(alignment: .top, spacing: VikuSpacing.sm) {
             Image(systemName: isPast ? "bell" : "bell.fill")
-                .foregroundStyle(isPast ? VikuColor.Semantic.dangerText : VikuColor.brandPrimary)
+                .foregroundStyle(isPast ? palette.semanticDangerText : palette.brand)
             VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
                 if isPast {
                     Text(verbatim: String(
                         localized: "That time has already passed: \(pastDateLabel)",
                         bundle: .module,
                     ))
-                    .foregroundStyle(VikuColor.Semantic.dangerText)
+                    .foregroundStyle(palette.semanticDangerText)
                     if mode == .relative {
                         Text("It will move if you change the due date.", bundle: .module)
                     }
@@ -320,7 +321,7 @@ private struct QuantityStepper: View {
                 value = min(range.upperBound, value + 1)
             }
         }
-        .foregroundStyle(VikuColor.textSecondary)
+        .foregroundStyle(palette.textSecondary)
         .padding(.horizontal, VikuSpacing.xs)
         .padding(.vertical, VikuSpacing.xxs)
         .background(palette.fieldBackground, in: Capsule())
@@ -386,11 +387,11 @@ private struct PresetPill: View {
         Button(action: action) {
             Text(verbatim: label)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(isSelected ? Color.primary : VikuColor.textTertiary)
+                .foregroundStyle(isSelected ? Color.primary : palette.textTertiary)
                 .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xs)
                 .padding(.vertical, VikuSpacing.xs + VikuSpacing.xxs)
                 .background(Capsule().fill(isSelected ? palette.fieldBackground : Color.clear))
-                .overlay(Capsule().strokeBorder(VikuColor.textTertiary.opacity(0.3), lineWidth: 1))
+                .overlay(Capsule().strokeBorder(palette.textTertiary.opacity(0.3), lineWidth: 1))
         }
         .buttonStyle(.plain)
     }

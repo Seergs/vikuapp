@@ -48,7 +48,7 @@ struct KanbanColumnView: View {
         }
         .padding(VikuSpacing.sm)
         .frame(width: Self.width)
-        .background(isTargeted ? VikuColor.brandPrimary.opacity(0.08) : palette.cardBackground)
+        .background(isTargeted ? palette.brand.opacity(0.08) : palette.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: VikuRadius.lg, style: .continuous))
         .dropDestination(for: String.self) { items, _ in
             guard let idString = items.first, let taskID = Int(idString) else { return false }
@@ -66,7 +66,7 @@ struct KanbanColumnView: View {
 
             Text(verbatim: "\(bucket.tasks.count)")
                 .font(VikuFont.caption)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
                 .padding(.horizontal, VikuSpacing.xs + VikuSpacing.xxs)
                 .background(palette.fieldBackground, in: Capsule())
 
@@ -78,7 +78,7 @@ struct KanbanColumnView: View {
             } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(VikuColor.textSecondary)
+                    .foregroundStyle(palette.textSecondary)
             }
             .buttonStyle(.plain)
         }
@@ -121,7 +121,7 @@ struct KanbanColumnView: View {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(VikuColor.textSecondary)
+                    .foregroundStyle(palette.textSecondary)
             }
             .buttonStyle(.plain)
         }

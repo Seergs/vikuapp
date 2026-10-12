@@ -18,6 +18,7 @@ public struct RelationTaskPickerSheet: View {
     let onSearch: (String) async -> Void
     let onSelect: (VikunjaTask) -> Void
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.vikuPalette) private var palette
     @State private var query = ""
 
     public init(
@@ -52,7 +53,7 @@ public struct RelationTaskPickerSheet: View {
                                 : String(localized: "No other tasks in this project", bundle: .module),
                         )
                         .font(VikuFont.subheadline)
-                        .foregroundStyle(VikuColor.textTertiary)
+                        .foregroundStyle(palette.textTertiary)
                         Spacer()
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -94,6 +95,8 @@ private struct RelationCandidateRow: View {
     let task: VikunjaTask
     let projectTitle: String?
 
+    @Environment(\.vikuPalette) private var palette
+
     private var priorityColor: Color? {
         switch task.priority {
         case .unset: nil
@@ -118,13 +121,13 @@ private struct RelationCandidateRow: View {
                 if let projectTitle {
                     Text(projectTitle)
                         .font(VikuFont.caption)
-                        .foregroundStyle(VikuColor.textTertiary)
+                        .foregroundStyle(palette.textTertiary)
                 }
             }
             Spacer()
             Image(systemName: "plus")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(VikuColor.brandPrimary)
+                .foregroundStyle(palette.brand)
         }
     }
 }

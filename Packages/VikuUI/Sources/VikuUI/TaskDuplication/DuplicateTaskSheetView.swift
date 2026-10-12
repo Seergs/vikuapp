@@ -90,7 +90,7 @@ public struct DuplicateTaskSheetView: View {
                         .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
-            .tint(VikuColor.brandPrimary)
+            .tint(palette.brand)
             .padding(.horizontal, VikuSpacing.md)
             .padding(.top, VikuSpacing.md)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -144,7 +144,7 @@ public struct DuplicateTaskSheetView: View {
         case let .failure(message):
             Text(message)
                 .font(VikuFont.footnote)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
         case .loading, .idle:
             ProgressView()
         case .loaded:

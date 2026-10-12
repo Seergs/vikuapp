@@ -152,7 +152,7 @@ struct TodayView: View {
             Text(viewModel.pendingSubtitle)
                 .font(VikuFont.subheadline)
                 .fontWeight(.medium)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
                 .padding(.horizontal, VikuSpacing.md)
 
             TodayFilterRow(selection: $filter)
@@ -257,7 +257,7 @@ struct TodayView: View {
                             ) {
                                 taskPendingDelete = task
                             }
-                            .tint(VikuColor.Semantic.danger)
+                            .tint(palette.semanticDanger)
                         },
                     )
                     .vikuCardRow(index: index, count: section.tasks.count)
@@ -317,9 +317,9 @@ private struct TodayFilterChip: View {
                 .fontWeight(.semibold)
                 .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
                 .padding(.vertical, VikuSpacing.sm - VikuSpacing.xxs)
-                .foregroundStyle(isSelected ? Color.white : VikuColor.textSecondary)
+                .foregroundStyle(isSelected ? Color.white : palette.textSecondary)
                 .background(
-                    Capsule().fill(isSelected ? VikuColor.brandPrimary : palette.fieldBackground),
+                    Capsule().fill(isSelected ? palette.brand : palette.fieldBackground),
                 )
         }
         .buttonStyle(.plain)

@@ -9,6 +9,8 @@ struct DueDatePriorityRows: View {
     @Bindable var viewModel: TaskDetailViewModel
     let onEditDueDate: () -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         let task = viewModel.task
 
@@ -16,13 +18,13 @@ struct DueDatePriorityRows: View {
             Button(action: onEditDueDate) {
                 InfoRow(
                     systemImage: "calendar",
-                    iconColor: task.dueDate == nil ? VikuColor.textTertiary : VikuColor.textSecondary,
+                    iconColor: task.dueDate == nil ? palette.textTertiary : palette.textSecondary,
                     title: String(localized: "Due", bundle: .module),
                     value: task.dueDate.map { DueDateFormatter.dueLabel($0) }
                         ?? String(localized: "Set due date", bundle: .module),
                     valueColor: task.dueDate == nil
-                        ? VikuColor.textTertiary
-                        : (isOverdue(task) ? VikuColor.Semantic.dangerText : nil),
+                        ? palette.textTertiary
+                        : (isOverdue(task) ? palette.semanticDangerText : nil),
                     showsChevron: true,
                 )
             }
@@ -44,10 +46,10 @@ struct DueDatePriorityRows: View {
             } label: {
                 InfoRow(
                     systemImage: "flag",
-                    iconColor: priorityDisplay(task.priority)?.color ?? VikuColor.textTertiary,
+                    iconColor: priorityDisplay(task.priority)?.color ?? palette.textTertiary,
                     title: String(localized: "Priority", bundle: .module),
                     value: priorityDisplay(task.priority)?.label ?? String(localized: "Set priority", bundle: .module),
-                    valueColor: priorityDisplay(task.priority)?.color ?? VikuColor.textTertiary,
+                    valueColor: priorityDisplay(task.priority)?.color ?? palette.textTertiary,
                     showsChevron: true,
                 )
             }

@@ -97,7 +97,7 @@ private struct LabelPickerRow: View {
     @Environment(\.vikuPalette) private var palette
 
     private var color: Color {
-        Color(vikuMutedHex: label.hexColor) ?? VikuColor.textSecondary
+        Color(vikuMutedHex: label.hexColor) ?? palette.textSecondary
     }
 
     var body: some View {
@@ -135,16 +135,18 @@ private struct LabelSelectionIndicator: View {
     let isSelected: Bool
     var size: CGFloat = 22
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         Circle()
-            .strokeBorder(VikuColor.textTertiary.opacity(isSelected ? 0 : 0.4), lineWidth: 1.5)
-            .background(Circle().fill(VikuColor.textTertiary.opacity(isSelected ? 0.22 : 0)))
+            .strokeBorder(palette.textTertiary.opacity(isSelected ? 0 : 0.4), lineWidth: 1.5)
+            .background(Circle().fill(palette.textTertiary.opacity(isSelected ? 0.22 : 0)))
             .frame(width: size, height: size)
             .overlay {
                 if isSelected {
                     Image(systemName: "checkmark")
                         .font(.system(size: size * 0.46, weight: .bold))
-                        .foregroundStyle(VikuColor.textSecondary)
+                        .foregroundStyle(palette.textSecondary)
                 }
             }
     }
@@ -165,11 +167,11 @@ private struct CreateLabelCard: View {
             Text("Create New Label", bundle: .module)
                 .font(VikuFont.footnote)
                 .fontWeight(.semibold)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
 
             HStack(spacing: VikuSpacing.sm) {
                 Circle()
-                    .fill(Color(vikuHex: pickedColor) ?? VikuColor.brandPrimary)
+                    .fill(Color(vikuHex: pickedColor) ?? palette.brand)
                     .frame(width: 12, height: 12)
                 Text(verbatim: "\"\(title)\"")
                     .font(.system(size: 15, weight: .semibold))
@@ -179,7 +181,7 @@ private struct CreateLabelCard: View {
             HStack(spacing: VikuSpacing.sm) {
                 ForEach(VikuColor.SwatchPalette.labelSwatches, id: \.self) { swatch in
                     Circle()
-                        .fill(Color(vikuHex: swatch) ?? VikuColor.brandPrimary)
+                        .fill(Color(vikuHex: swatch) ?? palette.brand)
                         .frame(width: 24, height: 24)
                         .overlay {
                             if swatch == pickedColor {
@@ -197,7 +199,7 @@ private struct CreateLabelCard: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, VikuSpacing.sm)
                     .background(
-                        VikuColor.brandPrimary,
+                        palette.brand,
                         in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous),
                     )
             }

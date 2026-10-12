@@ -167,9 +167,9 @@ public struct TaskDetailView: View {
                         }
                         Divider()
                         // `role: .destructive` alone renders blue here, not red:
-                        // the tab bar's `.tint(VikuColor.brandPrimary)` leaks
-                        // into this menu and overrides the role's tint — mirrors
-                        // `ProjectTaskRow`'s context menu in `Features/Projects`.
+                        // the tab bar's brand tint leaks into this menu and
+                        // overrides the role's tint, mirroring `ProjectTaskRow`'s
+                        // context menu in `Features/Projects`.
                         Button(
                             String(localized: "Delete Task", bundle: .module),
                             systemImage: "trash",
@@ -177,7 +177,7 @@ public struct TaskDetailView: View {
                         ) {
                             isShowingDeleteConfirmation = true
                         }
-                        .tint(VikuColor.Semantic.danger)
+                        .tint(palette.semanticDanger)
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
@@ -519,7 +519,7 @@ public struct TaskDetailView: View {
                 axis: .vertical,
             )
             .font(VikuFont.callout)
-            .foregroundStyle(VikuColor.textSecondary)
+            .foregroundStyle(palette.textSecondary)
             .focused($focusedField, equals: .description)
             .padding(.top, VikuSpacing.md)
         } else if let description = task.description, !RichText.isEmpty(description) {
@@ -527,14 +527,14 @@ public struct TaskDetailView: View {
             // render it, don't show the raw markup. Tapping still opens the
             // inline editor (which edits plain text, see `beginEditingDescription`).
             RichTextView(html: description)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
                 .contentShape(Rectangle())
                 .onTapGesture { beginEditingDescription() }
                 .padding(.top, VikuSpacing.md)
         } else {
             Text("Add description...", bundle: .module)
                 .font(VikuFont.callout)
-                .foregroundStyle(VikuColor.textTertiary)
+                .foregroundStyle(palette.textTertiary)
                 .contentShape(Rectangle())
                 .onTapGesture { beginEditingDescription() }
                 .padding(.top, VikuSpacing.md)
@@ -542,6 +542,6 @@ public struct TaskDetailView: View {
     }
 
     private func swatchColor(_ project: Project) -> Color {
-        Color(vikuHex: project.hexColor) ?? VikuColor.brandPrimary
+        Color(vikuHex: project.hexColor) ?? palette.brand
     }
 }

@@ -177,6 +177,8 @@ public struct ProjectPickerIcon: View {
     private let hexColor: String
     private let hasChildren: Bool
 
+    @Environment(\.vikuPalette) private var palette
+
     public init(hexColor: String, hasChildren: Bool = false) {
         self.hexColor = hexColor
         self.hasChildren = hasChildren
@@ -185,7 +187,7 @@ public struct ProjectPickerIcon: View {
     public var body: some View {
         Image(systemName: hasChildren ? "folder.fill" : "list.bullet.rectangle.fill")
             .font(VikuFont.body)
-            .foregroundStyle(Color(vikuHex: hexColor) ?? VikuColor.brandPrimary)
+            .foregroundStyle(Color(vikuHex: hexColor) ?? palette.brand)
             .frame(width: 24, alignment: .center)
     }
 }
@@ -199,6 +201,8 @@ private struct ProjectRow: View {
     let onToggleExpand: () -> Void
     let onSelect: () -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         HStack(spacing: VikuSpacing.sm) {
             if hasChildren {
@@ -206,7 +210,7 @@ private struct ProjectRow: View {
                     Image(systemName: "chevron.right")
                         .font(VikuFont.footnote)
                         .fontWeight(.semibold)
-                        .foregroundStyle(VikuColor.textTertiary)
+                        .foregroundStyle(palette.textTertiary)
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
                         .frame(width: 20, height: 28)
                         .contentShape(Rectangle())
@@ -231,7 +235,7 @@ private struct ProjectRow: View {
                         Image(systemName: "checkmark")
                             .font(VikuFont.body)
                             .fontWeight(.semibold)
-                            .foregroundStyle(VikuColor.brandPrimary)
+                            .foregroundStyle(palette.brand)
                     }
                 }
                 .contentShape(Rectangle())
@@ -246,6 +250,8 @@ private struct NoneRow: View {
     let isSelected: Bool
     let onSelect: () -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         HStack(spacing: VikuSpacing.sm) {
             Color.clear.frame(width: 20, height: 28)
@@ -254,7 +260,7 @@ private struct NoneRow: View {
                 HStack(spacing: VikuSpacing.sm) {
                     Image(systemName: "folder")
                         .font(VikuFont.body)
-                        .foregroundStyle(VikuColor.textTertiary)
+                        .foregroundStyle(palette.textTertiary)
                         .frame(width: 24, alignment: .center)
 
                     Text("None", bundle: .module)
@@ -267,7 +273,7 @@ private struct NoneRow: View {
                         Image(systemName: "checkmark")
                             .font(VikuFont.body)
                             .fontWeight(.semibold)
-                            .foregroundStyle(VikuColor.brandPrimary)
+                            .foregroundStyle(palette.brand)
                     }
                 }
                 .contentShape(Rectangle())

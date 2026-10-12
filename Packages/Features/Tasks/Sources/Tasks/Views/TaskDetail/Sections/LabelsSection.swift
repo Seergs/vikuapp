@@ -10,6 +10,8 @@ struct LabelsSection: View {
     let labels: [VikunjaCore.Label]
     let onEdit: () -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         SectionBlock(
             title: String(localized: "Labels", bundle: .module),
@@ -22,7 +24,7 @@ struct LabelsSection: View {
                 Button(String(localized: "Add labels…", bundle: .module), action: onEdit)
                     .buttonStyle(.plain)
                     .font(VikuFont.subheadline)
-                    .foregroundStyle(VikuColor.textTertiary)
+                    .foregroundStyle(palette.textTertiary)
             } else {
                 LabelsWrap(labels: labels)
             }

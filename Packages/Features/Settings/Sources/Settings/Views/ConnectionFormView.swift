@@ -102,7 +102,7 @@ struct ConnectionFormView: View {
                                 : String(localized: "Delete Connection", bundle: .module))
                                 .font(VikuFont.body)
                                 .fontWeight(.bold)
-                                .foregroundStyle(VikuColor.Semantic.danger)
+                                .foregroundStyle(palette.semanticDanger)
                         }
                     }
                     .frame(maxWidth: .infinity)
@@ -112,6 +112,7 @@ struct ConnectionFormView: View {
             }
             .padding(VikuSpacing.md)
         }
+        .background(palette.pageBackground)
         .navigationTitle(
             viewModel.isEditing
                 ? Text("Edit Connection", bundle: .module)
@@ -189,7 +190,7 @@ struct ConnectionFormView: View {
             Toggle(isOn: $viewModel.allowInsecureConnection) {
                 FieldLabel(String(localized: "Allow Insecure Connection", bundle: .module))
             }
-            .tint(VikuColor.brandPrimary)
+            .tint(palette.brand)
 
             if viewModel.allowInsecureConnection {
                 HStack(alignment: .firstTextBaseline, spacing: VikuSpacing.xs) {
@@ -199,7 +200,7 @@ struct ConnectionFormView: View {
                 }
                 .font(VikuFont.caption)
                 .fontWeight(.medium)
-                .foregroundStyle(VikuColor.Semantic.dangerText)
+                .foregroundStyle(palette.semanticDangerText)
                 .transition(.opacity)
             }
         }
@@ -210,7 +211,7 @@ struct ConnectionFormView: View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm) {
             Text("You'll be redirected to your provider's sign-in page to finish.", bundle: .module)
                 .font(VikuFont.caption)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
 
             ForEach(viewModel.oidcProviders) { provider in
                 oidcProviderButton(provider)
@@ -288,7 +289,7 @@ struct ConnectionFormView: View {
                     isPasswordVisible.toggle()
                 } label: {
                     Image(systemName: isPasswordVisible ? "eye.slash" : "eye")
-                        .foregroundStyle(VikuColor.textTertiary)
+                        .foregroundStyle(palette.textTertiary)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(
@@ -325,7 +326,7 @@ struct ConnectionFormView: View {
                     isTokenVisible.toggle()
                 } label: {
                     Image(systemName: isTokenVisible ? "eye.slash" : "eye")
-                        .foregroundStyle(VikuColor.textTertiary)
+                        .foregroundStyle(palette.textTertiary)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(
@@ -340,7 +341,7 @@ struct ConnectionFormView: View {
 
             Text("Generate it on your Vikunja instance: Settings → API Tokens.", bundle: .module)
                 .font(VikuFont.caption)
-                .foregroundStyle(VikuColor.textTertiary)
+                .foregroundStyle(palette.textTertiary)
         }
     }
 
@@ -381,7 +382,7 @@ struct ConnectionFormView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, VikuSpacing.sm + VikuSpacing.xs)
                 .background(
-                    VikuColor.brandPrimary,
+                    palette.brand,
                     in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous),
                 )
         }
@@ -394,6 +395,8 @@ struct ConnectionFormView: View {
 private struct FieldLabel: View {
     let title: String
 
+    @Environment(\.vikuPalette) private var palette
+
     init(_ title: String) {
         self.title = title
     }
@@ -402,7 +405,7 @@ private struct FieldLabel: View {
         Text(verbatim: title)
             .font(VikuFont.footnote)
             .fontWeight(.semibold)
-            .foregroundStyle(VikuColor.textSecondary)
+            .foregroundStyle(palette.textSecondary)
     }
 }
 
@@ -440,6 +443,8 @@ private struct StatusBanner: View {
     let style: Style
     let message: String
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         HStack(alignment: .center, spacing: VikuSpacing.sm - VikuSpacing.xxs) {
             Image(systemName: style == .success ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
@@ -458,11 +463,11 @@ private struct StatusBanner: View {
     }
 
     private var foreground: Color {
-        style == .success ? VikuColor.Semantic.successText : VikuColor.Semantic.dangerText
+        style == .success ? palette.semanticSuccessText : palette.semanticDangerText
     }
 
     private var background: Color {
-        style == .success ? VikuColor.Semantic.success : VikuColor.Semantic.danger
+        style == .success ? palette.semanticSuccess : palette.semanticDanger
     }
 }
 

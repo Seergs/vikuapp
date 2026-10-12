@@ -144,7 +144,7 @@ public struct QuickAddSheetView: View {
             if viewModel.input.isEmpty {
                 Text("Task title", bundle: .module)
                     .font(VikuFont.body)
-                    .foregroundStyle(VikuColor.textTertiary)
+                    .foregroundStyle(palette.textTertiary)
                     .allowsHitTesting(false)
             }
         }
@@ -162,7 +162,7 @@ public struct QuickAddSheetView: View {
         case let .failure(message):
             Text(verbatim: message)
                 .font(VikuFont.footnote)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
         case .loading, .idle:
             // The default project rarely changes, so there's usually a
             // cached one to show here instead of a spinner (see

@@ -25,6 +25,7 @@ struct ManageLabelsView: View {
 
     var body: some View {
         content
+            .scrollContentBackground(.hidden)
             .background(palette.pageBackground)
             .navigationTitle(Text("Manage Labels", bundle: .module))
             #if os(iOS)
@@ -82,8 +83,7 @@ struct ManageLabelsView: View {
         switch viewModel.loadState {
         case .idle, .loading:
             ProgressView()
-                .frame(maxWidth: .infinity)
-                .padding(.top, VikuSpacing.xxl)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         case let .failure(message):
             VikuStatusView(
                 systemImage: "exclamationmark.triangle.fill",
@@ -115,8 +115,8 @@ struct ManageLabelsView: View {
                         .buttonStyle(.plain)
                         .swipeActions(edge: .trailing) {
                             // `role: .destructive` alone renders blue here, not
-                            // red: the tab bar's `.tint(VikuColor.brandPrimary)`
-                            // leaks into the swipe action, so tint it explicitly.
+                            // red: the tab bar's brand tint leaks into the
+                            // swipe action, so tint it explicitly.
                             Button(
                                 String(localized: "Delete", bundle: .module),
                                 systemImage: "trash",
@@ -124,8 +124,9 @@ struct ManageLabelsView: View {
                             ) {
                                 pendingDeletion = label
                             }
-                            .tint(VikuColor.Semantic.danger)
+                            .tint(palette.semanticDanger)
                         }
+                        .listRowBackground(palette.cardBackground)
                     }
                 }
                 .labelsListStyle()
@@ -137,8 +138,10 @@ struct ManageLabelsView: View {
 private struct LabelRow: View {
     let label: VikunjaCore.Label
 
+    @Environment(\.vikuPalette) private var palette
+
     private var color: Color {
-        Color(vikuMutedHex: label.hexColor) ?? VikuColor.textSecondary
+        Color(vikuMutedHex: label.hexColor) ?? palette.textSecondary
     }
 
     var body: some View {
@@ -152,7 +155,7 @@ private struct LabelRow: View {
             Spacer(minLength: 0)
             Image(systemName: "chevron.right")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(VikuColor.textTertiary)
+                .foregroundStyle(palette.textTertiary)
         }
         .padding(.vertical, VikuSpacing.xxs)
         .contentShape(Rectangle())

@@ -34,12 +34,22 @@ public final class ThemeCenter: AppThemeStoring {
     }
 
     /// The value to hand `.preferredColorScheme(_:)`: `nil` lets the view
-    /// hierarchy follow the system setting, matching `.system`.
+    /// hierarchy follow the system setting, matching `.system`. `.warm`
+    /// forces `.light`, since its palette is a light-scheme variant.
     public var colorScheme: ColorScheme? {
         switch theme {
         case .system: nil
         case .light: .light
         case .dark: .dark
+        case .warm: .light
+        }
+    }
+
+    /// The value to hand `@Environment(\.vikuPalette)`.
+    public var palette: VikuPalette {
+        switch theme {
+        case .system, .light, .dark: .standard
+        case .warm: .warm
         }
     }
 }

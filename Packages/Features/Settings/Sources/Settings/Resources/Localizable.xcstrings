@@ -321,6 +321,16 @@
         }
       }
     },
+    "Warm" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cálido"
+          }
+        }
+      }
+    },
     "Delete" : {
       "localizations" : {
         "es" : {

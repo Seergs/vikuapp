@@ -88,7 +88,7 @@ public struct AuthMethodAccordion<APIToken: View, Password: View, OIDC: View>: V
             Text("Access method", bundle: .module)
                 .font(VikuFont.footnote)
                 .fontWeight(.semibold)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
 
             VStack(spacing: VikuSpacing.sm) {
                 ForEach(Self.specs, id: \.method) { card($0) }
@@ -144,12 +144,12 @@ public struct AuthMethodAccordion<APIToken: View, Password: View, OIDC: View>: V
     private func header(_ spec: Spec, isEnabled: Bool, isOpen: Bool) -> some View {
         HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
             RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous)
-                .fill(isOpen ? VikuColor.brandPrimary : palette.cardBackground)
+                .fill(isOpen ? palette.brand : palette.cardBackground)
                 .frame(width: 36, height: 36)
                 .overlay {
                     Image(systemName: spec.icon)
                         .font(.system(size: 15))
-                        .foregroundStyle(isOpen ? .white : VikuColor.textSecondary)
+                        .foregroundStyle(isOpen ? .white : palette.textSecondary)
                 }
 
             VStack(alignment: .leading, spacing: 1) {
@@ -157,22 +157,22 @@ public struct AuthMethodAccordion<APIToken: View, Password: View, OIDC: View>: V
                     Text(verbatim: spec.title)
                         .font(VikuFont.subheadline)
                         .fontWeight(.semibold)
-                        .foregroundStyle(isEnabled ? Color.primary : VikuColor.textTertiary)
+                        .foregroundStyle(isEnabled ? Color.primary : palette.textTertiary)
 
                     if currentMethod == spec.method {
                         Text("Current", bundle: .module)
                             .font(VikuFont.caption2)
                             .fontWeight(.bold)
-                            .foregroundStyle(VikuColor.brandPrimary)
+                            .foregroundStyle(palette.brand)
                             .padding(.horizontal, VikuSpacing.xs + VikuSpacing.xxs)
                             .padding(.vertical, 1)
-                            .background(VikuColor.brandPrimary.opacity(0.14), in: Capsule())
+                            .background(palette.brand.opacity(0.14), in: Capsule())
                     }
                 }
 
                 Text(verbatim: isEnabled ? spec.subtitle : Self.disabledSubtitle)
                     .font(VikuFont.caption)
-                    .foregroundStyle(VikuColor.textTertiary)
+                    .foregroundStyle(palette.textTertiary)
                     .multilineTextAlignment(.leading)
             }
 
@@ -180,7 +180,7 @@ public struct AuthMethodAccordion<APIToken: View, Password: View, OIDC: View>: V
 
             Image(systemName: "chevron.down")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(VikuColor.textTertiary)
+                .foregroundStyle(palette.textTertiary)
                 .rotationEffect(.degrees(isOpen ? 180 : 0))
         }
         .padding(VikuSpacing.sm + VikuSpacing.xxs)

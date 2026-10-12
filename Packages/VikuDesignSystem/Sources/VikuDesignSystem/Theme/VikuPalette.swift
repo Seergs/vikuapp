@@ -46,20 +46,49 @@ public struct VikuPalette: Sendable, Equatable {
 }
 
 public extension VikuPalette {
-    /// `pageBackground`/`cardBackground`/`fieldBackground` read the platform
-    /// providers directly, not `VikuColor.Surface`, which now forwards here
-    /// instead (forwarding the other way would recurse).
+    /// `brand`/`pageBackground`/`cardBackground`/`fieldBackground`/
+    /// `semanticSuccess`/`semanticDanger`/etc. read their underlying color
+    /// providers directly, not `VikuColor`, which now forwards here instead
+    /// (forwarding the other way would recurse).
     static let standard = VikuPalette(
-        brand: VikuColor.brandPrimary,
+        brand: Color(hex: 0x196AFF),
         pageBackground: Color.platformPageBackground,
         cardBackground: Color.platformCardBackground,
         fieldBackground: Color.platformFieldBackground,
-        textSecondary: VikuColor.textSecondary,
-        textTertiary: VikuColor.textTertiary,
-        semanticSuccess: VikuColor.Semantic.success,
-        semanticSuccessText: VikuColor.Semantic.successText,
-        semanticDanger: VikuColor.Semantic.danger,
-        semanticDangerText: VikuColor.Semantic.dangerText,
+        textSecondary: Color.platformTextSecondary,
+        textTertiary: Color.platformTextTertiary,
+        semanticSuccess: Color(hex: 0x1FA669),
+        semanticSuccessText: Color(hex: 0x15753F),
+        semanticDanger: Color(hex: 0xDF202E),
+        semanticDangerText: Color.platformDangerText,
+    )
+}
+
+public extension VikuPalette {
+    /// A light-scheme palette with warm off-white surfaces instead of
+    /// `standard`'s cool system grays, same brand accent. Entirely literal
+    /// (no platform-adaptive providers) since it never follows the system
+    /// appearance — `ThemeCenter.colorScheme` pins `.warm` to `.light`.
+    /// `textSecondary` reuses `standard`'s light-mode value; `textTertiary`
+    /// is a touch darker than `standard`'s own, since the warmer (less
+    /// bright) surfaces below would otherwise fail the WCAG floor
+    /// `WarmPaletteContrastTests` checks it against.
+    static let warm = VikuPalette(
+        brand: Color(hex: 0x196AFF),
+        pageBackground: Color(hex: 0xFBF7F0),
+        cardBackground: Color(hex: 0xFFFDF8),
+        fieldBackground: Color(hex: 0xF8F1E6),
+        textSecondary: Color(
+            .sRGB,
+            red: Color.TextSecondaryRGB.light.red,
+            green: Color.TextSecondaryRGB.light.green,
+            blue: Color.TextSecondaryRGB.light.blue,
+        ),
+        textTertiary: Color(hex: 0x7A7D85),
+        semanticSuccess: Color(hex: 0x1FA669),
+        semanticSuccessText: Color(hex: 0x15753F),
+        semanticDanger: Color(hex: 0xDF202E),
+        semanticDangerText: Color(hex: 0x9E1721),
     )
 }
 

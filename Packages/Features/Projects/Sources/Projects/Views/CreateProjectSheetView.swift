@@ -101,7 +101,7 @@ public struct CreateProjectSheetView: View {
     private var nameField: some View {
         HStack(spacing: VikuSpacing.sm - VikuSpacing.xxs) {
             Circle()
-                .fill(Color(vikuHex: viewModel.hexColor) ?? VikuColor.brandPrimary)
+                .fill(Color(vikuHex: viewModel.hexColor) ?? palette.brand)
                 .frame(width: 10, height: 10)
 
             TextField(String(localized: "Project name", bundle: .module), text: $viewModel.title)
@@ -120,7 +120,7 @@ public struct CreateProjectSheetView: View {
             FieldLabel(String(localized: "Color", bundle: .module))
             HStack(spacing: VikuSpacing.sm) {
                 ForEach(Self.colorSwatches, id: \.self) { swatch in
-                    let swatchColor = Color(vikuHex: swatch) ?? VikuColor.brandPrimary
+                    let swatchColor = Color(vikuHex: swatch) ?? palette.brand
                     Circle()
                         .fill(swatchColor)
                         .frame(width: 24, height: 24)
@@ -170,22 +170,24 @@ public struct CreateProjectSheetView: View {
 private struct SaveErrorBanner: View {
     let message: String
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         HStack(alignment: .center, spacing: VikuSpacing.sm - VikuSpacing.xxs) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 13))
-                .foregroundStyle(VikuColor.Semantic.dangerText)
+                .foregroundStyle(palette.semanticDangerText)
             Text(message)
                 .font(VikuFont.footnote)
                 .fontWeight(.semibold)
-                .foregroundStyle(VikuColor.Semantic.dangerText)
+                .foregroundStyle(palette.semanticDangerText)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
         .padding(.vertical, VikuSpacing.sm)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            VikuColor.Semantic.danger.opacity(0.12),
+            palette.semanticDanger.opacity(0.12),
             in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous),
         )
     }
@@ -193,6 +195,8 @@ private struct SaveErrorBanner: View {
 
 private struct FieldLabel: View {
     let title: String
+
+    @Environment(\.vikuPalette) private var palette
 
     init(_ title: String) {
         self.title = title
@@ -202,7 +206,7 @@ private struct FieldLabel: View {
         Text(verbatim: title)
             .font(VikuFont.footnote)
             .fontWeight(.semibold)
-            .foregroundStyle(VikuColor.textSecondary)
+            .foregroundStyle(palette.textSecondary)
     }
 }
 
@@ -234,7 +238,7 @@ private struct ParentProjectField: View {
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(VikuColor.textTertiary)
+                    .foregroundStyle(palette.textTertiary)
             }
             .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
             .padding(.vertical, VikuSpacing.sm + VikuSpacing.xs)

@@ -8,8 +8,10 @@ import VikunjaCore
 struct ProjectPill: View {
     let project: Project
 
+    @Environment(\.vikuPalette) private var palette
+
     private var swatchColor: Color {
-        Color(vikuHex: project.hexColor) ?? VikuColor.brandPrimary
+        Color(vikuHex: project.hexColor) ?? palette.brand
     }
 
     var body: some View {
@@ -20,7 +22,7 @@ struct ProjectPill: View {
             Text(verbatim: project.title)
                 .font(VikuFont.footnote)
                 .fontWeight(.semibold)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
         }
     }
 }
@@ -48,22 +50,24 @@ struct TaskDetailCheckbox: View {
 struct BlockedBanner: View {
     let waitingOn: Int
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         HStack(spacing: VikuSpacing.sm - VikuSpacing.xxs) {
             Image(systemName: "link")
                 .font(.system(size: 11))
-                .foregroundStyle(VikuColor.Semantic.dangerText)
+                .foregroundStyle(palette.semanticDangerText)
             Text("Blocked · waiting on \(waitingOn) tasks", bundle: .module)
                 .font(VikuFont.footnote)
                 .fontWeight(.bold)
-                .foregroundStyle(VikuColor.Semantic.dangerText)
+                .foregroundStyle(palette.semanticDangerText)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
         .padding(.vertical, VikuSpacing.sm)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            VikuColor.Semantic.danger.opacity(0.12),
+            palette.semanticDanger.opacity(0.12),
             in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous),
         )
     }
@@ -96,7 +100,7 @@ struct InfoRow: View {
             if showsChevron {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(VikuColor.textTertiary)
+                    .foregroundStyle(palette.textTertiary)
             }
         }
         .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
@@ -111,6 +115,8 @@ struct SectionBlock<Content: View>: View {
     var trailing: AnyView = .init(EmptyView())
     @ViewBuilder let content: Content
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm) {
             HStack(spacing: VikuSpacing.xs) {
@@ -124,7 +130,7 @@ struct SectionBlock<Content: View>: View {
                 trailing
             }
             .font(VikuFont.footnote)
-            .foregroundStyle(VikuColor.textSecondary)
+            .foregroundStyle(palette.textSecondary)
             .textCase(.uppercase)
             .kerning(0.3)
 
@@ -141,6 +147,8 @@ struct SectionHeaderButton: View {
     let title: String
     let action: () -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: VikuSpacing.xxs) {
@@ -148,7 +156,7 @@ struct SectionHeaderButton: View {
                     .font(.system(size: 11, weight: .semibold))
                 Text(verbatim: title)
             }
-            .foregroundStyle(VikuColor.brandPrimary)
+            .foregroundStyle(palette.brand)
         }
         .buttonStyle(.plain)
         .textCase(nil)

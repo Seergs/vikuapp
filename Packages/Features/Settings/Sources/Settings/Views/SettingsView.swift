@@ -25,21 +25,20 @@ struct SettingsView: View {
     @State private var isPresentingBadgeConsent = false
     @State private var isPresentingDefaultProjectPicker = false
     @Environment(\.openURL) private var openURL
+    @Environment(\.vikuPalette) private var palette
 
     var body: some View {
         List {
-            // App-wide preferences — nothing here navigates anywhere, unlike
-            // Connections/Manage Labels below.
+            // App-wide preferences — only Appearance navigates, to its own
+            // picker screen; the rest here don't, unlike Connections/Manage
+            // Labels below.
             Section {
-                Picker(selection: themeBinding) {
-                    ForEach(AppTheme.allCases, id: \.self) { theme in
-                        Text(verbatim: theme.displayName).tag(theme)
-                    }
-                } label: {
-                    HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
-                        SettingsRowIcon(systemName: "circle.lefthalf.filled")
-                        Text("Appearance", bundle: .module)
-                    }
+                SettingsNavigationRow(
+                    icon: "circle.lefthalf.filled",
+                    title: String(localized: "Appearance", bundle: .module),
+                    subtitle: themeStore.theme.displayName,
+                ) {
+                    router.push(.appearance)
                 }
 
                 Toggle(isOn: badgeEnabledBinding) {
@@ -49,7 +48,7 @@ struct SettingsView: View {
                             Text("App Icon Badge", bundle: .module)
                             Text("Overdue and due-today tasks", bundle: .module)
                                 .font(VikuFont.footnote)
-                                .foregroundStyle(VikuColor.textTertiary)
+                                .foregroundStyle(palette.textTertiary)
                         }
                     }
                 }
@@ -60,6 +59,7 @@ struct SettingsView: View {
             } header: {
                 Text("General", bundle: .module)
             }
+            .listRowBackground(palette.cardBackground)
 
             // One section, not two, so these render as a single grouped
             // card (matching Settings.app) instead of one card per row.
@@ -101,6 +101,7 @@ struct SettingsView: View {
             } header: {
                 Text("Connection: \(activeAccountName)", bundle: .module)
             }
+            .listRowBackground(palette.cardBackground)
 
             Section {
                 Picker(selection: quickAddSyntaxBinding) {
@@ -121,7 +122,7 @@ struct SettingsView: View {
                     Text("Experimental", bundle: .module)
                     Text("Features still being tested. They may change or be removed.", bundle: .module)
                         .font(VikuFont.footnote)
-                        .foregroundStyle(VikuColor.textSecondary)
+                        .foregroundStyle(palette.textSecondary)
                         .textCase(nil)
                 }
             } footer: {
@@ -130,6 +131,7 @@ struct SettingsView: View {
                     bundle: .module,
                 )
             }
+            .listRowBackground(palette.cardBackground)
 
             // Last, on its own: reference info, not something people change.
             Section {
@@ -141,6 +143,7 @@ struct SettingsView: View {
                     router.push(.about)
                 }
             }
+            .listRowBackground(palette.cardBackground)
 
             // Dev-only tools, never shown in a release build — see
             // `BuildConfig.isDevBuild`.
@@ -182,9 +185,12 @@ struct SettingsView: View {
                 } header: {
                     Text("Developer", bundle: .module)
                 }
+                .listRowBackground(palette.cardBackground)
             }
         }
         .settingsListStyle()
+        .scrollContentBackground(.hidden)
+        .background(palette.pageBackground)
         .navigationTitle(Text("Settings", bundle: .module))
         .sheet(isPresented: $isPresentingBadgeConsent) {
             AppIconBadgeConsentSheet {
@@ -213,7 +219,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm) {
             Text("Notifications are turned off for Viku in iOS Settings.", bundle: .module)
                 .font(VikuFont.footnote)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
             Button(String(localized: "Open Settings", bundle: .module)) {
                 openSystemSettings()
             }
@@ -227,10 +233,6 @@ struct SettingsView: View {
             openURL(url)
         }
         #endif
-    }
-
-    private var themeBinding: Binding<AppTheme> {
-        Binding(get: { themeStore.theme }, set: { themeStore.setTheme($0) })
     }
 
     private var badgeEnabledBinding: Binding<Bool> {
@@ -270,6 +272,8 @@ private struct SettingsNavigationRow: View {
     let subtitle: String
     let action: () -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
@@ -281,7 +285,7 @@ private struct SettingsNavigationRow: View {
                         .foregroundStyle(Color.primary)
                     Text(verbatim: subtitle)
                         .font(VikuFont.footnote)
-                        .foregroundStyle(VikuColor.textTertiary)
+                        .foregroundStyle(palette.textTertiary)
                         .lineLimit(1)
                 }
 
@@ -289,7 +293,7 @@ private struct SettingsNavigationRow: View {
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(VikuColor.textTertiary)
+                    .foregroundStyle(palette.textTertiary)
             }
             // Without this, `.buttonStyle(.plain)` only treats the
             // icon/text/chevron themselves as tappable, not the transparent
@@ -308,6 +312,8 @@ private struct SettingsInfoRow: View {
     let title: String
     let value: String
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
             SettingsRowIcon(systemName: icon)
@@ -317,7 +323,7 @@ private struct SettingsInfoRow: View {
             Spacer()
             Text(verbatim: value)
                 .font(VikuFont.body)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
         }
     }
 }
@@ -327,14 +333,16 @@ private struct SettingsInfoRow: View {
 struct SettingsRowIcon: View {
     let systemName: String
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         RoundedRectangle(cornerRadius: VikuRadius.sm - VikuSpacing.xs, style: .continuous)
-            .fill(VikuColor.brandPrimary.opacity(0.14))
+            .fill(palette.brand.opacity(0.14))
             .frame(width: 34, height: 34)
             .overlay {
                 Image(systemName: systemName)
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(VikuColor.brandPrimary)
+                    .foregroundStyle(palette.brand)
             }
     }
 }
