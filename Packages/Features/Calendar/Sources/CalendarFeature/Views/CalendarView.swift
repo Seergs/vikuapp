@@ -83,7 +83,7 @@ struct CalendarView: View {
             } label: {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(VikuColor.textSecondary)
+                    .foregroundStyle(palette.textSecondary)
                     .frame(width: 32, height: 32)
             }
 
@@ -100,7 +100,7 @@ struct CalendarView: View {
             } label: {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(VikuColor.textSecondary)
+                    .foregroundStyle(palette.textSecondary)
                     .frame(width: 32, height: 32)
             }
         }
@@ -119,7 +119,7 @@ struct CalendarView: View {
             }
         }
         .font(VikuFont.footnote)
-        .foregroundStyle(VikuColor.textSecondary)
+        .foregroundStyle(palette.textSecondary)
         .textCase(.uppercase)
         .kerning(0.3)
         .padding(.horizontal, VikuSpacing.md)
@@ -128,7 +128,7 @@ struct CalendarView: View {
         if selectedTasks.isEmpty {
             Text("No tasks this day.", bundle: .module)
                 .font(VikuFont.subheadline)
-                .foregroundStyle(VikuColor.textTertiary)
+                .foregroundStyle(palette.textTertiary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, VikuSpacing.lg)
         } else {
@@ -187,7 +187,7 @@ private struct MonthGrid: View {
             ForEach(month.weekdaySymbols, id: \.self) { symbol in
                 Text(verbatim: symbol)
                     .font(.system(size: 11.5, weight: .bold))
-                    .foregroundStyle(VikuColor.textTertiary)
+                    .foregroundStyle(palette.textTertiary)
                     .frame(maxWidth: .infinity)
                     .padding(.bottom, VikuSpacing.xs)
             }
@@ -224,7 +224,7 @@ private struct DayCell: View {
             return VikuColor.Priority.urgent
         }
         if !day.isInMonth {
-            return VikuColor.textTertiary
+            return palette.textTertiary
         }
         return .primary
     }
@@ -315,7 +315,7 @@ private struct CalendarTaskRow: View {
                     .font(VikuFont.body)
                     .fontWeight(.medium)
                     .strikethrough(task.isDone)
-                    .foregroundStyle(task.isDone ? VikuColor.textTertiary : Color.primary)
+                    .foregroundStyle(task.isDone ? palette.textTertiary : Color.primary)
 
                 HStack(spacing: VikuSpacing.xs + VikuSpacing.xxs) {
                     if let project {
@@ -325,7 +325,7 @@ private struct CalendarTaskRow: View {
                                 .frame(width: 6, height: 6)
                             Text(verbatim: project.title)
                                 .font(.system(size: 12.5, weight: .regular))
-                                .foregroundStyle(VikuColor.textSecondary)
+                                .foregroundStyle(palette.textSecondary)
                                 .truncationMode(.tail)
                         }
                     }
@@ -333,7 +333,7 @@ private struct CalendarTaskRow: View {
                     if project != nil, task.dueDate != nil {
                         Text(verbatim: "·")
                             .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(VikuColor.textSecondary)
+                            .foregroundStyle(palette.textSecondary)
                     }
 
                     Group {
@@ -344,13 +344,13 @@ private struct CalendarTaskRow: View {
                         } else if let dueDate = task.dueDate {
                             Text(verbatim: DueDateFormatter.compact(dueDate))
                                 .font(.system(size: 12.5, weight: .regular))
-                                .foregroundStyle(VikuColor.textSecondary)
+                                .foregroundStyle(palette.textSecondary)
                         }
 
                         if task.hasRelations {
                             Image(systemName: "link")
                                 .font(.system(size: 11, weight: .regular))
-                                .foregroundStyle(VikuColor.textTertiary)
+                                .foregroundStyle(palette.textTertiary)
                         }
                     }
                     .fixedSize(horizontal: true, vertical: false)
@@ -366,10 +366,10 @@ private struct CalendarTaskRow: View {
                         if remaining > 0 {
                             Text(verbatim: "+\(remaining)")
                                 .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(VikuColor.textTertiary)
+                                .foregroundStyle(palette.textTertiary)
                                 .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
                                 .padding(.vertical, VikuSpacing.xxs)
-                                .background(Capsule().fill(VikuColor.textSecondary.opacity(0.14)))
+                                .background(Capsule().fill(palette.textSecondary.opacity(0.14)))
                         }
                     }
                 }
