@@ -11,6 +11,7 @@ import VikuUI
 struct CalendarView: View {
     @Bindable var viewModel: CalendarViewModel
     @Environment(AppRouter.self) private var router
+    @Environment(\.vikuPalette) private var palette
 
     private let calendar = Calendar.current
     @State private var monthAnchor: Date = Calendar.current.startOfMonth(for: Date())
@@ -18,7 +19,7 @@ struct CalendarView: View {
 
     var body: some View {
         content
-            .background(VikuColor.Surface.page)
+            .background(palette.pageBackground)
             .navigationTitle(Text("Calendar", bundle: .module))
             .refreshable { await viewModel.load() }
             .task { await viewModel.load() }
@@ -66,7 +67,7 @@ struct CalendarView: View {
                     onSelect: { selectedDay = $0 },
                 )
                 .padding(VikuSpacing.md)
-                .background(VikuColor.Surface.card, in: cardShape)
+                .background(palette.cardBackground, in: cardShape)
                 .padding(.horizontal, VikuSpacing.md)
 
                 selectedDaySection
@@ -146,7 +147,7 @@ struct CalendarView: View {
                     }
                 }
             }
-            .background(VikuColor.Surface.card, in: cardShape)
+            .background(palette.cardBackground, in: cardShape)
             .padding(.horizontal, VikuSpacing.md)
         }
     }
