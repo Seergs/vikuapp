@@ -126,7 +126,7 @@ struct ProjectNotificationsView: View {
                     value: selectedEvents.isEmpty
                         ? String(localized: "Not Connected", bundle: .module)
                         : String(localized: "Connected", bundle: .module),
-                    valueColor: selectedEvents.isEmpty ? VikuColor.textSecondary : palette.semanticSuccess,
+                    valueColor: selectedEvents.isEmpty ? nil : palette.semanticSuccess,
                 )
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -138,17 +138,17 @@ struct ProjectNotificationsView: View {
     private func infoRow(
         label: String,
         value: String,
-        valueColor: Color = VikuColor.textSecondary,
+        valueColor: Color? = nil,
         monospaced: Bool = false,
     ) -> some View {
         HStack(alignment: .top, spacing: VikuSpacing.sm) {
             Text(verbatim: label)
                 .font(VikuFont.footnote)
-                .foregroundStyle(VikuColor.textTertiary)
+                .foregroundStyle(palette.textTertiary)
                 .frame(width: 84, alignment: .leading)
             Text(verbatim: value)
                 .font(monospaced ? .system(.footnote, design: .monospaced) : VikuFont.footnote)
-                .foregroundStyle(valueColor)
+                .foregroundStyle(valueColor ?? palette.textSecondary)
                 .textSelection(.enabled)
         }
     }
@@ -167,7 +167,7 @@ struct ProjectNotificationsView: View {
                 Spacer()
                 Text(verbatim: "\(selectedEvents.count)")
                     .font(VikuFont.footnote)
-                    .foregroundStyle(VikuColor.textTertiary)
+                    .foregroundStyle(palette.textTertiary)
             }
             HStack(spacing: VikuSpacing.sm) {
                 presetChip(String(localized: "Recommended", bundle: .module), events: Self.recommendedEvents)
@@ -189,7 +189,7 @@ struct ProjectNotificationsView: View {
                 .fontWeight(.semibold)
                 .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
                 .padding(.vertical, VikuSpacing.sm - VikuSpacing.xxs)
-                .foregroundStyle(isSelected ? Color.white : VikuColor.textSecondary)
+                .foregroundStyle(isSelected ? Color.white : palette.textSecondary)
                 .background(Capsule().fill(isSelected ? palette.brand : palette.fieldBackground))
         }
         .buttonStyle(.plain)
@@ -212,7 +212,7 @@ struct ProjectNotificationsView: View {
                                 Text(eventLabel(event))
                                 Text(verbatim: event.rawValue)
                                     .font(.system(.caption, design: .monospaced))
-                                    .foregroundStyle(VikuColor.textTertiary)
+                                    .foregroundStyle(palette.textTertiary)
                             }
                         }
                         .disabled(isDisabled)
@@ -236,7 +236,7 @@ struct ProjectNotificationsView: View {
                     HStack(alignment: .top, spacing: VikuSpacing.sm) {
                         Image(systemName: "link")
                             .font(.system(size: 13))
-                            .foregroundStyle(VikuColor.textTertiary)
+                            .foregroundStyle(palette.textTertiary)
                         VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
                             Text(verbatim: webhook.targetURL.absoluteString)
                                 .font(.system(.footnote, design: .monospaced))
@@ -250,7 +250,7 @@ struct ProjectNotificationsView: View {
                                 ),
                             )
                             .font(VikuFont.caption)
-                            .foregroundStyle(VikuColor.textTertiary)
+                            .foregroundStyle(palette.textTertiary)
                         }
                     }
                 }

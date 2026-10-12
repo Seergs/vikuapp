@@ -137,8 +137,10 @@ struct ManageLabelsView: View {
 private struct LabelRow: View {
     let label: VikunjaCore.Label
 
+    @Environment(\.vikuPalette) private var palette
+
     private var color: Color {
-        Color(vikuMutedHex: label.hexColor) ?? VikuColor.textSecondary
+        Color(vikuMutedHex: label.hexColor) ?? palette.textSecondary
     }
 
     var body: some View {
@@ -152,7 +154,7 @@ private struct LabelRow: View {
             Spacer(minLength: 0)
             Image(systemName: "chevron.right")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(VikuColor.textTertiary)
+                .foregroundStyle(palette.textTertiary)
         }
         .padding(.vertical, VikuSpacing.xxs)
         .contentShape(Rectangle())

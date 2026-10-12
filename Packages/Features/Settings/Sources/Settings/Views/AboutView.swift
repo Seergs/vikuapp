@@ -95,6 +95,8 @@ private struct SettingsInfoRow: View {
     let title: String
     let value: String
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
             SettingsRowIcon(systemName: icon)
@@ -104,7 +106,7 @@ private struct SettingsInfoRow: View {
             Spacer()
             Text(verbatim: value)
                 .font(VikuFont.body)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
         }
     }
 }
@@ -117,6 +119,8 @@ private struct SettingsLinkRow: View {
     let title: String
     let url: URL
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         Link(destination: url) {
             HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
@@ -127,7 +131,7 @@ private struct SettingsLinkRow: View {
                 Spacer()
                 Image(systemName: "arrow.up.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(VikuColor.textTertiary)
+                    .foregroundStyle(palette.textTertiary)
             }
             .contentShape(Rectangle())
         }

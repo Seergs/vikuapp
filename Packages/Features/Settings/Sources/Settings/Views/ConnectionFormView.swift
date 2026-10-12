@@ -210,7 +210,7 @@ struct ConnectionFormView: View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm) {
             Text("You'll be redirected to your provider's sign-in page to finish.", bundle: .module)
                 .font(VikuFont.caption)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
 
             ForEach(viewModel.oidcProviders) { provider in
                 oidcProviderButton(provider)
@@ -288,7 +288,7 @@ struct ConnectionFormView: View {
                     isPasswordVisible.toggle()
                 } label: {
                     Image(systemName: isPasswordVisible ? "eye.slash" : "eye")
-                        .foregroundStyle(VikuColor.textTertiary)
+                        .foregroundStyle(palette.textTertiary)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(
@@ -325,7 +325,7 @@ struct ConnectionFormView: View {
                     isTokenVisible.toggle()
                 } label: {
                     Image(systemName: isTokenVisible ? "eye.slash" : "eye")
-                        .foregroundStyle(VikuColor.textTertiary)
+                        .foregroundStyle(palette.textTertiary)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(
@@ -340,7 +340,7 @@ struct ConnectionFormView: View {
 
             Text("Generate it on your Vikunja instance: Settings → API Tokens.", bundle: .module)
                 .font(VikuFont.caption)
-                .foregroundStyle(VikuColor.textTertiary)
+                .foregroundStyle(palette.textTertiary)
         }
     }
 
@@ -394,6 +394,8 @@ struct ConnectionFormView: View {
 private struct FieldLabel: View {
     let title: String
 
+    @Environment(\.vikuPalette) private var palette
+
     init(_ title: String) {
         self.title = title
     }
@@ -402,7 +404,7 @@ private struct FieldLabel: View {
         Text(verbatim: title)
             .font(VikuFont.footnote)
             .fontWeight(.semibold)
-            .foregroundStyle(VikuColor.textSecondary)
+            .foregroundStyle(palette.textSecondary)
     }
 }
 

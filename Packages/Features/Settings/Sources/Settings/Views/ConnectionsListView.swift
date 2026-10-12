@@ -70,7 +70,7 @@ struct ConnectionsListView: View {
                 VStack(alignment: .leading, spacing: VikuSpacing.md) {
                     Text("Choose the Vikunja instance you want to sync your tasks with.", bundle: .module)
                         .font(VikuFont.footnote)
-                        .foregroundStyle(VikuColor.textSecondary)
+                        .foregroundStyle(palette.textSecondary)
 
                     VStack(spacing: 0) {
                         ForEach(Array(viewModel.accounts.enumerated()), id: \.element.id) { index, account in
@@ -134,7 +134,7 @@ private struct AddConnectionButton: View {
                 // meets the corner. True circular arcs dash evenly.
                 RoundedRectangle(cornerRadius: VikuRadius.md, style: .circular)
                     .strokeBorder(
-                        VikuColor.textTertiary.opacity(0.4),
+                        palette.textTertiary.opacity(0.4),
                         style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [5, 5]),
                     )
             }
@@ -166,7 +166,7 @@ private struct ConnectionRow: View {
                         .overlay {
                             Image(systemName: "server.rack")
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(isActive ? palette.brand : VikuColor.textTertiary)
+                                .foregroundStyle(isActive ? palette.brand : palette.textTertiary)
                         }
 
                     VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
@@ -189,7 +189,7 @@ private struct ConnectionRow: View {
 
                         Text(verbatim: displayURL)
                             .font(VikuFont.footnote)
-                            .foregroundStyle(VikuColor.textTertiary)
+                            .foregroundStyle(palette.textTertiary)
                             .lineLimit(1)
                             .truncationMode(.middle)
 
@@ -200,7 +200,7 @@ private struct ConnectionRow: View {
                                 Text(verbatim: account.authMethod.badgeTitle)
                                     .font(.system(size: 11, weight: .bold))
                             }
-                            .foregroundStyle(VikuColor.textSecondary)
+                            .foregroundStyle(palette.textSecondary)
                             .lineLimit(1)
                             .padding(.horizontal, VikuSpacing.xs + VikuSpacing.xxs)
                             .padding(.vertical, VikuSpacing.xxs)
@@ -209,7 +209,7 @@ private struct ConnectionRow: View {
                             if let serverVersion {
                                 Text(verbatim: serverVersion.hasPrefix("v") ? serverVersion : "v\(serverVersion)")
                                     .font(.system(size: 11, weight: .medium))
-                                    .foregroundStyle(VikuColor.textTertiary)
+                                    .foregroundStyle(palette.textTertiary)
                                     .lineLimit(1)
                                     .padding(.horizontal, VikuSpacing.xs + VikuSpacing.xxs)
                                     .padding(.vertical, VikuSpacing.xxs)
@@ -228,7 +228,7 @@ private struct ConnectionRow: View {
             Button(action: onEdit) {
                 Image(systemName: "pencil")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(VikuColor.textSecondary)
+                    .foregroundStyle(palette.textSecondary)
                     .frame(width: 30, height: 30)
                     .background(palette.fieldBackground, in: Circle())
             }

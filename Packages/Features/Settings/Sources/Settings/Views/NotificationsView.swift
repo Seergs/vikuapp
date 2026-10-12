@@ -145,7 +145,7 @@ struct NotificationsView: View {
                             Text("Push Notifications", bundle: .module)
                             Text("Via Viku Relay", bundle: .module)
                                 .font(VikuFont.footnote)
-                                .foregroundStyle(VikuColor.textSecondary)
+                                .foregroundStyle(palette.textSecondary)
                         }
                     }
                     .disabled(viewModel.pendingChange == .enabling || viewModel.pendingChange == .disabling)
@@ -160,7 +160,7 @@ struct NotificationsView: View {
                             .frame(width: 8, height: 8)
                         Text(String(localized: "Registered with \(relayTargetURL.host ?? relayTargetURL.absoluteString)", bundle: .module))
                             .font(VikuFont.footnote)
-                            .foregroundStyle(VikuColor.textSecondary)
+                            .foregroundStyle(palette.textSecondary)
                     }
                     .padding(.vertical, VikuSpacing.sm)
                 }
@@ -185,7 +185,7 @@ struct NotificationsView: View {
                     }
                 }
                 .font(VikuFont.caption)
-                .foregroundStyle(VikuColor.textTertiary)
+                .foregroundStyle(palette.textTertiary)
 
                 if viewModel.isPermissionDenied {
                     deniedBanner
@@ -205,7 +205,7 @@ struct NotificationsView: View {
             ProgressView()
             Text("Setting up notifications…", bundle: .module)
                 .font(VikuFont.footnote)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
         }
     }
 
@@ -242,7 +242,7 @@ struct NotificationsView: View {
                             Text(eventLabel(event))
                             Text(verbatim: event.rawValue)
                                 .font(.system(.caption, design: .monospaced))
-                                .foregroundStyle(VikuColor.textTertiary)
+                                .foregroundStyle(palette.textTertiary)
                         }
                     }
                     .disabled(viewModel.pendingChange == .userLevel)
@@ -265,7 +265,7 @@ struct NotificationsView: View {
                 Text("Fires Daily At", bundle: .module)
                 Text(accountTimezoneLabel)
                     .font(VikuFont.footnote)
-                    .foregroundStyle(VikuColor.textSecondary)
+                    .foregroundStyle(palette.textSecondary)
             }
         }
     }
@@ -324,7 +324,7 @@ struct NotificationsView: View {
                         Spacer()
                         Text(verbatim: "\(connectedProjectCount)")
                             .font(VikuFont.footnote)
-                            .foregroundStyle(VikuColor.textTertiary)
+                            .foregroundStyle(palette.textTertiary)
                     }
                 }
                 VStack(spacing: 0) {
@@ -445,7 +445,7 @@ private struct ProjectNotificationRow: View {
                 if otherWebhookCount > 0 {
                     Text(String(localized: "\(otherWebhookCount) third-party webhooks", bundle: .module))
                         .font(VikuFont.caption)
-                        .foregroundStyle(VikuColor.textTertiary)
+                        .foregroundStyle(palette.textTertiary)
                 }
             }
 
@@ -465,12 +465,12 @@ private struct ProjectNotificationRow: View {
             } else {
                 Text("Not Connected", bundle: .module)
                     .font(VikuFont.footnote)
-                    .foregroundStyle(VikuColor.textTertiary)
+                    .foregroundStyle(palette.textTertiary)
             }
 
             Image(systemName: "chevron.right")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(VikuColor.textTertiary)
+                .foregroundStyle(palette.textTertiary)
         }
         .padding(.vertical, VikuSpacing.xs)
         .padding(.leading, CGFloat(depth) * (VikuSpacing.md + VikuSpacing.xxs))
