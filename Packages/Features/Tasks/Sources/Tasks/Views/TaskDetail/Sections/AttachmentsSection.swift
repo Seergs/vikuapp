@@ -71,6 +71,8 @@ private struct AttachmentsList: View {
 }
 
 private struct AttachmentUploadingRow: View {
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         HStack(spacing: VikuSpacing.sm) {
             ProgressView()
@@ -83,7 +85,7 @@ private struct AttachmentUploadingRow: View {
         .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
         .padding(.vertical, VikuSpacing.xs + VikuSpacing.xxs)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(VikuColor.Surface.card, in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
+        .background(palette.cardBackground, in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
     }
 }
 
@@ -91,6 +93,8 @@ private struct AttachmentRow: View {
     let attachment: TaskAttachment
     let onOpen: () -> Void
     let onDelete: () -> Void
+
+    @Environment(\.vikuPalette) private var palette
 
     private var subtitle: String {
         let size = AttachmentSizeFormatter.string(for: attachment.sizeBytes)
@@ -125,7 +129,7 @@ private struct AttachmentRow: View {
             .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
             .padding(.vertical, VikuSpacing.xs + VikuSpacing.xxs)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(VikuColor.Surface.card, in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
+            .background(palette.cardBackground, in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
         }
         .buttonStyle(.plain)
         .contextMenu {

@@ -16,6 +16,7 @@ struct LabelEditorSheet: View {
     let onSave: (String, String) async -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.vikuPalette) private var palette
     @FocusState private var isTitleFocused: Bool
     @State private var title: String
     @State private var hexColor: String
@@ -89,7 +90,7 @@ struct LabelEditorSheet: View {
         }
         .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
         .padding(.vertical, VikuSpacing.sm + VikuSpacing.xxs)
-        .background(VikuColor.Surface.field, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
+        .background(palette.fieldBackground, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
     }
 
     private var colorSection: some View {
