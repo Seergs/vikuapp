@@ -24,6 +24,8 @@ private struct VikuCardRowModifier: ViewModifier {
     let index: Int
     let count: Int
 
+    @Environment(\.vikuPalette) private var palette
+
     private var isFirst: Bool {
         index == 0
     }
@@ -36,7 +38,7 @@ private struct VikuCardRowModifier: ViewModifier {
         content
             .padding(.horizontal, VikuSpacing.md)
             .padding(.vertical, VikuSpacing.sm)
-            .background(VikuColor.Surface.card)
+            .background(palette.cardBackground)
             .overlay(alignment: .bottom) {
                 if !isLast {
                     Divider().padding(.leading, VikuSpacing.md)
