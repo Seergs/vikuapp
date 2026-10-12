@@ -28,16 +28,19 @@ public enum VikuColor {
         }
     }
 
-    /// Grouped-content backgrounds, one step apart in elevation. Backed by
-    /// adaptive iOS system colors so light/dark mode and increased-contrast
-    /// settings are handled for free — see `Color+Platform.swift`.
+    /// Grouped-content backgrounds, one step apart in elevation. Deprecated:
+    /// read `cardBackground`/`fieldBackground`/`pageBackground` from
+    /// `@Environment(\.vikuPalette)` instead, which these now forward to.
     public enum Surface {
         /// Card background, e.g. a grouped section of rows.
-        public static let card = Color.platformCardBackground
+        @available(*, deprecated, message: "Read cardBackground from @Environment(\\.vikuPalette) instead.")
+        public static let card = VikuPalette.standard.cardBackground
         /// Input field / chip background, one step lighter than `card`.
-        public static let field = Color.platformFieldBackground
+        @available(*, deprecated, message: "Read fieldBackground from @Environment(\\.vikuPalette) instead.")
+        public static let field = VikuPalette.standard.fieldBackground
         /// The page canvas behind grouped/carded content.
-        public static let page = Color.platformPageBackground
+        @available(*, deprecated, message: "Read pageBackground from @Environment(\\.vikuPalette) instead.")
+        public static let page = VikuPalette.standard.pageBackground
     }
 
     /// Darker, more legible than the system `.secondary`/`.tertiary` text
