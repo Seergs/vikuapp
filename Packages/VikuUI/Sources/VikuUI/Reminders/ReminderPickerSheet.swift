@@ -303,6 +303,8 @@ private struct QuantityStepper: View {
     @Binding var value: Int
     let range: ClosedRange<Int>
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         HStack(spacing: 0) {
             stepButton(systemImage: "minus", disabled: value <= range.lowerBound) {
@@ -321,7 +323,7 @@ private struct QuantityStepper: View {
         .foregroundStyle(VikuColor.textSecondary)
         .padding(.horizontal, VikuSpacing.xs)
         .padding(.vertical, VikuSpacing.xxs)
-        .background(VikuColor.Surface.field, in: Capsule())
+        .background(palette.fieldBackground, in: Capsule())
     }
 
     private func stepButton(systemImage: String, disabled: Bool, action: @escaping () -> Void) -> some View {
@@ -378,6 +380,8 @@ private struct PresetPill: View {
     let isSelected: Bool
     let action: () -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         Button(action: action) {
             Text(verbatim: label)
@@ -385,7 +389,7 @@ private struct PresetPill: View {
                 .foregroundStyle(isSelected ? Color.primary : VikuColor.textTertiary)
                 .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xs)
                 .padding(.vertical, VikuSpacing.xs + VikuSpacing.xxs)
-                .background(Capsule().fill(isSelected ? VikuColor.Surface.field : Color.clear))
+                .background(Capsule().fill(isSelected ? palette.fieldBackground : Color.clear))
                 .overlay(Capsule().strokeBorder(VikuColor.textTertiary.opacity(0.3), lineWidth: 1))
         }
         .buttonStyle(.plain)

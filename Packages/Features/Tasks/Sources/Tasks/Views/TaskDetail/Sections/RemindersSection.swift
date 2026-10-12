@@ -92,6 +92,8 @@ private struct ReminderRow: View {
     let onTap: () -> Void
     let onRemove: () -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         HStack(spacing: VikuSpacing.sm) {
             Button(action: onTap) {
@@ -118,12 +120,12 @@ private struct ReminderRow: View {
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(VikuColor.textSecondary)
                     .frame(width: 26, height: 26)
-                    .background(VikuColor.Surface.field, in: Circle())
+                    .background(palette.fieldBackground, in: Circle())
             }
             .buttonStyle(.plain)
         }
         .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
         .padding(.vertical, VikuSpacing.sm)
-        .background(VikuColor.Surface.card, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
+        .background(palette.cardBackground, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
     }
 }

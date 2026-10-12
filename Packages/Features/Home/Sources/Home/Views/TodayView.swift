@@ -10,6 +10,7 @@ import VikuUI
 struct TodayView: View {
     @Bindable var viewModel: TodayViewModel
     @Environment(AppRouter.self) private var router
+    @Environment(\.vikuPalette) private var palette
     @State private var filter: TodayFilter = .all
     @State private var taskPendingDelete: VikunjaTask?
     @State private var taskPendingMove: VikunjaTask?
@@ -22,7 +23,7 @@ struct TodayView: View {
         content
             .todayListStyle()
             .scrollContentBackground(.hidden)
-            .background(VikuColor.Surface.page)
+            .background(palette.pageBackground)
             .refreshable { await viewModel.load() }
             .navigationTitle(Text("Today", bundle: .module))
             .task { await viewModel.load() }
@@ -307,6 +308,8 @@ private struct TodayFilterChip: View {
     let isSelected: Bool
     let onSelect: () -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         Button(action: onSelect) {
             Text(verbatim: title)
@@ -316,7 +319,7 @@ private struct TodayFilterChip: View {
                 .padding(.vertical, VikuSpacing.sm - VikuSpacing.xxs)
                 .foregroundStyle(isSelected ? Color.white : VikuColor.textSecondary)
                 .background(
-                    Capsule().fill(isSelected ? VikuColor.brandPrimary : VikuColor.Surface.field),
+                    Capsule().fill(isSelected ? VikuColor.brandPrimary : palette.fieldBackground),
                 )
         }
         .buttonStyle(.plain)

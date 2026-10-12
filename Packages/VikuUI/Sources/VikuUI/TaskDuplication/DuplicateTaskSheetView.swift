@@ -20,6 +20,7 @@ public struct DuplicateTaskSheetView: View {
     /// caller that just wants the copy made can leave it off.
     private let onDuplicated: ((VikunjaTask, Project) -> Void)?
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.vikuPalette) private var palette
     @State private var isShowingProjectPicker = false
     @FocusState private var isTitleFocused: Bool
 
@@ -67,7 +68,7 @@ public struct DuplicateTaskSheetView: View {
                     .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
                     .padding(.vertical, VikuSpacing.sm + VikuSpacing.xxs)
                     .background(
-                        VikuColor.Surface.field,
+                        palette.fieldBackground,
                         in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous),
                     )
 

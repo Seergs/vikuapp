@@ -23,6 +23,7 @@ public struct TaskDetailView: View {
     /// never imports `Projects` or knows what screen a route resolves to.
     @Environment(AppRouter.self) private var router
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.vikuPalette) private var palette
     @State private var isShowingDueDatePicker = false
     @State private var reminderEditTarget: ReminderEditTarget?
     @State private var isShowingLabelPicker = false
@@ -95,7 +96,7 @@ public struct TaskDetailView: View {
                 .padding(.bottom, VikuSpacing.xl + keyboardHeight)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .background(VikuColor.Surface.page)
+            .background(palette.pageBackground)
             .contentShape(Rectangle())
             .onTapGesture { focusedField = nil }
             .scrollDismissesKeyboard(.interactively)
