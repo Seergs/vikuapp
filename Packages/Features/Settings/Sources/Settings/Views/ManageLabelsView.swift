@@ -127,6 +127,7 @@ struct ManageLabelsView: View {
                             }
                             .tint(palette.semanticDanger)
                         }
+                        .listRowBackground(palette.cardBackground)
                     }
                 }
                 .labelsListStyle()
