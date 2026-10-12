@@ -37,14 +37,27 @@ extension Color {
         #endif
     }
 
+    /// The light/dark RGB pair backing `platformTextSecondary`'s iOS
+    /// `UIColor` provider below, named so `ContrastRatioTests` can WCAG-check
+    /// them directly instead of resolving the adaptive `Color` itself, which
+    /// hangs outside a live rendering host (see that test file's doc comment).
+    enum TextSecondaryRGB {
+        static let light = ReferenceRGB(red: 0.29, green: 0.30, blue: 0.33)
+        static let dark = ReferenceRGB(red: 0.72, green: 0.73, blue: 0.75)
+    }
+
+    enum TextTertiaryRGB {
+        static let light = ReferenceRGB(red: 0.54, green: 0.55, blue: 0.58)
+        static let dark = ReferenceRGB(red: 0.49, green: 0.50, blue: 0.52)
+    }
+
     /// A darker, more legible secondary text color than `UIColor.secondaryLabel`
     /// — matches the design source's own gray scale rather than the system default.
     static var platformTextSecondary: Color {
         #if os(iOS)
         Color(uiColor: UIColor { traits in
-            traits.userInterfaceStyle == .dark
-                ? UIColor(red: 0.72, green: 0.73, blue: 0.75, alpha: 1)
-                : UIColor(red: 0.29, green: 0.30, blue: 0.33, alpha: 1)
+            let rgb = traits.userInterfaceStyle == .dark ? TextSecondaryRGB.dark : TextSecondaryRGB.light
+            return UIColor(red: rgb.red, green: rgb.green, blue: rgb.blue, alpha: 1)
         })
         #elseif os(macOS)
         Color(nsColor: .secondaryLabelColor)
@@ -56,9 +69,8 @@ extension Color {
     static var platformTextTertiary: Color {
         #if os(iOS)
         Color(uiColor: UIColor { traits in
-            traits.userInterfaceStyle == .dark
-                ? UIColor(red: 0.49, green: 0.50, blue: 0.52, alpha: 1)
-                : UIColor(red: 0.54, green: 0.55, blue: 0.58, alpha: 1)
+            let rgb = traits.userInterfaceStyle == .dark ? TextTertiaryRGB.dark : TextTertiaryRGB.light
+            return UIColor(red: rgb.red, green: rgb.green, blue: rgb.blue, alpha: 1)
         })
         #elseif os(macOS)
         Color(nsColor: .tertiaryLabelColor)
@@ -83,4 +95,13 @@ extension Color {
         Color.red
         #endif
     }
+}
+
+/// A plain (non-tuple) RGB carrier for the reference values above, since
+/// SwiftLint caps tuples at two members — mirrors `Color+Hex.swift`'s own
+/// `RGBFraction` for the same reason.
+struct ReferenceRGB {
+    let red: Double
+    let green: Double
+    let blue: Double
 }
