@@ -72,26 +72,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package:
-          - Packages/Features/Calendar
-          - Packages/Features/Home
-          - Packages/Features/Kanban
-          - Packages/Features/Onboarding
-          - Packages/Features/Projects
-          - Packages/Features/Search
-          - Packages/Features/Settings
-          - Packages/Features/Tasks
-          - Packages/VikuAuth
-          - Packages/VikuDesignSystem
-          - Packages/VikuNavigation
-          - Packages/VikunjaCore
-          - Packages/VikunjaNetworking
-          - Packages/VikunjaPersistence
-          - Packages/VikuUI
-          - Packages/VikuWidgetKit
+        group:
+         - "Packages/Features/Calendar Packages/Features/Home Packages/Features/Kanban"
+         - "Packages/Features/Onboarding Packages/Features/Projects Packages/Features/Search"
+         - "Packages/Features/Settings Packages/Features/Tasks Packages/VikuAuth"
+         - "Packages/VikuDesignSystem Packages/VikuNavigation Packages/VikunjaCore"
+         - "Packages/VikunjaNetworking Packages/VikunjaPersistence Packages/VikuUI Packages/VikuWidgetKit"
     steps:
       - uses: actions/checkout@v7
-      - name: Run tests ${{ matrix.scheme }}
-        run: swift test
+      - name: Run tests
+        run: |
+          for p in ${{ matrix.group }}; do
+            (cd "$p" && swift test) || exit 1
+          done
         working-directory: ${{ matrix.package }}
 
