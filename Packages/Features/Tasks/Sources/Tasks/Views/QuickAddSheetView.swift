@@ -22,6 +22,7 @@ public struct QuickAddSheetView: View {
     @Environment(\.vikuPalette) private var palette
     @State private var isShowingProjectPicker = false
     @FocusState private var isTitleFocused: Bool
+    @State private var titleFieldHeight: CGFloat = QuickAddSheetView.titleFieldSingleLineHeight
 
     /// A single detent sized to the current content, not a two-detent set:
     /// when a sheet offers more than one detent and the keyboard appears,
@@ -38,9 +39,12 @@ public struct QuickAddSheetView: View {
     /// cleanly despite being driven by two different systems (SwiftUI's
     /// layout and the sheet's own UIKit-bridged resize).
     private var detentHeight: CGFloat {
-        let base = viewModel.saveErrorMessage != nil ? Self.expandedHeight : Self.compactHeight
-        guard QuickAddShortcutChips.hasChip(in: viewModel.shortcutChips) else { return base }
-        return base + QuickAddShortcutChips.height + VikuSpacing.md
+        var height = viewModel.saveErrorMessage != nil ? Self.expandedHeight : Self.compactHeight
+        // The title field wraps up to `ShortcutTitleField.maxVisibleLines` instead of
+        // scrolling at one line, so the sheet grows to match, bounded by that same cap.
+        height += max(0, titleFieldHeight - Self.titleFieldSingleLineHeight)
+        guard QuickAddShortcutChips.hasChip(in: viewModel.shortcutChips) else { return height }
+        return height + QuickAddShortcutChips.height + VikuSpacing.md
     }
 
     public init(viewModel: QuickAddTaskViewModel) {
@@ -88,6 +92,7 @@ public struct QuickAddSheetView: View {
             // two never looked like one smooth motion no matter how the
             // spring was tuned, so this one row just pops instead.
             .animation(.spring(response: 0.35, dampingFraction: 0.86), value: viewModel.saveErrorMessage)
+            .animation(.spring(response: 0.35, dampingFraction: 0.86), value: titleFieldHeight)
             .navigationTitle(Text("New Task", bundle: .module))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -141,6 +146,11 @@ public struct QuickAddSheetView: View {
                 tokens: viewModel.parsed.tokens,
                 focusOnAppear: true,
             )
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.size.height
+            } action: { height in
+                titleFieldHeight = max(Self.titleFieldSingleLineHeight, height)
+            }
             if viewModel.input.isEmpty {
                 Text("Task title", bundle: .module)
                     .font(VikuFont.body)
@@ -198,4 +208,9 @@ public struct QuickAddSheetView: View {
     /// `detentHeight` adds that on top only while one is showing.
     private static let compactHeight: CGFloat = 300
     private static let expandedHeight: CGFloat = 366
+
+    /// The title field's height at one line, i.e. what `compactHeight`/
+    /// `expandedHeight` already assume. `detentHeight` only adds the amount
+    /// the field grows beyond this baseline as it wraps onto more lines.
+    private static let titleFieldSingleLineHeight: CGFloat = 22
 }

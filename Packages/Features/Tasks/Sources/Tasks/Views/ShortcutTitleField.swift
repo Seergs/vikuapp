@@ -14,6 +14,11 @@ struct ShortcutTitleField: UIViewRepresentable {
 
     @Environment(\.vikuPalette) private var palette
 
+    /// Caps the field at this many lines before it scrolls internally, so a
+    /// long title wraps onto a few lines (like Todoist's quick-add) instead
+    /// of growing forever and pushing the rest of the sheet off-screen.
+    static let maxVisibleLines: CGFloat = 3
+
     func makeCoordinator() -> Coordinator {
         Coordinator(text: $text)
     }
@@ -50,6 +55,26 @@ struct ShortcutTitleField: UIViewRepresentable {
             view.selectedRange = NSRange(location: min(selection.location, end), length: 0)
         }
         applyHighlights(to: view)
+        let width = view.bounds.width > 0 ? view.bounds.width : UIScreen.main.bounds.width
+        let fitting = view.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
+        view.isScrollEnabled = fitting.height > Self.maxContentHeight
+    }
+
+    /// Reports the field's own natural size back to SwiftUI, capped at
+    /// `maxVisibleLines`, instead of the uncapped `intrinsicContentSize` a
+    /// scroll-disabled `UITextView` would otherwise report. Past the cap,
+    /// `updateUIView` turns scrolling back on so further typing scrolls
+    /// inside the field rather than growing it.
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextView, context: Context) -> CGSize? {
+        guard let width = proposal.width ?? (uiView.bounds.width > 0 ? uiView.bounds.width : nil) else {
+            return nil
+        }
+        let fitting = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
+        return CGSize(width: width, height: min(fitting.height, Self.maxContentHeight))
+    }
+
+    private static var maxContentHeight: CGFloat {
+        ceil(UIFont.preferredFont(forTextStyle: .body).lineHeight * maxVisibleLines)
     }
 
     /// Recolors the existing storage in place instead of reassigning the text,
