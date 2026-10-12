@@ -185,7 +185,7 @@ public struct ReminderPickerSheet: View {
             Text("Relative to", bundle: .module)
             Spacer()
             Text("Due Date", bundle: .module)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
         }
     }
 
@@ -321,7 +321,7 @@ private struct QuantityStepper: View {
                 value = min(range.upperBound, value + 1)
             }
         }
-        .foregroundStyle(VikuColor.textSecondary)
+        .foregroundStyle(palette.textSecondary)
         .padding(.horizontal, VikuSpacing.xs)
         .padding(.vertical, VikuSpacing.xxs)
         .background(palette.fieldBackground, in: Capsule())
@@ -387,11 +387,11 @@ private struct PresetPill: View {
         Button(action: action) {
             Text(verbatim: label)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(isSelected ? Color.primary : VikuColor.textTertiary)
+                .foregroundStyle(isSelected ? Color.primary : palette.textTertiary)
                 .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xs)
                 .padding(.vertical, VikuSpacing.xs + VikuSpacing.xxs)
                 .background(Capsule().fill(isSelected ? palette.fieldBackground : Color.clear))
-                .overlay(Capsule().strokeBorder(VikuColor.textTertiary.opacity(0.3), lineWidth: 1))
+                .overlay(Capsule().strokeBorder(palette.textTertiary.opacity(0.3), lineWidth: 1))
         }
         .buttonStyle(.plain)
     }

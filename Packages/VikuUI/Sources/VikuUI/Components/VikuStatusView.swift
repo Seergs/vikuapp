@@ -12,6 +12,8 @@ public struct VikuStatusView: View {
     private let fillsHeight: Bool
     private let retry: (() -> Void)?
 
+    @Environment(\.vikuPalette) private var palette
+
     /// - Parameters:
     ///   - fillsHeight: expand to fill the available height (the default —
     ///     screens that own their whole content area). Pass `false` when the
@@ -37,14 +39,14 @@ public struct VikuStatusView: View {
         VStack(spacing: VikuSpacing.sm) {
             Image(systemName: systemImage)
                 .font(.system(size: iconSize))
-                .foregroundStyle(VikuColor.textTertiary)
+                .foregroundStyle(palette.textTertiary)
 
             Text(title)
                 .font(VikuFont.headline)
 
             Text(message)
                 .font(VikuFont.subheadline)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
                 .multilineTextAlignment(.center)
 
             if let retry {
