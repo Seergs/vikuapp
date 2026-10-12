@@ -133,6 +133,7 @@ struct ProjectsView: View {
                         .foregroundStyle(palette.textSecondary)
                         .textCase(nil)
                 }
+                .listRowBackground(palette.cardBackground)
             }
         }
     }
