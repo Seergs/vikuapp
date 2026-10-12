@@ -186,6 +186,8 @@ struct SettingsView: View {
             }
         }
         .settingsListStyle()
+        .scrollContentBackground(.hidden)
+        .background(palette.pageBackground)
         .navigationTitle(Text("Settings", bundle: .module))
         .sheet(isPresented: $isPresentingBadgeConsent) {
             AppIconBadgeConsentSheet {

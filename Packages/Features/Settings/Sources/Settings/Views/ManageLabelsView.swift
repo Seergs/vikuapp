@@ -25,6 +25,7 @@ struct ManageLabelsView: View {
 
     var body: some View {
         content
+            .scrollContentBackground(.hidden)
             .background(palette.pageBackground)
             .navigationTitle(Text("Manage Labels", bundle: .module))
             #if os(iOS)

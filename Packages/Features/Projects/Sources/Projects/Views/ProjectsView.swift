@@ -28,6 +28,8 @@ struct ProjectsView: View {
         // and cancelled by a state change mid-refresh.
         content
             .projectsListStyle()
+            .scrollContentBackground(.hidden)
+            .background(palette.pageBackground)
             .refreshable { await viewModel.load() }
             .navigationTitle(Text("Projects", bundle: .module))
             .toolbar {

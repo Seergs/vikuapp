@@ -9,6 +9,8 @@ struct AboutView: View {
     private let appVersion: String
     private let buildNumber: String
 
+    @Environment(\.vikuPalette) private var palette
+
     /// `bundle` defaults to `.main` but is overridable for previews/tests.
     init(bundle: Bundle = .main) {
         self.appVersion = bundle.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
@@ -72,6 +74,8 @@ struct AboutView: View {
             }
         }
         .settingsListStyle()
+        .scrollContentBackground(.hidden)
+        .background(palette.pageBackground)
         .navigationTitle(Text("About", bundle: .module))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
