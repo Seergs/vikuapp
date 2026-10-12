@@ -22,7 +22,7 @@ struct ProjectPill: View {
             Text(verbatim: project.title)
                 .font(VikuFont.footnote)
                 .fontWeight(.semibold)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
         }
     }
 }
@@ -100,7 +100,7 @@ struct InfoRow: View {
             if showsChevron {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(VikuColor.textTertiary)
+                    .foregroundStyle(palette.textTertiary)
             }
         }
         .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
@@ -115,6 +115,8 @@ struct SectionBlock<Content: View>: View {
     var trailing: AnyView = .init(EmptyView())
     @ViewBuilder let content: Content
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm) {
             HStack(spacing: VikuSpacing.xs) {
@@ -128,7 +130,7 @@ struct SectionBlock<Content: View>: View {
                 trailing
             }
             .font(VikuFont.footnote)
-            .foregroundStyle(VikuColor.textSecondary)
+            .foregroundStyle(palette.textSecondary)
             .textCase(.uppercase)
             .kerning(0.3)
 

@@ -41,7 +41,7 @@ private struct SubtasksCard: View {
                     TaskDetailCheckbox(isDone: subtask.isDone, color: color, size: 20)
                     Text(verbatim: subtask.title)
                         .font(VikuFont.subheadline)
-                        .foregroundStyle(subtask.isDone ? VikuColor.textTertiary : Color.primary)
+                        .foregroundStyle(subtask.isDone ? palette.textTertiary : Color.primary)
                         .strikethrough(subtask.isDone)
                     Spacer()
                 }

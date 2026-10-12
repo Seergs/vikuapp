@@ -15,6 +15,8 @@ struct RemindersSection: View {
     let onEdit: (Int) -> Void
     let onRemove: (Int) -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         SectionBlock(
             title: String(localized: "Reminders", bundle: .module),
@@ -26,7 +28,7 @@ struct RemindersSection: View {
             if reminders.isEmpty {
                 Text("No reminders set.", bundle: .module)
                     .font(VikuFont.subheadline)
-                    .foregroundStyle(VikuColor.textTertiary)
+                    .foregroundStyle(palette.textTertiary)
             } else {
                 VStack(spacing: VikuSpacing.sm) {
                     ForEach(Array(reminders.enumerated()), id: \.offset) { index, reminder in
@@ -109,7 +111,7 @@ private struct ReminderRow: View {
                             .foregroundStyle(Color.primary)
                         Text(verbatim: preciseLabel)
                             .font(VikuFont.caption2)
-                            .foregroundStyle(VikuColor.textTertiary)
+                            .foregroundStyle(palette.textTertiary)
                     }
                     Spacer()
                 }
@@ -120,7 +122,7 @@ private struct ReminderRow: View {
             Button(action: onRemove) {
                 Image(systemName: "xmark")
                     .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(VikuColor.textSecondary)
+                    .foregroundStyle(palette.textSecondary)
                     .frame(width: 26, height: 26)
                     .background(palette.fieldBackground, in: Circle())
             }

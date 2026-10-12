@@ -40,6 +40,8 @@ private struct AttachmentsList: View {
     let onOpen: (TaskAttachment) -> Void
     let onDelete: (TaskAttachment) -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     private var emptyStateMessage: String {
         if case let .failure(message) = loadState {
             return message
@@ -52,7 +54,7 @@ private struct AttachmentsList: View {
             if attachments.isEmpty, !isUploading {
                 Text(verbatim: emptyStateMessage)
                     .font(VikuFont.subheadline)
-                    .foregroundStyle(VikuColor.textTertiary)
+                    .foregroundStyle(palette.textTertiary)
             } else {
                 ForEach(attachments) { attachment in
                     AttachmentRow(
@@ -79,7 +81,7 @@ private struct AttachmentUploadingRow: View {
                 .frame(width: 28)
             Text("Uploading…", bundle: .module)
                 .font(.system(size: 14.5, weight: .medium))
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
@@ -118,13 +120,13 @@ private struct AttachmentRow: View {
                         .truncationMode(.middle)
                     Text(verbatim: subtitle)
                         .font(.system(size: 12))
-                        .foregroundStyle(VikuColor.textTertiary)
+                        .foregroundStyle(palette.textTertiary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 Image(systemName: "arrow.down.circle")
                     .font(.system(size: 15))
-                    .foregroundStyle(VikuColor.textTertiary)
+                    .foregroundStyle(palette.textTertiary)
             }
             .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
             .padding(.vertical, VikuSpacing.xs + VikuSpacing.xxs)
