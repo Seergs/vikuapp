@@ -46,9 +46,13 @@ public enum VikuColor {
 
     /// Darker, more legible than the system `.secondary`/`.tertiary` text
     /// styles — matches the design source's own gray scale. Adapts to
-    /// light/dark automatically, see `Color+Platform.swift`.
-    public static let textSecondary = Color.platformTextSecondary
-    public static let textTertiary = Color.platformTextTertiary
+    /// light/dark automatically, see `Color+Platform.swift`. Deprecated: read
+    /// these from `@Environment(\.vikuPalette)` instead, which these now
+    /// forward to.
+    @available(*, deprecated, message: "Read textSecondary from @Environment(\\.vikuPalette) instead.")
+    public static let textSecondary = VikuPalette.standard.textSecondary
+    @available(*, deprecated, message: "Read textTertiary from @Environment(\\.vikuPalette) instead.")
+    public static let textTertiary = VikuPalette.standard.textTertiary
 
     /// Preset swatches offered when picking a color for something the user is
     /// creating (a project, ...). Plain hex strings rather than `Color`,

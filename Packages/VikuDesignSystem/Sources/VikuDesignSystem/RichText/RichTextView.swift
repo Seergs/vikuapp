@@ -118,13 +118,15 @@ private struct RichTextListView: View {
     let items: [[RichTextBlock]]
     let baseFont: Font
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.xs) {
             ForEach(Array(items.enumerated()), id: \.offset) { index, content in
                 HStack(alignment: .firstTextBaseline, spacing: VikuSpacing.sm) {
                     Text(markers[index])
                         .font(baseFont)
-                        .foregroundStyle(VikuColor.textTertiary)
+                        .foregroundStyle(palette.textTertiary)
                         .frame(minWidth: VikuSpacing.md, alignment: .trailing)
                     RichTextBlocksView(blocks: content, baseFont: baseFont)
                 }
@@ -145,7 +147,7 @@ private struct RichTextTaskListView: View {
                 HStack(alignment: .firstTextBaseline, spacing: VikuSpacing.sm) {
                     Image(systemName: item.isChecked ? "checkmark.square.fill" : "square")
                         .font(baseFont)
-                        .foregroundStyle(item.isChecked ? palette.brand : VikuColor.textTertiary)
+                        .foregroundStyle(item.isChecked ? palette.brand : palette.textTertiary)
                     RichTextBlocksView(blocks: item.content, baseFont: baseFont)
                         .opacity(item.isChecked ? 0.6 : 1)
                 }
@@ -160,13 +162,15 @@ private struct RichTextQuoteView: View {
     let blocks: [RichTextBlock]
     let baseFont: Font
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         HStack(spacing: VikuSpacing.sm) {
             RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                .fill(VikuColor.textTertiary)
+                .fill(palette.textTertiary)
                 .frame(width: 3)
             RichTextBlocksView(blocks: blocks, baseFont: baseFont)
-                .foregroundStyle(VikuColor.textTertiary)
+                .foregroundStyle(palette.textTertiary)
         }
         .fixedSize(horizontal: false, vertical: true)
     }

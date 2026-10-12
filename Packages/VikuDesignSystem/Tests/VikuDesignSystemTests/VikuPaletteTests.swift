@@ -17,8 +17,8 @@ struct VikuPaletteTests {
         #expect(palette.pageBackground == Color.platformPageBackground)
         #expect(palette.cardBackground == Color.platformCardBackground)
         #expect(palette.fieldBackground == Color.platformFieldBackground)
-        #expect(palette.textSecondary == VikuColor.textSecondary)
-        #expect(palette.textTertiary == VikuColor.textTertiary)
+        #expect(palette.textSecondary == Color.platformTextSecondary)
+        #expect(palette.textTertiary == Color.platformTextTertiary)
         #expect(palette.semanticSuccess == Color(hex: 0x1FA669))
         #expect(palette.semanticSuccessText == Color(hex: 0x15753F))
         #expect(palette.semanticDanger == Color(hex: 0xDF202E))
@@ -36,6 +36,8 @@ struct VikuPaletteTests {
         #expect(VikuColor.Semantic.successText == VikuPalette.standard.semanticSuccessText)
         #expect(VikuColor.Semantic.danger == VikuPalette.standard.semanticDanger)
         #expect(VikuColor.Semantic.dangerText == VikuPalette.standard.semanticDangerText)
+        #expect(VikuColor.textSecondary == VikuPalette.standard.textSecondary)
+        #expect(VikuColor.textTertiary == VikuPalette.standard.textTertiary)
     }
 
     @Test

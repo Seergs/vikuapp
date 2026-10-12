@@ -11,12 +11,14 @@ import VikunjaCore
 public struct VikuLabelChip: View {
     let label: VikunjaCore.Label
 
+    @Environment(\.vikuPalette) private var palette
+
     public init(label: VikunjaCore.Label) {
         self.label = label
     }
 
     private var color: Color {
-        Color(vikuMutedHex: label.hexColor) ?? VikuColor.textSecondary
+        Color(vikuMutedHex: label.hexColor) ?? palette.textSecondary
     }
 
     public var body: some View {

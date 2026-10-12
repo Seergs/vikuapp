@@ -95,7 +95,7 @@ public struct VikuTaskRow<Menu: View>: View {
                         .font(VikuFont.body)
                         .fontWeight(.medium)
                         .strikethrough(task.isDone)
-                        .foregroundStyle(task.isDone ? VikuColor.textTertiary : Color.primary)
+                        .foregroundStyle(task.isDone ? palette.textTertiary : Color.primary)
 
                     if !hasMetadataLine, task.hasRelations {
                         linkGlyph
@@ -151,7 +151,7 @@ public struct VikuTaskRow<Menu: View>: View {
                         .frame(width: 6, height: 6)
                     Text(badge.title)
                         .font(.system(size: 12.5, weight: .regular))
-                        .foregroundStyle(VikuColor.textSecondary)
+                        .foregroundStyle(palette.textSecondary)
                         .truncationMode(.tail)
                 }
             }
@@ -159,7 +159,7 @@ public struct VikuTaskRow<Menu: View>: View {
             if badge != nil, isOverdue || task.dueDate != nil {
                 Text(verbatim: "·")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(VikuColor.textSecondary)
+                    .foregroundStyle(palette.textSecondary)
             }
 
             // The due date / "Overdue" label and the relations glyph stay at
@@ -173,7 +173,7 @@ public struct VikuTaskRow<Menu: View>: View {
                 } else if let dueDate = task.dueDate {
                     Text(DueDateFormatter.compact(dueDate))
                         .font(.system(size: 12.5, weight: .regular))
-                        .foregroundStyle(VikuColor.textSecondary)
+                        .foregroundStyle(palette.textSecondary)
                 }
 
                 if task.hasRelations {
@@ -192,7 +192,7 @@ public struct VikuTaskRow<Menu: View>: View {
     private var linkGlyph: some View {
         Image(systemName: "link")
             .font(.system(size: 11, weight: .regular))
-            .foregroundStyle(VikuColor.textTertiary)
+            .foregroundStyle(palette.textTertiary)
     }
 
     private var labelChips: some View {
@@ -212,12 +212,14 @@ public struct VikuTaskRow<Menu: View>: View {
 private struct TaskRowExtraLabelsPill: View {
     let count: Int
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         Text(verbatim: "+\(count)")
             .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(VikuColor.textTertiary)
+            .foregroundStyle(palette.textTertiary)
             .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
             .padding(.vertical, VikuSpacing.xxs)
-            .background(Capsule().fill(VikuColor.textSecondary.opacity(0.14)))
+            .background(Capsule().fill(palette.textSecondary.opacity(0.14)))
     }
 }

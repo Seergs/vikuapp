@@ -88,7 +88,7 @@ public struct AuthMethodAccordion<APIToken: View, Password: View, OIDC: View>: V
             Text("Access method", bundle: .module)
                 .font(VikuFont.footnote)
                 .fontWeight(.semibold)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
 
             VStack(spacing: VikuSpacing.sm) {
                 ForEach(Self.specs, id: \.method) { card($0) }
@@ -149,7 +149,7 @@ public struct AuthMethodAccordion<APIToken: View, Password: View, OIDC: View>: V
                 .overlay {
                     Image(systemName: spec.icon)
                         .font(.system(size: 15))
-                        .foregroundStyle(isOpen ? .white : VikuColor.textSecondary)
+                        .foregroundStyle(isOpen ? .white : palette.textSecondary)
                 }
 
             VStack(alignment: .leading, spacing: 1) {
@@ -157,7 +157,7 @@ public struct AuthMethodAccordion<APIToken: View, Password: View, OIDC: View>: V
                     Text(verbatim: spec.title)
                         .font(VikuFont.subheadline)
                         .fontWeight(.semibold)
-                        .foregroundStyle(isEnabled ? Color.primary : VikuColor.textTertiary)
+                        .foregroundStyle(isEnabled ? Color.primary : palette.textTertiary)
 
                     if currentMethod == spec.method {
                         Text("Current", bundle: .module)
@@ -172,7 +172,7 @@ public struct AuthMethodAccordion<APIToken: View, Password: View, OIDC: View>: V
 
                 Text(verbatim: isEnabled ? spec.subtitle : Self.disabledSubtitle)
                     .font(VikuFont.caption)
-                    .foregroundStyle(VikuColor.textTertiary)
+                    .foregroundStyle(palette.textTertiary)
                     .multilineTextAlignment(.leading)
             }
 
@@ -180,7 +180,7 @@ public struct AuthMethodAccordion<APIToken: View, Password: View, OIDC: View>: V
 
             Image(systemName: "chevron.down")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(VikuColor.textTertiary)
+                .foregroundStyle(palette.textTertiary)
                 .rotationEffect(.degrees(isOpen ? 180 : 0))
         }
         .padding(VikuSpacing.sm + VikuSpacing.xxs)
