@@ -49,19 +49,33 @@ private struct RichTextBlockView: View {
     let block: RichTextBlock
     let baseFont: Font
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         switch block {
         case let .paragraph(runs):
-            Text(RichTextInline.attributedString(runs, baseFont: baseFont))
-                .font(baseFont)
-                .fixedSize(horizontal: false, vertical: true)
+            Text(
+                RichTextInline.attributedString(
+                    runs,
+                    baseFont: baseFont,
+                    inlineCodeBackground: palette.fieldBackground,
+                ),
+            )
+            .font(baseFont)
+            .fixedSize(horizontal: false, vertical: true)
 
         case let .heading(level, runs):
-            Text(RichTextInline.attributedString(runs, baseFont: headingFont(level)))
-                .font(headingFont(level))
-                .fontWeight(.semibold)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, VikuSpacing.xs)
+            Text(
+                RichTextInline.attributedString(
+                    runs,
+                    baseFont: headingFont(level),
+                    inlineCodeBackground: palette.fieldBackground,
+                ),
+            )
+            .font(headingFont(level))
+            .fontWeight(.semibold)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.top, VikuSpacing.xs)
 
         case let .bulletList(items):
             RichTextListView(markers: items.map { _ in "•" }, items: items.map(\.content), baseFont: baseFont)
@@ -161,6 +175,8 @@ private struct RichTextQuoteView: View {
 private struct RichTextCodeBlockView: View {
     let text: String
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             Text(text)
@@ -169,7 +185,7 @@ private struct RichTextCodeBlockView: View {
                 .padding(VikuSpacing.sm)
         }
         .background(
-            VikuColor.Surface.field,
+            palette.fieldBackground,
             in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous),
         )
     }
@@ -181,15 +197,15 @@ enum RichTextInline {
     /// Builds one `AttributedString` from a paragraph's runs, applying each
     /// run's styling and link. `baseFont` is only needed for the inline-code
     /// runs, which switch to a monospaced face of the same size.
-    static func attributedString(_ runs: [RichTextRun], baseFont: Font) -> AttributedString {
+    static func attributedString(_ runs: [RichTextRun], baseFont: Font, inlineCodeBackground: Color) -> AttributedString {
         var result = AttributedString()
         for run in runs {
-            result.append(attributed(run, baseFont: baseFont))
+            result.append(attributed(run, baseFont: baseFont, inlineCodeBackground: inlineCodeBackground))
         }
         return result
     }
 
-    private static func attributed(_ run: RichTextRun, baseFont: Font) -> AttributedString {
+    private static func attributed(_ run: RichTextRun, baseFont: Font, inlineCodeBackground: Color) -> AttributedString {
         var piece = AttributedString(run.text)
 
         var intent: InlinePresentationIntent = []
@@ -208,7 +224,7 @@ enum RichTextInline {
 
         if run.styles.contains(.code) {
             piece.font = baseFont.monospaced()
-            piece.backgroundColor = VikuColor.Surface.field
+            piece.backgroundColor = inlineCodeBackground
         }
 
         if let link = run.link, let url = URL(string: link.trimmingCharacters(in: .whitespaces)) {

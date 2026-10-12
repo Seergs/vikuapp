@@ -14,15 +14,23 @@ struct VikuPaletteTests {
         let palette = VikuPalette.standard
 
         #expect(palette.brand == VikuColor.brandPrimary)
-        #expect(palette.pageBackground == VikuColor.Surface.page)
-        #expect(palette.cardBackground == VikuColor.Surface.card)
-        #expect(palette.fieldBackground == VikuColor.Surface.field)
+        #expect(palette.pageBackground == Color.platformPageBackground)
+        #expect(palette.cardBackground == Color.platformCardBackground)
+        #expect(palette.fieldBackground == Color.platformFieldBackground)
         #expect(palette.textSecondary == VikuColor.textSecondary)
         #expect(palette.textTertiary == VikuColor.textTertiary)
         #expect(palette.semanticSuccess == VikuColor.Semantic.success)
         #expect(palette.semanticSuccessText == VikuColor.Semantic.successText)
         #expect(palette.semanticDanger == VikuColor.Semantic.danger)
         #expect(palette.semanticDangerText == VikuColor.Semantic.dangerText)
+    }
+
+    @Test
+    @available(*, deprecated, message: "Exercises the deprecated VikuColor.Surface aliases on purpose.")
+    func `deprecated VikuColor Surface aliases still forward to standard`() {
+        #expect(VikuColor.Surface.page == VikuPalette.standard.pageBackground)
+        #expect(VikuColor.Surface.card == VikuPalette.standard.cardBackground)
+        #expect(VikuColor.Surface.field == VikuPalette.standard.fieldBackground)
     }
 
     @Test

@@ -13,6 +13,7 @@ struct ManageLabelsView: View {
     @State private var viewModel: ManageLabelsViewModel
     @State private var editorMode: LabelEditorMode?
     @State private var pendingDeletion: VikunjaCore.Label?
+    @Environment(\.vikuPalette) private var palette
 
     /// Same rationale as `ConnectionsListView`: takes a factory and builds
     /// the view model inside `@State`'s initializer so SwiftUI keeps one
@@ -24,7 +25,7 @@ struct ManageLabelsView: View {
 
     var body: some View {
         content
-            .background(VikuColor.Surface.page)
+            .background(palette.pageBackground)
             .navigationTitle(Text("Manage Labels", bundle: .module))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

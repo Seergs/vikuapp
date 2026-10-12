@@ -15,6 +15,7 @@ struct ProjectNotificationsView: View {
 
     @State private var otherWebhooks: [Webhook] = []
     @State private var isShowingDisconnectConfirmation = false
+    @Environment(\.vikuPalette) private var palette
 
     /// The curated subset of `WebhookEvent.projectOrdered` this screen
     /// exposes, grouped for display — deliberately narrower than "every
@@ -75,7 +76,7 @@ struct ProjectNotificationsView: View {
                 Color.clear.frame(height: VikuSpacing.xxl)
             }
         }
-        .background(VikuColor.Surface.page)
+        .background(palette.pageBackground)
         .navigationTitle(project.title)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -189,7 +190,7 @@ struct ProjectNotificationsView: View {
                 .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
                 .padding(.vertical, VikuSpacing.sm - VikuSpacing.xxs)
                 .foregroundStyle(isSelected ? Color.white : VikuColor.textSecondary)
-                .background(Capsule().fill(isSelected ? VikuColor.brandPrimary : VikuColor.Surface.field))
+                .background(Capsule().fill(isSelected ? VikuColor.brandPrimary : palette.fieldBackground))
         }
         .buttonStyle(.plain)
         .disabled(isDisabled)

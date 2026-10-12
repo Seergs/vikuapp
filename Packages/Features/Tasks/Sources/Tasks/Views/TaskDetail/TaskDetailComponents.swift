@@ -77,6 +77,8 @@ struct InfoRow: View {
     var valueColor: Color?
     var showsChevron: Bool = false
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
             Image(systemName: systemImage)
@@ -99,7 +101,7 @@ struct InfoRow: View {
         }
         .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
         .padding(.vertical, VikuSpacing.sm + VikuSpacing.xxs)
-        .background(VikuColor.Surface.card, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
+        .background(palette.cardBackground, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
     }
 }
 

@@ -18,6 +18,8 @@ public struct KanbanBoardView: View {
     @Bindable var viewModel: KanbanBoardViewModel
     let onSelectTask: (VikunjaTask) -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     public init(viewModel: KanbanBoardViewModel, onSelectTask: @escaping (VikunjaTask) -> Void) {
         self.viewModel = viewModel
         self.onSelectTask = onSelectTask
@@ -25,7 +27,7 @@ public struct KanbanBoardView: View {
 
     public var body: some View {
         content
-            .background(VikuColor.Surface.page)
+            .background(palette.pageBackground)
             .task { await viewModel.load() }
     }
 
