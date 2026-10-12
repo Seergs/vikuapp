@@ -178,6 +178,7 @@ private struct MonthGrid: View {
     let projectsByID: [Int: Project]
     let onSelect: (Date) -> Void
 
+    @Environment(\.vikuPalette) private var palette
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 7)
     private let calendar = Calendar.current
 
@@ -203,7 +204,7 @@ private struct MonthGrid: View {
     }
 
     private func projectColor(for projectID: Int) -> Color {
-        projectsByID[projectID].flatMap { Color(vikuHex: $0.hexColor) } ?? VikuColor.brandPrimary
+        projectsByID[projectID].flatMap { Color(vikuHex: $0.hexColor) } ?? palette.brand
     }
 }
 
@@ -212,6 +213,8 @@ private struct DayCell: View {
     let isSelected: Bool
     let dotColors: [Color]
     let onTap: () -> Void
+
+    @Environment(\.vikuPalette) private var palette
 
     private var numberColor: Color {
         if isSelected {
@@ -231,9 +234,9 @@ private struct DayCell: View {
             VStack(spacing: VikuSpacing.xs) {
                 ZStack {
                     if isSelected {
-                        Circle().fill(VikuColor.brandPrimary)
+                        Circle().fill(palette.brand)
                     } else if day.isToday {
-                        Circle().strokeBorder(VikuColor.brandPrimary, lineWidth: 1.5)
+                        Circle().strokeBorder(palette.brand, lineWidth: 1.5)
                     }
                     Text(verbatim: "\(day.dayNumber)")
                         .font(.system(size: 14.5, weight: day.isToday || isSelected ? .bold : .medium))
@@ -268,8 +271,10 @@ private struct CalendarTaskRow: View {
     let onToggle: () -> Void
     let onOpen: () -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     private var projectColor: Color {
-        project.flatMap { Color(vikuHex: $0.hexColor) } ?? VikuColor.brandPrimary
+        project.flatMap { Color(vikuHex: $0.hexColor) } ?? palette.brand
     }
 
     private var isOverdue: Bool {
@@ -335,7 +340,7 @@ private struct CalendarTaskRow: View {
                         if isOverdue {
                             Text("Overdue", bundle: .module)
                                 .font(.system(size: 12.5, weight: .semibold))
-                                .foregroundStyle(VikuColor.Semantic.dangerText)
+                                .foregroundStyle(palette.semanticDangerText)
                         } else if let dueDate = task.dueDate {
                             Text(verbatim: DueDateFormatter.compact(dueDate))
                                 .font(.system(size: 12.5, weight: .regular))
