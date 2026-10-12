@@ -26,15 +26,9 @@ struct VikuPaletteTests {
     }
 
     @Test
-    @available(*, deprecated, message: "Exercises the deprecated VikuColor aliases on purpose.")
-    func `deprecated VikuColor aliases still forward to standard`() {
+    func `the VikuColor tokens kept for VikuWidgetKit still forward to standard`() {
         #expect(VikuColor.Surface.page == VikuPalette.standard.pageBackground)
-        #expect(VikuColor.Surface.card == VikuPalette.standard.cardBackground)
-        #expect(VikuColor.Surface.field == VikuPalette.standard.fieldBackground)
         #expect(VikuColor.brandPrimary == VikuPalette.standard.brand)
-        #expect(VikuColor.Semantic.success == VikuPalette.standard.semanticSuccess)
-        #expect(VikuColor.Semantic.successText == VikuPalette.standard.semanticSuccessText)
-        #expect(VikuColor.Semantic.danger == VikuPalette.standard.semanticDanger)
         #expect(VikuColor.Semantic.dangerText == VikuPalette.standard.semanticDangerText)
         #expect(VikuColor.textSecondary == VikuPalette.standard.textSecondary)
         #expect(VikuColor.textTertiary == VikuPalette.standard.textTertiary)
