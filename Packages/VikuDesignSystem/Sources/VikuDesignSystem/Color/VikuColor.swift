@@ -3,8 +3,22 @@ import VikunjaCore
 
 /// Color tokens. Values that originate as `oklch(...)` in the design source are
 /// pre-converted to sRGB hex once here, rather than converting at runtime.
+///
+/// Most of these used to be the app's only color tokens, forwarding to
+/// `VikuPalette.standard` as deprecated aliases while every call site
+/// migrated to `@Environment(\.vikuPalette)`. That migration is done for the
+/// app target and every feature module. What's left here is intentionally
+/// static:
+///
+/// - `brandPrimary`, `Surface.page`, `textSecondary`, `textTertiary` and
+///   `Semantic.dangerText`: read by `VikuWidgetKit`, which runs in a separate
+///   process and has no access to the app's `Environment`. They stay pinned
+///   to `.standard` until widgets read the active theme from the shared App
+///   Group (deferred, see `docs/THEMING.md` phase F5).
+/// - `Priority.*` and `SwatchPalette.*`: never depended on the theme in the
+///   first place.
 public enum VikuColor {
-    @available(*, deprecated, message: "Read brand from @Environment(\\.vikuPalette) instead.")
+    /// Kept for `VikuWidgetKit`, see the type's doc comment.
     public static let brandPrimary = VikuPalette.standard.brand
 
     public enum Priority {
@@ -29,29 +43,17 @@ public enum VikuColor {
         }
     }
 
-    /// Grouped-content backgrounds, one step apart in elevation. Deprecated:
-    /// read `cardBackground`/`fieldBackground`/`pageBackground` from
-    /// `@Environment(\.vikuPalette)` instead, which these now forward to.
+    /// The page canvas behind grouped/carded content. Kept for
+    /// `VikuWidgetKit`, see this type's doc comment.
     public enum Surface {
-        /// Card background, e.g. a grouped section of rows.
-        @available(*, deprecated, message: "Read cardBackground from @Environment(\\.vikuPalette) instead.")
-        public static let card = VikuPalette.standard.cardBackground
-        /// Input field / chip background, one step lighter than `card`.
-        @available(*, deprecated, message: "Read fieldBackground from @Environment(\\.vikuPalette) instead.")
-        public static let field = VikuPalette.standard.fieldBackground
-        /// The page canvas behind grouped/carded content.
-        @available(*, deprecated, message: "Read pageBackground from @Environment(\\.vikuPalette) instead.")
         public static let page = VikuPalette.standard.pageBackground
     }
 
     /// Darker, more legible than the system `.secondary`/`.tertiary` text
-    /// styles — matches the design source's own gray scale. Adapts to
-    /// light/dark automatically, see `Color+Platform.swift`. Deprecated: read
-    /// these from `@Environment(\.vikuPalette)` instead, which these now
-    /// forward to.
-    @available(*, deprecated, message: "Read textSecondary from @Environment(\\.vikuPalette) instead.")
+    /// styles, matches the design source's own gray scale. Adapts to
+    /// light/dark automatically, see `Color+Platform.swift`. Kept for
+    /// `VikuWidgetKit`, see this type's doc comment.
     public static let textSecondary = VikuPalette.standard.textSecondary
-    @available(*, deprecated, message: "Read textTertiary from @Environment(\\.vikuPalette) instead.")
     public static let textTertiary = VikuPalette.standard.textTertiary
 
     /// Preset swatches offered when picking a color for something the user is
@@ -77,26 +79,10 @@ public enum VikuColor {
         ]
     }
 
-    /// Status colors for inline feedback (banners, connection results).
-    /// Deprecated: read these from `@Environment(\.vikuPalette)` instead,
-    /// which these now forward to.
+    /// Status color for inline feedback. Kept for `VikuWidgetKit`'s "Overdue"
+    /// label, see this type's doc comment. Adapts to a brighter red in dark
+    /// mode (see `Color+Platform.swift`) so it stays legible there.
     public enum Semantic {
-        @available(*, deprecated, message: "Read semanticSuccess from @Environment(\\.vikuPalette) instead.")
-        public static let success = VikuPalette.standard.semanticSuccess
-        /// Kept as its own literal even though it currently matches
-        /// `Priority.urgent`, so the two can diverge independently later.
-        @available(*, deprecated, message: "Read semanticDanger from @Environment(\\.vikuPalette) instead.")
-        public static let danger = VikuPalette.standard.semanticDanger
-
-        /// Darker variants of `success`/`danger`, for text/icons drawn on top
-        /// of the low-opacity tinted banner background — `success`/`danger`
-        /// themselves are too bright to read comfortably as text.
-        @available(*, deprecated, message: "Read semanticSuccessText from @Environment(\\.vikuPalette) instead.")
-        public static let successText = VikuPalette.standard.semanticSuccessText
-        /// Adapts to a brighter red in dark mode (see `Color+Platform.swift`)
-        /// so it stays legible on dark backgrounds, e.g. the "Overdue" label
-        /// in home-screen widgets.
-        @available(*, deprecated, message: "Read semanticDangerText from @Environment(\\.vikuPalette) instead.")
         public static let dangerText = VikuPalette.standard.semanticDangerText
     }
 }
