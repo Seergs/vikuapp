@@ -8,6 +8,7 @@ import VikuUI
 struct SearchView: View {
     @Bindable var viewModel: SearchViewModel
     @Environment(AppRouter.self) private var router
+    @Environment(\.vikuPalette) private var palette
     @State private var taskPendingDelete: VikunjaTask?
 
     var body: some View {
@@ -16,7 +17,7 @@ struct SearchView: View {
             .animation(.easeInOut(duration: 0.2), value: viewModel.state.value?.map(\.id))
             .searchListStyle()
             .scrollContentBackground(.hidden)
-            .background(VikuColor.Surface.page)
+            .background(palette.pageBackground)
             .searchable(
                 text: $viewModel.query,
                 placement: .automatic,
