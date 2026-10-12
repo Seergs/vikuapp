@@ -7,6 +7,8 @@ import VikunjaCore
 struct ToastView: View {
     let toast: Toast
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         HStack(spacing: VikuSpacing.sm) {
             Label {
@@ -42,9 +44,9 @@ struct ToastView: View {
 
     private var tint: Color {
         switch toast.style {
-        case .success: VikuColor.Semantic.success
-        case .error: VikuColor.Semantic.danger
-        case .info: VikuColor.brandPrimary
+        case .success: palette.semanticSuccess
+        case .error: palette.semanticDanger
+        case .info: palette.brand
         }
     }
 }

@@ -4,7 +4,8 @@ import VikunjaCore
 /// Color tokens. Values that originate as `oklch(...)` in the design source are
 /// pre-converted to sRGB hex once here, rather than converting at runtime.
 public enum VikuColor {
-    public static let brandPrimary = Color(hex: 0x196AFF)
+    @available(*, deprecated, message: "Read brand from @Environment(\\.vikuPalette) instead.")
+    public static let brandPrimary = VikuPalette.standard.brand
 
     public enum Priority {
         public static let urgent = Color(hex: 0xDF202E)
@@ -73,19 +74,25 @@ public enum VikuColor {
     }
 
     /// Status colors for inline feedback (banners, connection results).
+    /// Deprecated: read these from `@Environment(\.vikuPalette)` instead,
+    /// which these now forward to.
     public enum Semantic {
-        public static let success = Color(hex: 0x1FA669)
+        @available(*, deprecated, message: "Read semanticSuccess from @Environment(\\.vikuPalette) instead.")
+        public static let success = VikuPalette.standard.semanticSuccess
         /// Kept as its own literal even though it currently matches
         /// `Priority.urgent`, so the two can diverge independently later.
-        public static let danger = Color(hex: 0xDF202E)
+        @available(*, deprecated, message: "Read semanticDanger from @Environment(\\.vikuPalette) instead.")
+        public static let danger = VikuPalette.standard.semanticDanger
 
         /// Darker variants of `success`/`danger`, for text/icons drawn on top
         /// of the low-opacity tinted banner background — `success`/`danger`
         /// themselves are too bright to read comfortably as text.
-        public static let successText = Color(hex: 0x15753F)
+        @available(*, deprecated, message: "Read semanticSuccessText from @Environment(\\.vikuPalette) instead.")
+        public static let successText = VikuPalette.standard.semanticSuccessText
         /// Adapts to a brighter red in dark mode (see `Color+Platform.swift`)
         /// so it stays legible on dark backgrounds, e.g. the "Overdue" label
         /// in home-screen widgets.
-        public static let dangerText = Color.platformDangerText
+        @available(*, deprecated, message: "Read semanticDangerText from @Environment(\\.vikuPalette) instead.")
+        public static let dangerText = VikuPalette.standard.semanticDangerText
     }
 }
