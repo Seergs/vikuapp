@@ -137,7 +137,7 @@ struct SearchView: View {
                         Button(String(localized: "Delete", bundle: .module), systemImage: "trash", role: .destructive) {
                             taskPendingDelete = task
                         }
-                        .tint(VikuColor.Semantic.danger)
+                        .tint(palette.semanticDanger)
                     },
                 )
                 .vikuCardRow(index: index, count: tasks.count)
