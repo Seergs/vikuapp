@@ -196,6 +196,8 @@ private struct SaveErrorBanner: View {
 private struct FieldLabel: View {
     let title: String
 
+    @Environment(\.vikuPalette) private var palette
+
     init(_ title: String) {
         self.title = title
     }
@@ -204,7 +206,7 @@ private struct FieldLabel: View {
         Text(verbatim: title)
             .font(VikuFont.footnote)
             .fontWeight(.semibold)
-            .foregroundStyle(VikuColor.textSecondary)
+            .foregroundStyle(palette.textSecondary)
     }
 }
 
@@ -236,7 +238,7 @@ private struct ParentProjectField: View {
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(VikuColor.textTertiary)
+                    .foregroundStyle(palette.textTertiary)
             }
             .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
             .padding(.vertical, VikuSpacing.sm + VikuSpacing.xs)
