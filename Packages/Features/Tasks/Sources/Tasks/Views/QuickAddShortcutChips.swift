@@ -89,6 +89,8 @@ private struct ChipLabel: View {
     let value: String
     let iconTint: Color
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         HStack(spacing: VikuSpacing.xs) {
             Image(systemName: icon)
@@ -99,6 +101,6 @@ private struct ChipLabel: View {
             Text(verbatim: value)
                 .font(VikuFont.footnote)
         }
-        .foregroundStyle(VikuColor.textSecondary)
+        .foregroundStyle(palette.textSecondary)
     }
 }

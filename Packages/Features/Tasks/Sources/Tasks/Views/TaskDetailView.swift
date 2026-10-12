@@ -519,7 +519,7 @@ public struct TaskDetailView: View {
                 axis: .vertical,
             )
             .font(VikuFont.callout)
-            .foregroundStyle(VikuColor.textSecondary)
+            .foregroundStyle(palette.textSecondary)
             .focused($focusedField, equals: .description)
             .padding(.top, VikuSpacing.md)
         } else if let description = task.description, !RichText.isEmpty(description) {
@@ -527,14 +527,14 @@ public struct TaskDetailView: View {
             // render it, don't show the raw markup. Tapping still opens the
             // inline editor (which edits plain text, see `beginEditingDescription`).
             RichTextView(html: description)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
                 .contentShape(Rectangle())
                 .onTapGesture { beginEditingDescription() }
                 .padding(.top, VikuSpacing.md)
         } else {
             Text("Add description...", bundle: .module)
                 .font(VikuFont.callout)
-                .foregroundStyle(VikuColor.textTertiary)
+                .foregroundStyle(palette.textTertiary)
                 .contentShape(Rectangle())
                 .onTapGesture { beginEditingDescription() }
                 .padding(.top, VikuSpacing.md)
