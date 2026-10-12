@@ -108,6 +108,8 @@ public struct SettingsRootView: View {
             )
             .navigationDestination(for: SettingsRoute.self) { route in
                 switch route {
+                case .appearance:
+                    AppearancePickerView(themeStore: themeStore)
                 case .connections:
                     ConnectionsListView(makeViewModel: makeConnectionsListViewModel, router: router)
                 case let .connectionForm(mode):

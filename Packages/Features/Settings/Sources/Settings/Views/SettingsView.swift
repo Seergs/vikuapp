@@ -29,18 +29,16 @@ struct SettingsView: View {
 
     var body: some View {
         List {
-            // App-wide preferences — nothing here navigates anywhere, unlike
-            // Connections/Manage Labels below.
+            // App-wide preferences — only Appearance navigates, to its own
+            // picker screen; the rest here don't, unlike Connections/Manage
+            // Labels below.
             Section {
-                Picker(selection: themeBinding) {
-                    ForEach(AppTheme.allCases, id: \.self) { theme in
-                        Text(verbatim: theme.displayName).tag(theme)
-                    }
-                } label: {
-                    HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
-                        SettingsRowIcon(systemName: "circle.lefthalf.filled")
-                        Text("Appearance", bundle: .module)
-                    }
+                SettingsNavigationRow(
+                    icon: "circle.lefthalf.filled",
+                    title: String(localized: "Appearance", bundle: .module),
+                    subtitle: themeStore.theme.displayName,
+                ) {
+                    router.push(.appearance)
                 }
 
                 Toggle(isOn: badgeEnabledBinding) {
@@ -235,10 +233,6 @@ struct SettingsView: View {
             openURL(url)
         }
         #endif
-    }
-
-    private var themeBinding: Binding<AppTheme> {
-        Binding(get: { themeStore.theme }, set: { themeStore.setTheme($0) })
     }
 
     private var badgeEnabledBinding: Binding<Bool> {
