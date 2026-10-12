@@ -45,6 +45,7 @@ struct ProjectOverviewView: View {
     @State private var taskPendingLabelEdit: VikunjaTask?
     @State private var relationEditStep: RelationEditStep?
     @State private var isShowingCreateSubproject = false
+    @Environment(\.vikuPalette) private var palette
 
     private var sort: TaskSort {
         TaskSort(field: viewModel.sortField, direction: viewModel.sortDirection)
@@ -62,7 +63,7 @@ struct ProjectOverviewView: View {
                 KanbanBoardView(viewModel: kanbanViewModel, onSelectTask: onSelectTask)
             }
         }
-        .background(VikuColor.Surface.page)
+        .background(palette.pageBackground)
         .navigationTitle(viewModel.project.title)
         .toolbar {
             if viewModel.supportsKanban {
@@ -435,6 +436,8 @@ private struct SubprojectCard: View {
     let taskSummary: ProjectOverviewViewModel.TaskSummary?
     let onSelect: () -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     private var swatchColor: Color {
         Color(vikuHex: node.project.hexColor) ?? VikuColor.brandPrimary
     }
@@ -482,7 +485,7 @@ private struct SubprojectCard: View {
             // trailing edge — inside a horizontal `ScrollView`, a `Spacer`
             // under only a `minWidth` would try to grow unbounded instead.
             .frame(width: 220, alignment: .leading)
-            .background(VikuColor.Surface.card, in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
+            .background(palette.cardBackground, in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -558,6 +561,8 @@ private struct FilterChip: View {
     let isSelected: Bool
     let onSelect: () -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         Button(action: onSelect) {
             Text(verbatim: title)
@@ -567,7 +572,7 @@ private struct FilterChip: View {
                 .padding(.vertical, VikuSpacing.sm - VikuSpacing.xxs)
                 .foregroundStyle(isSelected ? Color.white : VikuColor.textSecondary)
                 .background(
-                    Capsule().fill(isSelected ? VikuColor.brandPrimary : VikuColor.Surface.field),
+                    Capsule().fill(isSelected ? VikuColor.brandPrimary : palette.fieldBackground),
                 )
         }
         .buttonStyle(.plain)
@@ -619,6 +624,7 @@ private struct ProjectOverviewMenuContent: View {
 private struct DisplayModeSwitcher: View {
     @Binding var selection: ProjectDisplayMode
     @Namespace private var namespace
+    @Environment(\.vikuPalette) private var palette
 
     private struct Option {
         let mode: ProjectDisplayMode
@@ -638,7 +644,7 @@ private struct DisplayModeSwitcher: View {
             }
         }
         .padding(VikuSpacing.xxs)
-        .background(VikuColor.Surface.field, in: Capsule())
+        .background(palette.fieldBackground, in: Capsule())
         // A toolbar item otherwise proposes a width tight enough to clip
         // this view's `Text` down to its first letter — forces SwiftUI to
         // lay it out, and the toolbar to size it, at its natural width.
@@ -680,7 +686,7 @@ private struct DisplayModeSwitcher: View {
             .background {
                 if isSelected {
                     Capsule()
-                        .fill(VikuColor.Surface.card)
+                        .fill(palette.cardBackground)
                         .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
                         .matchedGeometryEffect(id: "selection", in: namespace)
                 }

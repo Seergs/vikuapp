@@ -82,6 +82,8 @@ private struct CommentRow: View {
     let onEdit: () -> Void
     let onDelete: () -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     private var displayName: String {
         let name = comment.author.name?.trimmingCharacters(in: .whitespacesAndNewlines)
         if let name, !name.isEmpty {
@@ -98,7 +100,7 @@ private struct CommentRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: VikuSpacing.sm) {
             Circle()
-                .fill(VikuColor.Surface.field)
+                .fill(palette.fieldBackground)
                 .frame(width: 30, height: 30)
                 .overlay {
                     Text(verbatim: initials)
@@ -121,7 +123,7 @@ private struct CommentRow: View {
             .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
             .padding(.vertical, VikuSpacing.xs + VikuSpacing.xxs)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(VikuColor.Surface.card, in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
+            .background(palette.cardBackground, in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
         }
         .contentShape(Rectangle())
         .contextMenu {
@@ -146,6 +148,8 @@ private struct CommentComposer: View {
     var isFocused: FocusState<Bool>.Binding
     let onSubmit: () -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     private var canSubmit: Bool {
         !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -166,13 +170,13 @@ private struct CommentComposer: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(canSubmit ? .white : VikuColor.textTertiary)
                     .frame(width: 34, height: 34)
-                    .background(canSubmit ? VikuColor.brandPrimary : VikuColor.Surface.field, in: Circle())
+                    .background(canSubmit ? VikuColor.brandPrimary : palette.fieldBackground, in: Circle())
             }
             .buttonStyle(.plain)
             .disabled(!canSubmit)
         }
         .padding(.trailing, VikuSpacing.xxs)
         .padding(.vertical, VikuSpacing.xxs)
-        .background(VikuColor.Surface.card, in: Capsule())
+        .background(palette.cardBackground, in: Capsule())
     }
 }
