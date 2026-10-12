@@ -107,7 +107,7 @@ private struct AttachmentRow: View {
             HStack(spacing: VikuSpacing.sm) {
                 Image(systemName: AttachmentIcon.systemName(forMimeType: attachment.mimeType))
                     .font(.system(size: 17))
-                    .foregroundStyle(VikuColor.brandPrimary)
+                    .foregroundStyle(palette.brand)
                     .frame(width: 28)
 
                 VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
@@ -133,16 +133,15 @@ private struct AttachmentRow: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
-            // `role: .destructive` alone renders blue here — the tab bar's
-            // `.tint(VikuColor.brandPrimary)` leaks in, same as
-            // `CommentRow`'s context menu.
+            // `role: .destructive` alone renders blue here, same as
+            // `CommentRow`'s context menu: the tab bar's brand tint leaks in.
             Button(
                 String(localized: "Delete Attachment", bundle: .module),
                 systemImage: "trash",
                 role: .destructive,
                 action: onDelete,
             )
-            .tint(VikuColor.Semantic.danger)
+            .tint(palette.semanticDanger)
         }
     }
 }

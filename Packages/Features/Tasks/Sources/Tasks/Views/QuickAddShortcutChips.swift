@@ -26,6 +26,8 @@ struct QuickAddShortcutChips: View {
     let input: String
     let tokens: [QuickAddParser.ResolvedToken]
 
+    @Environment(\.vikuPalette) private var palette
+
     static func hasChip(in tokens: [QuickAddParser.ResolvedToken]) -> Bool {
         tokens.contains {
             if case .newLabel = $0.resolution {
@@ -65,7 +67,7 @@ struct QuickAddShortcutChips: View {
                 icon: "plus.circle.fill",
                 title: String(localized: "New label", bundle: .module),
                 value: rawText(item),
-                iconTint: VikuColor.brandPrimary,
+                iconTint: palette.brand,
             )
         case .unmatchedProject, .ambiguousProject, .ambiguousLabel, .label, .project, .priority, .superseded:
             EmptyView()

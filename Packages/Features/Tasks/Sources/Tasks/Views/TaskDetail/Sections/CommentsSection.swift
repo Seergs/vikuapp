@@ -129,16 +129,16 @@ private struct CommentRow: View {
         .contextMenu {
             Button(String(localized: "Edit Comment", bundle: .module), systemImage: "pencil", action: onEdit)
             // `role: .destructive` alone renders blue here, not red: the tab
-            // bar's `.tint(VikuColor.brandPrimary)` leaks into the context
-            // menu — an explicit `.tint` is what forces the red, mirroring
-            // `ProjectTaskRow`'s context menu in `Features/Projects`.
+            // bar's brand tint leaks into the context menu, so an explicit
+            // `.tint` is what forces the red, mirroring `ProjectTaskRow`'s
+            // context menu in `Features/Projects`.
             Button(
                 String(localized: "Delete Comment", bundle: .module),
                 systemImage: "trash",
                 role: .destructive,
                 action: onDelete,
             )
-            .tint(VikuColor.Semantic.danger)
+            .tint(palette.semanticDanger)
         }
     }
 }
@@ -170,7 +170,7 @@ private struct CommentComposer: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(canSubmit ? .white : VikuColor.textTertiary)
                     .frame(width: 34, height: 34)
-                    .background(canSubmit ? VikuColor.brandPrimary : palette.fieldBackground, in: Circle())
+                    .background(canSubmit ? palette.brand : palette.fieldBackground, in: Circle())
             }
             .buttonStyle(.plain)
             .disabled(!canSubmit)

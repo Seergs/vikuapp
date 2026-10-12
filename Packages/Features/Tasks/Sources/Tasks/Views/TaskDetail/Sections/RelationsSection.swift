@@ -94,6 +94,8 @@ private struct RelationGroupView: View {
 
     @State private var isExpanded = false
 
+    @Environment(\.vikuPalette) private var palette
+
     private static let collapseThreshold = 3
 
     private var isCollapsible: Bool {
@@ -136,7 +138,7 @@ private struct RelationGroupView: View {
                     }
                     .font(VikuFont.caption)
                     .fontWeight(.semibold)
-                    .foregroundStyle(VikuColor.brandPrimary)
+                    .foregroundStyle(palette.brand)
                 }
                 .buttonStyle(.plain)
                 .padding(.top, VikuSpacing.xxs)
@@ -159,7 +161,7 @@ private struct DependencyRow: View {
                 HStack(spacing: VikuSpacing.sm) {
                     Circle()
                         .strokeBorder(relation.isDone ? Color.clear : VikuColor.textTertiary, lineWidth: 2)
-                        .background(Circle().fill(relation.isDone ? VikuColor.Semantic.success : Color.clear))
+                        .background(Circle().fill(relation.isDone ? palette.semanticSuccess : Color.clear))
                         .frame(width: 20, height: 20)
                         .overlay {
                             if relation.isDone {
