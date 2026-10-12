@@ -366,7 +366,7 @@ struct ProjectOverviewView: View {
                             ) {
                                 taskPendingDelete = task
                             }
-                            .tint(VikuColor.Semantic.danger)
+                            .tint(palette.semanticDanger)
                         },
                     )
                     .vikuCardRow(index: index, count: section.tasks.count)
@@ -383,8 +383,10 @@ private struct ProjectProgressHeader: View {
     let project: Project
     let tasks: [VikunjaTask]
 
+    @Environment(\.vikuPalette) private var palette
+
     private var swatchColor: Color {
-        Color(vikuHex: project.hexColor) ?? VikuColor.brandPrimary
+        Color(vikuHex: project.hexColor) ?? palette.brand
     }
 
     var body: some View {
@@ -439,7 +441,7 @@ private struct SubprojectCard: View {
     @Environment(\.vikuPalette) private var palette
 
     private var swatchColor: Color {
-        Color(vikuHex: node.project.hexColor) ?? VikuColor.brandPrimary
+        Color(vikuHex: node.project.hexColor) ?? palette.brand
     }
 
     private var summaryText: String {
@@ -497,6 +499,8 @@ private struct SubprojectCard: View {
 private struct AddSubprojectButton: View {
     let action: () -> Void
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: VikuSpacing.xs) {
@@ -506,7 +510,7 @@ private struct AddSubprojectButton: View {
                     .font(VikuFont.footnote)
                     .fontWeight(.semibold)
             }
-            .foregroundStyle(VikuColor.brandPrimary)
+            .foregroundStyle(palette.brand)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -572,7 +576,7 @@ private struct FilterChip: View {
                 .padding(.vertical, VikuSpacing.sm - VikuSpacing.xxs)
                 .foregroundStyle(isSelected ? Color.white : VikuColor.textSecondary)
                 .background(
-                    Capsule().fill(isSelected ? VikuColor.brandPrimary : palette.fieldBackground),
+                    Capsule().fill(isSelected ? palette.brand : palette.fieldBackground),
                 )
         }
         .buttonStyle(.plain)
