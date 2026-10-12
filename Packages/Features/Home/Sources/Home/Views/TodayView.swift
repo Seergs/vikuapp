@@ -257,7 +257,7 @@ struct TodayView: View {
                             ) {
                                 taskPendingDelete = task
                             }
-                            .tint(VikuColor.Semantic.danger)
+                            .tint(palette.semanticDanger)
                         },
                     )
                     .vikuCardRow(index: index, count: section.tasks.count)
@@ -319,7 +319,7 @@ private struct TodayFilterChip: View {
                 .padding(.vertical, VikuSpacing.sm - VikuSpacing.xxs)
                 .foregroundStyle(isSelected ? Color.white : VikuColor.textSecondary)
                 .background(
-                    Capsule().fill(isSelected ? VikuColor.brandPrimary : palette.fieldBackground),
+                    Capsule().fill(isSelected ? palette.brand : palette.fieldBackground),
                 )
         }
         .buttonStyle(.plain)
