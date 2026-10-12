@@ -210,7 +210,7 @@ private struct ProjectRow: View {
                     Image(systemName: "chevron.right")
                         .font(VikuFont.footnote)
                         .fontWeight(.semibold)
-                        .foregroundStyle(VikuColor.textTertiary)
+                        .foregroundStyle(palette.textTertiary)
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
                         .frame(width: 20, height: 28)
                         .contentShape(Rectangle())
@@ -260,7 +260,7 @@ private struct NoneRow: View {
                 HStack(spacing: VikuSpacing.sm) {
                     Image(systemName: "folder")
                         .font(VikuFont.body)
-                        .foregroundStyle(VikuColor.textTertiary)
+                        .foregroundStyle(palette.textTertiary)
                         .frame(width: 24, alignment: .center)
 
                     Text("None", bundle: .module)

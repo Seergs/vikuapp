@@ -20,6 +20,8 @@ import VikunjaCore
 public struct FieldLabel: View {
     let title: String
 
+    @Environment(\.vikuPalette) private var palette
+
     public init(_ title: String) {
         self.title = title
     }
@@ -28,7 +30,7 @@ public struct FieldLabel: View {
         Text(verbatim: title)
             .font(VikuFont.footnote)
             .fontWeight(.semibold)
-            .foregroundStyle(VikuColor.textSecondary)
+            .foregroundStyle(palette.textSecondary)
     }
 }
 
@@ -57,14 +59,14 @@ public struct ProjectField: View {
                 } else {
                     Text("Choose project", bundle: .module)
                         .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(VikuColor.textTertiary)
+                        .foregroundStyle(palette.textTertiary)
                 }
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(VikuColor.textTertiary)
+                    .foregroundStyle(palette.textTertiary)
             }
             .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
             .padding(.vertical, VikuSpacing.sm + VikuSpacing.xs)
@@ -147,7 +149,7 @@ private struct PriorityChip: View {
                 Text(verbatim: option.label)
                     .font(.system(size: 13.5, weight: .semibold))
             }
-            .foregroundStyle(isSelected ? option.color : VikuColor.textTertiary)
+            .foregroundStyle(isSelected ? option.color : palette.textTertiary)
             .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xs)
             .padding(.vertical, VikuSpacing.xs + VikuSpacing.xxs)
             .background(
