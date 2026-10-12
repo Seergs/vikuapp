@@ -29,6 +29,8 @@ private struct SubtasksCard: View {
     let subtasks: [TaskRelation]
     let color: Color
 
+    @Environment(\.vikuPalette) private var palette
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(subtasks.enumerated()), id: \.element.id) { index, subtask in
@@ -47,6 +49,6 @@ private struct SubtasksCard: View {
                 .padding(.vertical, VikuSpacing.sm + VikuSpacing.xs)
             }
         }
-        .background(VikuColor.Surface.card, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
+        .background(palette.cardBackground, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
     }
 }
