@@ -83,7 +83,7 @@ public struct InstanceSetupView: View {
                 )
                 .font(VikuFont.subheadline)
                 .fontWeight(.medium)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
                 .multilineTextAlignment(.center)
             }
         }
@@ -131,7 +131,7 @@ public struct InstanceSetupView: View {
                 Text("Allow insecure connection", bundle: .module)
                     .font(VikuFont.footnote)
                     .fontWeight(.semibold)
-                    .foregroundStyle(VikuColor.textSecondary)
+                    .foregroundStyle(palette.textSecondary)
             }
             .tint(palette.brand)
 
@@ -156,7 +156,7 @@ public struct InstanceSetupView: View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm) {
             Text("You'll be redirected to your provider's sign-in page to finish.", bundle: .module)
                 .font(VikuFont.caption)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
 
             ForEach(viewModel.oidcProviders) { provider in
                 oidcProviderButton(provider)
@@ -320,7 +320,7 @@ private struct OnboardingField: View {
             Text(verbatim: label)
                 .font(VikuFont.footnote)
                 .fontWeight(.semibold)
-                .foregroundStyle(VikuColor.textSecondary)
+                .foregroundStyle(palette.textSecondary)
 
             HStack(spacing: VikuSpacing.sm) {
                 Group {
@@ -336,7 +336,7 @@ private struct OnboardingField: View {
                     Button(action: trailingAction) {
                         Image(systemName: trailingSystemImage)
                             .font(.system(size: 14))
-                            .foregroundStyle(VikuColor.textTertiary)
+                            .foregroundStyle(palette.textTertiary)
                     }
                     .buttonStyle(.plain)
                 }
@@ -348,7 +348,7 @@ private struct OnboardingField: View {
             if let hint {
                 Text(verbatim: hint)
                     .font(VikuFont.caption)
-                    .foregroundStyle(VikuColor.textSecondary)
+                    .foregroundStyle(palette.textSecondary)
             }
         }
     }
