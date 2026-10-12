@@ -28,6 +28,11 @@ struct ShortcutTitleField: UIViewRepresentable {
         view.adjustsFontForContentSizeCategory = true
         view.returnKeyType = .done
         view.setContentHuggingPriority(.required, for: .vertical)
+        // Shortcuts like #"Project name" depend on literal straight quotes; autocorrect's
+        // smart punctuation would silently swap them for curly quotes the parser can't match.
+        view.smartQuotesType = .no
+        view.smartDashesType = .no
+        view.smartInsertDeleteType = .no
         if focusOnAppear {
             DispatchQueue.main.async { view.becomeFirstResponder() }
         }
