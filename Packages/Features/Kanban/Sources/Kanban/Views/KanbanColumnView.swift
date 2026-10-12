@@ -48,7 +48,7 @@ struct KanbanColumnView: View {
         }
         .padding(VikuSpacing.sm)
         .frame(width: Self.width)
-        .background(isTargeted ? VikuColor.brandPrimary.opacity(0.08) : palette.cardBackground)
+        .background(isTargeted ? palette.brand.opacity(0.08) : palette.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: VikuRadius.lg, style: .continuous))
         .dropDestination(for: String.self) { items, _ in
             guard let idString = items.first, let taskID = Int(idString) else { return false }
