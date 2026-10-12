@@ -26,6 +26,7 @@ struct KanbanColumnView: View {
     @State private var isAddingTask = false
     @State private var newTaskTitle = ""
     @FocusState private var isNewTaskFieldFocused: Bool
+    @Environment(\.vikuPalette) private var palette
 
     var body: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm) {
@@ -47,7 +48,7 @@ struct KanbanColumnView: View {
         }
         .padding(VikuSpacing.sm)
         .frame(width: Self.width)
-        .background(isTargeted ? VikuColor.brandPrimary.opacity(0.08) : VikuColor.Surface.card)
+        .background(isTargeted ? VikuColor.brandPrimary.opacity(0.08) : palette.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: VikuRadius.lg, style: .continuous))
         .dropDestination(for: String.self) { items, _ in
             guard let idString = items.first, let taskID = Int(idString) else { return false }
@@ -67,7 +68,7 @@ struct KanbanColumnView: View {
                 .font(VikuFont.caption)
                 .foregroundStyle(VikuColor.textSecondary)
                 .padding(.horizontal, VikuSpacing.xs + VikuSpacing.xxs)
-                .background(VikuColor.Surface.field, in: Capsule())
+                .background(palette.fieldBackground, in: Capsule())
 
             Spacer(minLength: VikuSpacing.xs)
 
@@ -98,7 +99,7 @@ struct KanbanColumnView: View {
             contextMenu: { EmptyView() },
         )
         .padding(VikuSpacing.sm)
-        .background(VikuColor.Surface.field, in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
+        .background(palette.fieldBackground, in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
         .draggable(String(task.id))
     }
 
@@ -125,7 +126,7 @@ struct KanbanColumnView: View {
             .buttonStyle(.plain)
         }
         .padding(VikuSpacing.sm)
-        .background(VikuColor.Surface.field, in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
+        .background(palette.fieldBackground, in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
     }
 
     private func submitNewTask() {
