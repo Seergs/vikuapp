@@ -290,6 +290,46 @@
           }
         }
       }
+    },
+    "Pending" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pendientes"
+          }
+        }
+      }
+    },
+    "Completed" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completadas"
+          }
+        }
+      }
+    },
+    "Tasks will show up here as you add them." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las tareas aparecerán aquí a medida que las agregues."
+          }
+        }
+      }
+    },
+    "\"%@\" is no longer available. Showing Today instead." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "\"%@\" ya no está disponible. Mostrando Hoy en su lugar."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

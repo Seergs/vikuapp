@@ -111,12 +111,12 @@
         }
       }
     },
-    "Today" : {
+    "Home" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hoy"
+            "value" : "Inicio"
           }
         }
       }

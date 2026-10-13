@@ -32,3 +32,16 @@ public protocol HomeSelectionCaching {
     func cachedHomeSelection() -> CachedHomeSelection?
     func setCachedHomeSelection(_ selection: CachedHomeSelection?)
 }
+
+/// A `HomeSelectionCaching` that always reports "Today" (no pin) and ignores
+/// writes. The default for previews, tests, and any screen that hasn't
+/// opted into the pinned-Home feature yet — mirrors `NoopToastPresenter`/
+/// `NoopHapticFeedback`.
+public struct NoopHomeSelectionCaching: HomeSelectionCaching {
+    public init() {}
+    public func cachedHomeSelection() -> CachedHomeSelection? {
+        nil
+    }
+
+    public func setCachedHomeSelection(_ selection: CachedHomeSelection?) {}
+}

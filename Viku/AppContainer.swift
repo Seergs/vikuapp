@@ -275,6 +275,7 @@ final class AppContainer {
             ),
             toastPresenter: toastCenter,
             hapticPresenter: hapticCenter,
+            homeSelectionCache: AccountHomeSelectionCache(store: homeSelectionStore, accountID: account.id),
         )
     }
 

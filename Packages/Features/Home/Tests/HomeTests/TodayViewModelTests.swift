@@ -422,4 +422,138 @@ struct TodayViewModelTests {
         await viewModel.toggleDone(viewModel.tasks[0])
         #expect(haptics.played == [.success])
     }
+
+    // MARK: pinned selection
+
+    @Test
+    func `title is Today when nothing is pinned`() {
+        let viewModel = TodayViewModel(
+            taskRepository: FakeTaskRepository(),
+            projectRepository: FakeProjectRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            toastPresenter: FakeToastPresenter(),
+        )
+
+        #expect(viewModel.title == "Today")
+        #expect(viewModel.pinnedSelection == nil)
+    }
+
+    @Test
+    func `title reflects the cached pin before load resolves`() {
+        let cached = CachedHomeSelection(id: 7, title: "Work", hexColor: "00ff00", kind: .project)
+        let viewModel = TodayViewModel(
+            taskRepository: FakeTaskRepository(),
+            projectRepository: FakeProjectRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            toastPresenter: FakeToastPresenter(),
+            homeSelectionCache: FakeHomeSelectionCaching(cached: cached),
+        )
+
+        #expect(viewModel.title == "Work")
+    }
+
+    @Test
+    func `load fetches only the pinned project's own tasks`() async {
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 1, title: "Work"), Project(id: 2, title: "Personal")]
+        let taskRepository = FakeTaskRepository()
+        taskRepository.tasks = [
+            VikunjaTask(id: 1, title: "Write report", projectID: 1),
+            VikunjaTask(id: 2, title: "Buy groceries", projectID: 2),
+        ]
+        let cache = FakeHomeSelectionCaching(
+            cached: CachedHomeSelection(id: 1, title: "Work", hexColor: "", kind: .project),
+        )
+        let viewModel = TodayViewModel(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            toastPresenter: FakeToastPresenter(),
+            homeSelectionCache: cache,
+        )
+
+        await viewModel.load()
+
+        #expect(viewModel.loadState == .loaded)
+        #expect(viewModel.tasks.map(\.id) == [1])
+        #expect(viewModel.title == "Work")
+        #expect(viewModel.pinnedSelection?.id == 1)
+    }
+
+    @Test
+    func `load fetches a pinned saved filter by its negative id, same as a real project`() async {
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 1, title: "Work"), Project(id: -2, title: "My Open Tasks")]
+        let taskRepository = FakeTaskRepository()
+        taskRepository.tasks = [VikunjaTask(id: 1, title: "Write report", projectID: -2)]
+        let cache = FakeHomeSelectionCaching(
+            cached: CachedHomeSelection(id: -2, title: "My Open Tasks", hexColor: "", kind: .savedFilter),
+        )
+        let viewModel = TodayViewModel(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            toastPresenter: FakeToastPresenter(),
+            homeSelectionCache: cache,
+        )
+
+        await viewModel.load()
+
+        #expect(viewModel.tasks.map(\.id) == [1])
+    }
+
+    @Test
+    func `load refreshes the cache when the pinned project was renamed or recolored`() async {
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 1, title: "Renamed", hexColor: "00ff00")]
+        let cache = FakeHomeSelectionCaching(
+            cached: CachedHomeSelection(id: 1, title: "Old Name", hexColor: "ff0000", kind: .project),
+        )
+        let viewModel = TodayViewModel(
+            taskRepository: FakeTaskRepository(),
+            projectRepository: projectRepository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            toastPresenter: FakeToastPresenter(),
+            homeSelectionCache: cache,
+        )
+
+        await viewModel.load()
+
+        #expect(viewModel.title == "Renamed")
+        #expect(cache.cached?.title == "Renamed")
+        #expect(cache.cached?.hexColor == "00ff00")
+    }
+
+    @Test
+    func `load falls back to Today and clears the pin when it no longer exists`() async {
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 2, title: "Personal")]
+        let taskRepository = FakeTaskRepository()
+        taskRepository.tasks = [VikunjaTask(id: 9, title: "Water plants", projectID: 2)]
+        let cache = FakeHomeSelectionCaching(
+            cached: CachedHomeSelection(id: 1, title: "Deleted Project", hexColor: "", kind: .project),
+        )
+        let toastPresenter = FakeToastPresenter()
+        let viewModel = TodayViewModel(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            toastPresenter: toastPresenter,
+            homeSelectionCache: cache,
+        )
+
+        await viewModel.load()
+
+        #expect(viewModel.pinnedSelection == nil)
+        #expect(viewModel.title == "Today")
+        #expect(viewModel.tasks.map(\.id) == [9])
+        #expect(cache.cached == nil)
+        #expect(toastPresenter.shownMessages.map(\.style) == [.error])
+    }
 }

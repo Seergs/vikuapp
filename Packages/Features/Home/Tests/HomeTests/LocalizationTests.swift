@@ -87,6 +87,13 @@ struct LocalizationTests {
         ("Medium", "Media"),
         ("High", "Alta"),
         ("Urgent", "Urgente"),
+        ("Pending", "Pendientes"),
+        ("Completed", "Completadas"),
+        ("Tasks will show up here as you add them.", "Las tareas aparecerán aquí a medida que las agregues."),
+        (
+            "\"%@\" is no longer available. Showing Today instead.",
+            "\"%@\" ya no está disponible. Mostrando Hoy en su lugar.",
+        ),
     ])
     func `key resolves to its Spanish translation`(key: String, expected: String) {
         #expect(Self.es(key) == expected)

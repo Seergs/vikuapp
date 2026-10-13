@@ -3,10 +3,12 @@ import Observation
 import VikunjaCore
 import VikuUI
 
-/// Drives the Today screen: the account's tasks across every project,
-/// grouped/filtered by due date in `TodayView`. Unlike `Projects`' screens,
-/// there's no single project scoping the fetch — every project's tasks are
-/// pulled and merged here.
+/// Drives the Home tab: either the account's tasks across every project,
+/// grouped/filtered by due date (the "Today" digest), or — when the user has
+/// pinned a project/saved filter in Settings — that single project/filter's
+/// own tasks instead, both rendered by `TodayView`. Unlike `Projects`'
+/// screens, the digest case has no single project scoping the fetch — every
+/// project's tasks are pulled and merged here.
 @MainActor
 @Observable
 public final class TodayViewModel {
@@ -15,6 +17,12 @@ public final class TodayViewModel {
     /// carries its `projectID`.
     public private(set) var projectsByID: [Int: Project] = [:]
     public private(set) var loadState: ScreenLoadState<Void> = .idle
+    /// The pinned project/saved filter, or `nil` for the default "Today"
+    /// digest. Seeded from `homeSelectionCache` at init so `title` resolves
+    /// instantly, then kept in sync with the server by every `load()` —
+    /// including clearing it back to `nil` if the pin no longer exists (see
+    /// `load()`).
+    public private(set) var pinnedSelection: CachedHomeSelection?
     /// Every project on the instance, for the "Move to Project" picker —
     /// loaded lazily via `loadMoveCandidates()` rather than alongside
     /// `load()`, since most visits to this screen never open that picker.
@@ -28,6 +36,13 @@ public final class TodayViewModel {
 
     public var isLoading: Bool {
         loadState == .loading
+    }
+
+    /// The screen title: the pinned selection's name, or the localized
+    /// "Today" when nothing is pinned. The tab's own label stays "Home"
+    /// regardless (`AppTab.title`) — only the in-screen title changes.
+    public var title: String {
+        pinnedSelection?.title ?? String(localized: "Today", bundle: .module)
     }
 
     public var datedTaskCount: Int {
@@ -47,6 +62,7 @@ public final class TodayViewModel {
     private let relationRepository: TaskRelationRepositoryProtocol
     private let toastPresenter: ToastPresenting
     private let hapticPresenter: HapticFeedbackPresenting
+    private let homeSelectionCache: HomeSelectionCaching
 
     public init(
         taskRepository: TaskRepositoryProtocol,
@@ -55,6 +71,7 @@ public final class TodayViewModel {
         relationRepository: TaskRelationRepositoryProtocol,
         toastPresenter: ToastPresenting,
         hapticPresenter: HapticFeedbackPresenting = NoopHapticFeedback(),
+        homeSelectionCache: HomeSelectionCaching = NoopHomeSelectionCaching(),
     ) {
         self.taskLoader = AccountTaskLoader(
             taskRepository: taskRepository,
@@ -72,6 +89,8 @@ public final class TodayViewModel {
         self.relationRepository = relationRepository
         self.toastPresenter = toastPresenter
         self.hapticPresenter = hapticPresenter
+        self.homeSelectionCache = homeSelectionCache
+        self.pinnedSelection = homeSelectionCache.cachedHomeSelection()
     }
 
     /// Skips the `.loading` transition when there's already loaded content
@@ -83,15 +102,62 @@ public final class TodayViewModel {
             loadState = .loading
         }
         do {
-            let result = try await taskLoader.loadAllTasks()
-            projectsByID = result.projectsByID
-            tasks = result.tasks
+            if let pinned = homeSelectionCache.cachedHomeSelection() {
+                try await loadPinned(pinned)
+            } else {
+                pinnedSelection = nil
+                try await loadDigest()
+            }
             loadState = .loaded
         } catch let error as VikunjaError {
             loadState = .failure(error.displayMessage)
         } catch {
             loadState = .failure(error.localizedDescription)
         }
+    }
+
+    private func loadDigest() async throws {
+        let result = try await taskLoader.loadAllTasks()
+        projectsByID = result.projectsByID
+        tasks = result.tasks
+    }
+
+    /// Loads `pinned`'s own tasks via `fetchTasks(projectID:)`, verified to
+    /// resolve a saved filter's negative id to that filter's conditions
+    /// server-side, the same call a real project's id makes.
+    ///
+    /// Re-validates the pin against a fresh `fetchProjects()` first, since
+    /// the pinned project/filter can have been deleted since it was chosen:
+    /// if it's gone, the pin is cleared, a one-time warning toast fires, and
+    /// this falls back to the Today digest instead of leaving the screen
+    /// stuck trying to fetch a project that no longer exists. If it's still
+    /// there but renamed/recolored, the cache is refreshed to match so the
+    /// Settings row and this screen's title stay current.
+    private func loadPinned(_ pinned: CachedHomeSelection) async throws {
+        let projects = try await projectRepository.fetchProjects()
+        guard let current = projects.first(where: { $0.id == pinned.id }) else {
+            homeSelectionCache.setCachedHomeSelection(nil)
+            pinnedSelection = nil
+            toastPresenter.show(
+                String(
+                    localized: "\"\(pinned.title)\" is no longer available. Showing Today instead.",
+                    bundle: .module,
+                ),
+                style: .error,
+            )
+            try await loadDigest()
+            return
+        }
+
+        let refreshed = CachedHomeSelection(
+            id: current.id, title: current.title, hexColor: current.hexColor, kind: current.kind,
+        )
+        if refreshed != pinned {
+            homeSelectionCache.setCachedHomeSelection(refreshed)
+        }
+        pinnedSelection = refreshed
+        projectsByID = Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0) })
+        tasks = try await taskRepository.fetchTasks(projectID: pinned.id)
     }
 
     /// Flips a task's completion state, persists the change, and rolls the
