@@ -38,11 +38,11 @@ public struct AccountTaskLoader: Sendable {
         repository: TaskRepositoryProtocol,
     ) async -> [VikunjaTask] {
         await withTaskGroup(of: [VikunjaTask].self) { group in
-            // Vikunja lists virtual projects (Favorites is -1, saved filters
-            // are other negative ids) alongside real ones. Their tasks are
-            // views over tasks that already live in a real project, so
-            // fetching them would show every such task twice.
-            for project in projects where project.id > 0 {
+            // Vikunja lists virtual projects (Favorites, saved filters)
+            // alongside real ones. Their tasks are views over tasks that
+            // already live in a real project, so fetching them would show
+            // every such task twice.
+            for project in projects where project.kind == .project {
                 group.addTask {
                     await (try? repository.fetchTasks(projectID: project.id)) ?? []
                 }
