@@ -25,7 +25,7 @@ struct TodayView: View {
             .scrollContentBackground(.hidden)
             .background(palette.pageBackground)
             .refreshable { await viewModel.load() }
-            .navigationTitle(Text("Today", bundle: .module))
+            .navigationTitle(Text(verbatim: viewModel.title))
             .task { await viewModel.load() }
             .confirmationDialog(
                 Text("This permanently deletes the task.", bundle: .module),
@@ -145,6 +145,18 @@ struct TodayView: View {
 
     @ViewBuilder
     private var loadedContent: some View {
+        if viewModel.pinnedSelection != nil {
+            pinnedContent
+        } else {
+            todayDigestContent
+        }
+    }
+
+    /// The default "Today" screen: every project's tasks, bucketed by due
+    /// date (Overdue/Today/Upcoming) with a status filter row. Tasks with no
+    /// due date never appear — only inside their own project.
+    @ViewBuilder
+    private var todayDigestContent: some View {
         // `.plain` list style (see `todayListStyle()`) so every row here is
         // flush with `.navigationTitle` by default — see `ProjectOverviewView`
         // for the same reasoning.
@@ -181,89 +193,132 @@ struct TodayView: View {
             .listRowBackground(Color.clear)
         } else {
             ForEach(visible) { section in
-                HStack(spacing: VikuSpacing.xs) {
-                    Text(verbatim: section.title)
-                        .fontWeight(.bold)
-                    Text(verbatim: "\(section.tasks.count)")
-                        .fontWeight(.regular)
-                }
-                .vikuSectionHeader()
-                .padding(.horizontal, VikuSpacing.md)
-                .padding(.top, VikuSpacing.md + VikuSpacing.xs)
-                .padding(.bottom, VikuSpacing.sm)
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-
+                sectionHeader(section.title, count: section.tasks.count)
                 ForEach(Array(section.tasks.enumerated()), id: \.element.id) { index, task in
-                    let project = viewModel.projectsByID[task.projectID]
-                    VikuTaskRow(
-                        task: task,
-                        project: project,
-                        onToggle: { Task { await viewModel.toggleDone(task) } },
-                        onOpen: {
-                            if let project {
-                                router.push(.taskDetail(task, project))
-                            }
-                        },
-                        contextMenu: {
-                            Button(
-                                task.isDone
-                                    ? String(localized: "Mark as Not Done", bundle: .module)
-                                    : String(localized: "Mark as Done", bundle: .module),
-                                systemImage: task.isDone ? "circle" : "checkmark.circle",
-                            ) {
-                                Task { await viewModel.toggleDone(task) }
-                            }
-                            Divider()
-                            Button(String(localized: "Due Date", bundle: .module), systemImage: "calendar") {
-                                taskPendingDueDateEdit = task
-                            }
-                            Menu(String(localized: "Priority", bundle: .module), systemImage: "flag") {
-                                ForEach(VikunjaTask.Priority.selectable, id: \.self) { priority in
-                                    Button {
-                                        Task { await viewModel.setPriority(task, to: priority) }
-                                    } label: {
-                                        HStack {
-                                            Text(verbatim: priority.localizedMenuLabel)
-                                            if task.priority == priority {
-                                                Image(systemName: "checkmark")
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            Button(String(localized: "Labels", bundle: .module), systemImage: "tag") {
-                                taskPendingLabelEdit = task
-                            }
-                            Divider()
-                            Button(String(localized: "Add Relation", bundle: .module), systemImage: "link") {
-                                relationEditStep = .pickKind(task)
-                            }
-                            Button(
-                                String(localized: "Duplicate Task", bundle: .module),
-                                systemImage: "plus.square.on.square",
-                            ) {
-                                taskPendingDuplicate = task
-                            }
-                            Button(String(localized: "Move to Project", bundle: .module), systemImage: "folder") {
-                                taskPendingMove = task
-                            }
-                            Divider()
-                            Button(
-                                String(localized: "Delete Task", bundle: .module),
-                                systemImage: "trash",
-                                role: .destructive,
-                            ) {
-                                taskPendingDelete = task
-                            }
-                            .tint(palette.semanticDanger)
-                        },
-                    )
-                    .vikuCardRow(index: index, count: section.tasks.count)
+                    taskRow(task, index: index, count: section.tasks.count)
                 }
             }
         }
+    }
+
+    /// The pinned-selection screen: a single project or saved filter's own
+    /// tasks (every one, not just dated ones), bucketed into
+    /// Overdue/Pending/Completed — no status filter row or due-date-only
+    /// restriction, since those are specific to the Today digest above.
+    @ViewBuilder
+    private var pinnedContent: some View {
+        let sections = PinnedTaskSection.sections(from: viewModel.tasks)
+        if sections.isEmpty {
+            VikuStatusView(
+                systemImage: "checkmark.circle",
+                title: String(localized: "Nothing here", bundle: .module),
+                message: String(localized: "Tasks will show up here as you add them.", bundle: .module),
+                iconSize: 28,
+            )
+            .padding(.top, VikuSpacing.lg)
+            .listRowInsets(EdgeInsets())
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+        } else {
+            ForEach(sections) { section in
+                sectionHeader(section.title, count: section.tasks.count)
+                ForEach(Array(section.tasks.enumerated()), id: \.element.id) { index, task in
+                    taskRow(task, index: index, count: section.tasks.count)
+                }
+            }
+        }
+    }
+
+    private func sectionHeader(_ title: String, count: Int) -> some View {
+        HStack(spacing: VikuSpacing.xs) {
+            Text(verbatim: title)
+                .fontWeight(.bold)
+            Text(verbatim: "\(count)")
+                .fontWeight(.regular)
+        }
+        .vikuSectionHeader()
+        .padding(.horizontal, VikuSpacing.md)
+        .padding(.top, VikuSpacing.md + VikuSpacing.xs)
+        .padding(.bottom, VikuSpacing.sm)
+        .listRowInsets(EdgeInsets())
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
+    }
+
+    /// Shared by both `todayDigestContent` and `pinnedContent`: a task's row
+    /// plus its long-press menu is identical regardless of where the task
+    /// list came from — every `viewModel` mutation (`toggleDone`,
+    /// `setPriority`, etc.) already works the same either way.
+    @ViewBuilder
+    private func taskRow(_ task: VikunjaTask, index: Int, count: Int) -> some View {
+        let project = viewModel.projectsByID[task.projectID]
+        VikuTaskRow(
+            task: task,
+            project: project,
+            onToggle: { Task { await viewModel.toggleDone(task) } },
+            onOpen: {
+                if let project {
+                    router.push(.taskDetail(task, project))
+                }
+            },
+            contextMenu: { taskContextMenu(task) },
+        )
+        .vikuCardRow(index: index, count: count)
+    }
+
+    @ViewBuilder
+    private func taskContextMenu(_ task: VikunjaTask) -> some View {
+        Button(
+            task.isDone
+                ? String(localized: "Mark as Not Done", bundle: .module)
+                : String(localized: "Mark as Done", bundle: .module),
+            systemImage: task.isDone ? "circle" : "checkmark.circle",
+        ) {
+            Task { await viewModel.toggleDone(task) }
+        }
+        Divider()
+        Button(String(localized: "Due Date", bundle: .module), systemImage: "calendar") {
+            taskPendingDueDateEdit = task
+        }
+        Menu(String(localized: "Priority", bundle: .module), systemImage: "flag") {
+            ForEach(VikunjaTask.Priority.selectable, id: \.self) { priority in
+                Button {
+                    Task { await viewModel.setPriority(task, to: priority) }
+                } label: {
+                    HStack {
+                        Text(verbatim: priority.localizedMenuLabel)
+                        if task.priority == priority {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        }
+        Button(String(localized: "Labels", bundle: .module), systemImage: "tag") {
+            taskPendingLabelEdit = task
+        }
+        Divider()
+        Button(String(localized: "Add Relation", bundle: .module), systemImage: "link") {
+            relationEditStep = .pickKind(task)
+        }
+        Button(
+            String(localized: "Duplicate Task", bundle: .module),
+            systemImage: "plus.square.on.square",
+        ) {
+            taskPendingDuplicate = task
+        }
+        Button(String(localized: "Move to Project", bundle: .module), systemImage: "folder") {
+            taskPendingMove = task
+        }
+        Divider()
+        Button(
+            String(localized: "Delete Task", bundle: .module),
+            systemImage: "trash",
+            role: .destructive,
+        ) {
+            taskPendingDelete = task
+        }
+        .tint(palette.semanticDanger)
     }
 }
 
@@ -362,6 +417,44 @@ struct TodaySection: Identifiable {
 
         return buckets.compactMap { title, tasks in
             tasks.isEmpty ? nil : TodaySection(title: title, tasks: tasks)
+        }
+    }
+}
+
+/// One status bucket within a pinned project/filter's own task list —
+/// Overdue/Pending/Completed. Every one of its tasks, not just dated ones
+/// (unlike `TodaySection`, which only ever shows dated tasks). Mirrors
+/// `Projects`' own `ProjectTaskSection`, duplicated rather than shared: a
+/// Feature package can't import another Feature package (see
+/// `AccountTaskLoader`'s dependency rule), so `Home` and `Projects` each own
+/// their version of this same small bucketing rule.
+struct PinnedTaskSection: Identifiable {
+    let title: String
+    let tasks: [VikunjaTask]
+    var id: String {
+        title
+    }
+
+    static func sections(from tasks: [VikunjaTask], now: Date = Date()) -> [PinnedTaskSection] {
+        func isOverdue(_ task: VikunjaTask) -> Bool {
+            guard let dueDate = task.dueDate, !task.isDone else { return false }
+            return dueDate < now
+        }
+
+        let overdue = tasks.filter(isOverdue)
+        let pending = tasks.filter { !$0.isDone && !isOverdue($0) }
+        let completed = tasks.filter(\.isDone)
+
+        let overdueTitle = String(localized: "Overdue", bundle: .module)
+        let pendingTitle = String(localized: "Pending", bundle: .module)
+        let completedTitle = String(localized: "Completed", bundle: .module)
+
+        return [
+            (overdueTitle, overdue),
+            (pendingTitle, pending),
+            (completedTitle, completed),
+        ].compactMap { title, bucket in
+            bucket.isEmpty ? nil : PinnedTaskSection(title: title, tasks: TaskSort.default.sorted(bucket))
         }
     }
 }

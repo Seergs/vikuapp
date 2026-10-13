@@ -151,3 +151,21 @@ final class FakeHapticPresenter: HapticFeedbackPresenting, @unchecked Sendable {
         played.append(style)
     }
 }
+
+final class FakeHomeSelectionCaching: HomeSelectionCaching, @unchecked Sendable {
+    private(set) var cached: CachedHomeSelection?
+    private(set) var setCallCount = 0
+
+    init(cached: CachedHomeSelection? = nil) {
+        self.cached = cached
+    }
+
+    func cachedHomeSelection() -> CachedHomeSelection? {
+        cached
+    }
+
+    func setCachedHomeSelection(_ selection: CachedHomeSelection?) {
+        setCallCount += 1
+        cached = selection
+    }
+}
