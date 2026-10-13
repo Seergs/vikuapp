@@ -32,6 +32,9 @@ public struct SettingsRootView: View {
     /// directly on this landing screen, so its view model needs to exist
     /// from the start rather than being built lazily on first visit.
     @State private var defaultProjectViewModel: DefaultProjectSettingsViewModel
+    /// Same reasoning as `defaultProjectViewModel`: the "Home Screen" row
+    /// lives directly on this landing screen too.
+    @State private var homeSelectionViewModel: HomeSelectionSettingsViewModel
 
     /// `router` is owned by the app target's `MainTabView`, alongside its
     /// other tab routers, so it can push a reconnect screen onto this stack
@@ -59,6 +62,7 @@ public struct SettingsRootView: View {
         makeNotificationsViewModel: @escaping () -> NotificationsViewModel,
         makeAppIconBadgeViewModel: @escaping () -> AppIconBadgeViewModel,
         makeDefaultProjectSettingsViewModel: @escaping () -> DefaultProjectSettingsViewModel,
+        makeHomeSelectionSettingsViewModel: @escaping () -> HomeSelectionSettingsViewModel,
     ) {
         self.router = router
         self.account = account
@@ -74,6 +78,7 @@ public struct SettingsRootView: View {
         self.makeNotificationsViewModel = makeNotificationsViewModel
         self._badgeViewModel = State(initialValue: makeAppIconBadgeViewModel())
         self._defaultProjectViewModel = State(initialValue: makeDefaultProjectSettingsViewModel())
+        self._homeSelectionViewModel = State(initialValue: makeHomeSelectionSettingsViewModel())
     }
 
     /// Holds the one `NotificationsViewModel` instance for this screen's
@@ -100,6 +105,7 @@ public struct SettingsRootView: View {
                 quickAddSyntaxStore: quickAddSyntaxStore,
                 badgeViewModel: badgeViewModel,
                 defaultProjectViewModel: defaultProjectViewModel,
+                homeSelectionViewModel: homeSelectionViewModel,
                 isDevBuild: isDevBuild,
                 devBadgeStore: devBadgeStore,
                 networkLoggingStore: networkLoggingStore,
