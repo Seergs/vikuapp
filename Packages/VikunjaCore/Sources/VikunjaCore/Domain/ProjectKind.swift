@@ -6,7 +6,7 @@
 /// instance's `Project`/`ProjectReadBody` schema in both v1 and v2, neither
 /// has a `kind`/`is_filter` field. The id's sign is the only signal the
 /// server gives, so `Project.kind` just reads it.
-public enum ProjectKind: Hashable, Sendable {
+public enum ProjectKind: Codable, Hashable, Sendable {
     case project
     case favorites
     case savedFilter

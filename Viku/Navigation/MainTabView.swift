@@ -154,6 +154,9 @@ struct MainTabView: View {
                     makeDefaultProjectSettingsViewModel: {
                         container.makeDefaultProjectSettingsViewModel(account: account)
                     },
+                    makeHomeSelectionSettingsViewModel: {
+                        container.makeHomeSelectionSettingsViewModel(account: account)
+                    },
                 )
             }
 

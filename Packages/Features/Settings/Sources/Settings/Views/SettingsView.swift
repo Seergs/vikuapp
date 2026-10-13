@@ -16,6 +16,7 @@ struct SettingsView: View {
     let quickAddSyntaxStore: QuickAddSyntaxStore
     let badgeViewModel: AppIconBadgeViewModel
     let defaultProjectViewModel: DefaultProjectSettingsViewModel
+    let homeSelectionViewModel: HomeSelectionSettingsViewModel
     let isDevBuild: Bool
     let devBadgeStore: DevBadgeVisibilityStoring
     let networkLoggingStore: NetworkRequestLoggingStoring
@@ -24,6 +25,7 @@ struct SettingsView: View {
 
     @State private var isPresentingBadgeConsent = false
     @State private var isPresentingDefaultProjectPicker = false
+    @State private var isPresentingHomeSelectionPicker = false
     @Environment(\.openURL) private var openURL
     @Environment(\.vikuPalette) private var palette
 
@@ -89,6 +91,14 @@ struct SettingsView: View {
                     subtitle: defaultProjectViewModel.defaultProjectTitle ?? String(localized: "None", bundle: .module),
                 ) {
                     isPresentingDefaultProjectPicker = true
+                }
+
+                SettingsNavigationRow(
+                    icon: "house",
+                    title: String(localized: "Home Screen", bundle: .module),
+                    subtitle: homeSelectionViewModel.selectionTitle,
+                ) {
+                    isPresentingHomeSelectionPicker = true
                 }
 
                 if let accountTimezone = defaultProjectViewModel.accountTimezone {
@@ -207,11 +217,22 @@ struct SettingsView: View {
                 Task { await defaultProjectViewModel.selectDefaultProject(project) }
             }
         }
+        .sheet(isPresented: $isPresentingHomeSelectionPicker) {
+            HomeSelectionPickerSheet(
+                projects: homeSelectionViewModel.pickableProjects,
+                selectedID: homeSelectionViewModel.selection?.id,
+            ) { project in
+                homeSelectionViewModel.select(project)
+            }
+        }
         .task {
             await badgeViewModel.refreshPermissionStatus()
         }
         .task {
             await defaultProjectViewModel.load()
+        }
+        .task {
+            await homeSelectionViewModel.load()
         }
     }
 

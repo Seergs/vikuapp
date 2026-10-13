@@ -225,6 +225,10 @@ struct LocalizationTests {
         ("Fires Daily At", "Se activa diariamente a las"),
         ("In %@", "En %@"),
         ("In your Vikunja account's time zone", "En la zona horaria de tu cuenta de Vikunja"),
+        ("Home Screen", "Pantalla principal"),
+        ("Today", "Hoy"),
+        ("Projects", "Proyectos"),
+        ("Saved Filters", "Filtros guardados"),
     ])
     func `key resolves to its Spanish translation`(key: String, expected: String) {
         #expect(Self.es(key) == expected)

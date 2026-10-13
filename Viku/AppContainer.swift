@@ -70,6 +70,11 @@ final class AppContainer {
     /// `DefaultProjectSettingsViewModel`'s "Time Zone" row the same way
     /// `defaultProjectStore` backs its "Default Project" row.
     let accountTimezoneStore = AccountTimezoneStore()
+    /// On-device storage of the project or saved filter pinned as the Home
+    /// tab's content, backing Settings' "Home Screen" row. Unlike
+    /// `defaultProjectStore`, this one has no server-side value to
+    /// reconcile against — it's the pin's only source of truth.
+    let homeSelectionStore = HomeSelectionStore()
     /// The app's single OIDC browser-authentication coordinator — see
     /// `OIDCAuthCoordinator`. Pass this as `OIDCAuthenticating` to any
     /// ViewModel that offers OIDC sign-in.
@@ -474,6 +479,16 @@ final class AppContainer {
             defaultProjectCache: AccountDefaultProjectCache(store: defaultProjectStore, accountID: account.id),
             timezoneCache: AccountTimezoneCache(store: accountTimezoneStore, accountID: account.id),
             toastPresenter: toastCenter,
+        )
+    }
+
+    func makeHomeSelectionSettingsViewModel(account: InstanceAccount) -> HomeSelectionSettingsViewModel {
+        HomeSelectionSettingsViewModel(
+            projectRepository: clientFactory.makeProjectRepository(
+                baseURL: account.baseURL,
+                tokenProvider: tokenProvider(for: account),
+            ),
+            store: AccountHomeSelectionCache(store: homeSelectionStore, accountID: account.id),
         )
     }
 
