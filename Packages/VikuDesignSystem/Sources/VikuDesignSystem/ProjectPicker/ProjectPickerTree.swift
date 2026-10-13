@@ -5,26 +5,32 @@ import VikunjaCore
 /// model. Mirrors `Features/Projects`' own `ProjectNode`, kept here so every
 /// project-picker call site shares one full-depth tree instead of the
 /// per-view-model two-level `ProjectGroup` grouping each used to recompute.
-struct ProjectPickerNode: Identifiable, Hashable {
-    let project: Project
-    let children: [ProjectPickerNode]
+/// Public so `HomeSelectionPickerSheet` (Settings) can render the same
+/// collapsible hierarchy, not just `ProjectPickerSheet` itself.
+public struct ProjectPickerNode: Identifiable, Hashable {
+    public let project: Project
+    public let children: [ProjectPickerNode]
 
-    var id: Int {
+    public var id: Int {
         project.id
     }
 }
 
 /// Pure tree/filter helpers behind `ProjectPickerSheet` — the logic that used
 /// to live as a `projectGroups`/`moveProjectGroups` computed property on five
-/// different view models, generalized to arbitrary nesting depth.
-enum ProjectPickerTree {
+/// different view models, generalized to arbitrary nesting depth. `tree`/
+/// `ancestorIDs` are public so any picker needing the same collapsible
+/// hierarchy (e.g. `HomeSelectionPickerSheet`) can reuse the algorithm
+/// instead of recomputing it; `flatMatches`/`subtreeIDs` stay internal since
+/// only `ProjectPickerSheet` searches today.
+public enum ProjectPickerTree {
     /// Builds the parent/child tree for `projects`, ordered by `position`
     /// within each level. Guards against a cyclic `parentProjectID`
     /// (malformed server data) by never revisiting a project id on the same
     /// branch. `excludedID`, when set, drops that project **and its whole
     /// subtree** — a project can't be reparented under itself or a
     /// descendant, and a task's move target can't be its current project.
-    static func tree(from projects: [Project], excludingSubtreeOf excludedID: Int? = nil) -> [ProjectPickerNode] {
+    public static func tree(from projects: [Project], excludingSubtreeOf excludedID: Int? = nil) -> [ProjectPickerNode] {
         let childrenByParentID = Dictionary(grouping: projects, by: \.parentProjectID)
 
         func nodes(withParentID parentID: Int?, ancestors: Set<Int>) -> [ProjectPickerNode] {
@@ -58,7 +64,7 @@ enum ProjectPickerTree {
     /// The chain of parent ids from `projectID` up to its root, so the picker
     /// can pre-expand the branch holding the current selection. Excludes
     /// `projectID` itself. Cycle-safe.
-    static func ancestorIDs(of projectID: Int?, in projects: [Project]) -> Set<Int> {
+    public static func ancestorIDs(of projectID: Int?, in projects: [Project]) -> Set<Int> {
         guard let projectID else { return [] }
         let byID = Dictionary(projects.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         var result: Set<Int> = []
