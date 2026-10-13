@@ -29,4 +29,14 @@ public struct Project: Identifiable, Hashable, Sendable {
         self.position = position
         self.hexColor = hexColor
     }
+
+    public var kind: ProjectKind {
+        if id == -1 {
+            return .favorites
+        }
+        if id < 0 {
+            return .savedFilter
+        }
+        return .project
+    }
 }
