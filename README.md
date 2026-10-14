@@ -41,6 +41,8 @@ The app is currently in Beta and can be installed via Testflight:
 
 [Join the beta →](https://testflight.apple.com/join/aby3Bh4d)
 
+**Requires iOS 26.2+** (the app relies on the native Liquid Glass UI introduced in iOS 26).
+
 ### Setup
 
 Connect to your Vikunja instance using whichever method it supports:
