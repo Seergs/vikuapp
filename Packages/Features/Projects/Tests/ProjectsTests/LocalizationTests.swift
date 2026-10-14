@@ -66,7 +66,7 @@ struct LocalizationTests {
         ("No tasks match this filter.", "Ninguna tarea coincide con este filtro."),
         ("Mark as Done", "Marcar como hecha"),
         ("Mark as Not Done", "Marcar como no hecha"),
-        ("Due Date", "Fecha de vencimiento"),
+        ("Due Date", "Fecha límite"),
         ("Priority", "Prioridad"),
         ("Labels", "Etiquetas"),
         ("Add Relation", "Agregar relación"),
