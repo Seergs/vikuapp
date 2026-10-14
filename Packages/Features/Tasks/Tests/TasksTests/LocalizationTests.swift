@@ -57,7 +57,7 @@ struct LocalizationTests {
         ("Couldn't load this task", "No se pudo cargar esta tarea"),
         ("Mark as Not Done", "Marcar como no hecha"),
         ("Mark as Done", "Marcar como hecha"),
-        ("Due Date", "Fecha de vencimiento"),
+        ("Due Date", "Fecha límite"),
         ("Priority", "Prioridad"),
         ("Labels", "Etiquetas"),
         ("Add Relation", "Agregar relación"),

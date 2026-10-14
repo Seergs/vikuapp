@@ -96,7 +96,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Fecha de vencimiento"
+            "value" : "Fecha límite"
           }
         }
       }
