@@ -69,7 +69,7 @@ public struct InstanceSetupView: View {
                 .overlay {
                     Image(systemName: "checkmark")
                         .font(.system(size: 22, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(palette.brandForeground)
                 }
 
             VStack(spacing: VikuSpacing.xs) {
@@ -283,7 +283,7 @@ public struct InstanceSetupView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(.white)
+        .foregroundStyle(palette.brandForeground)
         .background(palette.brand, in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
         .opacity(viewModel.canSave ? 1 : 0.4)
         .disabled(!viewModel.canSave || viewModel.isSaving)

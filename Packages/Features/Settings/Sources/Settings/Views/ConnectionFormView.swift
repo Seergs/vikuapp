@@ -378,7 +378,7 @@ struct ConnectionFormView: View {
                 : String(localized: "Save and Connect", bundle: .module))
                 .font(VikuFont.body)
                 .fontWeight(.bold)
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.brandForeground)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, VikuSpacing.sm + VikuSpacing.xs)
                 .background(
