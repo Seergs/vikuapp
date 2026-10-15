@@ -574,7 +574,7 @@ private struct FilterChip: View {
                 .fontWeight(.semibold)
                 .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
                 .padding(.vertical, VikuSpacing.sm - VikuSpacing.xxs)
-                .foregroundStyle(isSelected ? Color.white : palette.textSecondary)
+                .foregroundStyle(isSelected ? palette.brandForeground : palette.textSecondary)
                 .background(
                     Capsule().fill(isSelected ? palette.brand : palette.fieldBackground),
                 )

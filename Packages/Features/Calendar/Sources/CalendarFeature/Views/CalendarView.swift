@@ -218,7 +218,7 @@ private struct DayCell: View {
 
     private var numberColor: Color {
         if isSelected {
-            return .white
+            return palette.brandForeground
         }
         if day.hasOverduePending {
             return VikuColor.Priority.urgent
@@ -247,7 +247,7 @@ private struct DayCell: View {
                 HStack(spacing: 2.5) {
                     ForEach(Array(dotColors.enumerated()), id: \.offset) { _, color in
                         Circle()
-                            .fill(isSelected ? Color.white : color)
+                            .fill(isSelected ? palette.brandForeground : color)
                             .frame(width: 4.5, height: 4.5)
                     }
                 }

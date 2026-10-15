@@ -21,7 +21,7 @@ struct QuickAddButton: View {
         Button(action: onTap) {
             Image(systemName: "plus")
                 .font(.system(size: 24, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.brandForeground)
                 .frame(width: diameter, height: diameter)
                 .background(palette.brand, in: Circle())
                 .shadow(color: palette.brand.opacity(0.4), radius: 10, x: 0, y: 6)

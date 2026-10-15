@@ -134,6 +134,318 @@ struct WarmPaletteContrastTests {
     }
 }
 
+struct NordPaletteContrastTests {
+    @Test
+    func `textSecondary meets normal text contrast on page, card and field`() {
+        let palette = VikuPalette.nord
+        let text = ReferenceRGB(resolving: palette.textSecondary)
+
+        assertMeetsWCAG(
+            "nord textSecondary on page",
+            text: text,
+            background: ReferenceRGB(resolving: palette.pageBackground),
+            minimumRatio: WCAGThreshold.normalText,
+        )
+        assertMeetsWCAG(
+            "nord textSecondary on card",
+            text: text,
+            background: ReferenceRGB(resolving: palette.cardBackground),
+            minimumRatio: WCAGThreshold.normalText,
+        )
+        assertMeetsWCAG(
+            "nord textSecondary on field",
+            text: text,
+            background: ReferenceRGB(resolving: palette.fieldBackground),
+            minimumRatio: WCAGThreshold.normalText,
+        )
+    }
+
+    @Test
+    func `textTertiary meets the large text and non-text UI floor on page, card and field`() {
+        let palette = VikuPalette.nord
+        let text = ReferenceRGB(resolving: palette.textTertiary)
+
+        assertMeetsWCAG(
+            "nord textTertiary on page",
+            text: text,
+            background: ReferenceRGB(resolving: palette.pageBackground),
+            minimumRatio: WCAGThreshold.tertiaryText,
+        )
+        assertMeetsWCAG(
+            "nord textTertiary on card",
+            text: text,
+            background: ReferenceRGB(resolving: palette.cardBackground),
+            minimumRatio: WCAGThreshold.tertiaryText,
+        )
+        assertMeetsWCAG(
+            "nord textTertiary on field",
+            text: text,
+            background: ReferenceRGB(resolving: palette.fieldBackground),
+            minimumRatio: WCAGThreshold.tertiaryText,
+        )
+    }
+}
+
+struct SolarizedPaletteContrastTests {
+    @Test
+    func `textSecondary meets normal text contrast on page, card and field`() {
+        let palette = VikuPalette.solarized
+        let text = ReferenceRGB(resolving: palette.textSecondary)
+
+        assertMeetsWCAG(
+            "solarized textSecondary on page",
+            text: text,
+            background: ReferenceRGB(resolving: palette.pageBackground),
+            minimumRatio: WCAGThreshold.normalText,
+        )
+        assertMeetsWCAG(
+            "solarized textSecondary on card",
+            text: text,
+            background: ReferenceRGB(resolving: palette.cardBackground),
+            minimumRatio: WCAGThreshold.normalText,
+        )
+        assertMeetsWCAG(
+            "solarized textSecondary on field",
+            text: text,
+            background: ReferenceRGB(resolving: palette.fieldBackground),
+            minimumRatio: WCAGThreshold.normalText,
+        )
+    }
+
+    @Test
+    func `textTertiary meets the large text and non-text UI floor on page, card and field`() {
+        let palette = VikuPalette.solarized
+        let text = ReferenceRGB(resolving: palette.textTertiary)
+
+        assertMeetsWCAG(
+            "solarized textTertiary on page",
+            text: text,
+            background: ReferenceRGB(resolving: palette.pageBackground),
+            minimumRatio: WCAGThreshold.tertiaryText,
+        )
+        assertMeetsWCAG(
+            "solarized textTertiary on card",
+            text: text,
+            background: ReferenceRGB(resolving: palette.cardBackground),
+            minimumRatio: WCAGThreshold.tertiaryText,
+        )
+        assertMeetsWCAG(
+            "solarized textTertiary on field",
+            text: text,
+            background: ReferenceRGB(resolving: palette.fieldBackground),
+            minimumRatio: WCAGThreshold.tertiaryText,
+        )
+    }
+}
+
+struct ForestPaletteContrastTests {
+    @Test
+    func `textSecondary meets normal text contrast on page, card and field`() {
+        let palette = VikuPalette.forest
+        let text = ReferenceRGB(resolving: palette.textSecondary)
+
+        assertMeetsWCAG(
+            "forest textSecondary on page",
+            text: text,
+            background: ReferenceRGB(resolving: palette.pageBackground),
+            minimumRatio: WCAGThreshold.normalText,
+        )
+        assertMeetsWCAG(
+            "forest textSecondary on card",
+            text: text,
+            background: ReferenceRGB(resolving: palette.cardBackground),
+            minimumRatio: WCAGThreshold.normalText,
+        )
+        assertMeetsWCAG(
+            "forest textSecondary on field",
+            text: text,
+            background: ReferenceRGB(resolving: palette.fieldBackground),
+            minimumRatio: WCAGThreshold.normalText,
+        )
+    }
+
+    @Test
+    func `textTertiary meets the large text and non-text UI floor on page, card and field`() {
+        let palette = VikuPalette.forest
+        let text = ReferenceRGB(resolving: palette.textTertiary)
+
+        assertMeetsWCAG(
+            "forest textTertiary on page",
+            text: text,
+            background: ReferenceRGB(resolving: palette.pageBackground),
+            minimumRatio: WCAGThreshold.tertiaryText,
+        )
+        assertMeetsWCAG(
+            "forest textTertiary on card",
+            text: text,
+            background: ReferenceRGB(resolving: palette.cardBackground),
+            minimumRatio: WCAGThreshold.tertiaryText,
+        )
+        assertMeetsWCAG(
+            "forest textTertiary on field",
+            text: text,
+            background: ReferenceRGB(resolving: palette.fieldBackground),
+            minimumRatio: WCAGThreshold.tertiaryText,
+        )
+    }
+}
+
+struct CyberpunkPaletteContrastTests {
+    @Test
+    func `textSecondary meets normal text contrast on page, card and field`() {
+        let palette = VikuPalette.cyberpunk
+        let text = ReferenceRGB(resolving: palette.textSecondary)
+
+        assertMeetsWCAG(
+            "cyberpunk textSecondary on page",
+            text: text,
+            background: ReferenceRGB(resolving: palette.pageBackground),
+            minimumRatio: WCAGThreshold.normalText,
+        )
+        assertMeetsWCAG(
+            "cyberpunk textSecondary on card",
+            text: text,
+            background: ReferenceRGB(resolving: palette.cardBackground),
+            minimumRatio: WCAGThreshold.normalText,
+        )
+        assertMeetsWCAG(
+            "cyberpunk textSecondary on field",
+            text: text,
+            background: ReferenceRGB(resolving: palette.fieldBackground),
+            minimumRatio: WCAGThreshold.normalText,
+        )
+    }
+
+    @Test
+    func `textTertiary meets the large text and non-text UI floor on page, card and field`() {
+        let palette = VikuPalette.cyberpunk
+        let text = ReferenceRGB(resolving: palette.textTertiary)
+
+        assertMeetsWCAG(
+            "cyberpunk textTertiary on page",
+            text: text,
+            background: ReferenceRGB(resolving: palette.pageBackground),
+            minimumRatio: WCAGThreshold.tertiaryText,
+        )
+        assertMeetsWCAG(
+            "cyberpunk textTertiary on card",
+            text: text,
+            background: ReferenceRGB(resolving: palette.cardBackground),
+            minimumRatio: WCAGThreshold.tertiaryText,
+        )
+        assertMeetsWCAG(
+            "cyberpunk textTertiary on field",
+            text: text,
+            background: ReferenceRGB(resolving: palette.fieldBackground),
+            minimumRatio: WCAGThreshold.tertiaryText,
+        )
+    }
+}
+
+struct TerminalPaletteContrastTests {
+    @Test
+    func `textSecondary meets normal text contrast on page, card and field`() {
+        let palette = VikuPalette.terminal
+        let text = ReferenceRGB(resolving: palette.textSecondary)
+
+        assertMeetsWCAG(
+            "terminal textSecondary on page",
+            text: text,
+            background: ReferenceRGB(resolving: palette.pageBackground),
+            minimumRatio: WCAGThreshold.normalText,
+        )
+        assertMeetsWCAG(
+            "terminal textSecondary on card",
+            text: text,
+            background: ReferenceRGB(resolving: palette.cardBackground),
+            minimumRatio: WCAGThreshold.normalText,
+        )
+        assertMeetsWCAG(
+            "terminal textSecondary on field",
+            text: text,
+            background: ReferenceRGB(resolving: palette.fieldBackground),
+            minimumRatio: WCAGThreshold.normalText,
+        )
+    }
+
+    @Test
+    func `textTertiary meets the large text and non-text UI floor on page, card and field`() {
+        let palette = VikuPalette.terminal
+        let text = ReferenceRGB(resolving: palette.textTertiary)
+
+        assertMeetsWCAG(
+            "terminal textTertiary on page",
+            text: text,
+            background: ReferenceRGB(resolving: palette.pageBackground),
+            minimumRatio: WCAGThreshold.tertiaryText,
+        )
+        assertMeetsWCAG(
+            "terminal textTertiary on card",
+            text: text,
+            background: ReferenceRGB(resolving: palette.cardBackground),
+            minimumRatio: WCAGThreshold.tertiaryText,
+        )
+        assertMeetsWCAG(
+            "terminal textTertiary on field",
+            text: text,
+            background: ReferenceRGB(resolving: palette.fieldBackground),
+            minimumRatio: WCAGThreshold.tertiaryText,
+        )
+    }
+}
+
+struct VaporwavePaletteContrastTests {
+    @Test
+    func `textSecondary meets normal text contrast on page, card and field`() {
+        let palette = VikuPalette.vaporwave
+        let text = ReferenceRGB(resolving: palette.textSecondary)
+
+        assertMeetsWCAG(
+            "vaporwave textSecondary on page",
+            text: text,
+            background: ReferenceRGB(resolving: palette.pageBackground),
+            minimumRatio: WCAGThreshold.normalText,
+        )
+        assertMeetsWCAG(
+            "vaporwave textSecondary on card",
+            text: text,
+            background: ReferenceRGB(resolving: palette.cardBackground),
+            minimumRatio: WCAGThreshold.normalText,
+        )
+        assertMeetsWCAG(
+            "vaporwave textSecondary on field",
+            text: text,
+            background: ReferenceRGB(resolving: palette.fieldBackground),
+            minimumRatio: WCAGThreshold.normalText,
+        )
+    }
+
+    @Test
+    func `textTertiary meets the large text and non-text UI floor on page, card and field`() {
+        let palette = VikuPalette.vaporwave
+        let text = ReferenceRGB(resolving: palette.textTertiary)
+
+        assertMeetsWCAG(
+            "vaporwave textTertiary on page",
+            text: text,
+            background: ReferenceRGB(resolving: palette.pageBackground),
+            minimumRatio: WCAGThreshold.tertiaryText,
+        )
+        assertMeetsWCAG(
+            "vaporwave textTertiary on card",
+            text: text,
+            background: ReferenceRGB(resolving: palette.cardBackground),
+            minimumRatio: WCAGThreshold.tertiaryText,
+        )
+        assertMeetsWCAG(
+            "vaporwave textTertiary on field",
+            text: text,
+            background: ReferenceRGB(resolving: palette.fieldBackground),
+            minimumRatio: WCAGThreshold.tertiaryText,
+        )
+    }
+}
+
 struct StandardPaletteContrastTests {
     @Test
     func `textSecondary meets normal text contrast on page and card, light and dark`() {

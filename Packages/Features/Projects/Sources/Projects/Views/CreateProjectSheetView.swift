@@ -53,6 +53,10 @@ public struct CreateProjectSheetView: View {
             .padding(.horizontal, VikuSpacing.md)
             .padding(.top, VikuSpacing.md)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            // See `QuickAddSheetView`'s identical line: without this the
+            // sheet falls back to the system's own material background
+            // instead of the active theme's canvas.
+            .background(palette.pageBackground)
             .animation(.spring(response: 0.35, dampingFraction: 0.86), value: viewModel.saveErrorMessage)
             .navigationTitle(Text("New Project", bundle: .module))
             #if os(iOS)

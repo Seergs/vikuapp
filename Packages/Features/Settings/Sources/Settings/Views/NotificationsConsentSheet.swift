@@ -64,7 +64,7 @@ struct NotificationsConsentSheet: View {
                             .frame(width: 52, height: 52)
                         Image(systemName: "bell.fill")
                             .font(.system(size: 22, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(palette.brandForeground)
                     }
 
                     Text("Enable push notifications", bundle: .module)
