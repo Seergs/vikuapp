@@ -34,14 +34,17 @@ public final class ThemeCenter: AppThemeStoring {
     }
 
     /// The value to hand `.preferredColorScheme(_:)`: `nil` lets the view
-    /// hierarchy follow the system setting, matching `.system`. `.warm`
-    /// forces `.light`, since its palette is a light-scheme variant.
+    /// hierarchy follow the system setting, matching `.system`. Every other
+    /// theme pins its own scheme, since each has a literal (non-adaptive)
+    /// palette: `.warm`/`.forest` are light-scheme variants, the rest are
+    /// dark-scheme variants.
     public var colorScheme: ColorScheme? {
         switch theme {
         case .system: nil
         case .light: .light
         case .dark: .dark
-        case .warm: .light
+        case .warm, .forest: .light
+        case .nord, .solarized, .cyberpunk, .terminal, .vaporwave: .dark
         }
     }
 
@@ -50,6 +53,12 @@ public final class ThemeCenter: AppThemeStoring {
         switch theme {
         case .system, .light, .dark: .standard
         case .warm: .warm
+        case .nord: .nord
+        case .solarized: .solarized
+        case .forest: .forest
+        case .cyberpunk: .cyberpunk
+        case .terminal: .terminal
+        case .vaporwave: .vaporwave
         }
     }
 }

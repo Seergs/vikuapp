@@ -21,7 +21,7 @@ extension AppTheme {
                 .font(.system(size: 16))
                 .foregroundStyle(Color.primary, Color.secondary)
                 .frame(width: 18, height: 18)
-        case .light, .dark, .warm:
+        case .light, .dark, .warm, .nord, .solarized, .forest, .cyberpunk, .terminal, .vaporwave:
             Circle()
                 .fill(swatchColor)
                 .frame(width: 18, height: 18)
@@ -32,8 +32,9 @@ extension AppTheme {
     }
 
     /// `.light`/`.dark` force their own appearance so the swatch stays
-    /// correct regardless of the device's current one. `.warm` has its own
-    /// literal palette, so no resolving is needed. Not called for `.system`.
+    /// correct regardless of the device's current one. Every other theme
+    /// has its own literal palette, so no resolving is needed. Not called
+    /// for `.system`.
     private var swatchColor: Color {
         #if os(iOS)
         switch self {
@@ -49,10 +50,28 @@ extension AppTheme {
             ))
         case .warm:
             VikuPalette.warm.pageBackground
+        case .nord:
+            VikuPalette.nord.pageBackground
+        case .solarized:
+            VikuPalette.solarized.pageBackground
+        case .forest:
+            VikuPalette.forest.pageBackground
+        case .cyberpunk:
+            VikuPalette.cyberpunk.pageBackground
+        case .terminal:
+            VikuPalette.terminal.pageBackground
+        case .vaporwave:
+            VikuPalette.vaporwave.pageBackground
         }
         #else
         switch self {
         case .warm: VikuPalette.warm.pageBackground
+        case .nord: VikuPalette.nord.pageBackground
+        case .solarized: VikuPalette.solarized.pageBackground
+        case .forest: VikuPalette.forest.pageBackground
+        case .cyberpunk: VikuPalette.cyberpunk.pageBackground
+        case .terminal: VikuPalette.terminal.pageBackground
+        case .vaporwave: VikuPalette.vaporwave.pageBackground
         case .system, .light, .dark: Color.gray.opacity(0.1)
         }
         #endif

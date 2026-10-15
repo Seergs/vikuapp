@@ -88,4 +88,34 @@ struct ThemeCenterTests {
         center.setTheme(.dark)
         #expect(center.palette == .standard)
     }
+
+    @Test(arguments: [
+        (AppTheme.nord, VikuPalette.nord),
+        (AppTheme.solarized, VikuPalette.solarized),
+        (AppTheme.cyberpunk, VikuPalette.cyberpunk),
+        (AppTheme.terminal, VikuPalette.terminal),
+        (AppTheme.vaporwave, VikuPalette.vaporwave),
+    ])
+    func `dark-scheme theme forces dark and selects its own palette`(theme: AppTheme, palette: VikuPalette) {
+        let center = ThemeCenter(defaults: makeDefaults())
+
+        center.setTheme(theme)
+
+        #expect(center.theme == theme)
+        #expect(center.colorScheme == .dark)
+        #expect(center.palette == palette)
+    }
+
+    @Test
+    func `forest persists, forces the light color scheme, and selects the forest palette`() {
+        let defaults = makeDefaults()
+        let center = ThemeCenter(defaults: defaults)
+
+        center.setTheme(.forest)
+
+        #expect(center.theme == .forest)
+        #expect(center.colorScheme == .light)
+        #expect(center.palette == .forest)
+        #expect(defaults.string(forKey: "appTheme") == "forest")
+    }
 }
