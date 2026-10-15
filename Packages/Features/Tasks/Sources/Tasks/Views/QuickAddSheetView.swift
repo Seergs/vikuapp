@@ -83,6 +83,13 @@ public struct QuickAddSheetView: View {
             // instead of being split above and below a vertically-centered
             // block (which pushed the title away from the toolbar).
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            // Without this, the sheet falls back to the system's own
+            // material background instead of the active theme's canvas —
+            // invisible for themes whose `pageBackground` is close to that
+            // system gray, but a visible mismatch against `fieldBackground`
+            // for a saturated one (e.g. `vaporwave`'s indigo page behind a
+            // violet field).
+            .background(palette.pageBackground)
             // A spring rather than `.easeInOut`: closer to the curve the
             // system itself uses to animate a sheet's own detent resize, so
             // our content's own transition doesn't visibly race against it.
