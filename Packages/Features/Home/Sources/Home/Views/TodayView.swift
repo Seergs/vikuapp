@@ -12,6 +12,7 @@ struct TodayView: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.vikuPalette) private var palette
     @State private var filter: TodayFilter = .all
+    @State private var searchText = ""
     @State private var taskPendingDelete: VikunjaTask?
     @State private var taskPendingMove: VikunjaTask?
     @State private var taskPendingDuplicate: VikunjaTask?
@@ -26,6 +27,7 @@ struct TodayView: View {
             .background(palette.pageBackground)
             .refreshable { await viewModel.load() }
             .navigationTitle(Text(verbatim: viewModel.title))
+            .searchable(text: $searchText, prompt: Text("Search tasks", bundle: .module))
             .task { await viewModel.load() }
             .confirmationDialog(
                 Text("This permanently deletes the task.", bundle: .module),
@@ -175,7 +177,7 @@ struct TodayView: View {
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
 
-        let visible = TodaySection.sections(from: viewModel.tasks, filter: filter)
+        let visible = TodaySection.sections(from: filteredTasks, filter: filter)
         if visible.isEmpty {
             VikuStatusView(
                 systemImage: "checkmark.circle",
@@ -207,7 +209,7 @@ struct TodayView: View {
     /// restriction, since those are specific to the Today digest above.
     @ViewBuilder
     private var pinnedContent: some View {
-        let sections = PinnedTaskSection.sections(from: viewModel.tasks)
+        let sections = PinnedTaskSection.sections(from: filteredTasks)
         if sections.isEmpty {
             VikuStatusView(
                 systemImage: "checkmark.circle",
@@ -227,6 +229,14 @@ struct TodayView: View {
                 }
             }
         }
+    }
+
+    /// `viewModel.tasks` narrowed to the in-flight search text, by title only
+    /// — local filtering over whatever's already loaded, not a server
+    /// round-trip (that's what the global Search tab is for).
+    private var filteredTasks: [VikunjaTask] {
+        guard !searchText.isEmpty else { return viewModel.tasks }
+        return viewModel.tasks.filter { $0.title.localizedStandardContains(searchText) }
     }
 
     private func sectionHeader(_ title: String, count: Int) -> some View {

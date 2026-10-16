@@ -38,6 +38,7 @@ struct ProjectOverviewView: View {
     let makeCreateProjectViewModel: (Int?) -> CreateProjectViewModel
     @State private var displayMode: ProjectDisplayMode = .list
     @State private var filter: ProjectTaskFilter = .all
+    @State private var searchText = ""
     @State private var taskPendingDelete: VikunjaTask?
     @State private var taskPendingMove: VikunjaTask?
     @State private var taskPendingDuplicate: VikunjaTask?
@@ -49,6 +50,14 @@ struct ProjectOverviewView: View {
 
     private var sort: TaskSort {
         TaskSort(field: viewModel.sortField, direction: viewModel.sortDirection)
+    }
+
+    /// `viewModel.tasks` narrowed to the in-flight search text, by title only
+    /// — local filtering over whatever's already loaded, not a server
+    /// round-trip (that's what the global Search tab is for).
+    private var filteredTasks: [VikunjaTask] {
+        guard !searchText.isEmpty else { return viewModel.tasks }
+        return viewModel.tasks.filter { $0.title.localizedStandardContains(searchText) }
     }
 
     var body: some View {
@@ -65,6 +74,7 @@ struct ProjectOverviewView: View {
         }
         .background(palette.pageBackground)
         .navigationTitle(viewModel.project.title)
+        .searchable(text: $searchText, prompt: Text("Search tasks", bundle: .module))
         .toolbar {
             if viewModel.supportsKanban {
                 // Pops in once the capability check resolves rather than
@@ -270,7 +280,7 @@ struct ProjectOverviewView: View {
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
 
-        let visible = ProjectTaskSection.sections(from: viewModel.tasks, filter: filter, sort: sort)
+        let visible = ProjectTaskSection.sections(from: filteredTasks, filter: filter, sort: sort)
         if visible.isEmpty {
             VikuStatusView(
                 systemImage: "checkmark.circle",
