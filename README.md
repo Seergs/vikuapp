@@ -60,11 +60,12 @@ and only shows the ones that are actually available.
 ### The app
 
 - **Multiple Instances:** Connect several Vikunja accounts and switch between them.
-- **Today:** An account-wide list of what is overdue, due today, and coming up across every project, behind quick filters.
+- **Home:** An account-wide list of what is overdue, due today, and coming up across every project, behind quick filters. Pin a project or a saved filter in Settings to show that instead.
 - **Quick Capture:** Add a task in one tap from the tab bar, the Today home-screen widget, or the `viku://quick-add` deep link
 - **Quick-add shortcuts (experimental):** Set the project, priority and labels by typing them into the title. See [Quick-Add Shortcuts](docs/quick-add-shortcuts.md).
 - **Widgets:** Quickly see your daily tasks and a calendar view from your Home screen.
 - **Kanban board:** Switch a project between List and Kanban view, drag tasks between buckets, and add tasks directly into a bucket. Requires a Vikunja instance on 2.4.0+.
+- **Themes:** Multiple color palettes, including light, dark and Warm, with live previews in Settings > Appearance.
 
 ### Planned
 
@@ -83,13 +84,18 @@ so it covers the parts of the API that matter for day-to-day mobile use
 - Move a task to another project
 - Account-wide search
 - Duplicate (client-side copy)
-- Editable fields: title, description, completion, due date, priority, labels
+- Editable fields: title, description, completion, due date, priority, labels, reminders
 
 
 **Projects**
 
 - Create, update, delete
 - Nest a project under a parent
+
+**Saved Filters**
+
+- View tasks from a saved filter created on the server, alongside projects
+- Pin a saved filter to Home
 
 **Labels**
 
@@ -117,8 +123,8 @@ so it covers the parts of the API that matter for day-to-day mobile use
 
 **Not yet supported**
 
-- Start dates, reminders, assignees, percent done, repeating tasks, task colors
-- Saved filters and custom project views
+- Start dates, assignees, percent done, repeating tasks, task colors
+- Custom project views
 - Kanban bucket management (create/rename/delete/reorder buckets, WIP limits), intra-column reordering, filter-populated buckets
 - Gantt, table views
 - Team and permission management, instance settings
