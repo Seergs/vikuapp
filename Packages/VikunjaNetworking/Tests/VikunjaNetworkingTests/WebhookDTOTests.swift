@@ -46,8 +46,8 @@ struct WebhookDTOTests {
 
         #expect(webhooks[0].userID == 3)
         #expect(webhooks[0].projectID == nil)
-        #expect(webhooks[0].events == [.taskOverdue, .taskReminderFired])
-        #expect(webhooks[0].events.map(\.rawValue) == ["task.overdue", "task.reminder.fired"])
+        #expect(webhooks[0].events == [.tasksOverdue, .taskReminderFired])
+        #expect(webhooks[0].events.map(\.rawValue) == ["tasks.overdue", "task.reminder.fired"])
     }
 
     @Test
@@ -59,7 +59,7 @@ struct WebhookDTOTests {
         #expect(events.contains(.taskCreated))
         #expect(events.contains(.projectSharedTeam))
         // Project-level events never include the two user-directed ones.
-        #expect(!events.contains(.taskOverdue))
+        #expect(!events.contains(.tasksOverdue))
     }
 
     @Test
@@ -80,7 +80,7 @@ struct WebhookDTOTests {
     @Test
     func `round trips a create request through toCreateDTO and toDomain`() throws {
         let targetURL = try #require(URL(string: "https://relay.viku.app/h/round-trip"))
-        let dto = WebhookMapper.toCreateDTO(targetURL: targetURL, events: [.taskOverdue], secret: "shh")
+        let dto = WebhookMapper.toCreateDTO(targetURL: targetURL, events: [.tasksOverdue], secret: "shh")
 
         #expect(dto.id == 0)
         #expect(dto.secret == "shh")
@@ -89,7 +89,7 @@ struct WebhookDTOTests {
 
         let webhook = try #require(WebhookMapper.toDomain(dto))
         #expect(webhook.targetURL == targetURL)
-        #expect(webhook.events == [.taskOverdue])
+        #expect(webhook.events == [.tasksOverdue])
     }
 
     private func loadDTOs(resource: String) throws -> [WebhookDTO] {

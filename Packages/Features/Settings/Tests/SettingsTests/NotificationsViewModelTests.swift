@@ -168,7 +168,7 @@ struct NotificationsViewModelTests {
         let viewModel = makeViewModel(webhookRepository: webhookRepository)
         await viewModel.confirmEnable()
 
-        await viewModel.setUserLevelEvent(.taskOverdue, isEnabled: true)
+        await viewModel.setUserLevelEvent(.tasksOverdue, isEnabled: true)
         await viewModel.setUserLevelEvent(.taskReminderFired, isEnabled: true)
 
         #expect(viewModel.settings.userLevelEvents == WebhookEvent.userDirected)
@@ -184,11 +184,11 @@ struct NotificationsViewModelTests {
         let viewModel = makeViewModel(webhookRepository: webhookRepository)
         await viewModel.confirmEnable()
 
-        await viewModel.setUserLevelEvent(.taskOverdue, isEnabled: true)
+        await viewModel.setUserLevelEvent(.tasksOverdue, isEnabled: true)
 
-        #expect(viewModel.settings.userLevelEvents == [.taskOverdue])
+        #expect(viewModel.settings.userLevelEvents == [.tasksOverdue])
         #expect(webhookRepository.createdUserWebhooks.count == 1)
-        #expect(webhookRepository.createdUserWebhooks[0].events == [.taskOverdue])
+        #expect(webhookRepository.createdUserWebhooks[0].events == [.tasksOverdue])
     }
 
     @Test
@@ -353,7 +353,7 @@ struct NotificationsViewModelTests {
         )
         await viewModel.load()
         await viewModel.confirmEnable()
-        await viewModel.setUserLevelEvent(.taskOverdue, isEnabled: true)
+        await viewModel.setUserLevelEvent(.tasksOverdue, isEnabled: true)
         await viewModel.setUserLevelEvent(.taskReminderFired, isEnabled: true)
         await viewModel.setProjectEvent(.taskCreated, isEnabled: true, for: project)
 
@@ -377,7 +377,7 @@ struct NotificationsViewModelTests {
         let viewModel = makeViewModel(webhookRepository: webhookRepository, projectRepository: projectRepository)
         await viewModel.load()
         await viewModel.confirmEnable()
-        await viewModel.setUserLevelEvent(.taskOverdue, isEnabled: true)
+        await viewModel.setUserLevelEvent(.tasksOverdue, isEnabled: true)
         await viewModel.setUserLevelEvent(.taskReminderFired, isEnabled: true)
         await viewModel.setProjectEvent(.taskCreated, isEnabled: true, for: project)
         await viewModel.disable()

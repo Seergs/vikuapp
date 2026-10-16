@@ -21,9 +21,14 @@ public enum WebhookEvent: String, Sendable, CaseIterable, Hashable, Codable {
     case projectDeleted = "project.deleted"
     case projectSharedUser = "project.shared.user"
     case projectSharedTeam = "project.shared.team"
-    /// User-directed: a task assigned to (or created by, depending on
-    /// server config) the webhook's owner became overdue.
-    case taskOverdue = "task.overdue"
+    /// User-directed: one or more tasks owned by the webhook's owner became
+    /// overdue. Vikunja's daily overdue check (`overdue_tasks_reminders_time`
+    /// on `User`) fires this once with every currently-overdue task attached,
+    /// rather than firing the single-task `task.overdue` event per task — the
+    /// app subscribes to this one so a day's worth of overdue tasks arrives
+    /// as one delivery, which the relay then fans out into one push per task
+    /// (`notify.MapOverdueDigest` in the `viku-apn-relay` repo).
+    case tasksOverdue = "tasks.overdue"
     /// User-directed: a reminder the webhook's owner set on a task fired.
     case taskReminderFired = "task.reminder.fired"
 
@@ -32,17 +37,17 @@ public enum WebhookEvent: String, Sendable, CaseIterable, Hashable, Codable {
     /// restriction: Vikunja's server-side validation (`Webhook.Create` in
     /// `pkg/models/webhooks.go`) only enforces it for a webhook with
     /// `UserID` set. A *project* webhook has no such restriction — it may
-    /// subscribe to any event `/webhooks/events` lists, `taskOverdue`/
+    /// subscribe to any event `/webhooks/events` lists, `tasksOverdue`/
     /// `taskReminderFired` included, since the server registers both of
     /// them into that same pool via `RegisterUserDirectedEventForWebhook`
     /// (which calls `RegisterEventForWebhook` first). See `projectOrdered`.
-    public static let userDirected: Set<WebhookEvent> = [.taskOverdue, .taskReminderFired]
+    public static let userDirected: Set<WebhookEvent> = [.tasksOverdue, .taskReminderFired]
 
-    /// `userDirected`, in a stable display order. `taskOverdue` is listed
+    /// `userDirected`, in a stable display order. `tasksOverdue` is listed
     /// last on purpose — `NotificationsView` appends the overdue-reminders
     /// time picker right after it, and that only reads as "this time is for
     /// Overdue Tasks" when the two rows are adjacent.
-    public static let userDirectedOrdered: [WebhookEvent] = [.taskReminderFired, .taskOverdue]
+    public static let userDirectedOrdered: [WebhookEvent] = [.taskReminderFired, .tasksOverdue]
 
     /// Every event a project-level webhook may subscribe to — every case,
     /// `userDirected` included (see its doc comment for why that's not

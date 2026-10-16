@@ -12,8 +12,8 @@ public struct User: Identifiable, Equatable, Sendable {
     /// The time of day, as `HH:mm` (24-hour), Vikunja checks this user's
     /// overdue tasks at (`overdue_tasks_reminders_time`). Drives both the
     /// server's daily "overdue tasks" email and, when the instance has
-    /// webhooks enabled, the `task.overdue` webhook event regardless of
-    /// whether the email is turned on — see `WebhookEvent.taskOverdue`.
+    /// webhooks enabled, the `tasks.overdue` webhook event regardless of
+    /// whether the email is turned on — see `WebhookEvent.tasksOverdue`.
     /// Interpreted in `timezone`, not the device's own time zone.
     public var overdueTasksRemindersTime: String?
     /// The IANA zone (e.g. `"Europe/Madrid"`) Vikunja interprets

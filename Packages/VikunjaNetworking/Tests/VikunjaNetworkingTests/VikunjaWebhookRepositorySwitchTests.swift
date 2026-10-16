@@ -64,7 +64,7 @@ struct VikunjaWebhookRepositorySwitchTests {
         let targetURL = try #require(URL(string: "https://relay.viku.app/h/x"))
 
         _ = try await repository.fetchUserWebhooks()
-        _ = try await repository.createUserWebhook(targetURL: targetURL, events: [.taskOverdue], secret: "s")
+        _ = try await repository.createUserWebhook(targetURL: targetURL, events: [.tasksOverdue], secret: "s")
         _ = try await repository.updateUserWebhook(SpyWebhookRepository.webhook(label: "v1"))
         try await repository.deleteUserWebhook(webhookID: 1)
         _ = try await repository.fetchAvailableUserEvents()
@@ -155,7 +155,7 @@ private final class SpyWebhookRepository: WebhookRepositoryProtocol, @unchecked 
 
     func fetchAvailableUserEvents() async throws -> [WebhookEvent] {
         availableUserEventsCallCount += 1
-        return [.taskOverdue, .taskReminderFired]
+        return [.tasksOverdue, .taskReminderFired]
     }
 }
 

@@ -60,7 +60,7 @@ struct WebhookSyncCoordinatorTests {
 
     @Test
     func `deletes a webhook that's no longer desired`() async throws {
-        let existing = Webhook(id: 9, targetURL: registration.targetURL, events: [.taskOverdue, .taskReminderFired])
+        let existing = Webhook(id: 9, targetURL: registration.targetURL, events: [.tasksOverdue, .taskReminderFired])
         let repository = FakeWebhookRepository(userWebhooks: [existing])
         let coordinator = WebhookSyncCoordinator(webhookRepository: repository)
         let settings = NotificationSettings(isEnabled: true, userLevelEvents: [])

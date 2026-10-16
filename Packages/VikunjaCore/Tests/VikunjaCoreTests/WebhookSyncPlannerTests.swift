@@ -108,7 +108,7 @@ struct WebhookSyncPlannerTests {
     func `turning user level off deletes this device's webhook but leaves someone else's alone`() {
         let planner = WebhookSyncPlanner()
         let settings = NotificationSettings(isEnabled: true, userLevelEvents: [])
-        let ours = Webhook(id: 1, targetURL: registration.targetURL, events: [.taskOverdue, .taskReminderFired])
+        let ours = Webhook(id: 1, targetURL: registration.targetURL, events: [.tasksOverdue, .taskReminderFired])
 
         let plan = planner.plan(
             settings: settings,
