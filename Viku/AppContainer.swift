@@ -7,6 +7,7 @@ import Projects
 import Search
 import Settings
 import Tasks
+import UIKit
 import VikuAuth
 import VikuDesignSystem
 import VikuNavigation
@@ -122,6 +123,11 @@ final class AppContainer {
     /// push notifications, since iOS exposes one combined permission. Pass
     /// this as `AppIconBadgePermissionRequesting` to `makeAppIconBadgeViewModel`.
     let appIconBadgePermissionRequester: AppIconBadgePermissionRequesting = APNsPermissionCenter.shared
+    /// Tracks the OS run-time extension requested by
+    /// `refreshWidgetSnapshotsBeforeSuspension()` so it can be ended exactly
+    /// once, from whichever of (refresh finished, OS revoked the extension)
+    /// happens first.
+    private var widgetRefreshBackgroundTaskID = UIBackgroundTaskIdentifier.invalid
 
     init(
         accountStore: AccountStoreProtocol = KeychainAccountStore(
@@ -158,10 +164,18 @@ final class AppContainer {
         let resolver: @Sendable (InstanceAccount) async throws -> String? = {
             try await sessionRefresher.validToken(for: $0)
         }
+        let todayCache = TodaySnapshotCache(appGroupIdentifier: VikuWidgetConfig.appGroupIdentifier)
+        // Apply the last known count right away: `read()` is a local disk
+        // read with no network, so the icon reflects *something* current
+        // even if the live fetch below never gets to finish (e.g. the app
+        // gets suspended mid-fetch right after entering the background).
+        if let cachedContent = todayCache.read() {
+            await appIconBadgeCenter.updateBadge(from: .content(cachedContent))
+        }
         let todayLoader = TodaySnapshotLoader(
             accountStore: accountStore,
             clientFactory: clientFactory,
-            cache: TodaySnapshotCache(appGroupIdentifier: VikuWidgetConfig.appGroupIdentifier),
+            cache: todayCache,
             tokenResolver: resolver,
         )
         let calendarLoader = CalendarSnapshotLoader(
@@ -174,8 +188,36 @@ final class AppContainer {
         _ = await calendarLoader.loadState()
         WidgetCenter.shared.reloadAllTimelines()
         // Reuses the fetch above instead of hitting the network again just
-        // for the badge.
+        // for the badge. Overwrites the optimistic value set above once
+        // fresh data has actually landed.
         await appIconBadgeCenter.updateBadge(from: todayState)
+    }
+
+    /// Same refresh as `refreshWidgetSnapshots()`, but requests extra run
+    /// time from the OS first. Call this instead of a plain
+    /// `Task { await refreshWidgetSnapshots() }` from a `scenePhase ==
+    /// .background` transition: without it, iOS can suspend the app before
+    /// the network fetch inside `refreshWidgetSnapshots()` finishes, so the
+    /// live badge/widget update silently never runs.
+    func refreshWidgetSnapshotsBeforeSuspension() {
+        endWidgetRefreshBackgroundTask()
+        widgetRefreshBackgroundTaskID = UIApplication.shared.beginBackgroundTask(
+            withName: "RefreshWidgetSnapshots",
+        ) { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.endWidgetRefreshBackgroundTask()
+            }
+        }
+        Task {
+            await refreshWidgetSnapshots()
+            endWidgetRefreshBackgroundTask()
+        }
+    }
+
+    private func endWidgetRefreshBackgroundTask() {
+        guard widgetRefreshBackgroundTaskID != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(widgetRefreshBackgroundTaskID)
+        widgetRefreshBackgroundTaskID = .invalid
     }
 
     /// Refreshes the cached Vikunja default project for `account` from

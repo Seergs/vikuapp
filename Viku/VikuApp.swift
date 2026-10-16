@@ -25,7 +25,7 @@ struct VikuApp: App {
             // App Group caches the widgets render, so this works even where
             // the widgets can't read the keychain themselves.
             if phase == .background {
-                Task { await container.refreshWidgetSnapshots() }
+                container.refreshWidgetSnapshotsBeforeSuspension()
             }
         }
     }
