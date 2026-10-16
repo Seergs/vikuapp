@@ -481,6 +481,16 @@
         }
       }
     },
+    "Custom...": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personalizado..."
+          }
+        }
+      }
+    },
     "Days": {
       "localizations": {
         "es": {
@@ -621,6 +631,26 @@
         }
       }
     },
+    "Next Week": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Próxima semana"
+          }
+        }
+      }
+    },
+    "Next Weekend": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Próximo fin de semana"
+          }
+        }
+      }
+    },
     "No other tasks in this project": {
       "localizations": {
         "es": {
@@ -637,6 +667,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sin resultados"
+          }
+        }
+      }
+    },
+    "None": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ninguna"
           }
         }
       }
@@ -807,6 +847,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Esa hora ya pasó: %@"
+          }
+        }
+      }
+    },
+    "Today": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hoy"
+          }
+        }
+      }
+    },
+    "Tomorrow": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mañana"
           }
         }
       }

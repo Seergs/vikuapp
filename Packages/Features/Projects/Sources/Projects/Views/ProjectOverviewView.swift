@@ -322,9 +322,11 @@ struct ProjectOverviewView: View {
                                 Task { await viewModel.toggleDone(task) }
                             }
                             Divider()
-                            Button(String(localized: "Due Date", bundle: .module), systemImage: "calendar") {
-                                taskPendingDueDateEdit = task
-                            }
+                            DueDateMenu(
+                                currentDueDate: task.dueDate,
+                                onSelect: { date in Task { await viewModel.setDueDate(task, to: date) } },
+                                onCustom: { taskPendingDueDateEdit = task },
+                            )
                             Menu(String(localized: "Priority", bundle: .module), systemImage: "flag") {
                                 ForEach(VikunjaTask.Priority.selectable, id: \.self) { priority in
                                     Button {

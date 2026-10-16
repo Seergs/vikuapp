@@ -111,6 +111,12 @@ struct LocalizationTests {
         ("1 hour before", "1 hora antes"),
         ("1 day before", "1 día antes"),
         ("1 week before", "1 semana antes"),
+        ("None", "Ninguna"),
+        ("Today", "Hoy"),
+        ("Tomorrow", "Mañana"),
+        ("Next Weekend", "Próximo fin de semana"),
+        ("Next Week", "Próxima semana"),
+        ("Custom...", "Personalizado..."),
     ])
     func `key resolves to its Spanish translation`(key: String, expected: String) {
         #expect(Self.es(key) == expected)
