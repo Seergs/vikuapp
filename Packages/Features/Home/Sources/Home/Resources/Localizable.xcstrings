@@ -330,6 +330,16 @@
           }
         }
       }
+    },
+    "Search tasks" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar tareas"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
