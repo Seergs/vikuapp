@@ -112,6 +112,7 @@ struct NotificationsConsentSheet: View {
             .padding(.top, VikuSpacing.xl)
             .padding(.bottom, VikuSpacing.md)
         }
+        .background(palette.cardBackground)
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: VikuSpacing.sm + VikuSpacing.xs) {
                 Button {
@@ -132,7 +133,7 @@ struct NotificationsConsentSheet: View {
                     .foregroundStyle(palette.textSecondary)
             }
             .padding(VikuSpacing.md)
-            .background(palette.pageBackground)
+            .background(palette.cardBackground)
         }
         .presentationDragIndicator(.visible)
     }
