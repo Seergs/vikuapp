@@ -208,12 +208,7 @@ struct ProjectNotificationsView: View {
                 VStack(spacing: 0) {
                     ForEach(Array(group.events.enumerated()), id: \.element) { index, event in
                         Toggle(isOn: eventBinding(event)) {
-                            VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
-                                Text(eventLabel(event))
-                                Text(verbatim: event.rawValue)
-                                    .font(.system(.caption, design: .monospaced))
-                                    .foregroundStyle(palette.textTertiary)
-                            }
+                            Text(eventLabel(event))
                         }
                         .disabled(isDisabled)
                         .vikuCardRow(index: index, count: group.events.count)

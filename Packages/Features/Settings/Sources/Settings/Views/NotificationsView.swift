@@ -237,12 +237,7 @@ struct NotificationsView: View {
             VStack(spacing: 0) {
                 ForEach(Array(WebhookEvent.userDirectedOrdered.enumerated()), id: \.element) { index, event in
                     Toggle(isOn: userLevelEventBinding(event)) {
-                        VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
-                            Text(eventLabel(event))
-                            Text(verbatim: event.rawValue)
-                                .font(.system(.caption, design: .monospaced))
-                                .foregroundStyle(palette.textTertiary)
-                        }
+                        Text(eventLabel(event))
                     }
                     .disabled(viewModel.pendingChange == .userLevel)
                     .vikuCardRow(index: index, count: userLevelRowCount)
