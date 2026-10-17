@@ -455,6 +455,23 @@ final class AppContainer {
         )
     }
 
+    /// Resolves a tapped push notification's `task_id` into the task and its
+    /// project, for `MainTabView.handleTaskDeepLink`. Only ever called for
+    /// `account` already confirmed to be the push's target account — a
+    /// mismatch is handled before this by showing a toast instead (switching
+    /// accounts automatically is not built yet).
+    func resolveTaskDeepLink(id: Int, account: InstanceAccount) async throws -> (VikunjaTask, Project) {
+        let tokenProvider = tokenProvider(for: account)
+        let taskRepository = clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider)
+        let projectRepository = clientFactory.makeProjectRepository(
+            baseURL: account.baseURL,
+            tokenProvider: tokenProvider,
+        )
+        let task = try await taskRepository.fetchTask(id: id)
+        let project = try await projectRepository.fetchProject(id: task.projectID)
+        return (task, project)
+    }
+
     /// - Parameter preselectedProjectID: snapshotted by the caller (see
     ///   `MainTabView`) at the moment the quick-add sheet is opened — not read
     ///   from `quickAddContext` here, since this factory runs inside a

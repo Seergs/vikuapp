@@ -44,15 +44,32 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
     /// Without a delegate at all, iOS silently drops a push while the app is
     /// in the foreground — delivery still succeeds (the relay/APNs logs show
     /// it), the banner just never appears, which looks indistinguishable
-    /// from a broken delivery. This only restores the banner; routing a tap
-    /// to the right task isn't built yet — there's no
-    /// `userNotificationCenter(_:didReceive:)` implementation.
+    /// from a broken delivery.
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void,
     ) {
         completionHandler([.banner, .sound, .badge])
+    }
+
+    /// Fires on a tap, whether it cold-launches the app, resumes it from the
+    /// background, or it's already in the foreground. Parks the parsed
+    /// `DeepLink` on the same `DeepLinkRouter.shared` a `viku://` URL or the
+    /// Home Screen quick action uses — `MainTabView` resolves it into a task
+    /// once its shell (and the right account's repositories) exist.
+    /// `@MainActor` here, not on the whole conformance, because only this
+    /// method touches `DeepLinkRouter`; the compiler inserts the actor hop
+    /// since `UNUserNotificationCenterDelegate` is an `@objc` protocol.
+    @MainActor
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void,
+    ) {
+        defer { completionHandler() }
+        guard let link = DeepLink(pushUserInfo: response.notification.request.content.userInfo) else { return }
+        DeepLinkRouter.shared.open(link)
     }
 }
 
