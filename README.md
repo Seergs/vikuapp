@@ -21,17 +21,31 @@ the web, where they belong.
 
 ## Screenshots
 
-| Today | Projects | Task |
+| Home | Projects | Task |
 |---|---|---|
-| ![Today](docs/screenshots/today.jpg) | ![Projects](docs/screenshots/projects.jpg) | ![Task](docs/screenshots/task.jpg) |
+| ![Home](docs/screenshots/home.jpg) | ![Projects](docs/screenshots/projects.jpg) | ![Task](docs/screenshots/task.jpg) |
 
-| Project selector | New task | Calendar |
+| Quick add | Calendar | Kanban |
 |---|---|---|
-| ![Project selector](docs/screenshots/project-selector.jpg) | ![New task](docs/screenshots/new-task.jpg) | ![Calendar](docs/screenshots/calendar.jpg) |
+| ![Quick add](docs/screenshots/quickadd.jpg) | ![Calendar](docs/screenshots/calendar.jpg) | ![Kanban](docs/screenshots/kanban.jpg) |
 
-| Today widgets | Calendar widget |
+| Home widgets | Calendar widget |
 |---|---|
-| ![Today widgets](docs/screenshots/widgets-1.jpg) | ![Calendar widget](docs/screenshots/widgets-2.jpg) |
+| ![Home widgets](docs/screenshots/widgets-1.jpg) | ![Calendar widget](docs/screenshots/widgets-2.jpg) |
+
+## Themes
+
+| Light | Dark | Warm |
+|---|---|---|
+| ![Light](docs/screenshots/themes/light.jpg) | ![Dark](docs/screenshots/themes/dark.jpg) | ![Warm](docs/screenshots/themes/warm.jpg) |
+
+| Forest | Nord | Solarized |
+|---|---|---|
+| ![Forest](docs/screenshots/themes/forest.jpg) | ![Nord](docs/screenshots/themes/nord.jpg) | ![Solarized](docs/screenshots/themes/solarized.jpg) |
+
+| Terminal | Cyberpunk | Vaporwave |
+|---|---|---|
+| ![Terminal](docs/screenshots/themes/terminal.jpg) | ![Cyberpunk](docs/screenshots/themes/cyberpunk.jpg) | ![Vaporwave](docs/screenshots/themes/vaporwave.jpg) |
 
 ## How to Use
 
