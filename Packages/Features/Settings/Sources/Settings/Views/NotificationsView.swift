@@ -221,7 +221,7 @@ struct NotificationsView: View {
     /// Whether the "Overdue Tasks" webhook event is selected — the time row
     /// only means something once this app is actually subscribed to it.
     private var showsOverdueTasksTimeRow: Bool {
-        viewModel.settings.userLevelEvents.contains(.taskOverdue)
+        viewModel.settings.userLevelEvents.contains(.tasksOverdue)
     }
 
     private var userLevelRowCount: Int {
@@ -405,7 +405,7 @@ func eventLabel(_ event: WebhookEvent) -> String {
     case .projectDeleted: String(localized: "Project Deleted", bundle: .module)
     case .projectSharedUser: String(localized: "Project Shared with a User", bundle: .module)
     case .projectSharedTeam: String(localized: "Project Shared with a Team", bundle: .module)
-    case .taskOverdue: String(localized: "Overdue Tasks", bundle: .module)
+    case .tasksOverdue: String(localized: "Overdue Tasks", bundle: .module)
     case .taskReminderFired: String(localized: "Reminders", bundle: .module)
     }
 }
