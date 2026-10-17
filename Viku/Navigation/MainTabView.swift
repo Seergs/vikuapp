@@ -205,6 +205,19 @@ struct MainTabView: View {
             navigate(to: action)
             container.toastCenter.acknowledgeTappedAction()
         }
+        // A tapped push notification resolves here too, the same way the
+        // `viku://quick-add` deep link resolves in `QuickAddOverlay` below:
+        // `.onChange` covers a tap that arrives while this shell is up,
+        // `.task` covers one already parked on the router when it mounts
+        // (cold launch, or a launch that landed on a different account's
+        // shell first and switched - not built yet, see
+        // `handleTaskDeepLink`).
+        .onChange(of: container.deepLinkRouter.pending) { _, link in
+            Task { await handleTaskDeepLink(link) }
+        }
+        .task {
+            await handleTaskDeepLink(container.deepLinkRouter.pending)
+        }
         .alert(Text("Session Expired"), isPresented: $isShowingSessionExpiredAlert) {
             Button {
                 selection = .settings
@@ -240,14 +253,21 @@ struct MainTabView: View {
         }
     }
 
-    /// Pushes a tapped toast's action onto the active tab's `AppRouter`. The
-    /// Settings tab has none (it uses its own `Router<SettingsRoute>`), so a
-    /// toast tapped there switches to Home first rather than silently doing
-    /// nothing.
+    /// Pushes a tapped toast's action onto the active tab's `AppRouter`.
     private func navigate(to action: ToastAction) {
-        let route: AppRoute = switch action {
-        case let .taskDetail(task, project): .taskDetail(task, project)
+        switch action {
+        case let .taskDetail(task, project): pushTaskDetail(task, project)
         }
+    }
+
+    /// Pushes a task's detail screen onto the active tab's `AppRouter`. The
+    /// Settings tab has none (it uses its own `Router<SettingsRoute>`), so a
+    /// push that lands there switches to Home first rather than silently
+    /// doing nothing. Shared by a tapped toast action and a tapped push
+    /// notification (`handleTaskDeepLink` below) - both resolve a task the
+    /// same screen needs to show, just from different triggers.
+    private func pushTaskDetail(_ task: VikunjaTask, _ project: Project) {
+        let route = AppRoute.taskDetail(task, project)
         switch selection {
         case .home: homeRouter.push(route)
         case .projects: projectsRouter.push(route)
@@ -256,6 +276,28 @@ struct MainTabView: View {
         case .settings:
             selection = .home
             homeRouter.push(route)
+        }
+    }
+
+    /// Resolves a tapped push notification's `.task` deep link and opens it,
+    /// or tells the user why it can't. A mismatched `accountKey` (the push
+    /// belongs to an account other than the one this shell is showing) stays
+    /// a toast for now - switching the active account and rebuilding this
+    /// shell to match isn't built yet.
+    private func handleTaskDeepLink(_ link: DeepLink?) async {
+        guard case let .task(id, accountKey) = link else { return }
+        defer { container.deepLinkRouter.clear() }
+
+        guard accountKey == account.id.uuidString else {
+            container.toastCenter.show(String(localized: "Switch accounts to open this task."), style: .info)
+            return
+        }
+
+        do {
+            let (task, project) = try await container.resolveTaskDeepLink(id: id, account: account)
+            pushTaskDetail(task, project)
+        } catch {
+            container.toastCenter.show(String(localized: "Couldn't open this task."), style: .error)
         }
     }
 }

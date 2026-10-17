@@ -21,6 +21,16 @@
         }
       }
     },
+    "Couldn't open this task." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo abrir esta tarea."
+          }
+        }
+      }
+    },
     "Couldn't reach Apple's push service. Try again." : {
       "localizations" : {
         "es" : {
@@ -117,6 +127,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Inicio"
+          }
+        }
+      }
+    },
+    "Switch accounts to open this task." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambia de cuenta para abrir esta tarea."
           }
         }
       }
