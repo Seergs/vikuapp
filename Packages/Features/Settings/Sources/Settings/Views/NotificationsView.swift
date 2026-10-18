@@ -20,6 +20,7 @@ struct NotificationsView: View {
     let viewModel: NotificationsViewModel
     let router: Router<SettingsRoute>
     @State private var isShowingConsent = false
+    @State private var isShowingDisableConfirmation = false
     @State private var projectQuery = ""
     /// Mirrors `viewModel.isSyncing`, but only after it's been true for
     /// `syncIndicatorDelay` — see `body`'s `.task(id:)`. A round trip that
@@ -84,6 +85,18 @@ struct NotificationsView: View {
                 NotificationsConsentSheet {
                     Task { await viewModel.confirmEnable() }
                 }
+            }
+            .confirmationDialog(
+                Text("Turn off push notifications?", bundle: .module),
+                isPresented: $isShowingDisableConfirmation,
+                titleVisibility: .visible,
+            ) {
+                Button(String(localized: "Turn Off", bundle: .module), role: .destructive) {
+                    Task { await viewModel.disable() }
+                }
+                Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
+            } message: {
+                Text("This removes the webhooks Viku created on your Vikunja instance.", bundle: .module)
             }
             .onAppear { Task { await viewModel.load() } }
             // `.task(id:)` cancels the previous task the instant `isSyncing`
@@ -174,14 +187,20 @@ struct NotificationsView: View {
             .vikuCardRow(index: 0, count: 1)
 
             VStack(alignment: .leading, spacing: VikuSpacing.sm) {
-                Group {
-                    if viewModel.settings.isEnabled {
-                        Text("Turning this off removes the webhooks Viku created on your instance.", bundle: .module)
-                    } else {
-                        Text("Requires Viku Relay, a service hosted by the Viku team.", bundle: .module)
-                            + Text(verbatim: " ")
-                            + Text("Vikunja does not send push to iOS directly.", bundle: .module)
+                VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
+                    Group {
+                        if viewModel.settings.isEnabled {
+                            Text(
+                                "Turning this off removes the webhooks Viku created on your instance.",
+                                bundle: .module,
+                            )
+                        } else {
+                            Text("Requires Viku Relay, a service hosted by the Viku team.", bundle: .module)
+                                + Text(verbatim: " ")
+                                + Text("Vikunja does not send push to iOS directly.", bundle: .module)
+                        }
                     }
+                    Text("You won't be notified for your own actions.", bundle: .module)
                 }
                 .font(VikuFont.caption)
                 .foregroundStyle(palette.textTertiary)
@@ -358,7 +377,7 @@ struct NotificationsView: View {
                 if newValue {
                     isShowingConsent = true
                 } else {
-                    Task { await viewModel.disable() }
+                    isShowingDisableConfirmation = true
                 }
             },
         )
