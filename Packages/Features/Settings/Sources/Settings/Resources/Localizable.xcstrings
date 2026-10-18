@@ -1780,6 +1780,36 @@
           }
         }
       }
+    },
+    "Turn off push notifications?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Desactivar las notificaciones push?"
+          }
+        }
+      }
+    },
+    "Turn Off" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desactivar"
+          }
+        }
+      }
+    },
+    "This removes the webhooks Viku created on your Vikunja instance." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esto elimina los webhooks que Viku creó en tu instancia de Vikunja."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
