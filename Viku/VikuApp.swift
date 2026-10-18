@@ -14,6 +14,10 @@ struct VikuApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @Environment(\.scenePhase) private var scenePhase
 
+    init() {
+        AppDelegate.container = container
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView(container: container)
