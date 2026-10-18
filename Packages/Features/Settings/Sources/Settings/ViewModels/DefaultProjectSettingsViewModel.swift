@@ -23,6 +23,16 @@ public final class DefaultProjectSettingsViewModel {
         loadState == .loading
     }
 
+    /// The picker's offering: real projects only, never Favorites or a
+    /// saved filter (the server's `default_project_id` write rejects both —
+    /// they're pseudo-projects with no row in the real `projects` table) or
+    /// archived projects. Same reasoning as `HomeSelectionSettingsViewModel`'s
+    /// `pickableProjects`, minus the saved-filter allowance: a filter can be
+    /// a Home destination, but it can't own newly created tasks.
+    public var pickableProjects: [Project] {
+        projects.filter { $0.kind == .project && !$0.isArchived }
+    }
+
     /// The default project's display name, or `nil` when none is known — the
     /// row falls back to a localized "None" subtitle in that case. Before
     /// `load()` resolves (including a failed load, so a transient error

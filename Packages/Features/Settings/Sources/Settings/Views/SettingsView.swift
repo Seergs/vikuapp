@@ -210,7 +210,7 @@ struct SettingsView: View {
         .sheet(isPresented: $isPresentingDefaultProjectPicker) {
             ProjectPickerSheet(
                 title: String(localized: "Default Project", bundle: .module),
-                projects: defaultProjectViewModel.projects.filter { !$0.isArchived },
+                projects: defaultProjectViewModel.pickableProjects,
                 selectedProjectID: defaultProjectViewModel.defaultProjectID,
                 showsNoneOption: true,
             ) { project in
