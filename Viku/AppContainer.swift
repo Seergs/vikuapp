@@ -472,6 +472,58 @@ final class AppContainer {
         return (task, project)
     }
 
+    /// Performs a push notification action button's effect (e.g. "Snooze 1h"
+    /// on a fired reminder, "Due Tomorrow" on an overdue task) without
+    /// opening the app -- called from `AppDelegate.userNotificationCenter(_:didReceive:)`
+    /// for any `actionIdentifier` other than a plain tap. `accountKey` is the
+    /// push payload's `account_key` (`InstanceAccount.id.uuidString`),
+    /// resolved against every saved account rather than just the active one,
+    /// since this can run with no screen -- and no "active account" the user
+    /// is looking at -- open at all. A silent no-op if the account is no
+    /// longer saved or the action identifier is unrecognized, since there's
+    /// no UI here to surface an error to.
+    func performNotificationAction(_ actionIdentifier: String, taskID: Int, accountKey: String) async throws {
+        guard let accounts = try? await accountStore.fetchAccounts(),
+              let account = accounts.first(where: { $0.id.uuidString == accountKey })
+        else { return }
+
+        let tokenProvider = tokenProvider(for: account)
+        let taskRepository = clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider)
+        var task = try await taskRepository.fetchTask(id: taskID)
+
+        switch actionIdentifier {
+        case PushNotificationActionIdentifier.snoozeReminderTenMinutes:
+            snoozeReminder(on: &task, by: 10 * 60)
+        case PushNotificationActionIdentifier.snoozeReminderOneHour:
+            snoozeReminder(on: &task, by: 60 * 60)
+        case PushNotificationActionIdentifier.snoozeReminderThreeHours:
+            snoozeReminder(on: &task, by: 3 * 60 * 60)
+        case PushNotificationActionIdentifier.snoozeReminderOneDay:
+            snoozeReminder(on: &task, by: 24 * 60 * 60)
+        case PushNotificationActionIdentifier.rescheduleDueTomorrow:
+            task.dueDate = Calendar.current.date(byAdding: .day, value: 1, to: Date())
+        default:
+            return
+        }
+
+        _ = try await taskRepository.update(task)
+    }
+
+    /// Bumps the reminder that just fired (the one at or before now, or the
+    /// soonest one if none qualifies) an hour out, converting it to an
+    /// absolute reminder in the process. It must drop `relativeTo` rather
+    /// than just moving `reminder`: go-vikunja recomputes a relative
+    /// reminder's absolute time from the task's due/start/end date on every
+    /// single update, including the one `performNotificationAction` is about
+    /// to send, which would silently undo the snooze on arrival otherwise.
+    private func snoozeReminder(on task: inout VikunjaTask, by duration: TimeInterval) {
+        let now = Date()
+        let index = task.reminders.firstIndex(where: { $0.reminder <= now })
+            ?? task.reminders.indices.min(by: { task.reminders[$0].reminder < task.reminders[$1].reminder })
+        guard let index else { return }
+        task.reminders[index] = TaskReminder(reminder: now.addingTimeInterval(duration))
+    }
+
     /// - Parameter preselectedProjectID: snapshotted by the caller (see
     ///   `MainTabView`) at the moment the quick-add sheet is opened — not read
     ///   from `quickAddContext` here, since this factory runs inside a

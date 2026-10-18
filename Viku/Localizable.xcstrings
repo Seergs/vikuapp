@@ -41,6 +41,16 @@
         }
       }
     },
+    "Due Tomorrow" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mover a mañana"
+          }
+        }
+      }
+    },
     "Not Now" : {
       "localizations" : {
         "es" : {
@@ -87,6 +97,46 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Buscar"
+          }
+        }
+      }
+    },
+    "Snooze 10m" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Posponer 10 min"
+          }
+        }
+      }
+    },
+    "Snooze 1h" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Posponer 1 h"
+          }
+        }
+      }
+    },
+    "Snooze 3h" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Posponer 3 h"
+          }
+        }
+      }
+    },
+    "Snooze 1 Day" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Posponer 1 día"
           }
         }
       }

@@ -10,11 +10,19 @@ import VikuNavigation
 /// `DeepLinkRouter.shared` a `viku://quick-add` URL or the Siri shortcut uses.
 /// Also the `UNUserNotificationCenterDelegate` for push, set on launch below.
 final class AppDelegate: NSObject, UIApplicationDelegate {
+    /// Set from `VikuApp.init()` right after the composition root is built --
+    /// `AppDelegate` is instantiated separately by `@UIApplicationDelegateAdaptor`,
+    /// so this is the only way `userNotificationCenter(_:didReceive:)` can
+    /// reach it to act on a notification action button without opening the
+    /// app.
+    @MainActor static var container: AppContainer?
+
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?,
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        registerPushNotificationCategories()
         return true
     }
 
@@ -53,23 +61,50 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         completionHandler([.banner, .sound, .badge])
     }
 
-    /// Fires on a tap, whether it cold-launches the app, resumes it from the
-    /// background, or it's already in the foreground. Parks the parsed
-    /// `DeepLink` on the same `DeepLinkRouter.shared` a `viku://` URL or the
-    /// Home Screen quick action uses — `MainTabView` resolves it into a task
-    /// once its shell (and the right account's repositories) exist.
-    /// `@MainActor` here, not on the whole conformance, because only this
-    /// method touches `DeepLinkRouter`; the compiler inserts the actor hop
-    /// since `UNUserNotificationCenterDelegate` is an `@objc` protocol.
+    /// Fires on a tap, a dismiss, or an action button, whether it
+    /// cold-launches the app, resumes it from the background, or it's
+    /// already in the foreground. A tap parks the parsed `DeepLink` on the
+    /// same `DeepLinkRouter.shared` a `viku://` URL or the Home Screen quick
+    /// action uses — `MainTabView` resolves it into a task once its shell
+    /// (and the right account's repositories) exist. Any other
+    /// `actionIdentifier` (e.g. "Snooze 1h", "Due Tomorrow" — see
+    /// `PushNotificationActionIdentifier`) is handled directly here, through
+    /// `container`, without ever opening the app. `@MainActor` here, not on
+    /// the whole conformance, because only this method touches
+    /// `DeepLinkRouter`/`container`; the compiler inserts the actor hop since
+    /// `UNUserNotificationCenterDelegate` is an `@objc` protocol.
     @MainActor
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void,
     ) {
-        defer { completionHandler() }
-        guard let link = DeepLink(pushUserInfo: response.notification.request.content.userInfo) else { return }
-        DeepLinkRouter.shared.open(link)
+        guard let link = DeepLink(pushUserInfo: response.notification.request.content.userInfo) else {
+            completionHandler()
+            return
+        }
+
+        switch response.actionIdentifier {
+        case UNNotificationDefaultActionIdentifier:
+            DeepLinkRouter.shared.open(link)
+            completionHandler()
+        case UNNotificationDismissActionIdentifier:
+            completionHandler()
+        default:
+            guard case let .task(id, accountKey) = link else {
+                completionHandler()
+                return
+            }
+            let actionIdentifier = response.actionIdentifier
+            Task {
+                try? await Self.container?.performNotificationAction(
+                    actionIdentifier,
+                    taskID: id,
+                    accountKey: accountKey,
+                )
+                completionHandler()
+            }
+        }
     }
 }
 
