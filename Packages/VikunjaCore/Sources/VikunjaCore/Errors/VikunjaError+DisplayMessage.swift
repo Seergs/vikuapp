@@ -18,8 +18,10 @@ public extension VikunjaError {
             String(localized: "That address didn't respond like a Vikunja instance.", bundle: .module)
         case .unauthorized:
             String(localized: "That server rejected the request.", bundle: .module)
-        case let .server(_, statusCode):
-            String(localized: "The server responded with an error (\(statusCode)).", bundle: .module)
+        case let .server(message, statusCode):
+            message.isEmpty
+                ? String(localized: "The server responded with an error (\(statusCode)).", bundle: .module)
+                : message
         case let .unsupportedServerVersion(minimumRequired, _):
             String(localized: "This app needs Vikunja \(minimumRequired) or newer.", bundle: .module)
         case .totpRequired:
