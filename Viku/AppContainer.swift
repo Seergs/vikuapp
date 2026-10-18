@@ -492,8 +492,6 @@ final class AppContainer {
         var task = try await taskRepository.fetchTask(id: taskID)
 
         switch actionIdentifier {
-        case PushNotificationActionIdentifier.snoozeReminderTenMinutes:
-            snoozeReminder(on: &task, by: 10 * 60)
         case PushNotificationActionIdentifier.snoozeReminderOneHour:
             snoozeReminder(on: &task, by: 60 * 60)
         case PushNotificationActionIdentifier.snoozeReminderThreeHours:
@@ -502,6 +500,12 @@ final class AppContainer {
             snoozeReminder(on: &task, by: 24 * 60 * 60)
         case PushNotificationActionIdentifier.rescheduleDueTomorrow:
             task.dueDate = Calendar.current.date(byAdding: .day, value: 1, to: Date())
+        case PushNotificationActionIdentifier.markTaskDone:
+            // Always sets done rather than toggling: the task's actual state
+            // isn't known until the fetch above lands, and "mark done" from
+            // a notification should never risk un-completing a task someone
+            // already finished elsewhere.
+            task.isDone = true
         default:
             return
         }

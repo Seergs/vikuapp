@@ -15,11 +15,11 @@ enum PushNotificationCategory {
 /// `AppDelegate.userNotificationCenter(_:didReceive:)` and dispatched to
 /// `AppContainer.performNotificationAction`.
 enum PushNotificationActionIdentifier {
-    static let snoozeReminderTenMinutes = "SNOOZE_REMINDER_10M"
     static let snoozeReminderOneHour = "SNOOZE_REMINDER_1H"
     static let snoozeReminderThreeHours = "SNOOZE_REMINDER_3H"
     static let snoozeReminderOneDay = "SNOOZE_REMINDER_1D"
     static let rescheduleDueTomorrow = "RESCHEDULE_DUE_TOMORROW"
+    static let markTaskDone = "MARK_TASK_DONE"
 }
 
 /// Registers the action buttons for every push category the app supports.
@@ -27,11 +27,6 @@ enum PushNotificationActionIdentifier {
 /// iOS just won't surface them until the user has granted it. Called from
 /// `AppDelegate.application(_:didFinishLaunchingWithOptions:)`.
 func registerPushNotificationCategories() {
-    let snoozeTenMinutes = UNNotificationAction(
-        identifier: PushNotificationActionIdentifier.snoozeReminderTenMinutes,
-        title: String(localized: "Snooze 10m"),
-        options: [],
-    )
     let snoozeOneHour = UNNotificationAction(
         identifier: PushNotificationActionIdentifier.snoozeReminderOneHour,
         title: String(localized: "Snooze 1h"),
@@ -52,18 +47,24 @@ func registerPushNotificationCategories() {
         title: String(localized: "Due Tomorrow"),
         options: [],
     )
+    let markDone = UNNotificationAction(
+        identifier: PushNotificationActionIdentifier.markTaskDone,
+        title: String(localized: "Mark Done"),
+        options: [],
+    )
 
     // iOS shows at most 4 action buttons on a long-press -- these four
-    // cover the common snooze durations without crowding out the rest.
+    // cover the common snooze durations plus marking the task done
+    // without crowding out the rest.
     let reminderFired = UNNotificationCategory(
         identifier: PushNotificationCategory.taskReminderFired,
-        actions: [snoozeTenMinutes, snoozeOneHour, snoozeThreeHours, snoozeOneDay],
+        actions: [snoozeOneHour, snoozeThreeHours, snoozeOneDay, markDone],
         intentIdentifiers: [],
         options: [],
     )
     let overdue = UNNotificationCategory(
         identifier: PushNotificationCategory.taskOverdue,
-        actions: [rescheduleDue],
+        actions: [rescheduleDue, markDone],
         intentIdentifiers: [],
         options: [],
     )

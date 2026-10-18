@@ -51,6 +51,16 @@
         }
       }
     },
+    "Mark Done" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completar"
+          }
+        }
+      }
+    },
     "Not Now" : {
       "localizations" : {
         "es" : {
@@ -97,16 +107,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Buscar"
-          }
-        }
-      }
-    },
-    "Snooze 10m" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Posponer 10 min"
           }
         }
       }
