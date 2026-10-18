@@ -174,14 +174,20 @@ struct NotificationsView: View {
             .vikuCardRow(index: 0, count: 1)
 
             VStack(alignment: .leading, spacing: VikuSpacing.sm) {
-                Group {
-                    if viewModel.settings.isEnabled {
-                        Text("Turning this off removes the webhooks Viku created on your instance.", bundle: .module)
-                    } else {
-                        Text("Requires Viku Relay, a service hosted by the Viku team.", bundle: .module)
-                            + Text(verbatim: " ")
-                            + Text("Vikunja does not send push to iOS directly.", bundle: .module)
+                VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
+                    Group {
+                        if viewModel.settings.isEnabled {
+                            Text(
+                                "Turning this off removes the webhooks Viku created on your instance.",
+                                bundle: .module,
+                            )
+                        } else {
+                            Text("Requires Viku Relay, a service hosted by the Viku team.", bundle: .module)
+                                + Text(verbatim: " ")
+                                + Text("Vikunja does not send push to iOS directly.", bundle: .module)
+                        }
                     }
+                    Text("You won't be notified for your own actions.", bundle: .module)
                 }
                 .font(VikuFont.caption)
                 .foregroundStyle(palette.textTertiary)
