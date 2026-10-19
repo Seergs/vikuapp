@@ -131,6 +131,16 @@
         }
       }
     },
+    "Change" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambiar"
+          }
+        }
+      }
+    },
     "Choose the Vikunja instance you want to sync your tasks with." : {
       "localizations" : {
         "es" : {
@@ -237,16 +247,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Conexión actualizada"
-          }
-        }
-      }
-    },
-    "Connection: %@" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Conexión: %@"
           }
         }
       }
@@ -761,6 +761,16 @@
         }
       }
     },
+    "Only applies to %@. Each connection has its own." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo aplican a %@. Cada conexión tiene los suyos."
+          }
+        }
+      }
+    },
     "Overdue Tasks" : {
       "localizations" : {
         "es" : {
@@ -1167,6 +1177,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "El tipo de evento, el título de la tarea y el nombre del proyecto. Tu token o contraseña nunca salen del dispositivo. El secreto de firma del webhook se comparte con el relay para que pueda verificar las entregas."
+          }
+        }
+      }
+    },
+    "This connection" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta conexión"
           }
         }
       }

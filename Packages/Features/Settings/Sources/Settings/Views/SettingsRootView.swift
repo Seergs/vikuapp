@@ -101,6 +101,7 @@ public struct SettingsRootView: View {
         NavigationStack(path: Binding(get: { router.path }, set: { router.path = $0 })) {
             SettingsView(
                 activeAccountName: account.displayName,
+                activeAccountHost: account.displayHost,
                 themeStore: themeStore,
                 quickAddSyntaxStore: quickAddSyntaxStore,
                 badgeViewModel: badgeViewModel,
