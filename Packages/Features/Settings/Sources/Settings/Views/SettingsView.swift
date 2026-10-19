@@ -63,17 +63,25 @@ struct SettingsView: View {
                 Text("General", bundle: .module)
             }
             .listRowBackground(palette.cardBackground)
+            // Widens the gap to "This connection" below — confirmed good
+            // with this override in place. iOS-only API, hence the guard
+            // (mirrors `settingsListStyle()`).
+            #if os(iOS)
+            .listSectionSpacing(.custom(VikuSpacing.xl))
+            #endif
 
-            // One section, not two, so these render as a single grouped
+            // One section, not several, so these render as a single grouped
             // card (matching Settings.app) instead of one card per row.
-            // The header names the active connection so it's clear these
-            // rows (unlike General/Experimental above) are scoped to it,
-            // not to the app as a whole.
-            // The lead row (avatar/name/email/Change) deliberately doesn't
-            // get `.listRowBackground(palette.cardBackground)` like the rows
-            // below it — it sits on the plain page background so it reads as
-            // a summary above the grouped card, not as part of it, even
-            // though both are rows of the same Section.
+            // The avatar row shares the same `listRowBackground` as the rows
+            // below it rather than floating on the plain page background —
+            // giving it its own Section (so it could look visually distinct)
+            // put it on the wrong side of the rounded-corner boundary (a
+            // `List` Section only rounds its own first/last row), leaving
+            // Manage Labels square-cornered with a stray separator line at
+            // the seam, and cost an extra section-transition's worth of
+            // vertical space that `.listSectionSpacing` couldn't fully claw
+            // back. One Section — like "General" above, whose multiple rows
+            // already look fine together — avoids both.
             Section {
                 AccountSummaryRow(
                     connectionName: activeAccountName,
@@ -82,7 +90,7 @@ struct SettingsView: View {
                 ) {
                     router.push(.connections)
                 }
-                .listRowBackground(palette.pageBackground)
+                .listRowBackground(palette.cardBackground)
 
                 SettingsNavigationRow(
                     icon: "tag",
@@ -124,6 +132,14 @@ struct SettingsView: View {
             } footer: {
                 Text("Only applies to \(activeAccountName). Each connection has its own.", bundle: .module)
             }
+            // Widens the gap to "Experimental" below — confirmed good with
+            // this override in place; unaffected by the avatar row now
+            // sharing this same Section (that only changed the no-longer-
+            // relevant boundary above, between "This connection" and
+            // Manage Labels, which doesn't exist anymore).
+            #if os(iOS)
+            .listSectionSpacing(.custom(VikuSpacing.xl))
+            #endif
 
             Section {
                 Picker(selection: quickAddSyntaxBinding) {
