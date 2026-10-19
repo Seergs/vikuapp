@@ -137,6 +137,23 @@ struct DefaultProjectSettingsViewModelTests {
         #expect(viewModel.accountTimezone == "Europe/Madrid")
     }
 
+    // MARK: pickableProjects
+
+    @Test
+    func `pickableProjects excludes favorites, saved filters and archived projects`() async {
+        let projectRepository = FakeProjectRepository(projects: [
+            Project(id: 6, title: "Inbox"),
+            Project(id: -1, title: "Favorites"),
+            Project(id: -2, title: "My Open Tasks"),
+            Project(id: 7, title: "Done", isArchived: true),
+        ])
+        let viewModel = makeViewModel(projectRepository: projectRepository)
+
+        await viewModel.load()
+
+        #expect(viewModel.pickableProjects.map(\.id) == [6])
+    }
+
     // MARK: selectDefaultProject
 
     @Test
