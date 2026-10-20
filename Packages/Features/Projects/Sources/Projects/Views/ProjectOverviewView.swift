@@ -244,32 +244,38 @@ struct ProjectOverviewView: View {
             ProjectProgressHeader(project: viewModel.project, tasks: viewModel.tasks)
                 .padding(.horizontal, VikuSpacing.md)
 
-            if viewModel.subprojects.isEmpty {
-                AddSubprojectButton { isShowingCreateSubproject = true }
-                    .padding(.horizontal, VikuSpacing.md)
-                    .padding(.top, VikuSpacing.xs)
-            } else {
-                VStack(alignment: .leading, spacing: VikuSpacing.sm) {
-                    HStack(spacing: VikuSpacing.xs) {
-                        Text("Subprojects", bundle: .module)
-                            .fontWeight(.bold)
-                        Text(verbatim: "\(viewModel.subprojects.count)")
-                            .fontWeight(.regular)
-                    }
-                    .vikuSectionHeader()
-                    .padding(.horizontal, VikuSpacing.md)
+            // Favorites and saved filters are pseudo-projects with no row in
+            // the real `projects` table, so they can't own a subproject —
+            // the whole block (button or list) is hidden rather than
+            // offering an "Add Subproject" that would fail server-side.
+            if viewModel.project.kind == .project {
+                if viewModel.subprojects.isEmpty {
+                    AddSubprojectButton { isShowingCreateSubproject = true }
+                        .padding(.horizontal, VikuSpacing.md)
+                        .padding(.top, VikuSpacing.xs)
+                } else {
+                    VStack(alignment: .leading, spacing: VikuSpacing.sm) {
+                        HStack(spacing: VikuSpacing.xs) {
+                            Text("Subprojects", bundle: .module)
+                                .fontWeight(.bold)
+                            Text(verbatim: "\(viewModel.subprojects.count)")
+                                .fontWeight(.regular)
+                        }
+                        .vikuSectionHeader()
+                        .padding(.horizontal, VikuSpacing.md)
 
-                    SubprojectScrollRow(
-                        subprojects: viewModel.subprojects,
-                        taskSummaries: viewModel.subprojectTaskSummaries,
-                    ) { subproject in
-                        onSelectSubproject(subproject)
+                        SubprojectScrollRow(
+                            subprojects: viewModel.subprojects,
+                            taskSummaries: viewModel.subprojectTaskSummaries,
+                        ) { subproject in
+                            onSelectSubproject(subproject)
+                        }
+                        .padding(.horizontal, VikuSpacing.md)
                     }
-                    .padding(.horizontal, VikuSpacing.md)
+                    // A bit more than the parent `VStack`'s own spacing, just
+                    // for the gap after "X/Y tasks completed" specifically.
+                    .padding(.top, VikuSpacing.xs)
                 }
-                // A bit more than the parent `VStack`'s own spacing, just
-                // for the gap after "X/Y tasks completed" specifically.
-                .padding(.top, VikuSpacing.xs)
             }
 
             ProjectTaskFilterRow(selection: $filter)
