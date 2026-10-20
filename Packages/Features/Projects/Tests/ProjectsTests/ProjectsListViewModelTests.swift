@@ -32,6 +32,27 @@ struct ProjectsListViewModelTests {
     }
 
     @Test
+    func `load separates favorites and saved filters from the real project tree`() async {
+        let repository = FakeProjectRepository()
+        repository.projects = [
+            Project(id: 1, title: "Work", position: 1),
+            Project(id: -1, title: "Favorites"),
+            Project(id: -5, title: "Due this week", position: 2),
+            Project(id: -3, title: "Overdue", position: 1),
+        ]
+        let viewModel = ProjectsListViewModel(
+            repository: repository,
+            taskRepository: FakeTaskRepository(),
+            toastPresenter: FakeToastPresenter(),
+        )
+
+        await viewModel.load()
+
+        #expect(viewModel.rootNodes.map(\.project.id) == [1])
+        #expect(viewModel.pseudoNodes.map(\.project.id) == [-1, -3, -5])
+    }
+
+    @Test
     func `load orders siblings by position`() async {
         let repository = FakeProjectRepository()
         repository.projects = [

@@ -10,6 +10,11 @@ import VikuUI
 @Observable
 public final class ProjectsListViewModel {
     public private(set) var rootNodes: [ProjectNode] = []
+    /// Favorites (if present) followed by saved filters, flat (neither kind
+    /// nests), kept apart from `rootNodes` so the view can render them in
+    /// their own "Favorites & Filters" section above "My Projects" instead
+    /// of mixed into the real project tree.
+    public private(set) var pseudoNodes: [ProjectNode] = []
     public private(set) var loadState: ScreenLoadState<Void> = .idle
     /// Each project's own task-completion tally, keyed by project id, for the
     /// per-row progress indicator. Populated after the tree itself loads (a
@@ -45,9 +50,10 @@ public final class ProjectsListViewModel {
         }
         do {
             let projects = try await repository.fetchProjects()
-            rootNodes = Self.tree(from: projects)
+            rootNodes = Self.tree(from: projects.realProjectsOnly())
+            pseudoNodes = Self.pseudoNodes(from: projects)
             loadState = .loaded
-            taskSummaries = await Self.fetchTaskSummaries(for: rootNodes, repository: taskRepository)
+            taskSummaries = await Self.fetchTaskSummaries(for: rootNodes + pseudoNodes, repository: taskRepository)
         } catch let error as VikunjaError {
             loadState = .failure(error.displayMessage)
         } catch {
@@ -111,6 +117,15 @@ public final class ProjectsListViewModel {
 
     private static func flattenedIDs(of nodes: [ProjectNode]) -> [Int] {
         nodes.flatMap { [$0.id] + flattenedIDs(of: $0.children) }
+    }
+
+    /// Favorites (at most one, id always `-1`) followed by saved filters
+    /// (ordered by `position`), each wrapped as a childless `ProjectNode` —
+    /// neither pseudo-project kind can have children, see `ProjectKind`.
+    private static func pseudoNodes(from projects: [Project]) -> [ProjectNode] {
+        let favorites = projects.filter { $0.kind == .favorites }
+        let filters = projects.filter { $0.kind == .savedFilter }.sorted { $0.position < $1.position }
+        return (favorites + filters).map { ProjectNode(project: $0, children: []) }
     }
 
     /// Builds the parent/child tree for every non-archived project, ordered

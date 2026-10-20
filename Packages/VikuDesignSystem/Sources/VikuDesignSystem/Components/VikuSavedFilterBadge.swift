@@ -5,7 +5,7 @@ import SwiftUI
 /// `vikuPalette` - unlike `brand`-tinted chips elsewhere, this marks the
 /// project's *kind*, not something that should restyle per theme.
 public struct VikuSavedFilterBadge: View {
-    private static let tint = Color(hex: 0x0A5FD6)
+    private static let tint = VikuColor.ProjectBadge.filter
 
     public init() {}
 
