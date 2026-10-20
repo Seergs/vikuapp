@@ -18,6 +18,12 @@ public final class DefaultProjectSettingsViewModel {
     /// instead of disappearing while `load()` is in flight, then overwritten
     /// with whatever `load()` reports (`nil` if the user never set one).
     public private(set) var accountTimezone: String?
+    /// The signed-in Vikunja user's display name (`User.name`, falling back
+    /// to `User.username` when unset) — shown in the Connection section's
+    /// avatar row above the settings list. `nil` until `load()` resolves;
+    /// reuses this view model's existing `fetchCurrentUser()` call rather
+    /// than firing a second one just for that row.
+    public private(set) var accountDisplayName: String?
 
     public var isLoading: Bool {
         loadState == .loading
@@ -84,6 +90,8 @@ public final class DefaultProjectSettingsViewModel {
             let user = try await currentUser
             defaultProjectID = user.defaultProjectID
             accountTimezone = user.timezone
+            let trimmedName = user.name?.trimmingCharacters(in: .whitespaces)
+            accountDisplayName = (trimmedName?.isEmpty == false ? trimmedName : nil) ?? user.username
             if user.timezone != timezoneCache.cachedTimezone() {
                 timezoneCache.setCachedTimezone(user.timezone)
             }

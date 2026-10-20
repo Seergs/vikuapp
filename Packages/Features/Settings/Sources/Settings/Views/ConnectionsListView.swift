@@ -187,7 +187,7 @@ private struct ConnectionRow: View {
                             }
                         }
 
-                        Text(verbatim: displayURL)
+                        Text(verbatim: account.displayHost)
                             .font(VikuFont.footnote)
                             .foregroundStyle(palette.textTertiary)
                             .lineLimit(1)
@@ -236,16 +236,5 @@ private struct ConnectionRow: View {
             .accessibilityLabel(Text("Edit \(account.displayName)", bundle: .module))
         }
         .padding(.vertical, VikuSpacing.sm)
-    }
-
-    /// Drops the implied `https://` so the host reads first. An insecure
-    /// `http://` URL keeps its scheme so the downgrade stays visible.
-    private var displayURL: String {
-        let absolute = account.baseURL.absoluteString
-        let httpsPrefix = "https://"
-        guard account.baseURL.scheme?.lowercased() == "https", absolute.hasPrefix(httpsPrefix) else {
-            return absolute
-        }
-        return String(absolute.dropFirst(httpsPrefix.count))
     }
 }

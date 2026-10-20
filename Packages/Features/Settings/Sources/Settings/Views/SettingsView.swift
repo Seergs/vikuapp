@@ -12,6 +12,7 @@ import UIKit
 /// appearance, connection management, and label management.
 struct SettingsView: View {
     let activeAccountName: String
+    let activeAccountHost: String
     let themeStore: AppThemeStoring
     let quickAddSyntaxStore: QuickAddSyntaxStore
     let badgeViewModel: AppIconBadgeViewModel
@@ -62,20 +63,34 @@ struct SettingsView: View {
                 Text("General", bundle: .module)
             }
             .listRowBackground(palette.cardBackground)
+            // Widens the gap to "This connection" below — confirmed good
+            // with this override in place. iOS-only API, hence the guard
+            // (mirrors `settingsListStyle()`).
+            #if os(iOS)
+            .listSectionSpacing(.custom(VikuSpacing.xl))
+            #endif
 
-            // One section, not two, so these render as a single grouped
+            // One section, not several, so these render as a single grouped
             // card (matching Settings.app) instead of one card per row.
-            // The header names the active connection so it's clear these
-            // rows (unlike General/Experimental above) are scoped to it,
-            // not to the app as a whole.
+            // The avatar row shares the same `listRowBackground` as the rows
+            // below it rather than floating on the plain page background —
+            // giving it its own Section (so it could look visually distinct)
+            // put it on the wrong side of the rounded-corner boundary (a
+            // `List` Section only rounds its own first/last row), leaving
+            // Manage Labels square-cornered with a stray separator line at
+            // the seam, and cost an extra section-transition's worth of
+            // vertical space that `.listSectionSpacing` couldn't fully claw
+            // back. One Section — like "General" above, whose multiple rows
+            // already look fine together — avoids both.
             Section {
-                SettingsNavigationRow(
-                    icon: "server.rack",
-                    title: String(localized: "Connections", bundle: .module),
-                    subtitle: activeAccountName,
+                AccountSummaryRow(
+                    connectionName: activeAccountName,
+                    connectionHost: activeAccountHost,
+                    userDisplayName: defaultProjectViewModel.accountDisplayName,
                 ) {
                     router.push(.connections)
                 }
+                .listRowBackground(palette.cardBackground)
 
                 SettingsNavigationRow(
                     icon: "tag",
@@ -84,6 +99,7 @@ struct SettingsView: View {
                 ) {
                     router.push(.manageLabels)
                 }
+                .listRowBackground(palette.cardBackground)
 
                 SettingsNavigationRow(
                     icon: "folder",
@@ -92,6 +108,7 @@ struct SettingsView: View {
                 ) {
                     isPresentingDefaultProjectPicker = true
                 }
+                .listRowBackground(palette.cardBackground)
 
                 SettingsNavigationRow(
                     icon: "house",
@@ -100,6 +117,7 @@ struct SettingsView: View {
                 ) {
                     isPresentingHomeSelectionPicker = true
                 }
+                .listRowBackground(palette.cardBackground)
 
                 if let accountTimezone = defaultProjectViewModel.accountTimezone {
                     SettingsInfoRow(
@@ -107,11 +125,21 @@ struct SettingsView: View {
                         title: String(localized: "Time Zone", bundle: .module),
                         value: accountTimezone,
                     )
+                    .listRowBackground(palette.cardBackground)
                 }
             } header: {
-                Text("Connection: \(activeAccountName)", bundle: .module)
+                Text("This connection", bundle: .module)
+            } footer: {
+                Text("Only applies to \(activeAccountName). Each connection has its own.", bundle: .module)
             }
-            .listRowBackground(palette.cardBackground)
+            // Widens the gap to "Experimental" below — confirmed good with
+            // this override in place; unaffected by the avatar row now
+            // sharing this same Section (that only changed the no-longer-
+            // relevant boundary above, between "This connection" and
+            // Manage Labels, which doesn't exist anymore).
+            #if os(iOS)
+            .listSectionSpacing(.custom(VikuSpacing.xl))
+            #endif
 
             Section {
                 Picker(selection: quickAddSyntaxBinding) {
@@ -322,6 +350,82 @@ private struct SettingsNavigationRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// The Connection section's lead row: the signed-in Vikunja user's avatar
+/// (initials drawn from `userDisplayName`, not `connectionName`), the
+/// connection's name in bold, and its host below it, plus a "Change" button
+/// that opens the connections list. Unlike `SettingsNavigationRow`, only the
+/// button navigates, so the name/host themselves stay non-interactive. A
+/// `nil` `userDisplayName` (before `DefaultProjectSettingsViewModel.load()`
+/// resolves) renders as a placeholder avatar rather than the row
+/// disappearing.
+private struct AccountSummaryRow: View {
+    let connectionName: String
+    let connectionHost: String
+    let userDisplayName: String?
+    let onChange: () -> Void
+
+    @Environment(\.vikuPalette) private var palette
+
+    var body: some View {
+        HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
+            AccountAvatarView(userDisplayName: userDisplayName)
+
+            VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
+                Text(verbatim: connectionName)
+                    .font(VikuFont.body.weight(.semibold))
+                    .foregroundStyle(Color.primary)
+                    .lineLimit(1)
+                Text(verbatim: connectionHost)
+                    .font(VikuFont.footnote)
+                    .foregroundStyle(palette.textSecondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+
+            Spacer()
+
+            Button(String(localized: "Change", bundle: .module), action: onChange)
+                .font(VikuFont.footnote)
+                .buttonStyle(.borderless)
+        }
+    }
+}
+
+/// A circular avatar showing the signed-in user's initials in two letters, on
+/// a brand-colored background — mirrors the system "contact initials" look
+/// used elsewhere for accounts without a profile photo.
+private struct AccountAvatarView: View {
+    let userDisplayName: String?
+
+    @Environment(\.vikuPalette) private var palette
+
+    var body: some View {
+        Circle()
+            .fill(palette.brand)
+            .frame(width: 34, height: 34)
+            .overlay {
+                Text(verbatim: initials)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(palette.brandForeground)
+            }
+    }
+
+    private var initials: String {
+        guard let userDisplayName else { return "?" }
+        let words = userDisplayName.split(separator: " ").filter { !$0.isEmpty }
+        switch words.count {
+        case 0:
+            return "?"
+        case 1:
+            return String(words[0].prefix(2)).uppercased()
+        default:
+            let first = words[0].first.map(String.init) ?? ""
+            let second = words[1].first.map(String.init) ?? ""
+            return (first + second).uppercased()
+        }
     }
 }
 
