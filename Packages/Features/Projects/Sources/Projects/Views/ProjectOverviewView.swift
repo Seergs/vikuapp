@@ -95,6 +95,7 @@ struct ProjectOverviewView: View {
                         sortField: $viewModel.sortField,
                         sortDirection: $viewModel.sortDirection,
                         onEditProject: { onEditProject(viewModel.project) },
+                        onAddSubproject: { isShowingCreateSubproject = true },
                     )
                 } label: {
                     Image(systemName: "ellipsis.circle")
@@ -617,6 +618,7 @@ private struct ProjectOverviewMenuContent: View {
     @Binding var sortField: TaskSort.Field
     @Binding var sortDirection: TaskSort.Direction
     let onEditProject: () -> Void
+    let onAddSubproject: () -> Void
 
     var body: some View {
         // A `Section("Sort") { Picker; Picker }` silently drops its header
@@ -639,6 +641,11 @@ private struct ProjectOverviewMenuContent: View {
         }
         Section(String(localized: "Project", bundle: .module)) {
             Button(String(localized: "Edit Project", bundle: .module), systemImage: "pencil", action: onEditProject)
+            Button(
+                String(localized: "Add Subproject", bundle: .module),
+                systemImage: "folder.badge.plus",
+                action: onAddSubproject,
+            )
         }
     }
 }
