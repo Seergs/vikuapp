@@ -75,10 +75,14 @@ public actor RelayPushRegistrationService: PushRegistrationProviding {
         let account = Self.keychainAccount(for: accountID)
         guard let record = try loadRecord(account: account) else { return }
 
-        var request = URLRequest(url: baseURL.appendingPathComponent("/v1/registrations/\(record.id)"))
+        let path = "/v1/registrations/\(record.id)"
+        var request = URLRequest(url: baseURL.appendingPathComponent(path))
         request.httpMethod = "DELETE"
         request.setValue("Bearer \(record.managementToken)", forHTTPHeaderField: "Authorization")
         let (_, response) = try await session.data(for: request)
+        if let http = response as? HTTPURLResponse {
+            NetworkRequestLogging.shared.log(method: "DELETE", path: path, statusCode: http.statusCode)
+        }
 
         // 401 means the row (and its token) is already gone — per the
         // relay's README, "a repeated call returns 401 ... the end state is
@@ -94,7 +98,11 @@ public actor RelayPushRegistrationService: PushRegistrationProviding {
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(body)
-        return try await session.data(for: request)
+        let (data, response) = try await session.data(for: request)
+        if let http = response as? HTTPURLResponse {
+            NetworkRequestLogging.shared.log(method: method, path: path, statusCode: http.statusCode)
+        }
+        return (data, response)
     }
 
     private static func validate(_ response: URLResponse, acceptableStatusCodes: Set<Int>) throws {
