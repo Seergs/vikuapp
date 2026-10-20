@@ -48,6 +48,20 @@ public final class ProjectOverviewViewModel {
         loadState == .loading
     }
 
+    /// `subprojects` narrowed to the ones worth surfacing on this screen: a
+    /// child with no tasks pending (brand new with none yet, or fully
+    /// completed) has nothing actionable here, so it's left out rather than
+    /// cluttering the "Subprojects" row with a dead end. A child whose
+    /// summary hasn't loaded yet (not present in `subprojectTaskSummaries`)
+    /// is kept rather than hidden, so it doesn't flash away the instant
+    /// `load()` starts and then reappear once the fetch resolves.
+    public var subprojectsWithPendingTasks: [ProjectNode] {
+        subprojects.filter { node in
+            guard let summary = subprojectTaskSummaries[node.id] else { return true }
+            return summary.done < summary.total
+        }
+    }
+
     public var sortField: TaskSort.Field {
         get { taskSortStore.taskSort.field }
         set { taskSortStore.setTaskSort(TaskSort(field: newValue, direction: sortDirection)) }
