@@ -2,12 +2,13 @@ import Foundation
 
 /// Session-only, in-memory switch for printing each request's method, path,
 /// and response status code to the Xcode console (no bodies), off by
-/// default. `VikunjaNetworking` has no notion of dev vs release builds, so
-/// this lives unguarded here; the app target only ever exposes a way to
-/// flip it from a dev-build-only Settings toggle (`DevToolsCenter`,
-/// bridging `VikunjaCore`'s `NetworkRequestLoggingStoring`), so it stays
-/// unreachable, and off, everywhere else. `URLSessionAPIClient` checks it
-/// on every request.
+/// default. Lives in `VikunjaCore` (rather than `VikunjaNetworking`) so
+/// every package that talks HTTP directly can log through the same switch
+/// instead of each having its own, `VikunjaNetworking`'s `URLSessionAPIClient`
+/// and `VikuAuth`'s `RelayPushRegistrationService` included. The app target
+/// only ever exposes a way to flip it from a dev-build-only Settings toggle
+/// (`DevToolsCenter`, bridging `NetworkRequestLoggingStoring`), so it stays
+/// unreachable, and off, everywhere else.
 public final class NetworkRequestLogging: @unchecked Sendable {
     public static let shared = NetworkRequestLogging()
 
@@ -21,7 +22,7 @@ public final class NetworkRequestLogging: @unchecked Sendable {
 
     private init() {}
 
-    func log(method: String, path: String, statusCode: Int) {
+    public func log(method: String, path: String, statusCode: Int) {
         guard isEnabled else { return }
         print("🌐 \(method) \(path) → \(statusCode)")
     }

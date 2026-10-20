@@ -94,6 +94,33 @@ struct NotificationsViewModelTests {
     }
 
     @Test
+    func `two overlapping load calls share one in flight registration instead of hitting the relay twice`() async {
+        let store = FakeNotificationSettingsStore(settings: NotificationSettings(isEnabled: true))
+        let registering = FakePushNotificationRegistering()
+        registering.enableDelay = .milliseconds(20)
+        let viewModel = makeViewModel(pushNotificationRegistering: registering, notificationSettingsStore: store)
+
+        async let first: Void = viewModel.load()
+        async let second: Void = viewModel.load()
+        _ = await (first, second)
+
+        #expect(registering.enabledUserIDs.count == 1)
+    }
+
+    @Test
+    func `load does not re register with the relay on every screen appearance within the cooldown`() async {
+        let store = FakeNotificationSettingsStore(settings: NotificationSettings(isEnabled: true))
+        let registering = FakePushNotificationRegistering()
+        let viewModel = makeViewModel(pushNotificationRegistering: registering, notificationSettingsStore: store)
+
+        await viewModel.load()
+        await viewModel.load()
+        await viewModel.load()
+
+        #expect(registering.enabledUserIDs.count == 1)
+    }
+
+    @Test
     func `load surfaces A friendly message on a project fetch failure`() async {
         let projectRepository = FakeProjectRepository()
         projectRepository.fetchError = .network("offline")

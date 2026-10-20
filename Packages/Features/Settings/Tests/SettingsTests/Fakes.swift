@@ -497,6 +497,9 @@ final class FakePushNotificationRegistering: PushNotificationRegistering, @unche
     var enableResult: Result<PushRegistration?, Error> = .success(
         PushRegistration(targetURL: URL(string: "https://relay.example.com/h/device-1")!, secret: "test-secret"),
     )
+    /// Lets a test hold `enable()` open long enough to issue a second,
+    /// overlapping call while the first is still in flight.
+    var enableDelay: Duration?
     private(set) var enabledUserIDs: [Int] = []
     private(set) var disabledAccountIDs: [InstanceAccount.ID] = []
     var disableCallCount: Int {
@@ -504,6 +507,9 @@ final class FakePushNotificationRegistering: PushNotificationRegistering, @unche
     }
 
     func enable(vikunjaUserID: Int, accountID: InstanceAccount.ID) async throws -> PushRegistration? {
+        if let enableDelay {
+            try? await Task.sleep(for: enableDelay)
+        }
         enabledUserIDs.append(vikunjaUserID)
         return try enableResult.get()
     }

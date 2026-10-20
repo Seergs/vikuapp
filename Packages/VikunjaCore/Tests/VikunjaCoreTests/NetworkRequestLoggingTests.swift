@@ -1,5 +1,5 @@
 import Testing
-@testable import VikunjaNetworking
+@testable import VikunjaCore
 
 /// `.serialized`: `shared` is a process-wide singleton, so a test that
 /// leaves it enabled would leak into whichever test runs next otherwise.
