@@ -4,12 +4,15 @@ import VikunjaCore
 import VikuUI
 
 /// Drives a single project's overview screen: loads that project's tasks
-/// from the server. `project` is fixed at construction — a different project
-/// gets a new view model rather than this one being repointed.
+/// from the server. A different project gets a new view model rather than
+/// this one being repointed, but `project` itself is still refreshed by
+/// `load()` (see its doc comment) — this screen's view model is cached
+/// indefinitely per project id, so editing the project's own name or color
+/// needs a live re-fetch to show up on a revisit, not just a new instance.
 @MainActor
 @Observable
 public final class ProjectOverviewViewModel {
-    public let project: Project
+    public private(set) var project: Project
     /// This project's direct children. Seeded at construction from the
     /// already-built tree (`ProjectsListViewModel.tree(from:)`) so the first
     /// render has something to show immediately, then replaced by a fresh
@@ -137,18 +140,21 @@ public final class ProjectOverviewViewModel {
     /// spinner mid-refresh would tear down the `List` that owns the
     /// in-flight `.refreshable` task, cancelling its request underneath it.
     ///
-    /// Re-fetches `subprojects` from the server every time rather than
-    /// trusting the construction-time snapshot — this screen's view model is
-    /// cached indefinitely (see `ProjectsRootView`), so without this a
-    /// subproject created, deleted, or moved anywhere else in the app (e.g.
-    /// the root Projects list) would never show up here on a revisit, only
-    /// after the app relaunches.
+    /// Re-fetches `project` and `subprojects` from the server every time
+    /// rather than trusting the construction-time snapshot — this screen's
+    /// view model is cached indefinitely (see `ProjectsRootView`), so without
+    /// this neither a rename/recolor of this project nor a subproject
+    /// created, deleted, or moved anywhere else in the app (e.g. the root
+    /// Projects list) would ever show up here on a revisit, only after the
+    /// app relaunches. A failed project re-fetch fails the whole load, same
+    /// as a failed `tasks`/`subprojects` fetch already does.
     public func load() async {
         if loadState != .loaded {
             loadState = .loading
         }
         async let kanbanSupport = capabilityProvider.supports(.apiV2)
         do {
+            project = try await projectRepository.fetchProject(id: project.id)
             tasks = try await repository.fetchTasks(projectID: project.id)
             subprojects = try await Self.fetchSubprojects(parentID: project.id, repository: projectRepository)
             subprojectTaskSummaries = await Self.fetchSubprojectSummaries(subprojects, repository: repository)

@@ -28,11 +28,19 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
         return projects
     }
 
+    var fetchProjectError: VikunjaError?
+
+    /// Falls back to a bare `Project(id: id)` when `projects` doesn't carry
+    /// a matching entry, rather than throwing: most call sites set up
+    /// `projects` to represent a project's *children* and never add the
+    /// project under test itself, and `ProjectOverviewViewModel.load()`
+    /// calls this for the viewed project on every load. Set
+    /// `fetchProjectError` to simulate this call specifically failing.
     func fetchProject(id: Int) async throws -> Project {
-        guard let project = projects.first(where: { $0.id == id }) else {
-            throw VikunjaError.notFound
+        if let fetchProjectError {
+            throw fetchProjectError
         }
-        return project
+        return projects.first(where: { $0.id == id }) ?? Project(id: id, title: "")
     }
 
     func create(_ project: Project) async throws -> Project {

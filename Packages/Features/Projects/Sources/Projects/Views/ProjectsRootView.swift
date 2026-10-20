@@ -35,6 +35,10 @@ public struct ProjectsRootView: View {
     }
 
     @State private var editingProject: Project?
+    /// `editingProject`'s id, captured alongside it: `.sheet(item:)` clears
+    /// `editingProject` to `nil` before calling `onDismiss`, so by then
+    /// there's no item left to look the cached view model up by.
+    @State private var editingProjectID: Int?
     /// A plain reference type, not `@State`, so filling the cache while
     /// building a `navigationDestination` never mutates SwiftUI state mid-
     /// render. It used to be `@State private var overviewViewModels: [Int:
@@ -70,16 +74,22 @@ public struct ProjectsRootView: View {
                     kanbanViewModel: cachedKanbanBoardViewModel(for: node.project),
                     onSelectSubproject: { router.push(ProjectsRoute.projectOverview($0)) },
                     onSelectTask: { task in router.push(.taskDetail(task, node.project)) },
-                    onEditProject: { editingProject = $0 },
+                    onEditProject: { editingProject = $0; editingProjectID = $0.id },
                     onDuplicated: { router.push(.taskDetail($0, $1)) },
                     makeCreateProjectViewModel: makeCreateProjectViewModel,
                 )
             }
         }
-        .sheet(item: $editingProject) { project in
+        .sheet(item: $editingProject, onDismiss: {
+            Task {
+                if let id = editingProjectID {
+                    await overviewViewModelCache.storage[id]?.load()
+                }
+            }
+        }, content: { project in
             EditProjectSheetView(makeViewModel: { makeEditProjectViewModel(project) })
                 .presentationCompactAdaptation(.sheet)
-        }
+        })
     }
 
     /// Returns this project's cached `ProjectOverviewViewModel`, creating and

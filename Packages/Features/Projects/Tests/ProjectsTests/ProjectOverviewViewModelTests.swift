@@ -134,10 +134,12 @@ struct ProjectOverviewViewModelTests {
     func `load surfaces A friendly message on failure`() async {
         let repository = FakeTaskRepository()
         repository.fetchError = .network("offline")
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 1, title: "Work")]
         let viewModel = ProjectOverviewViewModel(
             project: Project(id: 1, title: "Work"),
             repository: repository,
-            projectRepository: FakeProjectRepository(),
+            projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
             toastPresenter: FakeToastPresenter(),
@@ -169,6 +171,30 @@ struct ProjectOverviewViewModelTests {
     }
 
     @Test
+    func `load refreshes the projects own title and color from the server`() async {
+        // Regression test: this view model is cached indefinitely per
+        // project id (`ProjectsRootView`), so renaming a project or
+        // changing its color from the edit sheet must still show up on this
+        // screen on a revisit, not just in the projects list.
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 1, title: "Renamed", hexColor: "00ff00")]
+        let viewModel = ProjectOverviewViewModel(
+            project: Project(id: 1, title: "Work", hexColor: "ff0000"),
+            repository: FakeTaskRepository(),
+            projectRepository: projectRepository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
+        )
+
+        await viewModel.load()
+
+        #expect(viewModel.project.title == "Renamed")
+        #expect(viewModel.project.hexColor == "00ff00")
+    }
+
+    @Test
     func `load replaces the construction-time subprojects snapshot with a fresh fetch`() async {
         // Regression test: this view model is cached indefinitely per
         // project id (`ProjectsRootView`), so a subproject created or
@@ -177,6 +203,7 @@ struct ProjectOverviewViewModelTests {
         // `load()` runs, not just whatever was handed in at construction.
         let projectRepository = FakeProjectRepository()
         projectRepository.projects = [
+            Project(id: 1, title: "Work"),
             Project(id: 2, title: "Client A", parentProjectID: 1),
             Project(id: 3, title: "Client C", parentProjectID: 1),
         ]
@@ -226,6 +253,7 @@ struct ProjectOverviewViewModelTests {
         ]
         let projectRepository = FakeProjectRepository()
         projectRepository.projects = [
+            Project(id: 1, title: "Work"),
             Project(id: 2, title: "Client A", parentProjectID: 1),
             Project(id: 3, title: "Client B", parentProjectID: 1),
         ]
