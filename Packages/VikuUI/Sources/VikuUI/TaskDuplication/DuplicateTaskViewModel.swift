@@ -94,6 +94,7 @@ public final class DuplicateTaskViewModel {
         do {
             projects = try await projectRepository.fetchProjects()
                 .filter { !$0.isArchived }
+                .realProjectsOnly()
                 .sorted { $0.position < $1.position }
             loadState = .loaded
         } catch let error as VikunjaError {

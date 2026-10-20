@@ -306,7 +306,7 @@ public final class ProjectOverviewViewModel {
     /// picker just shows fewer candidates, mirroring
     /// `TaskDetailViewModel.loadAllProjects()`.
     public func loadMoveCandidates() async {
-        allProjects = await (try? projectRepository.fetchProjects()) ?? allProjects
+        allProjects = await (try? projectRepository.fetchProjects())?.realProjectsOnly() ?? allProjects
     }
 
     /// Moves `task` to `destination` and drops it from the local list on
