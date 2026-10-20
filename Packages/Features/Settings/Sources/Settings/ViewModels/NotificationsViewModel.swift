@@ -70,6 +70,23 @@ public final class NotificationsViewModel {
     /// from the system Settings app since the last launch is caught here.
     private var currentRegistration: PushRegistration?
     private var currentUserID: Int?
+    /// The in-flight `load()` call, if any. `NotificationsView`'s `onAppear`
+    /// can refire `load()` on this same cached view model (e.g. navigating
+    /// into a project's notification screen and back) before the previous
+    /// call has finished — without this, that re-entrant call would start a
+    /// second concurrent `refreshRegistration()` round trip to the push
+    /// relay, which the relay's own rate limiting on
+    /// `POST /v1/registrations` can reject.
+    private var loadTask: Task<Void, Never>?
+    /// When `refreshRegistration()` last actually attempted its relay round
+    /// trip. `load()` fires on every screen appearance, and the relay rate
+    /// limits `POST /v1/registrations` per IP regardless of whether the
+    /// calls are otherwise correctly serialized, so simply re-entering this
+    /// screen a few times in under a minute would still trip it without
+    /// this — `confirmEnable()`, a deliberate one-off user action, is never
+    /// throttled by it.
+    private var lastRegistrationRefreshAttempt: Date?
+    private static let registrationRefreshCooldown: TimeInterval = 60
 
     private let accountID: InstanceAccount.ID
     private let webhookRepository: WebhookRepositoryProtocol
@@ -109,6 +126,17 @@ public final class NotificationsViewModel {
     }
 
     public func load() async {
+        if let loadTask {
+            await loadTask.value
+            return
+        }
+        let task = Task { await performLoad() }
+        loadTask = task
+        await task.value
+        loadTask = nil
+    }
+
+    private func performLoad() async {
         if loadState != .loaded {
             loadState = .loading
         }
@@ -127,11 +155,16 @@ public final class NotificationsViewModel {
             loadState = .failure(error.localizedDescription)
         }
 
-        if settings.isEnabled {
+        if settings.isEnabled, isRegistrationRefreshDue {
             pendingChange = .enabling
             defer { pendingChange = nil }
             await refreshRegistration()
         }
+    }
+
+    private var isRegistrationRefreshDue: Bool {
+        guard let lastRegistrationRefreshAttempt else { return true }
+        return Date().timeIntervalSince(lastRegistrationRefreshAttempt) >= Self.registrationRefreshCooldown
     }
 
     /// Called from the consent modal's confirm button. `pendingChange`
@@ -263,6 +296,7 @@ public final class NotificationsViewModel {
     @discardableResult
     private func refreshRegistration() async -> Bool {
         guard let userID = await resolveUserID() else { return false }
+        lastRegistrationRefreshAttempt = Date()
         do {
             guard let registration = try await pushNotificationRegistering.enable(
                 vikunjaUserID: userID,
