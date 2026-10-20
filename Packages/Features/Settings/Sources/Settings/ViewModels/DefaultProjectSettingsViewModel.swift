@@ -36,7 +36,7 @@ public final class DefaultProjectSettingsViewModel {
     /// `pickableProjects`, minus the saved-filter allowance: a filter can be
     /// a Home destination, but it can't own newly created tasks.
     public var pickableProjects: [Project] {
-        projects.filter { $0.kind == .project && !$0.isArchived }
+        projects.filter { !$0.isArchived }.realProjectsOnly()
     }
 
     /// The default project's display name, or `nil` when none is known — the
