@@ -141,6 +141,16 @@
         }
       }
     },
+    "Saved Filter" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Filtro guardado"
+          }
+        }
+      }
+    },
     "Search projects..." : {
       "localizations" : {
         "es" : {
