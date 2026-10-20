@@ -241,6 +241,11 @@ struct ProjectOverviewView: View {
         // piece below is the only horizontal offset left, so it can't stack
         // with a system default the way it did under `.insetGrouped`.
         VStack(alignment: .leading, spacing: VikuSpacing.md) {
+            if viewModel.project.kind == .savedFilter {
+                VikuSavedFilterBadge()
+                    .padding(.horizontal, VikuSpacing.md)
+            }
+
             ProjectProgressHeader(project: viewModel.project, tasks: viewModel.tasks)
                 .padding(.horizontal, VikuSpacing.md)
 
