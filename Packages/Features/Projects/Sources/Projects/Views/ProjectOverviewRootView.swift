@@ -61,9 +61,11 @@ public struct ProjectOverviewRootView: View {
         // `EditProjectSheetView` is a `.sheet` (not a route push), so this
         // screen can present it without owning a `Router` - matching how
         // `ProjectsRootView` wires the same edit button.
-        .sheet(item: $editingProject) { project in
+        .sheet(item: $editingProject, onDismiss: {
+            Task { await viewModel.load() }
+        }, content: { project in
             EditProjectSheetView(makeViewModel: { makeEditProjectViewModel(project) })
                 .presentationCompactAdaptation(.sheet)
-        }
+        })
     }
 }
