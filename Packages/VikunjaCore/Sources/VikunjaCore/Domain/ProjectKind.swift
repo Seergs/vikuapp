@@ -11,3 +11,12 @@ public enum ProjectKind: Codable, Hashable, Sendable {
     case favorites
     case savedFilter
 }
+
+public extension Sequence<Project> {
+    /// Drops Favorites and saved filters, keeping only real projects — the
+    /// set valid as a task's project or a project's parent, since neither
+    /// pseudo-project can hold a task or a subproject.
+    func realProjectsOnly() -> [Project] {
+        filter { $0.kind == .project }
+    }
+}

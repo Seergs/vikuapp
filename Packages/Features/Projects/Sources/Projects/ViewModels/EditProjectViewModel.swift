@@ -58,6 +58,7 @@ public final class EditProjectViewModel {
         do {
             projects = try await repository.fetchProjects()
                 .filter { !$0.isArchived }
+                .realProjectsOnly()
                 .sorted { $0.position < $1.position }
             loadState = .loaded
         } catch let error as VikunjaError {

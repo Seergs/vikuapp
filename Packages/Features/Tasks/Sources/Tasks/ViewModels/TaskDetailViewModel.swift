@@ -356,7 +356,7 @@ public final class TaskDetailViewModel {
     /// leave `allProjects` at whatever it already was — the picker just
     /// shows fewer project names, the same tradeoff `loadAllLabels()` makes.
     public func loadAllProjects() async {
-        allProjects = await (try? projectRepository.fetchProjects()) ?? allProjects
+        allProjects = await (try? projectRepository.fetchProjects())?.realProjectsOnly() ?? allProjects
     }
 
     /// Moves the task to `project` and persists it, mirroring `persist(previous:)`'s

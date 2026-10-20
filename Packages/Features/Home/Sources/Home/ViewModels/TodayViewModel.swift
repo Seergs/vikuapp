@@ -293,7 +293,7 @@ public final class TodayViewModel {
     /// Loads every project on the instance, for the "Move to Project"
     /// picker. Failures leave `allProjects` at whatever it already was.
     public func loadMoveCandidates() async {
-        allProjects = await (try? projectRepository.fetchProjects()) ?? allProjects
+        allProjects = await (try? projectRepository.fetchProjects())?.realProjectsOnly() ?? allProjects
     }
 
     /// Moves `task` to `destination` and drops it from the local list on

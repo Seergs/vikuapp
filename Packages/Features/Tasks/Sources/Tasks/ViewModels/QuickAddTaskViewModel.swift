@@ -200,6 +200,7 @@ public final class QuickAddTaskViewModel {
         do {
             projects = try await projectRepository.fetchProjects()
                 .filter { !$0.isArchived }
+                .realProjectsOnly()
                 .sorted { $0.position < $1.position }
             // Fall back to the account default only if nothing was
             // preselected and that default is one of the projects just
