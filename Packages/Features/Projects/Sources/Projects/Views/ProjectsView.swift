@@ -100,7 +100,7 @@ struct ProjectsView: View {
                 .padding(.top, VikuSpacing.xxl)
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
-            case .loaded where viewModel.rootNodes.isEmpty:
+            case .loaded where viewModel.rootNodes.isEmpty && viewModel.pseudoNodes.isEmpty:
                 VikuStatusView(
                     systemImage: "folder.badge.plus",
                     title: String(localized: "No projects yet", bundle: .module),
@@ -113,27 +113,43 @@ struct ProjectsView: View {
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
             case .loaded:
-                Section {
-                    ForEach(Self.flatten(viewModel.rootNodes, expandedProjectIDs: expandedProjectIDs)) { row in
-                        ProjectRow(
-                            project: row.node.project,
-                            taskSummary: viewModel.taskSummaries[row.node.id],
-                            level: row.level,
-                            hasChildren: !row.node.children.isEmpty,
-                            isExpanded: expandedProjectIDs.contains(row.node.id),
-                            onSelect: { router.push(ProjectsRoute.projectOverview(row.node)) },
-                            onToggleExpand: { toggleExpanded(row.node.id) },
-                            onEdit: { editingProject = $0 },
-                            onDelete: { projectPendingDelete = row.node },
-                        )
+                if !viewModel.pseudoNodes.isEmpty {
+                    Section {
+                        ForEach(viewModel.pseudoNodes) { node in
+                            PseudoProjectRow(
+                                project: node.project,
+                                taskSummary: viewModel.taskSummaries[node.id],
+                                onSelect: { router.push(ProjectsRoute.projectOverview(node)) },
+                            )
+                        }
+                    } header: {
+                        Text("Favorites & Filters", bundle: .module)
+                            .vikuSectionHeader()
                     }
-                } header: {
-                    Text(Self.countText(for: viewModel.rootNodes))
-                        .font(VikuFont.subheadline)
-                        .foregroundStyle(palette.textSecondary)
-                        .textCase(nil)
+                    .listRowBackground(palette.cardBackground)
                 }
-                .listRowBackground(palette.cardBackground)
+
+                if !viewModel.rootNodes.isEmpty {
+                    Section {
+                        ForEach(Self.flatten(viewModel.rootNodes, expandedProjectIDs: expandedProjectIDs)) { row in
+                            ProjectRow(
+                                project: row.node.project,
+                                taskSummary: viewModel.taskSummaries[row.node.id],
+                                level: row.level,
+                                hasChildren: !row.node.children.isEmpty,
+                                isExpanded: expandedProjectIDs.contains(row.node.id),
+                                onSelect: { router.push(ProjectsRoute.projectOverview(row.node)) },
+                                onToggleExpand: { toggleExpanded(row.node.id) },
+                                onEdit: { editingProject = $0 },
+                                onDelete: { projectPendingDelete = row.node },
+                            )
+                        }
+                    } header: {
+                        Text("My Projects", bundle: .module)
+                            .vikuSectionHeader()
+                    }
+                    .listRowBackground(palette.cardBackground)
+                }
             }
         }
     }
@@ -158,15 +174,6 @@ struct ProjectsView: View {
         }
     }
 
-    private static func countText(for nodes: [ProjectNode]) -> String {
-        let count = totalCount(in: nodes)
-        return String(localized: "\(count) projects", bundle: .module)
-    }
-
-    private static func totalCount(in nodes: [ProjectNode]) -> Int {
-        nodes.reduce(0) { $0 + 1 + totalCount(in: $1.children) }
-    }
-
     private static func flatten(
         _ nodes: [ProjectNode],
         level: Int = 0,
@@ -187,6 +194,81 @@ private struct ProjectDisplayRow: Identifiable {
     let level: Int
     var id: Int {
         node.id
+    }
+}
+
+/// A row for Favorites or a saved filter: `VikuProjectKindSwatch` in place of
+/// a project's hex-color dot, no indentation, no expand chevron (neither
+/// pseudo-project kind nests), and no edit/delete context menu — those apply
+/// to a real `Project`, not a virtual list Vikunja mixes into `/projects`.
+/// Below the title: a kind badge ("Favorites"/"Saved Filter") and, once its
+/// task summary has arrived, a "N pending" count next to it.
+private struct PseudoProjectRow: View {
+    let project: Project
+    let taskSummary: ProjectTaskSummary?
+    let onSelect: () -> Void
+
+    @Environment(\.vikuPalette) private var palette
+
+    var body: some View {
+        HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
+            VikuProjectKindSwatch(kind: project.kind)
+
+            VStack(alignment: .leading, spacing: VikuSpacing.xs) {
+                Text(project.title)
+                    .font(VikuFont.body)
+                    .fontWeight(.semibold)
+                    .lineLimit(1)
+
+                HStack(spacing: VikuSpacing.sm) {
+                    PseudoProjectKindBadge(kind: project.kind)
+
+                    if let taskSummary {
+                        Text(Self.pendingText(for: taskSummary))
+                            .font(VikuFont.caption)
+                            .foregroundStyle(palette.textTertiary)
+                    }
+                }
+            }
+
+            Spacer(minLength: VikuSpacing.sm)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onSelect)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel(project.title)
+    }
+
+    private static func pendingText(for summary: ProjectTaskSummary) -> String {
+        String(localized: "\(summary.total - summary.done) pending", bundle: .module)
+    }
+}
+
+/// The "Favorites"/"Saved Filter" label under a pseudo-project's title —
+/// same filled-capsule shape as `VikuLabelChip`, tinted via
+/// `VikuColor.ProjectBadge` so it matches `VikuProjectKindSwatch`'s border.
+private struct PseudoProjectKindBadge: View {
+    let kind: ProjectKind
+
+    @Environment(\.vikuPalette) private var palette
+
+    var body: some View {
+        Group {
+            switch kind {
+            case .favorites: Text("Favorites", bundle: .module)
+            case .savedFilter: Text("Saved Filter", bundle: .module)
+            case .project: Text(verbatim: "")
+            }
+        }
+        .font(.system(size: 11, weight: .semibold))
+        // Plain neutral gray, text included — the favorite/filter tint
+        // already lives on the swatch (border + icon); the badge is just a
+        // kind label, not a second place to repeat that color.
+        .foregroundStyle(palette.textSecondary)
+        .padding(.horizontal, VikuSpacing.sm)
+        .padding(.vertical, VikuSpacing.xxs)
+        .background(Capsule().fill(palette.textTertiary.opacity(0.18)))
     }
 }
 

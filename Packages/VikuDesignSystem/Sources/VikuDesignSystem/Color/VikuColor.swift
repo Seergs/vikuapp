@@ -56,6 +56,25 @@ public enum VikuColor {
     public static let textSecondary = VikuPalette.standard.textSecondary
     public static let textTertiary = VikuPalette.standard.textTertiary
 
+    /// Marks a pseudo-project's *kind* (Favorites, a saved filter) rather than
+    /// anything the user picked, so — like `VikuSavedFilterBadge`'s own
+    /// tint — these stay fixed regardless of the active `vikuPalette`.
+    public enum ProjectBadge {
+        public static let favorite = Color(hex: 0xC2872F)
+        public static let filter = Color(hex: 0x0A5FD6)
+
+        /// `.project` has no badge color of its own — a real project draws
+        /// its hex-color swatch instead — so this returns `.clear` for it
+        /// rather than being called at all.
+        public static func tint(for kind: ProjectKind) -> Color {
+            switch kind {
+            case .favorites: favorite
+            case .savedFilter: filter
+            case .project: .clear
+            }
+        }
+    }
+
     /// Preset swatches offered when picking a color for something the user is
     /// creating (a project, ...). Plain hex strings rather than `Color`,
     /// since `Label.hexColor`/`Project.hexColor` round-trip through the API
