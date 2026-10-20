@@ -18,6 +18,7 @@ struct ProjectsView: View {
     @State private var isShowingCreateProject = false
     @State private var projectPendingDelete: ProjectNode?
     @State private var editingProject: Project?
+    @State private var subprojectParentProject: Project?
 
     var body: some View {
         // `List` stays the root container across every load state — not just
@@ -51,6 +52,11 @@ struct ProjectsView: View {
                 Task { await viewModel.load() }
             }, content: { project in
                 EditProjectSheetView(makeViewModel: { makeEditProjectViewModel(project) })
+            })
+            .sheet(item: $subprojectParentProject, onDismiss: {
+                Task { await viewModel.load() }
+            }, content: { parentProject in
+                CreateProjectSheetView(makeViewModel: { makeCreateProjectViewModel(parentProject.id) })
             })
             .confirmationDialog(
                 Text(verbatim: deleteConfirmationMessage),
@@ -142,6 +148,7 @@ struct ProjectsView: View {
                                 onToggleExpand: { toggleExpanded(row.node.id) },
                                 onEdit: { editingProject = $0 },
                                 onDelete: { projectPendingDelete = row.node },
+                                onAddSubproject: { subprojectParentProject = row.node.project },
                             )
                         }
                     } header: {
@@ -289,6 +296,7 @@ private struct ProjectRow: View {
     let onToggleExpand: () -> Void
     let onEdit: (Project) -> Void
     let onDelete: () -> Void
+    let onAddSubproject: () -> Void
 
     @Environment(\.vikuPalette) private var palette
 
@@ -367,6 +375,11 @@ private struct ProjectRow: View {
                 String(localized: "Edit Project", bundle: .module),
                 systemImage: "pencil",
                 action: { onEdit(project) },
+            )
+            Button(
+                String(localized: "Add Subproject", bundle: .module),
+                systemImage: "folder.badge.plus",
+                action: onAddSubproject,
             )
             // `role: .destructive` alone renders blue here, not red: the tab
             // bar's brand tint leaks into the context menu and overrides the
