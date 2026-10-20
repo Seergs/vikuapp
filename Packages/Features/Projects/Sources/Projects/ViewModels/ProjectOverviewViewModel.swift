@@ -10,10 +10,15 @@ import VikuUI
 @Observable
 public final class ProjectOverviewViewModel {
     public let project: Project
-    /// This project's direct children, handed down from the already-built
-    /// tree (`ProjectsListViewModel.tree(from:)`) at navigation time rather
-    /// than fetched again here. Mutable (not `let`) so `addSubproject(_:)`
-    /// can append one just created from this screen without a full reload.
+    /// This project's direct children. Seeded at construction from the
+    /// already-built tree (`ProjectsListViewModel.tree(from:)`) so the first
+    /// render has something to show immediately, then replaced by a fresh
+    /// fetch every time `load()` runs. This screen's view model is cached
+    /// indefinitely per project id (see `ProjectsRootView`), so a
+    /// construction-time snapshot that `load()` never refreshed would go
+    /// stale the moment a subproject is created, deleted, or moved from
+    /// anywhere else in the app — `load()` re-fetching it is what keeps a
+    /// revisit to this screen correct, not just fast.
     public private(set) var subprojects: [ProjectNode]
     public private(set) var tasks: [VikunjaTask] = []
     public private(set) var loadState: ScreenLoadState<Void> = .idle
@@ -131,6 +136,13 @@ public final class ProjectOverviewViewModel {
     /// (i.e. this is a pull-to-refresh): swapping the list out for a
     /// spinner mid-refresh would tear down the `List` that owns the
     /// in-flight `.refreshable` task, cancelling its request underneath it.
+    ///
+    /// Re-fetches `subprojects` from the server every time rather than
+    /// trusting the construction-time snapshot — this screen's view model is
+    /// cached indefinitely (see `ProjectsRootView`), so without this a
+    /// subproject created, deleted, or moved anywhere else in the app (e.g.
+    /// the root Projects list) would never show up here on a revisit, only
+    /// after the app relaunches.
     public func load() async {
         if loadState != .loaded {
             loadState = .loading
@@ -138,6 +150,7 @@ public final class ProjectOverviewViewModel {
         async let kanbanSupport = capabilityProvider.supports(.apiV2)
         do {
             tasks = try await repository.fetchTasks(projectID: project.id)
+            subprojects = try await Self.fetchSubprojects(parentID: project.id, repository: projectRepository)
             subprojectTaskSummaries = await Self.fetchSubprojectSummaries(subprojects, repository: repository)
             loadState = .loaded
         } catch let error as VikunjaError {
@@ -146,6 +159,20 @@ public final class ProjectOverviewViewModel {
             loadState = .failure(error.localizedDescription)
         }
         supportsKanban = await kanbanSupport
+    }
+
+    /// This project's current direct children, straight from the server —
+    /// mirrors `ProjectsListViewModel.tree(from:)`'s own filtering (drop
+    /// archived, order by position) but only one level deep, since this
+    /// screen only ever shows direct children as "Subprojects" cards.
+    private static func fetchSubprojects(
+        parentID: Int,
+        repository: ProjectRepositoryProtocol,
+    ) async throws -> [ProjectNode] {
+        try await repository.fetchProjects()
+            .filter { !$0.isArchived && $0.parentProjectID == parentID }
+            .sorted { $0.position < $1.position }
+            .map { ProjectNode(project: $0) }
     }
 
     /// Fetches each subproject's own tasks concurrently so the "Subprojects"
@@ -318,13 +345,15 @@ public final class ProjectOverviewViewModel {
         }
     }
 
-    /// Appends a subproject just created from this screen's "Add Subproject"
-    /// button to the local tree and seeds its summary at 0/0, so the
-    /// "Subprojects" section reflects it immediately rather than waiting for
-    /// this screen's next cold load (which wouldn't pick it up anyway, since
-    /// `subprojects` is handed down once at navigation time, not re-fetched
-    /// by `load()`).
+    /// Appends a subproject just created from this screen's own "Add
+    /// Subproject" button to the local tree and seeds its summary at 0/0,
+    /// for instant feedback before the sheet even dismisses — `load()` would
+    /// also pick it up correctly on the next refresh now that it re-fetches
+    /// subprojects from the server each time, but this avoids waiting on
+    /// that round trip. Guards against double-adding in case `load()` already
+    /// refreshed by the time this runs.
     public func addSubproject(_ project: Project) {
+        guard !subprojects.contains(where: { $0.id == project.id }) else { return }
         subprojects.append(ProjectNode(project: project))
         subprojectTaskSummaries[project.id] = TaskSummary(done: 0, total: 0)
     }

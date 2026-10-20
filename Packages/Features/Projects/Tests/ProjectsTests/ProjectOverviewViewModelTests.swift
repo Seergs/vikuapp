@@ -169,6 +169,35 @@ struct ProjectOverviewViewModelTests {
     }
 
     @Test
+    func `load replaces the construction-time subprojects snapshot with a fresh fetch`() async {
+        // Regression test: this view model is cached indefinitely per
+        // project id (`ProjectsRootView`), so a subproject created or
+        // deleted elsewhere after this instance was first built (e.g. from
+        // the root Projects list) must still show up correctly next time
+        // `load()` runs, not just whatever was handed in at construction.
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [
+            Project(id: 2, title: "Client A", parentProjectID: 1),
+            Project(id: 3, title: "Client C", parentProjectID: 1),
+        ]
+        let staleSubprojects = [ProjectNode(project: Project(id: 2, title: "Client A", parentProjectID: 1))]
+        let viewModel = ProjectOverviewViewModel(
+            project: Project(id: 1, title: "Work"),
+            subprojects: staleSubprojects,
+            repository: FakeTaskRepository(),
+            projectRepository: projectRepository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
+        )
+
+        await viewModel.load()
+
+        #expect(viewModel.subprojects.map(\.project.id) == [2, 3])
+    }
+
+    @Test
     func `add subproject appends it to the local tree and seeds its summary at zero`() {
         let viewModel = ProjectOverviewViewModel(
             project: Project(id: 1, title: "Work"),
@@ -195,15 +224,15 @@ struct ProjectOverviewViewModelTests {
             VikunjaTask(id: 3, title: "Client A task 2", isDone: false, projectID: 2),
             VikunjaTask(id: 4, title: "Client B task", isDone: false, projectID: 3),
         ]
-        let subprojects = [
-            ProjectNode(project: Project(id: 2, title: "Client A", parentProjectID: 1)),
-            ProjectNode(project: Project(id: 3, title: "Client B", parentProjectID: 1)),
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [
+            Project(id: 2, title: "Client A", parentProjectID: 1),
+            Project(id: 3, title: "Client B", parentProjectID: 1),
         ]
         let viewModel = ProjectOverviewViewModel(
             project: Project(id: 1, title: "Work"),
-            subprojects: subprojects,
             repository: repository,
-            projectRepository: FakeProjectRepository(),
+            projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
             toastPresenter: FakeToastPresenter(),
