@@ -14,6 +14,7 @@ struct SubtasksSection: View {
     let color: Color
     let onAdd: () -> Void
     let onTap: (TaskRelation) -> Void
+    let onToggleDone: (TaskRelation) -> Void
     let onRemove: (TaskRelation) -> Void
 
     @Environment(\.vikuPalette) private var palette
@@ -32,22 +33,28 @@ struct SubtasksSection: View {
                     .font(VikuFont.subheadline)
                     .foregroundStyle(palette.textTertiary)
             } else {
-                SubtasksCard(subtasks: subtasks, color: color, onTap: onTap, onRemove: onRemove)
+                SubtasksCard(
+                    subtasks: subtasks,
+                    color: color,
+                    onTap: onTap,
+                    onToggleDone: onToggleDone,
+                    onRemove: onRemove,
+                )
             }
         }
     }
 }
 
-/// The checkbox itself stays read-only: a `TaskRelation` is a thin summary
-/// (see its doc comment), not enough to safely round-trip through
-/// `TaskRepositoryProtocol.update(_:)` without first fetching the full task —
-/// an extra request per row this screen doesn't make yet. Tapping the row
-/// (title) navigates via `onTap`, and the trailing button removes the
-/// relation via `onRemove`, mirroring `RelationsSection`'s `DependencyRow`.
+/// Tapping the checkbox toggles the subtask's done state via `onToggleDone`
+/// (see `TaskDetailViewModel.toggleDone(for:kind:)` for why that needs an
+/// extra fetch under the hood). Tapping the rest of the row (title) navigates
+/// via `onTap`, and the trailing button removes the relation via `onRemove`,
+/// mirroring `RelationsSection`'s `DependencyRow`.
 private struct SubtasksCard: View {
     let subtasks: [TaskRelation]
     let color: Color
     let onTap: (TaskRelation) -> Void
+    let onToggleDone: (TaskRelation) -> Void
     let onRemove: (TaskRelation) -> Void
 
     @Environment(\.vikuPalette) private var palette
@@ -60,10 +67,16 @@ private struct SubtasksCard: View {
                 }
                 HStack(spacing: VikuSpacing.sm) {
                     Button {
+                        onToggleDone(subtask)
+                    } label: {
+                        TaskDetailCheckbox(isDone: subtask.isDone, color: color, size: 20)
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
                         onTap(subtask)
                     } label: {
                         HStack(spacing: VikuSpacing.sm) {
-                            TaskDetailCheckbox(isDone: subtask.isDone, color: color, size: 20)
                             Text(verbatim: subtask.title)
                                 .font(VikuFont.subheadline)
                                 .foregroundStyle(subtask.isDone ? palette.textTertiary : Color.primary)
@@ -85,8 +98,8 @@ private struct SubtasksCard: View {
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
-                .padding(.vertical, VikuSpacing.sm + VikuSpacing.xs)
+                .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
+                .padding(.vertical, VikuSpacing.sm)
             }
         }
         .background(palette.cardBackground, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))

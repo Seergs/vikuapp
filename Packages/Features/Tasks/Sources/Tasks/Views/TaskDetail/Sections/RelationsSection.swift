@@ -38,6 +38,9 @@ struct RelationsSection: View {
                             relations: group.relations,
                             projectTitle: projectTitle(for:),
                             onTap: onOpenRelation,
+                            onToggleDone: { relation in
+                                Task { await viewModel.toggleDone(for: relation, kind: group.kind) }
+                            },
                             onRemove: { relation in
                                 Task { await viewModel.removeRelation(relation, kind: group.kind) }
                             },
@@ -92,6 +95,7 @@ private struct RelationGroupView: View {
     let relations: [TaskRelation]
     let projectTitle: (TaskRelation) -> String?
     let onTap: (TaskRelation) -> Void
+    let onToggleDone: (TaskRelation) -> Void
     let onRemove: (TaskRelation) -> Void
 
     @State private var isExpanded = false
@@ -120,6 +124,7 @@ private struct RelationGroupView: View {
                         relation: relation,
                         projectTitle: projectTitle(relation),
                         onTap: { onTap(relation) },
+                        onToggleDone: { onToggleDone(relation) },
                         onRemove: { onRemove(relation) },
                     )
                 }
@@ -153,26 +158,30 @@ private struct DependencyRow: View {
     let relation: TaskRelation
     let projectTitle: String?
     let onTap: () -> Void
+    let onToggleDone: () -> Void
     let onRemove: () -> Void
 
     @Environment(\.vikuPalette) private var palette
 
     var body: some View {
         HStack(spacing: VikuSpacing.sm) {
+            Button(action: onToggleDone) {
+                Circle()
+                    .strokeBorder(relation.isDone ? Color.clear : palette.textTertiary, lineWidth: 2)
+                    .background(Circle().fill(relation.isDone ? palette.semanticSuccess : Color.clear))
+                    .frame(width: 20, height: 20)
+                    .overlay {
+                        if relation.isDone {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(.white)
+                        }
+                    }
+            }
+            .buttonStyle(.plain)
+
             Button(action: onTap) {
                 HStack(spacing: VikuSpacing.sm) {
-                    Circle()
-                        .strokeBorder(relation.isDone ? Color.clear : palette.textTertiary, lineWidth: 2)
-                        .background(Circle().fill(relation.isDone ? palette.semanticSuccess : Color.clear))
-                        .frame(width: 20, height: 20)
-                        .overlay {
-                            if relation.isDone {
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundStyle(.white)
-                            }
-                        }
-
                     VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
                         Text(verbatim: relation.title)
                             .font(.system(size: 14.5, weight: .medium))
