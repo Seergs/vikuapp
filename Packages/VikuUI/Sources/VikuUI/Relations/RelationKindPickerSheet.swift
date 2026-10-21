@@ -3,11 +3,14 @@ import VikuDesignSystem
 import VikunjaCore
 
 /// Lets the user choose which kind of relation to add — every `RelationKind`
-/// except `subtask`/`parenttask`, which are represented on the task detail
-/// screen through the (read-only, for now) Subtasks checklist instead.
-/// Driven entirely by a closure, so it lives in `VikuUI` rather than
-/// `Features/Tasks` — every screen that offers "add relation" can present it
-/// without importing another feature, mirroring `LabelPickerSheet`.
+/// except `subtask`/`parenttask`. `subtask` has its own "Add" button on the
+/// task detail screen's Subtasks checklist, which skips straight to
+/// `RelationTaskPickerSheet` with the kind already known; `parenttask` (the
+/// inverse of `subtask`, viewed from the child) isn't creatable from either
+/// side's UI yet. Driven entirely by a closure, so it lives in `VikuUI`
+/// rather than `Features/Tasks` — every screen that offers "add relation"
+/// can present it without importing another feature, mirroring
+/// `LabelPickerSheet`.
 public struct RelationKindPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.vikuPalette) private var palette
