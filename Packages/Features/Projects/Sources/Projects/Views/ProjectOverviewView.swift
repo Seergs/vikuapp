@@ -255,23 +255,24 @@ struct ProjectOverviewView: View {
             // the whole block (button or list) is hidden rather than
             // offering an "Add Subproject" that would fail server-side.
             if viewModel.project.kind == .project {
+                let visibleSubprojects = viewModel.subprojectsWithPendingTasks
                 if viewModel.subprojects.isEmpty {
                     AddSubprojectButton { isShowingCreateSubproject = true }
                         .padding(.horizontal, VikuSpacing.md)
                         .padding(.top, VikuSpacing.xs)
-                } else {
+                } else if !visibleSubprojects.isEmpty {
                     VStack(alignment: .leading, spacing: VikuSpacing.sm) {
                         HStack(spacing: VikuSpacing.xs) {
                             Text("Subprojects", bundle: .module)
                                 .fontWeight(.bold)
-                            Text(verbatim: "\(viewModel.subprojects.count)")
+                            Text(verbatim: "\(visibleSubprojects.count)")
                                 .fontWeight(.regular)
                         }
                         .vikuSectionHeader()
                         .padding(.horizontal, VikuSpacing.md)
 
                         SubprojectScrollRow(
-                            subprojects: viewModel.subprojects,
+                            subprojects: visibleSubprojects,
                             taskSummaries: viewModel.subprojectTaskSummaries,
                         ) { subproject in
                             onSelectSubproject(subproject)
@@ -282,6 +283,10 @@ struct ProjectOverviewView: View {
                     // for the gap after "X/Y tasks completed" specifically.
                     .padding(.top, VikuSpacing.xs)
                 }
+                // Else: this project has subprojects, but none with pending
+                // tasks (all brand new or all completed) — hide the block
+                // entirely, including the "Add Subproject" button, rather
+                // than showing an empty "Subprojects" row.
             }
 
             ProjectTaskFilterRow(selection: $filter)

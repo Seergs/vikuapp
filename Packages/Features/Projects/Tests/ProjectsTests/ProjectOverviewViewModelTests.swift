@@ -274,6 +274,60 @@ struct ProjectOverviewViewModelTests {
     }
 
     @Test
+    func `subprojects with pending tasks excludes completed and empty subprojects`() async {
+        let repository = FakeTaskRepository()
+        repository.tasks = [
+            VikunjaTask(id: 1, title: "Client A task", isDone: false, projectID: 2),
+            VikunjaTask(id: 2, title: "Client B task", isDone: true, projectID: 3),
+        ]
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [
+            Project(id: 1, title: "Work"),
+            Project(id: 2, title: "Client A", parentProjectID: 1),
+            Project(id: 3, title: "Client B", parentProjectID: 1),
+            Project(id: 4, title: "Client C", parentProjectID: 1),
+        ]
+        let viewModel = ProjectOverviewViewModel(
+            project: Project(id: 1, title: "Work"),
+            repository: repository,
+            projectRepository: projectRepository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
+        )
+
+        await viewModel.load()
+
+        // Client A (2) has an open task, Client B (3) is fully done, Client C
+        // (4) has none at all — only Client A has anything pending.
+        #expect(viewModel.subprojects.map(\.project.id) == [2, 3, 4])
+        #expect(viewModel.subprojectsWithPendingTasks.map(\.project.id) == [2])
+    }
+
+    @Test
+    func `subprojects with pending tasks keeps A subproject whose summary fetch failed`() async {
+        let repository = FakeTaskRepository()
+        repository.fetchError = .network("offline")
+        let subprojects = [ProjectNode(project: Project(id: 2, title: "Client A", parentProjectID: 1))]
+        let viewModel = ProjectOverviewViewModel(
+            project: Project(id: 1, title: "Work"),
+            subprojects: subprojects,
+            repository: repository,
+            projectRepository: FakeProjectRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
+        )
+
+        await viewModel.load()
+
+        #expect(viewModel.subprojectTaskSummaries[2] == nil)
+        #expect(viewModel.subprojectsWithPendingTasks.map(\.project.id) == [2])
+    }
+
+    @Test
     func `load omits A subproject summary when its fetch fails`() async {
         let repository = FakeTaskRepository()
         repository.fetchError = .network("offline")
