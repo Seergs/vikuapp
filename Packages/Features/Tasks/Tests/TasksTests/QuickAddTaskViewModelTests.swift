@@ -291,6 +291,33 @@ struct QuickAddTaskViewModelTests {
     }
 
     @Test
+    func `display project shows the preselected project instantly before load resolves`() {
+        let viewModel = QuickAddTaskViewModel(
+            preselectedProjectID: 5,
+            preselectedProject: Project(id: 5, title: "Groceries", hexColor: "00ff00"),
+            taskRepository: FakeTaskRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: FakeToastPresenter(),
+        )
+
+        #expect(viewModel.displayProject?.id == 5)
+        #expect(viewModel.displayProject?.title == "Groceries")
+    }
+
+    @Test
+    func `display project drops A preselected project that does not match the preselected id`() {
+        let viewModel = QuickAddTaskViewModel(
+            preselectedProjectID: 5,
+            preselectedProject: Project(id: 99, title: "Mismatched"),
+            taskRepository: FakeTaskRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: FakeToastPresenter(),
+        )
+
+        #expect(viewModel.displayProject == nil)
+    }
+
+    @Test
     func `load refreshes the cache when the confirmed default differs from the cached one`() async {
         let cache = FakeDefaultProjectCache()
         cache.stored = CachedDefaultProject(id: 3, title: "Old Inbox Name", hexColor: "000000")

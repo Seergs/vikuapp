@@ -66,7 +66,7 @@ struct ProjectOverviewViewModelTests {
     @Test
     func `mark hidden leaves an outer project scope selected`() {
         let context = FakeQuickAddContext()
-        context.enterProjectScope(99)
+        context.enterProjectScope(Project(id: 99, title: "Outer"))
         let viewModel = ProjectOverviewViewModel(
             project: Project(id: 7, title: "Work"),
             repository: FakeTaskRepository(),

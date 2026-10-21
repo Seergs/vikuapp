@@ -12,9 +12,12 @@ import VikuUI
 /// cached on device by `AppContainer` and refreshed once per app launch, so
 /// opening this sheet never hits the network for it. While `load()` is
 /// validating that id against the freshly fetched project list, `displayProject`
-/// shows the last known default from `defaultProjectCache` instead of a
-/// spinner; `load()` rewrites that cache once it confirms the real one.
-/// `canSave` stays false until a project is resolved or the user picks one.
+/// shows a project instead of a spinner: `preselectedProject` (the full object
+/// the preselecting screen already had in hand, see `QuickAddContextTracking`)
+/// when there is one, otherwise the last known default from
+/// `defaultProjectCache`. `load()` rewrites that cache once it confirms the
+/// real default. `canSave` stays false until a project is resolved or the
+/// user picks one.
 @MainActor
 @Observable
 public final class QuickAddTaskViewModel {
@@ -28,6 +31,11 @@ public final class QuickAddTaskViewModel {
     /// The project the task is saved to: the picker's value, or the last matched shortcut.
     public var selectedProjectID: Int?
     private let preselectedProjectID: Int?
+    /// The full project a preselecting screen already had in hand, kept only
+    /// when its id matches `preselectedProjectID` (a caller that resolved the
+    /// two independently, e.g. a `viku://quick-add?project=` deep link against
+    /// a mismatched on-screen scope, drops it rather than show the wrong one).
+    private let preselectedProject: Project?
     private let accountDefaultProjectID: Int?
     private let defaultProjectCache: DefaultProjectCaching?
     /// Snapshotted once at init, not re-read later: the display cache only
@@ -86,13 +94,18 @@ public final class QuickAddTaskViewModel {
         return projects.first { $0.id == selectedProjectID }
     }
 
-    /// What the project field shows before `load()` resolves: the last known
-    /// default project from the on-device cache, so the sheet never needs a
-    /// spinner there. Only used when nothing was preselected — a preselected
-    /// project has no cache to borrow from and briefly has nothing to show
-    /// instead, same as before this existed. Never drives `selectedProjectID`/
-    /// `canSave`; those still wait for `load()` to confirm the real default.
+    /// What the project field shows before `load()` resolves, so the sheet
+    /// never needs a spinner there: `preselectedProject` when the preselecting
+    /// screen handed one over, otherwise the last known default project from
+    /// the on-device cache (only when nothing was preselected — a preselected
+    /// id with no matching `preselectedProject`, e.g. a mismatched deep link,
+    /// briefly has nothing to show instead, same as before either of these
+    /// existed). Never drives `selectedProjectID`/`canSave`; those still wait
+    /// for `load()` to confirm the real project.
     public var displayProject: Project? {
+        if let preselectedProject {
+            return preselectedProject
+        }
         guard preselectedProjectID == nil, let cachedDefaultProject else { return nil }
         return Project(
             id: cachedDefaultProject.id,
@@ -163,6 +176,9 @@ public final class QuickAddTaskViewModel {
     /// - Parameters:
     ///   - preselectedProjectID: the project to start on when the sheet was
     ///     opened from a screen scoped to one project.
+    ///   - preselectedProject: the full project behind `preselectedProjectID`,
+    ///     when the caller has it in hand (see `QuickAddContextTracking`).
+    ///     Ignored if its id doesn't match `preselectedProjectID`.
     ///   - accountDefaultProjectID: the account's cached Vikunja default
     ///     project, used when `preselectedProjectID` is `nil`. Both `nil`
     ///     leaves the sheet with no project until the user picks one.
@@ -171,6 +187,7 @@ public final class QuickAddTaskViewModel {
     ///     about the optimistic display (it just leaves `displayProject` nil).
     public init(
         preselectedProjectID: Int? = nil,
+        preselectedProject: Project? = nil,
         accountDefaultProjectID: Int? = nil,
         taskRepository: TaskRepositoryProtocol,
         projectRepository: ProjectRepositoryProtocol,
@@ -181,6 +198,7 @@ public final class QuickAddTaskViewModel {
         defaultProjectCache: DefaultProjectCaching? = nil,
     ) {
         self.preselectedProjectID = preselectedProjectID
+        self.preselectedProject = preselectedProject?.id == preselectedProjectID ? preselectedProject : nil
         self.accountDefaultProjectID = accountDefaultProjectID
         self.selectedProjectID = preselectedProjectID
         self.taskRepository = taskRepository
