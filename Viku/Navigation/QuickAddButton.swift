@@ -1,5 +1,6 @@
 import SwiftUI
 import VikuDesignSystem
+import VikunjaCore
 
 /// Floating action button for quick task creation, matching the design
 /// mockup's FAB: an opaque, brand-colored circle with a layered shadow,
@@ -16,9 +17,13 @@ struct QuickAddButton: View {
     var onTap: () -> Void = {}
 
     @Environment(\.vikuPalette) private var palette
+    @State private var tapped = false
 
     var body: some View {
-        Button(action: onTap) {
+        Button {
+            tapped.toggle()
+            onTap()
+        } label: {
             Image(systemName: "plus")
                 .font(.system(size: 24, weight: .semibold))
                 .foregroundStyle(palette.brandForeground)
@@ -29,5 +34,6 @@ struct QuickAddButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text("Quick Add"))
+        .vikuHaptic(.light, trigger: tapped)
     }
 }
