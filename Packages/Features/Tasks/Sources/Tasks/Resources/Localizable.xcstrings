@@ -431,6 +431,16 @@
         }
       }
     },
+    "No subtasks yet.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no hay subtareas."
+          }
+        }
+      }
+    },
     "None": {
       "localizations": {
         "es": {

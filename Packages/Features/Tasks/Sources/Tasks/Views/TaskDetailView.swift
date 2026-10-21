@@ -476,9 +476,13 @@ public struct TaskDetailView: View {
 
         LabelsSection(labels: task.labels) { isShowingLabelPicker = true }
 
-        if !task.subtasks.isEmpty {
-            SubtasksSection(subtasks: task.subtasks, color: swatchColor(project))
-        }
+        SubtasksSection(
+            subtasks: task.subtasks,
+            color: swatchColor(project),
+            onAdd: { relationEditStep = .pickTask(viewModel.task, .subtask) },
+            onTap: openRelation,
+            onRemove: { relation in Task { await viewModel.removeRelation(relation, kind: .subtask) } },
+        )
 
         RelationsSection(
             viewModel: viewModel,
