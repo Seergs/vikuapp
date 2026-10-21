@@ -12,12 +12,14 @@ struct ConnectionsListViewModelTests {
     private func makeViewModel(
         store: FakeAccountStore,
         clientFactory: FakeInstanceClientFactory = FakeInstanceClientFactory(),
+        serverVersionCache: FakeServerVersionCaching = FakeServerVersionCaching(),
         toastPresenter: FakeToastPresenter = FakeToastPresenter(),
         onActiveAccountChanged: @escaping () -> Void = {},
     ) -> ConnectionsListViewModel {
         ConnectionsListViewModel(
             accountStore: store,
             clientFactory: clientFactory,
+            serverVersionCache: serverVersionCache,
             toastPresenter: toastPresenter,
             onActiveAccountChanged: onActiveAccountChanged,
         )
@@ -79,6 +81,44 @@ struct ConnectionsListViewModelTests {
 
         #expect(viewModel.loadState == .loaded)
         #expect(viewModel.serverVersions[account.id] == nil)
+    }
+
+    @Test
+    func `load seeds server versions from the cache`() async throws {
+        let store = FakeAccountStore()
+        let account = makeAccount()
+        try await store.addAccount(account, token: "token")
+        let clientFactory = FakeInstanceClientFactory()
+        clientFactory.result = .failure(.network("offline"))
+        let serverVersionCache = FakeServerVersionCaching(cached: [account.id: "0.22.1"])
+        let viewModel = makeViewModel(
+            store: store,
+            clientFactory: clientFactory,
+            serverVersionCache: serverVersionCache,
+        )
+
+        await viewModel.load()
+
+        #expect(viewModel.serverVersions[account.id] == "0.22.1")
+    }
+
+    @Test
+    func `a successful probe writes the fresh version through to the cache`() async throws {
+        let store = FakeAccountStore()
+        let account = makeAccount()
+        try await store.addAccount(account, token: "token")
+        let clientFactory = FakeInstanceClientFactory()
+        let serverVersionCache = FakeServerVersionCaching(cached: [account.id: "0.22.1"])
+        let viewModel = makeViewModel(
+            store: store,
+            clientFactory: clientFactory,
+            serverVersionCache: serverVersionCache,
+        )
+
+        await viewModel.load()
+
+        #expect(viewModel.serverVersions[account.id] == "0.24.6")
+        #expect(serverVersionCache.cached[account.id] == "0.24.6")
     }
 
     @Test

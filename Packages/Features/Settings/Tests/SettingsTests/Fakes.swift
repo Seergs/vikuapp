@@ -402,6 +402,24 @@ final class FakeAccountTimezoneCaching: AccountTimezoneCaching, @unchecked Senda
     }
 }
 
+final class FakeServerVersionCaching: ServerVersionCaching, @unchecked Sendable {
+    private(set) var cached: [InstanceAccount.ID: String]
+    private(set) var setCallCount = 0
+
+    init(cached: [InstanceAccount.ID: String] = [:]) {
+        self.cached = cached
+    }
+
+    func cachedVersion(forAccountID accountID: InstanceAccount.ID) -> String? {
+        cached[accountID]
+    }
+
+    func setCachedVersion(_ version: String?, forAccountID accountID: InstanceAccount.ID) {
+        setCallCount += 1
+        cached[accountID] = version
+    }
+}
+
 final class FakeWebhookRepository: WebhookRepositoryProtocol, @unchecked Sendable {
     struct CreatedUserWebhook {
         let targetURL: URL
