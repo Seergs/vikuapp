@@ -378,6 +378,25 @@ public final class ProjectOverviewViewModel {
         subprojectTaskSummaries[project.id] = TaskSummary(done: 0, total: 0)
     }
 
+    /// Deletes this screen's own project from the server. Vikunja cascades
+    /// the delete to subprojects and their tasks, so nothing local needs
+    /// pruning beyond the screen itself - the caller is expected to pop back
+    /// once this returns `true`, mirroring `TaskDetailViewModel.deleteTask()`.
+    @discardableResult
+    public func deleteProject() async -> Bool {
+        do {
+            try await projectRepository.delete(id: project.id)
+            toastPresenter.show(String(localized: "Project deleted", bundle: .module), style: .success)
+            return true
+        } catch let error as VikunjaError {
+            toastPresenter.show(error.displayMessage, style: .error)
+            return false
+        } catch {
+            toastPresenter.show(error.localizedDescription, style: .error)
+            return false
+        }
+    }
+
     /// Builds a `DuplicateTaskViewModel` for `task`, seeded with this
     /// screen's own `project` — every task in `tasks` belongs to it, mirroring
     /// `TaskDetailViewModel.makeDuplicateTaskViewModel()`.
