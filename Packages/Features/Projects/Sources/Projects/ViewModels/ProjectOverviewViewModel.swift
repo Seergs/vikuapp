@@ -135,12 +135,17 @@ public final class ProjectOverviewViewModel {
 
     /// Call from the view's `onAppear`/`onDisappear`: while this project's
     /// overview is the visible screen, a quick-add from the tab-bar FAB
-    /// defaults to this project instead of the account default.
+    /// defaults to this project instead of the account default. Favorites
+    /// and saved filters are pseudo-projects with negative ids that can't
+    /// hold a task, so they're skipped here and quick-add falls through to
+    /// the account default instead.
     public func markVisible() {
+        guard project.kind == .project else { return }
         quickAddContext?.enterProjectScope(project.id)
     }
 
     public func markHidden() {
+        guard project.kind == .project else { return }
         quickAddContext?.exitProjectScope(project.id)
     }
 
