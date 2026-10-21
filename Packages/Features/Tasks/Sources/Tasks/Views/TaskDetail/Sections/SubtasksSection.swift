@@ -98,8 +98,8 @@ private struct SubtasksCard: View {
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
-                .padding(.vertical, VikuSpacing.sm + VikuSpacing.xs)
+                .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xxs)
+                .padding(.vertical, VikuSpacing.sm)
             }
         }
         .background(palette.cardBackground, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
