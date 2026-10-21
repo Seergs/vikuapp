@@ -144,7 +144,7 @@ public final class TaskDetailViewModel {
     /// visible screen, a quick-add from the tab-bar FAB defaults to the
     /// task's project instead of the account default.
     public func markVisible() {
-        quickAddContext?.enterProjectScope(project.id)
+        quickAddContext?.enterProjectScope(project)
     }
 
     public func markHidden() {
