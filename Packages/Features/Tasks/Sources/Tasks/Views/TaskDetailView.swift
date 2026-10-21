@@ -481,6 +481,7 @@ public struct TaskDetailView: View {
             color: swatchColor(project),
             onAdd: { relationEditStep = .pickTask(viewModel.task, .subtask) },
             onTap: openRelation,
+            onToggleDone: { relation in Task { await viewModel.toggleDone(for: relation, kind: .subtask) } },
             onRemove: { relation in Task { await viewModel.removeRelation(relation, kind: .subtask) } },
         )
 

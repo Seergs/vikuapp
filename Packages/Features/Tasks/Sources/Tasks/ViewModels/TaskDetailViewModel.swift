@@ -322,6 +322,31 @@ public final class TaskDetailViewModel {
         }
     }
 
+    /// Toggles the done state of a subtask or related task from this screen,
+    /// optimistically flipping the local `TaskRelation` and rolling back if
+    /// the round trip fails. `TaskRelation` is too thin (see its doc comment)
+    /// to round-trip through `TaskRepositoryProtocol.update(_:)` on its own,
+    /// so this fetches the full related task first, flips its `isDone`, and
+    /// persists that, an extra request per toggle.
+    public func toggleDone(for relation: TaskRelation, kind: RelationKind) async {
+        let previous = task
+        taskWriteToken += 1
+        let token = taskWriteToken
+        let newIsDone = !relation.isDone
+        setRelationDone(newIsDone, id: relation.id, kind: kind)
+        if newIsDone {
+            hapticPresenter.play(.success)
+        }
+        do {
+            var relatedTask = try await repository.fetchTask(id: relation.id)
+            relatedTask.isDone = newIsDone
+            _ = try await repository.update(relatedTask)
+        } catch {
+            guard token == taskWriteToken else { return }
+            task = previous
+        }
+    }
+
     /// Searches every task the account can see for the "add relation" task
     /// picker, excluding the task itself and anything already related to it
     /// (under any relation kind) so the same task can't be picked twice. An
@@ -695,6 +720,30 @@ public final class TaskDetailViewModel {
         default: task.otherRelations[kind, default: []].append(relation)
         }
         updateRelatedTaskIDsCache()
+    }
+
+    /// Flips the matching `TaskRelation`'s `isDone` in whichever of `task`'s
+    /// relation properties `kind` corresponds to, mirroring `insertRelation`'s
+    /// routing. A no-op if `id` isn't present under `kind` (stale local state).
+    private func setRelationDone(_ isDone: Bool, id: Int, kind: RelationKind) {
+        switch kind {
+        case .subtask:
+            if let index = task.subtasks.firstIndex(where: { $0.id == id }) {
+                task.subtasks[index].isDone = isDone
+            }
+        case .blocked:
+            if let index = task.dependsOn.firstIndex(where: { $0.id == id }) {
+                task.dependsOn[index].isDone = isDone
+            }
+        case .blocking:
+            if let index = task.blocks.firstIndex(where: { $0.id == id }) {
+                task.blocks[index].isDone = isDone
+            }
+        default:
+            if let index = task.otherRelations[kind]?.firstIndex(where: { $0.id == id }) {
+                task.otherRelations[kind]?[index].isDone = isDone
+            }
+        }
     }
 
     private func deleteRelation(_ relation: TaskRelation, kind: RelationKind) {

@@ -787,6 +787,50 @@ struct TaskDetailViewModelTests {
     }
 
     @Test
+    func `toggle done for relation flips the local relation and persists through the fetched task`() async {
+        let repository = FakeTaskRepository()
+        let subtask = TaskRelation(id: 2, title: "Outline", isDone: false, projectID: 1)
+        repository.tasks = [VikunjaTask(id: 2, title: "Outline", isDone: false, projectID: 1)]
+        let viewModel = TaskDetailViewModel(
+            task: VikunjaTask(id: 1, title: "Write report", projectID: 1, subtasks: [subtask]),
+            project: Project(id: 1, title: "Work"),
+            repository: repository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            commentRepository: FakeTaskCommentRepository(),
+            attachmentRepository: FakeTaskAttachmentRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: FakeToastPresenter(),
+        )
+
+        await viewModel.toggleDone(for: subtask, kind: .subtask)
+
+        #expect(viewModel.task.subtasks == [TaskRelation(id: 2, title: "Outline", isDone: true, projectID: 1)])
+    }
+
+    @Test
+    func `toggle done for relation reverts when fetching the related task fails`() async {
+        let repository = FakeTaskRepository()
+        repository.fetchError = .network("offline")
+        let subtask = TaskRelation(id: 2, title: "Outline", isDone: false, projectID: 1)
+        let viewModel = TaskDetailViewModel(
+            task: VikunjaTask(id: 1, title: "Write report", projectID: 1, subtasks: [subtask]),
+            project: Project(id: 1, title: "Work"),
+            repository: repository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            commentRepository: FakeTaskCommentRepository(),
+            attachmentRepository: FakeTaskAttachmentRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: FakeToastPresenter(),
+        )
+
+        await viewModel.toggleDone(for: subtask, kind: .subtask)
+
+        #expect(viewModel.task.subtasks == [subtask])
+    }
+
+    @Test
     func `search tasks for relation excludes the task itself and already related tasks`() async {
         let repository = FakeTaskRepository()
         repository.searchResults = [
