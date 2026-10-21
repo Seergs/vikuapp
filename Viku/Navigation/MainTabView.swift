@@ -345,6 +345,7 @@ private struct QuickAddOverlay: View {
                     presented = PresentedQuickAdd(
                         viewModel: container.makeQuickAddTaskViewModel(
                             preselectedProjectID: container.quickAddContext.preselectedProjectID,
+                            preselectedProject: container.quickAddContext.preselectedProject,
                             account: account,
                         ),
                     )
@@ -372,6 +373,7 @@ private struct QuickAddOverlay: View {
         presented = PresentedQuickAdd(
             viewModel: container.makeQuickAddTaskViewModel(
                 preselectedProjectID: projectID ?? container.quickAddContext.preselectedProjectID,
+                preselectedProject: container.quickAddContext.preselectedProject,
                 account: account,
             ),
         )

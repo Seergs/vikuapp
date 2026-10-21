@@ -528,17 +528,23 @@ final class AppContainer {
         task.reminders[index] = TaskReminder(reminder: now.addingTimeInterval(duration))
     }
 
-    /// - Parameter preselectedProjectID: snapshotted by the caller (see
-    ///   `MainTabView`) at the moment the quick-add sheet is opened — not read
-    ///   from `quickAddContext` here, since this factory runs inside a
-    ///   SwiftUI view body and an `@Observable` read would rebuild the sheet.
+    /// - Parameters:
+    ///   - preselectedProjectID: snapshotted by the caller (see
+    ///     `MainTabView`) at the moment the quick-add sheet is opened — not
+    ///     read from `quickAddContext` here, since this factory runs inside a
+    ///     SwiftUI view body and an `@Observable` read would rebuild the sheet.
+    ///   - preselectedProject: the full project behind that id, snapshotted
+    ///     the same way, so the sheet can show it immediately instead of a
+    ///     spinner (see `QuickAddTaskViewModel.displayProject`).
     func makeQuickAddTaskViewModel(
         preselectedProjectID: Int?,
+        preselectedProject: Project?,
         account: InstanceAccount,
     ) -> QuickAddTaskViewModel {
         let tokenProvider = tokenProvider(for: account)
         return QuickAddTaskViewModel(
             preselectedProjectID: preselectedProjectID,
+            preselectedProject: preselectedProject,
             accountDefaultProjectID: defaultProjectStore.projectID(forAccountID: account.id),
             taskRepository: clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider),
             projectRepository: clientFactory.makeProjectRepository(
