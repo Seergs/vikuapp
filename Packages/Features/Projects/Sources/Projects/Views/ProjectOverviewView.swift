@@ -46,7 +46,9 @@ struct ProjectOverviewView: View {
     @State private var taskPendingLabelEdit: VikunjaTask?
     @State private var relationEditStep: RelationEditStep?
     @State private var isShowingCreateSubproject = false
+    @State private var isShowingDeleteProjectConfirmation = false
     @Environment(\.vikuPalette) private var palette
+    @Environment(\.dismiss) private var dismiss
 
     private var sort: TaskSort {
         TaskSort(field: viewModel.sortField, direction: viewModel.sortDirection)
@@ -96,6 +98,7 @@ struct ProjectOverviewView: View {
                         sortDirection: $viewModel.sortDirection,
                         onEditProject: { onEditProject(viewModel.project) },
                         onAddSubproject: { isShowingCreateSubproject = true },
+                        onDeleteProject: { isShowingDeleteProjectConfirmation = true },
                     )
                 } label: {
                     Image(systemName: "ellipsis.circle")
@@ -131,6 +134,24 @@ struct ProjectOverviewView: View {
                 } label: {
                     Text("Delete Task", bundle: .module)
                 }
+            }
+            Button(role: .cancel) {} label: {
+                Text("Cancel", bundle: .module)
+            }
+        }
+        .confirmationDialog(
+            Text(verbatim: deleteProjectConfirmationMessage),
+            isPresented: $isShowingDeleteProjectConfirmation,
+            titleVisibility: .visible,
+        ) {
+            Button(role: .destructive) {
+                Task {
+                    if await viewModel.deleteProject() {
+                        dismiss()
+                    }
+                }
+            } label: {
+                Text("Delete Project", bundle: .module)
             }
             Button(role: .cancel) {} label: {
                 Text("Cancel", bundle: .module)
@@ -205,6 +226,17 @@ struct ProjectOverviewView: View {
                 )
             }
         }
+    }
+
+    /// Mirrors `ProjectsView.deleteConfirmationMessage`: this screen's own
+    /// `subprojects` (direct children only) stand in for `ProjectNode.children`.
+    private var deleteProjectConfirmationMessage: String {
+        viewModel.subprojects.isEmpty
+            ? String(localized: "This permanently deletes the project and all its tasks.", bundle: .module)
+            : String(
+                localized: "This permanently deletes the project, its subprojects, and all their tasks.",
+                bundle: .module,
+            )
     }
 
     private var content: some View {
@@ -624,6 +656,9 @@ private struct ProjectOverviewMenuContent: View {
     @Binding var sortDirection: TaskSort.Direction
     let onEditProject: () -> Void
     let onAddSubproject: () -> Void
+    let onDeleteProject: () -> Void
+
+    @Environment(\.vikuPalette) private var palette
 
     var body: some View {
         // A `Section("Sort") { Picker; Picker }` silently drops its header
@@ -651,6 +686,16 @@ private struct ProjectOverviewMenuContent: View {
                 systemImage: "folder.badge.plus",
                 action: onAddSubproject,
             )
+            // `role: .destructive` alone renders blue here: the tab bar's
+            // tint leaks into the context menu and overrides it, same as the
+            // per-task "Delete Task" button on this screen's rows.
+            Button(
+                String(localized: "Delete Project", bundle: .module),
+                systemImage: "trash",
+                role: .destructive,
+                action: onDeleteProject,
+            )
+            .tint(palette.semanticDanger)
         }
     }
 }
