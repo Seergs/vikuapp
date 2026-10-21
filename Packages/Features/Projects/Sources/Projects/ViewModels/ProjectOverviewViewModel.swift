@@ -141,7 +141,7 @@ public final class ProjectOverviewViewModel {
     /// the account default instead.
     public func markVisible() {
         guard project.kind == .project else { return }
-        quickAddContext?.enterProjectScope(project.id)
+        quickAddContext?.enterProjectScope(project)
     }
 
     public func markHidden() {

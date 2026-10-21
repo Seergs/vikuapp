@@ -188,17 +188,21 @@ final class FakeHapticPresenter: HapticFeedbackPresenting, @unchecked Sendable {
 
 @MainActor
 final class FakeQuickAddContext: QuickAddContextTracking {
-    private(set) var scopes: [Int] = []
+    private(set) var scopes: [Project] = []
     var preselectedProjectID: Int? {
+        scopes.last?.id
+    }
+
+    var preselectedProject: Project? {
         scopes.last
     }
 
-    func enterProjectScope(_ projectID: Int) {
-        scopes.append(projectID)
+    func enterProjectScope(_ project: Project) {
+        scopes.append(project)
     }
 
     func exitProjectScope(_ projectID: Int) {
-        if let index = scopes.lastIndex(of: projectID) {
+        if let index = scopes.lastIndex(where: { $0.id == projectID }) {
             scopes.remove(at: index)
         }
     }
