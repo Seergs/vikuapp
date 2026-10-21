@@ -214,6 +214,13 @@ private struct ConnectionRow: View {
                                     .padding(.horizontal, VikuSpacing.xs + VikuSpacing.xxs)
                                     .padding(.vertical, VikuSpacing.xxs)
                                     .background(palette.fieldBackground, in: Capsule())
+                                    // Only ever animates when there was no cached version to
+                                    // show up front (a brand-new connection): the view model
+                                    // wraps that first reveal in `withAnimation`, fading it in
+                                    // instead of popping in once the probe resolves. A cached
+                                    // value is already present at first render, so this
+                                    // transition never fires for it.
+                                    .transition(.opacity)
                             }
                         }
                         .padding(.top, VikuSpacing.sm)

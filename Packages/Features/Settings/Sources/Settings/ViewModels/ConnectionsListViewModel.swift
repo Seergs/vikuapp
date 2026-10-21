@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftUI
 import VikunjaCore
 import VikuUI
 
@@ -14,10 +15,13 @@ public final class ConnectionsListViewModel {
     public private(set) var activeAccountID: InstanceAccount.ID?
     public private(set) var loadState: ScreenLoadState<Void> = .idle
     /// The Vikunja server version reported by each account's own `/info`,
-    /// keyed by account id. Fetched best-effort, one probe per account,
-    /// after the account list itself loads; a missing entry just means the
-    /// probe hasn't finished (or failed) rather than a load-blocking error,
-    /// since knowing which account is active/editable doesn't depend on it.
+    /// keyed by account id. Seeded synchronously from `serverVersionCache`
+    /// in `load()` (so an account's last known version renders immediately,
+    /// alongside its name/host, with no pop-in), then refreshed in the
+    /// background by `loadServerVersions()`. Best-effort: a missing entry
+    /// just means neither the cache nor the probe has a value yet (or the
+    /// probe failed) rather than a load-blocking error, since knowing which
+    /// account is active/editable doesn't depend on it.
     public private(set) var serverVersions: [InstanceAccount.ID: String] = [:]
 
     public var isLoading: Bool {
@@ -26,6 +30,7 @@ public final class ConnectionsListViewModel {
 
     private let accountStore: AccountStoreProtocol
     private let clientFactory: InstanceClientFactoryProtocol
+    private let serverVersionCache: ServerVersionCaching
     private let toastPresenter: ToastPresenting
     /// Fired after `setActive` may have changed which account is active, so
     /// the app target can rebuild the main tab shell against the new one.
@@ -34,11 +39,13 @@ public final class ConnectionsListViewModel {
     public init(
         accountStore: AccountStoreProtocol,
         clientFactory: InstanceClientFactoryProtocol,
+        serverVersionCache: ServerVersionCaching,
         toastPresenter: ToastPresenting,
         onActiveAccountChanged: @escaping () -> Void,
     ) {
         self.accountStore = accountStore
         self.clientFactory = clientFactory
+        self.serverVersionCache = serverVersionCache
         self.toastPresenter = toastPresenter
         self.onActiveAccountChanged = onActiveAccountChanged
     }
@@ -50,6 +57,11 @@ public final class ConnectionsListViewModel {
         do {
             accounts = try await accountStore.fetchAccounts()
             activeAccountID = try await accountStore.activeAccount()?.id
+            for account in accounts {
+                if let cached = serverVersionCache.cachedVersion(forAccountID: account.id) {
+                    serverVersions[account.id] = cached
+                }
+            }
             loadState = .loaded
             await loadServerVersions()
         } catch let error as VikunjaError {
@@ -61,8 +73,10 @@ public final class ConnectionsListViewModel {
 
     /// Probes every account's `/info` concurrently for its server version.
     /// Best-effort: an account whose probe fails (offline instance, bad
-    /// URL) simply keeps no entry in `serverVersions` rather than failing
-    /// the whole screen.
+    /// URL) simply keeps whatever was already in `serverVersions` (the
+    /// cached value, or nothing) rather than failing the whole screen. A
+    /// successful probe writes through to `serverVersionCache` too, so the
+    /// next time this screen loads it already has the latest known value.
     private func loadServerVersions() async {
         let accounts = accounts
         await withTaskGroup(of: (InstanceAccount.ID, String?).self) { group in
@@ -73,7 +87,14 @@ public final class ConnectionsListViewModel {
                 }
             }
             for await (accountID, version) in group {
-                if let version {
+                guard let version else { continue }
+                let isFirstReveal = serverVersions[accountID] == nil
+                serverVersionCache.setCachedVersion(version, forAccountID: accountID)
+                if isFirstReveal {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        serverVersions[accountID] = version
+                    }
+                } else {
                     serverVersions[accountID] = version
                 }
             }

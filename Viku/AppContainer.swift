@@ -71,6 +71,10 @@ final class AppContainer {
     /// `DefaultProjectSettingsViewModel`'s "Time Zone" row the same way
     /// `defaultProjectStore` backs its "Default Project" row.
     let accountTimezoneStore = AccountTimezoneStore()
+    /// On-device cache of each account's last known Vikunja server version,
+    /// shown instantly on the Connections screen before each account's own
+    /// probe resolves. See `ServerVersionStore`.
+    let serverVersionStore: ServerVersionCaching = ServerVersionStore()
     /// On-device storage of the project or saved filter pinned as the Home
     /// tab's content, backing Settings' "Home Screen" row. Unlike
     /// `defaultProjectStore`, this one has no server-side value to
@@ -618,6 +622,7 @@ final class AppContainer {
         ConnectionsListViewModel(
             accountStore: accountStore,
             clientFactory: clientFactory,
+            serverVersionCache: serverVersionStore,
             toastPresenter: toastCenter,
             onActiveAccountChanged: onActiveAccountChanged,
         )
