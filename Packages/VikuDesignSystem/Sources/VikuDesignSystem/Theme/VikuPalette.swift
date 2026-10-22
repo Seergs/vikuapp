@@ -22,6 +22,17 @@ public struct VikuPalette: Sendable, Equatable {
     public var pageBackground: Color
     public var cardBackground: Color
     public var fieldBackground: Color
+    /// Same adaptive black/white value as `Color.primary` for every theme
+    /// (none of them override it), but as a concrete `Color` rather than
+    /// SwiftUI's `.primary` `HierarchicalShapeStyle`. Use this instead of
+    /// `Color.primary` for text inside a `ToolbarItem`: iOS 26 wraps toolbar
+    /// content in its own Liquid Glass background, and hierarchical styles
+    /// get an automatic vibrancy blend against that glass, which on real
+    /// device compositing (the Simulator renders Liquid Glass flatter and
+    /// doesn't show this) washes text out against saturated custom-theme
+    /// backgrounds (Solarized, Cyberpunk, Terminal, Vaporwave). A concrete
+    /// color isn't a `HierarchicalShapeStyle`, so it renders flat instead.
+    public var textPrimary: Color
     public var textSecondary: Color
     public var textTertiary: Color
     public var semanticSuccess: Color
@@ -35,6 +46,7 @@ public struct VikuPalette: Sendable, Equatable {
         pageBackground: Color,
         cardBackground: Color,
         fieldBackground: Color,
+        textPrimary: Color = .platformTextPrimary,
         textSecondary: Color,
         textTertiary: Color,
         semanticSuccess: Color,
@@ -47,6 +59,7 @@ public struct VikuPalette: Sendable, Equatable {
         self.pageBackground = pageBackground
         self.cardBackground = cardBackground
         self.fieldBackground = fieldBackground
+        self.textPrimary = textPrimary
         self.textSecondary = textSecondary
         self.textTertiary = textTertiary
         self.semanticSuccess = semanticSuccess
