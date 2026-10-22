@@ -43,6 +43,53 @@ struct ProjectOverviewViewModelTests {
     }
 
     @Test
+    func `load leaves supports kanban false for favorites even when the server supports api v2`() async {
+        // Favorites (id -1) is a pseudo-project with no row in the real
+        // `projects` table, so the server has no /views entries for it -
+        // the List/Kanban switcher must stay hidden regardless of server
+        // capability.
+        let capabilityProvider = FakeCapabilityProvider()
+        capabilityProvider.supportedFeatures = [.apiV2]
+        let viewModel = ProjectOverviewViewModel(
+            project: Project(id: -1, title: "Favorites"),
+            repository: FakeTaskRepository(),
+            projectRepository: FakeProjectRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            capabilityProvider: capabilityProvider,
+            toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
+        )
+
+        await viewModel.load()
+
+        #expect(viewModel.supportsKanban == false)
+    }
+
+    @Test
+    func `load keeps supports kanban true for A saved filter when the server supports api v2`() async {
+        // Saved filters (negative ids other than -1) are real server-side
+        // resources and do have their own /views, unlike Favorites - only
+        // Favorites should lose the switcher.
+        let capabilityProvider = FakeCapabilityProvider()
+        capabilityProvider.supportedFeatures = [.apiV2]
+        let viewModel = ProjectOverviewViewModel(
+            project: Project(id: -2, title: "Overdue"),
+            repository: FakeTaskRepository(),
+            projectRepository: FakeProjectRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            capabilityProvider: capabilityProvider,
+            toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
+        )
+
+        await viewModel.load()
+
+        #expect(viewModel.supportsKanban == true)
+    }
+
+    @Test
     func `mark visible claims the quick add context and mark hidden releases it`() {
         let context = FakeQuickAddContext()
         let viewModel = ProjectOverviewViewModel(

@@ -26,8 +26,13 @@ public final class ProjectOverviewViewModel {
     public private(set) var tasks: [VikunjaTask] = []
     public private(set) var loadState: ScreenLoadState<Void> = .idle
     /// Whether this account's server supports the Kanban board (API v2,
-    /// server 2.4.0+). Resolved during `load()`; the List/Kanban toggle in
-    /// `ProjectOverviewView` stays hidden until this is `true`.
+    /// server 2.4.0+) and this project can actually have one. Resolved
+    /// during `load()`; the List/Kanban toggle in `ProjectOverviewView`
+    /// stays hidden until this is `true`. Favorites is a pseudo-project with
+    /// no row in the real `projects` table, so the server has no `/views`
+    /// entries for it and this is always `false` there, regardless of
+    /// server capability. Saved filters are real server-side resources and
+    /// do support Kanban, so they're excluded from this check.
     public private(set) var supportsKanban = false
     /// Each subproject's own task completion count, keyed by project id, for
     /// the "Subprojects" cards. Fetched alongside this project's own tasks
@@ -183,7 +188,8 @@ public final class ProjectOverviewViewModel {
         } catch {
             loadState = .failure(error.localizedDescription)
         }
-        supportsKanban = await kanbanSupport
+        let serverSupportsKanban = await kanbanSupport
+        supportsKanban = project.kind != .favorites && serverSupportsKanban
     }
 
     /// This project's current direct children, straight from the server —
