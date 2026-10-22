@@ -141,6 +141,16 @@
         }
       }
     },
+    "Favorites" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Favoritos"
+          }
+        }
+      }
+    },
     "Saved Filter" : {
       "localizations" : {
         "es" : {
