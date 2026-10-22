@@ -26,9 +26,37 @@ public struct KanbanBoardView: View {
     }
 
     public var body: some View {
-        content
-            .background(palette.pageBackground)
-            .task { await viewModel.load() }
+        // iOS 26 decides the navigation bar's at-rest background through the
+        // "scroll edge effect": it reads the vertical scroll position of
+        // whatever's directly underneath it, and only recognizes a single
+        // vertical `List`/`ScrollView` as that signal. This board has no
+        // such thing — it scrolls horizontally, and each column scrolls
+        // vertically on its own — so without one, the bar falls back to the
+        // system's own default material instead of matching
+        // `palette.pageBackground`, a mismatch visible only on real-device
+        // compositing. Forcing the bar's own `.toolbarBackground` to match
+        // was tried from the caller's side first; it works, but combined
+        // with a large `.navigationTitle` it hits a documented iOS 26 bug
+        // (e.g. FB19434429/FB24528594) where the title stops rendering
+        // entirely, not just intermittently.
+        //
+        // Giving the heuristic the vertical scroll view it's looking for,
+        // instead of fighting it from outside, sidesteps that bug: a
+        // `ScrollView` sized to exactly fill the available height always
+        // reports a content offset of zero (nothing to scroll past), the
+        // same "at rest, at the top" state a `List` that fits on one screen
+        // reports — `.scrollDisabled(true)` keeps it from intercepting any
+        // gestures, so panning between columns and each column's own
+        // vertical scrolling are unaffected.
+        GeometryReader { geometry in
+            ScrollView {
+                content
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+            }
+            .scrollDisabled(true)
+        }
+        .background(palette.pageBackground)
+        .task { await viewModel.load() }
     }
 
     @ViewBuilder
