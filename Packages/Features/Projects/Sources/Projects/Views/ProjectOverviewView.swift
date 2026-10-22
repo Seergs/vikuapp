@@ -62,7 +62,45 @@ struct ProjectOverviewView: View {
         return viewModel.tasks.filter { $0.title.localizedStandardContains(searchText) }
     }
 
-    var body: some View {
+    /// Pulled out of `body` (which was timing out the type checker once this
+    /// screen's modifier chain got long enough) rather than for its own sake.
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        if viewModel.supportsKanban {
+            // Pops in once the capability check resolves rather than
+            // fading, on every SwiftUI version tried — content inside a
+            // `ToolbarItem` is hosted through the bridge to
+            // `UINavigationBar` and doesn't reliably honor `.transition`/
+            // `.animation`, including when the item itself is kept
+            // structurally present and only its inner content is
+            // conditional. Accepted as a platform limitation rather than
+            // chased further.
+            ToolbarItem(placement: .primaryAction) {
+                DisplayModeSwitcher(selection: $displayMode)
+            }
+            .hidingSharedGlassBackground
+        }
+        ToolbarItem(placement: .primaryAction) {
+            Menu {
+                ProjectOverviewMenuContent(
+                    sortField: $viewModel.sortField,
+                    sortDirection: $viewModel.sortDirection,
+                    onEditProject: { onEditProject(viewModel.project) },
+                    onAddSubproject: { isShowingCreateSubproject = true },
+                    onDeleteProject: { isShowingDeleteProjectConfirmation = true },
+                )
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+        }
+    }
+
+    /// Split out of `body`, which was timing out the type checker once this
+    /// screen's modifier chain got long enough — this half carries the
+    /// navigation chrome (title, search, toolbar); `body` applies the rest
+    /// (lifecycle hooks, sheets, confirmations) on top of it, so the type
+    /// checker sees two shorter expressions instead of one very long one.
+    private var screenChrome: some View {
         VStack(spacing: 0) {
             switch displayMode {
             case .list:
@@ -77,155 +115,132 @@ struct ProjectOverviewView: View {
         .background(palette.pageBackground)
         .navigationTitle(viewModel.project.title)
         .searchable(text: $searchText, prompt: Text("Search tasks", bundle: .module))
-        .toolbar {
-            if viewModel.supportsKanban {
-                // Pops in once the capability check resolves rather than
-                // fading, on every SwiftUI version tried — content inside a
-                // `ToolbarItem` is hosted through the bridge to
-                // `UINavigationBar` and doesn't reliably honor `.transition`/
-                // `.animation`, including when the item itself is kept
-                // structurally present and only its inner content is
-                // conditional. Accepted as a platform limitation rather than
-                // chased further.
-                ToolbarItem(placement: .primaryAction) {
-                    DisplayModeSwitcher(selection: $displayMode)
-                }
+        .toolbar { toolbarContent }
+    }
+
+    var body: some View {
+        screenChrome
+            .task {
+                await viewModel.load()
             }
-            ToolbarItem(placement: .primaryAction) {
-                Menu {
-                    ProjectOverviewMenuContent(
-                        sortField: $viewModel.sortField,
-                        sortDirection: $viewModel.sortDirection,
-                        onEditProject: { onEditProject(viewModel.project) },
-                        onAddSubproject: { isShowingCreateSubproject = true },
-                        onDeleteProject: { isShowingDeleteProjectConfirmation = true },
-                    )
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                }
+            .onAppear {
+                viewModel.markVisible()
             }
-        }
-        .task {
-            await viewModel.load()
-        }
-        .onAppear {
-            viewModel.markVisible()
-        }
-        .onDisappear { viewModel.markHidden() }
-        .onChange(of: viewModel.lastCreatedTaskForThisProject) { _, event in
-            guard event != nil else { return }
-            Task { await viewModel.load() }
-        }
-        .confirmationDialog(
-            Text("This permanently deletes the task.", bundle: .module),
-            isPresented: Binding(
-                get: { taskPendingDelete != nil },
-                set: { isPresented in
-                    if !isPresented {
-                        taskPendingDelete = nil
+            .onDisappear { viewModel.markHidden() }
+            .onChange(of: viewModel.lastCreatedTaskForThisProject) { _, event in
+                guard event != nil else { return }
+                Task { await viewModel.load() }
+            }
+            .confirmationDialog(
+                Text("This permanently deletes the task.", bundle: .module),
+                isPresented: Binding(
+                    get: { taskPendingDelete != nil },
+                    set: { isPresented in
+                        if !isPresented {
+                            taskPendingDelete = nil
+                        }
+                    },
+                ),
+                titleVisibility: .visible,
+            ) {
+                if let taskPendingDelete {
+                    Button(role: .destructive) {
+                        Task { await viewModel.delete(taskPendingDelete) }
+                    } label: {
+                        Text("Delete Task", bundle: .module)
                     }
-                },
-            ),
-            titleVisibility: .visible,
-        ) {
-            if let taskPendingDelete {
+                }
+                Button(role: .cancel) {} label: {
+                    Text("Cancel", bundle: .module)
+                }
+            }
+            .confirmationDialog(
+                Text(verbatim: deleteProjectConfirmationMessage),
+                isPresented: $isShowingDeleteProjectConfirmation,
+                titleVisibility: .visible,
+            ) {
                 Button(role: .destructive) {
-                    Task { await viewModel.delete(taskPendingDelete) }
-                } label: {
-                    Text("Delete Task", bundle: .module)
-                }
-            }
-            Button(role: .cancel) {} label: {
-                Text("Cancel", bundle: .module)
-            }
-        }
-        .confirmationDialog(
-            Text(verbatim: deleteProjectConfirmationMessage),
-            isPresented: $isShowingDeleteProjectConfirmation,
-            titleVisibility: .visible,
-        ) {
-            Button(role: .destructive) {
-                Task {
-                    if await viewModel.deleteProject() {
-                        dismiss()
+                    Task {
+                        if await viewModel.deleteProject() {
+                            dismiss()
+                        }
                     }
+                } label: {
+                    Text("Delete Project", bundle: .module)
                 }
-            } label: {
-                Text("Delete Project", bundle: .module)
-            }
-            Button(role: .cancel) {} label: {
-                Text("Cancel", bundle: .module)
-            }
-        }
-        .sheet(isPresented: $isShowingCreateSubproject) {
-            CreateProjectSheetView(
-                makeViewModel: { makeCreateProjectViewModel(viewModel.project.id) },
-                onCreated: { viewModel.addSubproject($0) },
-            )
-        }
-        .sheet(item: $taskPendingMove) { task in
-            ProjectPickerSheet(
-                title: String(localized: "Move to Project", bundle: .module),
-                projects: viewModel.allProjects,
-                selectedProjectID: nil,
-                excludingSubtreeOf: viewModel.project.id,
-            ) { destination in
-                guard let destination else { return }
-                Task { await viewModel.move(task, to: destination) }
-            }
-            .task { await viewModel.loadMoveCandidates() }
-        }
-        .sheet(item: $taskPendingDuplicate) { task in
-            DuplicateTaskSheetView(
-                makeViewModel: { viewModel.makeDuplicateTaskViewModel(for: task) },
-                onDuplicated: onDuplicated,
-            )
-        }
-        .sheet(item: $taskPendingDueDateEdit) { task in
-            DueDatePickerSheet(initialDate: task.dueDate) { newDate in
-                Task { await viewModel.setDueDate(task, to: newDate) }
-            }
-        }
-        .sheet(item: $taskPendingLabelEdit) { task in
-            LabelPickerSheet(
-                taskLabels: viewModel.tasks.first(where: { $0.id == task.id })?.labels ?? task.labels,
-                allLabels: viewModel.allLabels,
-                onLoad: { await viewModel.loadAllLabels() },
-                onToggle: { label in Task { await viewModel.toggleLabel(task, label) } },
-                onCreate: { title, hexColor in
-                    Task { await viewModel.createAndAddLabel(task, title: title, hexColor: hexColor) }
-                },
-            )
-        }
-        .sheet(item: $relationEditStep) { step in
-            switch step {
-            case let .pickKind(task):
-                RelationKindPickerSheet { kind in
-                    relationEditStep = .pickTask(task, kind)
+                Button(role: .cancel) {} label: {
+                    Text("Cancel", bundle: .module)
                 }
-            case let .pickTask(task, kind):
-                RelationTaskPickerSheet(
-                    kind: kind,
-                    results: viewModel.relationSearchResults,
-                    projectTitle: { candidate in
-                        viewModel.allProjects.first { $0.id == candidate.projectID }?.title
-                    },
-                    onAppear: {
-                        await viewModel.loadMoveCandidates()
-                        await viewModel.loadRelationSuggestions(for: task)
-                    },
-                    onSearch: { query in await viewModel.searchTasksForRelation(for: task, query: query) },
-                    onSelect: { candidate in
-                        let relation = TaskRelation(
-                            id: candidate.id, title: candidate.title,
-                            isDone: candidate.isDone, projectID: candidate.projectID,
-                        )
-                        Task { await viewModel.addRelation(relation, kind: kind, to: task) }
-                        relationEditStep = nil
+            }
+            .sheet(isPresented: $isShowingCreateSubproject) {
+                CreateProjectSheetView(
+                    makeViewModel: { makeCreateProjectViewModel(viewModel.project.id) },
+                    onCreated: { viewModel.addSubproject($0) },
+                )
+            }
+            .sheet(item: $taskPendingMove) { task in
+                ProjectPickerSheet(
+                    title: String(localized: "Move to Project", bundle: .module),
+                    projects: viewModel.allProjects,
+                    selectedProjectID: nil,
+                    excludingSubtreeOf: viewModel.project.id,
+                ) { destination in
+                    guard let destination else { return }
+                    Task { await viewModel.move(task, to: destination) }
+                }
+                .task { await viewModel.loadMoveCandidates() }
+            }
+            .sheet(item: $taskPendingDuplicate) { task in
+                DuplicateTaskSheetView(
+                    makeViewModel: { viewModel.makeDuplicateTaskViewModel(for: task) },
+                    onDuplicated: onDuplicated,
+                )
+            }
+            .sheet(item: $taskPendingDueDateEdit) { task in
+                DueDatePickerSheet(initialDate: task.dueDate) { newDate in
+                    Task { await viewModel.setDueDate(task, to: newDate) }
+                }
+            }
+            .sheet(item: $taskPendingLabelEdit) { task in
+                LabelPickerSheet(
+                    taskLabels: viewModel.tasks.first(where: { $0.id == task.id })?.labels ?? task.labels,
+                    allLabels: viewModel.allLabels,
+                    onLoad: { await viewModel.loadAllLabels() },
+                    onToggle: { label in Task { await viewModel.toggleLabel(task, label) } },
+                    onCreate: { title, hexColor in
+                        Task { await viewModel.createAndAddLabel(task, title: title, hexColor: hexColor) }
                     },
                 )
             }
-        }
+            .sheet(item: $relationEditStep) { step in
+                switch step {
+                case let .pickKind(task):
+                    RelationKindPickerSheet { kind in
+                        relationEditStep = .pickTask(task, kind)
+                    }
+                case let .pickTask(task, kind):
+                    RelationTaskPickerSheet(
+                        kind: kind,
+                        results: viewModel.relationSearchResults,
+                        projectTitle: { candidate in
+                            viewModel.allProjects.first { $0.id == candidate.projectID }?.title
+                        },
+                        onAppear: {
+                            await viewModel.loadMoveCandidates()
+                            await viewModel.loadRelationSuggestions(for: task)
+                        },
+                        onSearch: { query in await viewModel.searchTasksForRelation(for: task, query: query) },
+                        onSelect: { candidate in
+                            let relation = TaskRelation(
+                                id: candidate.id, title: candidate.title,
+                                isDone: candidate.isDone, projectID: candidate.projectID,
+                            )
+                            Task { await viewModel.addRelation(relation, kind: kind, to: task) }
+                            relationEditStep = nil
+                        },
+                    )
+                }
+            }
     }
 
     /// Mirrors `ProjectsView.deleteConfirmationMessage`: this screen's own
@@ -700,6 +715,27 @@ private struct ProjectOverviewMenuContent: View {
     }
 }
 
+private extension ToolbarContent {
+    /// iOS 26 wraps every `ToolbarItem`'s content in a shared Liquid Glass
+    /// background the system draws automatically. That's the right look for
+    /// a plain icon or label, but `DisplayModeSwitcher` paints its own opaque
+    /// capsule in theme colors — the system's glass then composites over/
+    /// behind it and dilutes those colors toward a neutral glass tint. Only
+    /// visible on real-device compositing (the Simulator renders Liquid
+    /// Glass flatter) and only for this item: this toolbar's other items
+    /// (the nav title, the "..." menu icon) have no custom background of
+    /// their own to compete with the glass. Hiding the shared background
+    /// here lets this capsule render as drawn instead.
+    @ToolbarContentBuilder
+    var hidingSharedGlassBackground: some ToolbarContent {
+        if #available(iOS 26, macOS 26, *) {
+            sharedBackgroundVisibility(.hidden)
+        } else {
+            self
+        }
+    }
+}
+
 /// A capsule-shaped List/Kanban switch: the selected side shows its icon and
 /// title on a raised background, the other collapses to just its icon —
 /// mirrors the product mockup's `ViewSwitcher` rather than a native
@@ -764,7 +800,14 @@ private struct DisplayModeSwitcher: View {
                     .opacity(isSelected ? 1 : 0)
                     .clipped()
             }
-            .foregroundStyle(isSelected ? Color.primary : palette.textTertiary)
+            // `palette.textPrimary` rather than `Color.primary`: this view
+            // sits inside a `ToolbarItem`, and `Color.primary`'s hierarchical
+            // style gets an automatic vibrancy blend against iOS 26's Liquid
+            // Glass toolbar background, washing it out on real-device
+            // compositing for the custom dark themes (Solarized, Cyberpunk,
+            // Terminal, Vaporwave) — invisible in the Simulator, which
+            // renders Liquid Glass flatter. See `VikuPalette.textPrimary`.
+            .foregroundStyle(isSelected ? palette.textPrimary : palette.textTertiary)
             .padding(.horizontal, isSelected ? VikuSpacing.sm + VikuSpacing.xxs : VikuSpacing.sm)
             .padding(.vertical, VikuSpacing.xs + VikuSpacing.xxs)
             .background {

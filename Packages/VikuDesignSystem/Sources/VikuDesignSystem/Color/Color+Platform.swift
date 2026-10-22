@@ -79,6 +79,27 @@ extension Color {
         #endif
     }
 
+    /// Resolves to the same adaptive black/white as `Color.primary`, but as a
+    /// concrete `Color` rather than SwiftUI's `.primary` `HierarchicalShapeStyle`.
+    /// Use this (not `Color.primary`) for text that sits inside a `ToolbarItem`:
+    /// iOS 26 wraps toolbar content in its own Liquid Glass background, and
+    /// hierarchical styles (`.primary`/`.secondary`/`.tertiary`) get an
+    /// automatic vibrancy blend with that glass, which on real device
+    /// compositing (the Simulator renders Liquid Glass flatter and doesn't
+    /// show this) washes the text out against saturated custom-theme card
+    /// colors (Solarized, Cyberpunk, Terminal, Vaporwave). A concrete color
+    /// like this one isn't a `HierarchicalShapeStyle`, so it renders flat
+    /// instead of vibrancy-blended.
+    public static var platformTextPrimary: Color {
+        #if os(iOS)
+        Color(uiColor: .label)
+        #elseif os(macOS)
+        Color(nsColor: .labelColor)
+        #else
+        Color.primary
+        #endif
+    }
+
     /// The light-mode `dangerText` hex reads as near-black on a dark
     /// background (e.g. widgets in dark mode), so dark mode swaps in the same
     /// brighter red iOS itself uses for `.systemRed` in dark mode.
