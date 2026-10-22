@@ -292,6 +292,9 @@ struct ProjectOverviewView: View {
             if viewModel.project.kind == .savedFilter {
                 VikuSavedFilterBadge()
                     .padding(.horizontal, VikuSpacing.md)
+            } else if viewModel.project.kind == .favorites {
+                VikuFavoritesBadge()
+                    .padding(.horizontal, VikuSpacing.md)
             }
 
             ProjectProgressHeader(project: viewModel.project, tasks: viewModel.tasks)
