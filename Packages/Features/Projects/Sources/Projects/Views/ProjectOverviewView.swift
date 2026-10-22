@@ -109,7 +109,7 @@ struct ProjectOverviewView: View {
                     .scrollContentBackground(.hidden)
                     .refreshable { await viewModel.load() }
             case .kanban:
-                KanbanBoardView(viewModel: kanbanViewModel, onSelectTask: onSelectTask)
+                KanbanBoardView(viewModel: kanbanViewModel, searchText: searchText, onSelectTask: onSelectTask)
             }
         }
         .background(palette.pageBackground)

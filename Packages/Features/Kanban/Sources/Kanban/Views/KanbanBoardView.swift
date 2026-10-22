@@ -16,13 +16,32 @@ import VikuUI
 /// project's overview), not to be a destination in its own right.
 public struct KanbanBoardView: View {
     @Bindable var viewModel: KanbanBoardViewModel
+    /// Mirrors `ProjectOverviewView`'s own `filteredTasks`: narrows each
+    /// bucket's cards to the in-flight search text, by title only, without
+    /// touching `viewModel.buckets` itself so drag-to-move and the
+    /// done-bucket lookups in `KanbanBoardViewModel` keep seeing every task.
+    let searchText: String
     let onSelectTask: (VikunjaTask) -> Void
 
     @Environment(\.vikuPalette) private var palette
 
-    public init(viewModel: KanbanBoardViewModel, onSelectTask: @escaping (VikunjaTask) -> Void) {
+    public init(
+        viewModel: KanbanBoardViewModel,
+        searchText: String = "",
+        onSelectTask: @escaping (VikunjaTask) -> Void,
+    ) {
         self.viewModel = viewModel
+        self.searchText = searchText
         self.onSelectTask = onSelectTask
+    }
+
+    private var filteredBuckets: [KanbanBucket] {
+        guard !searchText.isEmpty else { return viewModel.buckets }
+        return viewModel.buckets.map { bucket in
+            var filtered = bucket
+            filtered.tasks = bucket.tasks.filter { $0.title.localizedStandardContains(searchText) }
+            return filtered
+        }
     }
 
     public var body: some View {
@@ -80,7 +99,7 @@ public struct KanbanBoardView: View {
     private var board: some View {
         ScrollView(.horizontal) {
             HStack(alignment: .top, spacing: VikuSpacing.md) {
-                ForEach(viewModel.buckets) { bucket in
+                ForEach(filteredBuckets) { bucket in
                     KanbanColumnView(
                         bucket: bucket,
                         onSelectTask: onSelectTask,
