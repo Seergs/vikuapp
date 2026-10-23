@@ -22,9 +22,9 @@ public enum DueDateFormatter {
         ).day ?? 0
 
         switch days {
-        case 0: return "Today"
-        case 1: return "Tomorrow"
-        case -1: return "Yesterday"
+        case 0: return String(localized: "Today", bundle: .module)
+        case 1: return String(localized: "Tomorrow", bundle: .module)
+        case -1: return String(localized: "Yesterday", bundle: .module)
         default: break
         }
 
@@ -46,7 +46,8 @@ public enum DueDateFormatter {
     public static func dueLabel(_ date: Date, relativeTo reference: Date = Date()) -> String {
         let calendar = Calendar.current
         if calendar.isDate(date, inSameDayAs: reference) {
-            return "Today, \(date.formatted(date: .omitted, time: .shortened))"
+            let time = date.formatted(date: .omitted, time: .shortened)
+            return String(localized: "Today, \(time)", bundle: .module)
         }
         let days = calendar.dateComponents(
             [.day],
@@ -55,8 +56,8 @@ public enum DueDateFormatter {
         ).day ?? 0
 
         switch days {
-        case 1: return "Tomorrow"
-        case -1: return "Yesterday"
+        case 1: return String(localized: "Tomorrow", bundle: .module)
+        case -1: return String(localized: "Yesterday", bundle: .module)
         default: break
         }
 

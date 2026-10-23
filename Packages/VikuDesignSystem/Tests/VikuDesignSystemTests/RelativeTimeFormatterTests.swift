@@ -14,7 +14,8 @@ struct RelativeTimeFormatterTests {
         let twoHoursAgo = try #require(calendar.date(byAdding: .hour, value: -2, to: reference))
         let expected = { () -> String in
             let formatter = RelativeDateTimeFormatter()
-            formatter.unitsStyle = .abbreviated
+            formatter.unitsStyle = .short
+            formatter.dateTimeStyle = .named
             return formatter.localizedString(for: twoHoursAgo, relativeTo: reference)
         }()
 
