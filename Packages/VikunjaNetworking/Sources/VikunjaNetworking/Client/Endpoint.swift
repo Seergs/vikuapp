@@ -5,6 +5,7 @@ public struct Endpoint: Sendable {
         case get = "GET"
         case post = "POST"
         case put = "PUT"
+        case patch = "PATCH"
         case delete = "DELETE"
     }
 
@@ -55,10 +56,17 @@ public struct Endpoint: Sendable {
         method: Method,
         queryItems: [URLQueryItem] = [],
         body: some Encodable,
+        contentType: String? = nil,
     ) throws -> Endpoint {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
-        return try Endpoint(path: path, method: method, queryItems: queryItems, body: encoder.encode(body))
+        return try Endpoint(
+            path: path,
+            method: method,
+            queryItems: queryItems,
+            body: encoder.encode(body),
+            contentType: contentType,
+        )
     }
 
     /// A `multipart/form-data` request built from `form` — used for file

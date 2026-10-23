@@ -202,6 +202,13 @@ final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @unchecked
     ) -> WebhookRepositoryProtocol {
         fatalError("not exercised by Settings tests")
     }
+
+    func makeFilterRepository(
+        baseURL _: URL,
+        tokenProvider _: @escaping @Sendable () async throws -> String?,
+    ) -> FilterRepositoryProtocol {
+        fatalError("not exercised by Settings tests")
+    }
 }
 
 final class FakeLabelRepository: LabelRepositoryProtocol, @unchecked Sendable {
