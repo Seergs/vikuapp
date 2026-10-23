@@ -13,6 +13,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
         )
@@ -32,6 +33,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             capabilityProvider: capabilityProvider,
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
@@ -56,6 +58,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             capabilityProvider: capabilityProvider,
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
@@ -79,6 +82,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             capabilityProvider: capabilityProvider,
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
@@ -98,6 +102,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
             quickAddContext: context,
@@ -120,6 +125,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
             quickAddContext: context,
@@ -141,6 +147,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
             taskChangeBroadcaster: broadcaster,
@@ -167,6 +174,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
         )
@@ -189,6 +197,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
         )
@@ -210,6 +219,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
         )
@@ -231,6 +241,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
         )
@@ -262,6 +273,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
         )
@@ -279,6 +291,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
         )
@@ -310,6 +323,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
         )
@@ -340,6 +354,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
         )
@@ -364,6 +379,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
         )
@@ -386,6 +402,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
         )
@@ -409,6 +426,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
         )
@@ -429,6 +447,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
         )
@@ -450,6 +469,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
         )
@@ -470,6 +490,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
         )
@@ -491,6 +512,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
         )
@@ -513,6 +535,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
         )
@@ -535,6 +558,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: labelRepository,
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
         )
@@ -559,6 +583,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: labelRepository,
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
         )
@@ -582,6 +607,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: labelRepository,
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
         )
@@ -604,6 +630,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: labelRepository,
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
         )
@@ -628,6 +655,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: relationRepository,
+            filterRepository: FakeFilterRepository(),
             toastPresenter: toastPresenter,
             taskSortStore: FakeTaskSortStore(),
         )
@@ -655,6 +683,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: relationRepository,
+            filterRepository: FakeFilterRepository(),
             toastPresenter: toastPresenter,
             taskSortStore: FakeTaskSortStore(),
         )
@@ -684,6 +713,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
         )
@@ -708,6 +738,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
         )
@@ -730,6 +761,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             hapticPresenter: haptics,
             taskSortStore: FakeTaskSortStore(),
@@ -757,6 +789,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: toastPresenter,
             taskSortStore: FakeTaskSortStore(),
         )
@@ -781,6 +814,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: toastPresenter,
             taskSortStore: FakeTaskSortStore(),
         )
@@ -806,6 +840,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: toastPresenter,
             taskSortStore: FakeTaskSortStore(),
         )
@@ -832,6 +867,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: toastPresenter,
             taskSortStore: FakeTaskSortStore(),
         )
@@ -857,6 +893,7 @@ struct ProjectOverviewViewModelTests {
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),
         )
@@ -864,5 +901,75 @@ struct ProjectOverviewViewModelTests {
         await viewModel.loadMoveCandidates()
 
         #expect(viewModel.allProjects.map(\.id) == [1, 2, 3])
+    }
+
+    @Test
+    func `delete project on a real project goes through the project repository, not the filter repository`() async {
+        let projectRepository = FakeProjectRepository()
+        let filterRepository = FakeFilterRepository()
+        let viewModel = ProjectOverviewViewModel(
+            project: Project(id: 1, title: "Work"),
+            repository: FakeTaskRepository(),
+            projectRepository: projectRepository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            filterRepository: filterRepository,
+            toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
+        )
+
+        let result = await viewModel.deleteProject()
+
+        #expect(result == true)
+        #expect(projectRepository.deletedIDs == [1])
+        #expect(filterRepository.deletedIDs.isEmpty)
+    }
+
+    @Test
+    func `delete project on a saved filter goes through the filter repository with the real filter id`() async {
+        // Project id -6 is the pseudo-project id for saved filter 5
+        // (`-id - 1`, see `ProjectKind`).
+        let projectRepository = FakeProjectRepository()
+        let filterRepository = FakeFilterRepository()
+        let toastPresenter = FakeToastPresenter()
+        let viewModel = ProjectOverviewViewModel(
+            project: Project(id: -6, title: "Overdue work"),
+            repository: FakeTaskRepository(),
+            projectRepository: projectRepository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            filterRepository: filterRepository,
+            toastPresenter: toastPresenter,
+            taskSortStore: FakeTaskSortStore(),
+        )
+
+        let result = await viewModel.deleteProject()
+
+        #expect(result == true)
+        #expect(filterRepository.deletedIDs == [5])
+        #expect(projectRepository.deletedIDs.isEmpty)
+        #expect(toastPresenter.shownMessages.map(\.message) == ["Filter deleted"])
+    }
+
+    @Test
+    func `delete project on a saved filter shows an error toast when the filter repository rejects it`() async {
+        let filterRepository = FakeFilterRepository()
+        filterRepository.deleteError = .network("offline")
+        let toastPresenter = FakeToastPresenter()
+        let viewModel = ProjectOverviewViewModel(
+            project: Project(id: -6, title: "Overdue work"),
+            repository: FakeTaskRepository(),
+            projectRepository: FakeProjectRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            filterRepository: filterRepository,
+            toastPresenter: toastPresenter,
+            taskSortStore: FakeTaskSortStore(),
+        )
+
+        let result = await viewModel.deleteProject()
+
+        #expect(result == false)
+        #expect(toastPresenter.shownMessages.map(\.style) == [.error])
     }
 }

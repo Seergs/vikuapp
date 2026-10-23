@@ -26,6 +26,7 @@ public struct ProjectOverviewRootView: View {
     /// never built here via a factory closure.
     private let kanbanViewModel: KanbanBoardViewModel
     private let makeEditProjectViewModel: (Project) -> EditProjectViewModel
+    private let makeRenameFilterViewModel: (Project) -> RenameFilterViewModel
     private let makeCreateProjectViewModel: (Int?) -> CreateProjectViewModel
     @State private var editingProject: Project?
 
@@ -33,11 +34,13 @@ public struct ProjectOverviewRootView: View {
         viewModel: ProjectOverviewViewModel,
         kanbanViewModel: KanbanBoardViewModel,
         makeEditProjectViewModel: @escaping (Project) -> EditProjectViewModel,
+        makeRenameFilterViewModel: @escaping (Project) -> RenameFilterViewModel,
         makeCreateProjectViewModel: @escaping (Int?) -> CreateProjectViewModel,
     ) {
         self.viewModel = viewModel
         self.kanbanViewModel = kanbanViewModel
         self.makeEditProjectViewModel = makeEditProjectViewModel
+        self.makeRenameFilterViewModel = makeRenameFilterViewModel
         self.makeCreateProjectViewModel = makeCreateProjectViewModel
     }
 
@@ -64,8 +67,13 @@ public struct ProjectOverviewRootView: View {
         .sheet(item: $editingProject, onDismiss: {
             Task { await viewModel.load() }
         }, content: { project in
-            EditProjectSheetView(makeViewModel: { makeEditProjectViewModel(project) })
-                .presentationCompactAdaptation(.sheet)
+            if project.kind == .savedFilter {
+                RenameFilterSheetView(makeViewModel: { makeRenameFilterViewModel(project) })
+                    .presentationCompactAdaptation(.sheet)
+            } else {
+                EditProjectSheetView(makeViewModel: { makeEditProjectViewModel(project) })
+                    .presentationCompactAdaptation(.sheet)
+            }
         })
     }
 }

@@ -16,6 +16,7 @@ public struct ProjectsRootView: View {
     private let makeKanbanBoardViewModel: (Project) -> KanbanBoardViewModel
     private let makeCreateProjectViewModel: (Int?) -> CreateProjectViewModel
     private let makeEditProjectViewModel: (Project) -> EditProjectViewModel
+    private let makeRenameFilterViewModel: (Project) -> RenameFilterViewModel
 
     /// The `make...ViewModel` closures come from the app target's
     /// `AppContainer`, the only place allowed to know about the concrete
@@ -26,12 +27,14 @@ public struct ProjectsRootView: View {
         makeKanbanBoardViewModel: @escaping (Project) -> KanbanBoardViewModel,
         makeCreateProjectViewModel: @escaping (Int?) -> CreateProjectViewModel,
         makeEditProjectViewModel: @escaping (Project) -> EditProjectViewModel,
+        makeRenameFilterViewModel: @escaping (Project) -> RenameFilterViewModel,
     ) {
         self.viewModel = viewModel
         self.makeOverviewViewModel = makeOverviewViewModel
         self.makeKanbanBoardViewModel = makeKanbanBoardViewModel
         self.makeCreateProjectViewModel = makeCreateProjectViewModel
         self.makeEditProjectViewModel = makeEditProjectViewModel
+        self.makeRenameFilterViewModel = makeRenameFilterViewModel
     }
 
     @State private var editingProject: Project?
@@ -87,8 +90,13 @@ public struct ProjectsRootView: View {
                 }
             }
         }, content: { project in
-            EditProjectSheetView(makeViewModel: { makeEditProjectViewModel(project) })
-                .presentationCompactAdaptation(.sheet)
+            if project.kind == .savedFilter {
+                RenameFilterSheetView(makeViewModel: { makeRenameFilterViewModel(project) })
+                    .presentationCompactAdaptation(.sheet)
+            } else {
+                EditProjectSheetView(makeViewModel: { makeEditProjectViewModel(project) })
+                    .presentationCompactAdaptation(.sheet)
+            }
         })
     }
 

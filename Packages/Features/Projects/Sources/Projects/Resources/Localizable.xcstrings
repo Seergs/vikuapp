@@ -727,6 +727,66 @@
           }
         }
       }
+    },
+    "Rename Filter" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renombrar filtro"
+          }
+        }
+      }
+    },
+    "Delete Filter" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar filtro"
+          }
+        }
+      }
+    },
+    "Filter name" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nombre del filtro"
+          }
+        }
+      }
+    },
+    "Filter renamed" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Filtro renombrado"
+          }
+        }
+      }
+    },
+    "Filter deleted" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Filtro eliminado"
+          }
+        }
+      }
+    },
+    "This permanently deletes the saved filter." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esto elimina permanentemente el filtro guardado."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
