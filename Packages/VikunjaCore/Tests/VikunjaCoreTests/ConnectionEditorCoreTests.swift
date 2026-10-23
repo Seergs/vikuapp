@@ -434,4 +434,10 @@ private final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @u
     ) -> WebhookRepositoryProtocol {
         fatalError("unused")
     }
+
+    func makeFilterRepository(
+        baseURL _: URL, tokenProvider _: @escaping @Sendable () async throws -> String?,
+    ) -> FilterRepositoryProtocol {
+        fatalError("unused")
+    }
 }
