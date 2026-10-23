@@ -972,4 +972,71 @@ struct ProjectOverviewViewModelTests {
         #expect(result == false)
         #expect(toastPresenter.shownMessages.map(\.style) == [.error])
     }
+
+    @Test
+    func `load populates saved filter query from the filter repository`() async {
+        // Project id -6 is the pseudo-project id for saved filter 5
+        // (`-id - 1`, see `ProjectKind`).
+        let filterRepository = FakeFilterRepository()
+        filterRepository.filter = SavedFilterDetail(
+            id: 5,
+            title: "Overdue work",
+            description: "",
+            isFavorite: false,
+            query: "priority >= 3 && done = false",
+        )
+        let viewModel = ProjectOverviewViewModel(
+            project: Project(id: -6, title: "Overdue work"),
+            repository: FakeTaskRepository(),
+            projectRepository: FakeProjectRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            filterRepository: filterRepository,
+            toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
+        )
+
+        await viewModel.load()
+
+        #expect(viewModel.savedFilterQuery == "priority >= 3 && done = false")
+    }
+
+    @Test
+    func `load leaves saved filter query nil for a real project`() async {
+        let viewModel = ProjectOverviewViewModel(
+            project: Project(id: 1, title: "Work"),
+            repository: FakeTaskRepository(),
+            projectRepository: FakeProjectRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
+            toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
+        )
+
+        await viewModel.load()
+
+        #expect(viewModel.savedFilterQuery == nil)
+    }
+
+    @Test
+    func `load leaves saved filter query nil when the filter repository fetch fails`() async {
+        let filterRepository = FakeFilterRepository()
+        filterRepository.fetchError = .network("offline")
+        let viewModel = ProjectOverviewViewModel(
+            project: Project(id: -6, title: "Overdue work"),
+            repository: FakeTaskRepository(),
+            projectRepository: FakeProjectRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            filterRepository: filterRepository,
+            toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
+        )
+
+        await viewModel.load()
+
+        #expect(viewModel.savedFilterQuery == nil)
+        #expect(viewModel.loadState == .loaded)
+    }
 }

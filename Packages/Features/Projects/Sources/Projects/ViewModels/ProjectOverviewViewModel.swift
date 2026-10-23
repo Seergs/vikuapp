@@ -34,6 +34,12 @@ public final class ProjectOverviewViewModel {
     /// server capability. Saved filters are real server-side resources and
     /// do support Kanban, so they're excluded from this check.
     public private(set) var supportsKanban = false
+    /// This saved filter's raw query (e.g. `priority >= 3 && done = false`),
+    /// shown read-only under its badge. `nil` for a real project or
+    /// Favorites, and also `nil` if the fetch fails or the filter has no
+    /// query set - either way the query line just doesn't render, no error
+    /// banner for what's a nice-to-have display. See `SavedFilterDetail`.
+    public private(set) var savedFilterQuery: String?
     /// Each subproject's own task completion count, keyed by project id, for
     /// the "Subprojects" cards. Fetched alongside this project's own tasks
     /// since `ProjectNode` only carries project metadata, not tasks.
@@ -189,6 +195,10 @@ public final class ProjectOverviewViewModel {
             tasks = try await repository.fetchTasks(projectID: project.id)
             subprojects = try await Self.fetchSubprojects(parentID: project.id, repository: projectRepository)
             subprojectTaskSummaries = await Self.fetchSubprojectSummaries(subprojects, repository: repository)
+            if let filterID = project.savedFilterID {
+                let query = try? await filterRepository.fetchFilter(id: filterID).query
+                savedFilterQuery = query?.isEmpty == false ? query : nil
+            }
             loadState = .loaded
         } catch let error as VikunjaError {
             loadState = .failure(error.displayMessage)

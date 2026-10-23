@@ -65,7 +65,7 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
 }
 
 final class FakeFilterRepository: FilterRepositoryProtocol, @unchecked Sendable {
-    var filter = SavedFilterDetail(id: 1, title: "", description: "", isFavorite: false)
+    var filter = SavedFilterDetail(id: 1, title: "", description: "", isFavorite: false, query: "")
     var fetchError: VikunjaError?
     var renameError: VikunjaError?
     var deleteError: VikunjaError?
@@ -89,6 +89,7 @@ final class FakeFilterRepository: FilterRepositoryProtocol, @unchecked Sendable 
             title: title,
             description: filter.description,
             isFavorite: filter.isFavorite,
+            query: filter.query,
         )
         return filter
     }

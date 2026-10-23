@@ -298,8 +298,14 @@ struct ProjectOverviewView: View {
         // with a system default the way it did under `.insetGrouped`.
         VStack(alignment: .leading, spacing: VikuSpacing.md) {
             if viewModel.project.kind == .savedFilter {
-                VikuSavedFilterBadge()
-                    .padding(.horizontal, VikuSpacing.md)
+                VStack(alignment: .leading, spacing: VikuSpacing.xs) {
+                    VikuSavedFilterBadge()
+
+                    if let query = viewModel.savedFilterQuery {
+                        SavedFilterQueryLine(query: query)
+                    }
+                }
+                .padding(.horizontal, VikuSpacing.md)
             } else if viewModel.project.kind == .favorites {
                 VikuFavoritesBadge()
                     .padding(.horizontal, VikuSpacing.md)
@@ -667,6 +673,42 @@ private struct FilterChip: View {
                 )
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// The saved filter's raw query, own line below the "Matches" label so it
+/// gets the full row width (less truncation than sharing a line with the
+/// label) - starts truncated to one line, tap to expand into a full wrap for
+/// the rare query long enough to still get cut off. The query itself renders
+/// `.verbatim` - it's Vikunja's own filter syntax
+/// (https://vikunja.io/docs/filters), not natural-language UI copy, so it's
+/// never localized. The label stays small and muted (just chrome); the query
+/// is the actual content, so it gets more contrast and a monospace font to
+/// read as data rather than a continuation of the label's sentence.
+private struct SavedFilterQueryLine: View {
+    let query: String
+    @State private var isExpanded = false
+
+    @Environment(\.vikuPalette) private var palette
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
+            Text("Matches", bundle: .module)
+                .font(.caption2)
+                .foregroundStyle(palette.textTertiary)
+
+            Text(verbatim: query)
+                .font(VikuFont.caption.monospaced())
+                .foregroundStyle(palette.textSecondary)
+                .lineLimit(isExpanded ? nil : 1)
+                .truncationMode(.tail)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            isExpanded.toggle()
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
     }
 }
 
