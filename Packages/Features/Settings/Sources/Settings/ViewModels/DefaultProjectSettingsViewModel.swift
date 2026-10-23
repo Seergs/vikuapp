@@ -20,9 +20,12 @@ public final class DefaultProjectSettingsViewModel {
     public private(set) var accountTimezone: String?
     /// The signed-in Vikunja user's display name (`User.name`, falling back
     /// to `User.username` when unset) — shown in the Connection section's
-    /// avatar row above the settings list. `nil` until `load()` resolves;
-    /// reuses this view model's existing `fetchCurrentUser()` call rather
-    /// than firing a second one just for that row.
+    /// avatar row above the settings list. Seeded from `displayNameCache` so
+    /// the avatar shows its last known initials immediately instead of the
+    /// "?" placeholder while `load()` is in flight, then overwritten with
+    /// whatever `load()` reports. Reuses this view model's existing
+    /// `fetchCurrentUser()` call rather than firing a second one just for
+    /// that row.
     public private(set) var accountDisplayName: String?
 
     public var isLoading: Bool {
@@ -57,6 +60,7 @@ public final class DefaultProjectSettingsViewModel {
     private let projectRepository: ProjectRepositoryProtocol
     private let defaultProjectCache: DefaultProjectCaching
     private let timezoneCache: AccountTimezoneCaching
+    private let displayNameCache: AccountDisplayNameCaching
     private let toastPresenter: ToastPresenting
     /// Snapshotted once at init, like `QuickAddTaskViewModel.cachedDefaultProject` —
     /// only matters before `load()` resolves, and `load()` is the only thing
@@ -68,15 +72,18 @@ public final class DefaultProjectSettingsViewModel {
         projectRepository: ProjectRepositoryProtocol,
         defaultProjectCache: DefaultProjectCaching,
         timezoneCache: AccountTimezoneCaching,
+        displayNameCache: AccountDisplayNameCaching,
         toastPresenter: ToastPresenting,
     ) {
         self.userRepository = userRepository
         self.projectRepository = projectRepository
         self.defaultProjectCache = defaultProjectCache
         self.timezoneCache = timezoneCache
+        self.displayNameCache = displayNameCache
         self.toastPresenter = toastPresenter
         self.cachedDefaultProject = defaultProjectCache.cachedDefaultProject()
         self.accountTimezone = timezoneCache.cachedTimezone()
+        self.accountDisplayName = displayNameCache.cachedDisplayName()
     }
 
     public func load() async {
@@ -94,6 +101,9 @@ public final class DefaultProjectSettingsViewModel {
             accountDisplayName = (trimmedName?.isEmpty == false ? trimmedName : nil) ?? user.username
             if user.timezone != timezoneCache.cachedTimezone() {
                 timezoneCache.setCachedTimezone(user.timezone)
+            }
+            if accountDisplayName != displayNameCache.cachedDisplayName() {
+                displayNameCache.setCachedDisplayName(accountDisplayName)
             }
             let freshDefaultProject = defaultProjectID
                 .flatMap { id in projects.first { $0.id == id } }
