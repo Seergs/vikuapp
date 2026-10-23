@@ -341,9 +341,14 @@ final class AppContainer {
         let tokenProvider = tokenProvider(for: account)
         let repository = clientFactory.makeProjectRepository(baseURL: account.baseURL, tokenProvider: tokenProvider)
         let taskRepository = clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider)
+        let filterRepository = clientFactory.makeFilterRepository(
+            baseURL: account.baseURL,
+            tokenProvider: tokenProvider,
+        )
         return ProjectsListViewModel(
             repository: repository,
             taskRepository: taskRepository,
+            filterRepository: filterRepository,
             toastPresenter: toastCenter,
         )
     }

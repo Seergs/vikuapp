@@ -14,10 +14,12 @@ struct ProjectsView: View {
     @Environment(\.vikuPalette) private var palette
     let makeCreateProjectViewModel: (Int?) -> CreateProjectViewModel
     let makeEditProjectViewModel: (Project) -> EditProjectViewModel
+    let makeRenameFilterViewModel: (Project) -> RenameFilterViewModel
     @State private var expandedProjectIDs: Set<Int> = []
     @State private var isShowingCreateProject = false
     @State private var projectPendingDelete: ProjectNode?
     @State private var editingProject: Project?
+    @State private var renamingFilterProject: Project?
     @State private var subprojectParentProject: Project?
 
     var body: some View {
@@ -53,6 +55,11 @@ struct ProjectsView: View {
             }, content: { project in
                 EditProjectSheetView(makeViewModel: { makeEditProjectViewModel(project) })
             })
+            .sheet(item: $renamingFilterProject, onDismiss: {
+                Task { await viewModel.load() }
+            }, content: { project in
+                RenameFilterSheetView(makeViewModel: { makeRenameFilterViewModel(project) })
+            })
             .sheet(item: $subprojectParentProject, onDismiss: {
                 Task { await viewModel.load() }
             }, content: { parentProject in
@@ -74,7 +81,11 @@ struct ProjectsView: View {
                     Button(role: .destructive) {
                         Task { await viewModel.deleteProject(projectPendingDelete) }
                     } label: {
-                        Text("Delete Project", bundle: .module)
+                        if projectPendingDelete.project.kind == .savedFilter {
+                            Text("Delete Filter", bundle: .module)
+                        } else {
+                            Text("Delete Project", bundle: .module)
+                        }
                     }
                 }
                 Button(role: .cancel) {} label: {
@@ -126,6 +137,8 @@ struct ProjectsView: View {
                                 project: node.project,
                                 taskSummary: viewModel.taskSummaries[node.id],
                                 onSelect: { router.push(ProjectsRoute.projectOverview(node)) },
+                                onRename: { renamingFilterProject = $0 },
+                                onDelete: { projectPendingDelete = node },
                             )
                         }
                     } header: {
@@ -162,6 +175,9 @@ struct ProjectsView: View {
     }
 
     private var deleteConfirmationMessage: String {
+        if projectPendingDelete?.project.kind == .savedFilter {
+            return String(localized: "This permanently deletes the saved filter.", bundle: .module)
+        }
         let hasChildren = projectPendingDelete?.children.isEmpty == false
         return hasChildren
             ? String(
@@ -206,14 +222,19 @@ private struct ProjectDisplayRow: Identifiable {
 
 /// A row for Favorites or a saved filter: `VikuProjectKindSwatch` in place of
 /// a project's hex-color dot, no indentation, no expand chevron (neither
-/// pseudo-project kind nests), and no edit/delete context menu — those apply
-/// to a real `Project`, not a virtual list Vikunja mixes into `/projects`.
-/// Below the title: a kind badge ("Favorites"/"Saved Filter") and, once its
-/// task summary has arrived, a "N pending" count next to it.
+/// pseudo-project kind nests). Its context menu mirrors what
+/// `ProjectOverviewView`'s own "..." menu offers that same project kind: a
+/// saved filter can be renamed/deleted (never "Add Subproject" - it can't own
+/// one), Favorites offers nothing (a fixed pseudo-list with no row of its own
+/// on the server - see `FilterRepositoryProtocol`, `ProjectKind`). Below the
+/// title: a kind badge ("Favorites"/"Saved Filter") and, once its task
+/// summary has arrived, a "N pending" count next to it.
 private struct PseudoProjectRow: View {
     let project: Project
     let taskSummary: ProjectTaskSummary?
     let onSelect: () -> Void
+    let onRename: (Project) -> Void
+    let onDelete: () -> Void
 
     @Environment(\.vikuPalette) private var palette
 
@@ -242,6 +263,25 @@ private struct PseudoProjectRow: View {
         }
         .contentShape(Rectangle())
         .onTapGesture(perform: onSelect)
+        .contextMenu {
+            if project.kind == .savedFilter {
+                Button(
+                    String(localized: "Rename Filter", bundle: .module),
+                    systemImage: "pencil",
+                    action: { onRename(project) },
+                )
+                // `role: .destructive` alone renders blue here, not red: the
+                // tab bar's brand tint leaks into the context menu and
+                // overrides the role's tint. Pin it back to danger.
+                Button(
+                    String(localized: "Delete Filter", bundle: .module),
+                    systemImage: "trash",
+                    role: .destructive,
+                    action: onDelete,
+                )
+                .tint(palette.semanticDanger)
+            }
+        }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
         .accessibilityLabel(project.title)

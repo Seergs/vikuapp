@@ -28,15 +28,22 @@ public final class ProjectsListViewModel {
 
     private let repository: ProjectRepositoryProtocol
     private let taskRepository: TaskRepositoryProtocol
+    /// Only consulted when a node being deleted is a saved filter -
+    /// `deleteProject(_:)` goes through this, never `repository`, since a
+    /// filter's real id isn't the negative pseudo-project id `/projects`
+    /// hands back. See `FilterRepositoryProtocol`.
+    private let filterRepository: FilterRepositoryProtocol
     private let toastPresenter: ToastPresenting
 
     public init(
         repository: ProjectRepositoryProtocol,
         taskRepository: TaskRepositoryProtocol,
+        filterRepository: FilterRepositoryProtocol,
         toastPresenter: ToastPresenting,
     ) {
         self.repository = repository
         self.taskRepository = taskRepository
+        self.filterRepository = filterRepository
         self.toastPresenter = toastPresenter
     }
 
@@ -61,19 +68,29 @@ public final class ProjectsListViewModel {
         }
     }
 
-    /// Deletes a project server-side, then drops it — and its whole subtree —
-    /// from the local list. Vikunja cascades the delete to child projects and
-    /// their tasks, so the entire node is removed here rather than reparenting
-    /// its children. On failure the tree is left untouched and the error is
+    /// Deletes a project (or, for a saved filter, the filter itself - through
+    /// `filterRepository`, never `repository`, see its doc comment) server-
+    /// side, then drops it from the local list. Vikunja cascades a project
+    /// delete to child projects and their tasks, so the entire node is
+    /// removed here rather than reparenting its children. A saved filter has
+    /// no children to reparent either way - it's a flat entry in
+    /// `pseudoNodes`. On failure the list is left untouched and the error is
     /// surfaced as a toast.
     public func deleteProject(_ node: ProjectNode) async {
         do {
-            try await repository.delete(id: node.id)
-            rootNodes = Self.removing(node.id, from: rootNodes)
-            for id in Self.flattenedIDs(of: [node]) {
-                taskSummaries[id] = nil
+            if let filterID = node.project.savedFilterID {
+                try await filterRepository.deleteFilter(id: filterID)
+                pseudoNodes.removeAll { $0.id == node.id }
+                taskSummaries[node.id] = nil
+                toastPresenter.show(String(localized: "Filter deleted", bundle: .module), style: .success)
+            } else {
+                try await repository.delete(id: node.id)
+                rootNodes = Self.removing(node.id, from: rootNodes)
+                for id in Self.flattenedIDs(of: [node]) {
+                    taskSummaries[id] = nil
+                }
+                toastPresenter.show(String(localized: "Project deleted", bundle: .module), style: .success)
             }
-            toastPresenter.show(String(localized: "Project deleted", bundle: .module), style: .success)
         } catch let error as VikunjaError {
             toastPresenter.show(error.displayMessage, style: .error)
         } catch {

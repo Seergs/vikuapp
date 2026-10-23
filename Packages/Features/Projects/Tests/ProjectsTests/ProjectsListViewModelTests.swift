@@ -17,6 +17,7 @@ struct ProjectsListViewModelTests {
         let viewModel = ProjectsListViewModel(
             repository: repository,
             taskRepository: FakeTaskRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
         )
 
@@ -43,6 +44,7 @@ struct ProjectsListViewModelTests {
         let viewModel = ProjectsListViewModel(
             repository: repository,
             taskRepository: FakeTaskRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
         )
 
@@ -63,6 +65,7 @@ struct ProjectsListViewModelTests {
         let viewModel = ProjectsListViewModel(
             repository: repository,
             taskRepository: FakeTaskRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
         )
 
@@ -81,6 +84,7 @@ struct ProjectsListViewModelTests {
         let viewModel = ProjectsListViewModel(
             repository: repository,
             taskRepository: FakeTaskRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
         )
 
@@ -99,6 +103,7 @@ struct ProjectsListViewModelTests {
         let viewModel = ProjectsListViewModel(
             repository: repository,
             taskRepository: FakeTaskRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
         )
 
@@ -117,6 +122,7 @@ struct ProjectsListViewModelTests {
         let viewModel = ProjectsListViewModel(
             repository: repository,
             taskRepository: FakeTaskRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
         )
 
@@ -142,6 +148,7 @@ struct ProjectsListViewModelTests {
         let viewModel = ProjectsListViewModel(
             repository: projectRepository,
             taskRepository: taskRepository,
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
         )
 
@@ -160,6 +167,7 @@ struct ProjectsListViewModelTests {
         let viewModel = ProjectsListViewModel(
             repository: projectRepository,
             taskRepository: taskRepository,
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
         )
 
@@ -176,6 +184,7 @@ struct ProjectsListViewModelTests {
         let viewModel = ProjectsListViewModel(
             repository: repository,
             taskRepository: FakeTaskRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
         )
 
@@ -200,6 +209,7 @@ struct ProjectsListViewModelTests {
         let viewModel = ProjectsListViewModel(
             repository: repository,
             taskRepository: taskRepository,
+            filterRepository: FakeFilterRepository(),
             toastPresenter: toastPresenter,
         )
         await viewModel.load()
@@ -223,6 +233,7 @@ struct ProjectsListViewModelTests {
         let viewModel = ProjectsListViewModel(
             repository: repository,
             taskRepository: FakeTaskRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(),
         )
         await viewModel.load()
@@ -241,6 +252,7 @@ struct ProjectsListViewModelTests {
         let viewModel = ProjectsListViewModel(
             repository: repository,
             taskRepository: FakeTaskRepository(),
+            filterRepository: FakeFilterRepository(),
             toastPresenter: toastPresenter,
         )
         await viewModel.load()
@@ -248,6 +260,51 @@ struct ProjectsListViewModelTests {
         await viewModel.deleteProject(viewModel.rootNodes[0])
 
         #expect(viewModel.rootNodes.map(\.project.id) == [1])
+        #expect(toastPresenter.shownMessages.last?.style == .error)
+    }
+
+    @Test
+    func `delete project on a saved filter goes through the filter repository with the real filter id`() async {
+        let repository = FakeProjectRepository()
+        // Project id -6 is the pseudo-project id for saved filter 5
+        // (`-id - 1`, see `ProjectKind`).
+        repository.projects = [Project(id: -6, title: "Overdue work")]
+        let filterRepository = FakeFilterRepository()
+        let toastPresenter = FakeToastPresenter()
+        let viewModel = ProjectsListViewModel(
+            repository: repository,
+            taskRepository: FakeTaskRepository(),
+            filterRepository: filterRepository,
+            toastPresenter: toastPresenter,
+        )
+        await viewModel.load()
+
+        await viewModel.deleteProject(viewModel.pseudoNodes[0])
+
+        #expect(viewModel.pseudoNodes.isEmpty)
+        #expect(filterRepository.deletedIDs == [5])
+        #expect(repository.deletedIDs.isEmpty)
+        #expect(toastPresenter.shownMessages.map(\.message) == ["Filter deleted"])
+    }
+
+    @Test
+    func `delete project on a saved filter shows an error toast when the filter repository rejects it`() async {
+        let repository = FakeProjectRepository()
+        repository.projects = [Project(id: -6, title: "Overdue work")]
+        let filterRepository = FakeFilterRepository()
+        filterRepository.deleteError = .network("offline")
+        let toastPresenter = FakeToastPresenter()
+        let viewModel = ProjectsListViewModel(
+            repository: repository,
+            taskRepository: FakeTaskRepository(),
+            filterRepository: filterRepository,
+            toastPresenter: toastPresenter,
+        )
+        await viewModel.load()
+
+        await viewModel.deleteProject(viewModel.pseudoNodes[0])
+
+        #expect(viewModel.pseudoNodes.count == 1)
         #expect(toastPresenter.shownMessages.last?.style == .error)
     }
 }
