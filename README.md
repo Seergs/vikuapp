@@ -108,8 +108,8 @@ so it covers the parts of the API that matter for day-to-day mobile use
 
 **Saved Filters**
 
-- View tasks from a saved filter created on the server, alongside projects
-- Pin a saved filter to Home
+- View tasks, rename, view the query, delete, pin to Home
+- No creating or editing the query itself
 
 **Labels**
 
@@ -201,7 +201,7 @@ sure it has at least the following permissions:
 ### What it is not
 
 - Not a reimplementation of the full Vikunja web UI.
-- No saved filters, no Gantt, no bulk editing.
+- No creating or editing saved filter queries, no Gantt, no bulk editing.
 - No team or permission administration, no instance configuration.
 - Not a place for long planning sessions. It is tuned for glances and quick capture, not for restructuring your workload.
 
