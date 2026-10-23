@@ -19,6 +19,7 @@ struct ConnectionFormView: View {
     @State private var isPasswordVisible = false
     @State private var isConfirmingDelete = false
     @FocusState private var isNameFocused: Bool
+    @FocusState private var isTOTPFocused: Bool
     @State private var hasLoaded = false
     @State private var hasSettled = false
     @Environment(\.vikuPalette) private var palette
@@ -32,85 +33,15 @@ struct ConnectionFormView: View {
     }
 
     var body: some View {
+        ScrollViewReader { proxy in
+            scrollContent(proxy: proxy)
+        }
+    }
+
+    private func scrollContent(proxy: ScrollViewProxy) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: VikuSpacing.lg) {
-                VStack(alignment: .leading, spacing: VikuSpacing.md) {
-                    FormField(
-                        label: String(localized: "Connection Name", bundle: .module),
-                        placeholder: String(localized: "e.g. Office Server", bundle: .module),
-                        text: $viewModel.displayName,
-                    )
-                    .focused($isNameFocused)
-
-                    FormField(
-                        label: String(localized: "Instance URL", bundle: .module),
-                        placeholder: String(localized: "https://tasks.yourcompany.com", bundle: .module),
-                        text: $viewModel.urlText,
-                    )
-                    #if os(iOS)
-                    .textInputAutocapitalization(.never)
-                    .keyboardType(.URL)
-                    #endif
-                    .autocorrectionDisabled()
-
-                    if viewModel.urlUsesInsecureScheme {
-                        insecureConnectionToggle
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
-
-                    AuthMethodAccordion(
-                        expanded: $viewModel.credentialMode,
-                        isPasswordEnabled: viewModel.localAuthAvailable,
-                        isOIDCEnabled: !viewModel.oidcProviders.isEmpty,
-                        currentMethod: viewModel.currentMethod,
-                        apiToken: { tokenField },
-                        password: { passwordFields },
-                        oidc: { oidcProvidersSection },
-                    )
-                }
-                .animation(.smooth(duration: 0.28), value: viewModel.urlUsesInsecureScheme)
-
-                if viewModel.credentialMode != .oidc {
-                    testConnectionButton
-                }
-
-                if case let .failure(message) = viewModel.validationState {
-                    StatusBanner(style: .danger, message: message)
-                } else if viewModel.validationState == .success {
-                    StatusBanner(
-                        style: .success,
-                        message: viewModel.savedAccount != nil
-                            ? String(localized: "Saved", bundle: .module)
-                            : String(localized: "Connection successful", bundle: .module),
-                    )
-                }
-
-                if viewModel.credentialMode != .oidc {
-                    saveButton
-                }
-
-                if viewModel.isEditing {
-                    Button(role: .destructive) {
-                        isConfirmingDelete = true
-                    } label: {
-                        HStack(spacing: VikuSpacing.sm) {
-                            if viewModel.isDeleting {
-                                ProgressView()
-                            }
-                            Text(viewModel.isDeleting
-                                ? String(localized: "Removing…", bundle: .module)
-                                : String(localized: "Delete Connection", bundle: .module))
-                                .font(VikuFont.body)
-                                .fontWeight(.bold)
-                                .foregroundStyle(palette.semanticDanger)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, VikuSpacing.sm)
-                    .disabled(viewModel.isDeleting)
-                }
-            }
-            .padding(VikuSpacing.md)
+            formFields
+                .padding(VikuSpacing.md)
         }
         .background(palette.pageBackground)
         .navigationTitle(
@@ -156,33 +87,144 @@ struct ConnectionFormView: View {
                 router.pop()
             }
         }
+        .onChange(of: viewModel.awaitingTOTP) { _, isAwaiting in
+            guard isAwaiting else { return }
+            Task { await revealTOTPField(proxy: proxy) }
+        }
         .confirmationDialog(
             Text("Remove this connection?", bundle: .module),
             isPresented: $isConfirmingDelete,
             titleVisibility: .visible,
         ) {
-            Button(role: .destructive) {
-                Task {
-                    if await viewModel.deleteConnection() {
-                        router.pop()
-                    }
-                }
-            } label: {
-                Text("Remove Connection", bundle: .module)
-            }
-            Button(role: .cancel) {} label: {
-                Text("Cancel", bundle: .module)
-            }
+            deleteConfirmationActions
         } message: {
-            if viewModel.notificationsEnabledForThisConnection {
-                Text("This will also turn off push notifications and delete its webhooks.", bundle: .module)
-            }
+            deleteConfirmationMessage
         }
     }
 
     private func attemptAutoFocus() {
         guard hasLoaded, hasSettled, viewModel.displayName.isEmpty else { return }
         isNameFocused = true
+    }
+
+    /// Scrolls the newly inserted two-factor field into view and focuses it,
+    /// so the field doesn't just silently appear below the fold with no cue.
+    private func revealTOTPField(proxy: ScrollViewProxy) async {
+        // Let the field's insertion transition commit before scrolling to it,
+        // otherwise `scrollTo` targets an anchor that isn't laid out yet.
+        try? await Task.sleep(for: .milliseconds(50))
+        withAnimation(.smooth(duration: 0.3)) {
+            proxy.scrollTo("totpField", anchor: .center)
+        }
+        try? await Task.sleep(for: .milliseconds(300))
+        isTOTPFocused = true
+    }
+
+    @ViewBuilder
+    private var deleteConfirmationActions: some View {
+        Button(role: .destructive) {
+            Task {
+                if await viewModel.deleteConnection() {
+                    router.pop()
+                }
+            }
+        } label: {
+            Text("Remove Connection", bundle: .module)
+        }
+        Button(role: .cancel) {} label: {
+            Text("Cancel", bundle: .module)
+        }
+    }
+
+    @ViewBuilder
+    private var deleteConfirmationMessage: some View {
+        if viewModel.notificationsEnabledForThisConnection {
+            Text("This will also turn off push notifications and delete its webhooks.", bundle: .module)
+        }
+    }
+
+    private var formFields: some View {
+        VStack(alignment: .leading, spacing: VikuSpacing.lg) {
+            VStack(alignment: .leading, spacing: VikuSpacing.md) {
+                FormField(
+                    label: String(localized: "Connection Name", bundle: .module),
+                    placeholder: String(localized: "e.g. Office Server", bundle: .module),
+                    text: $viewModel.displayName,
+                )
+                .focused($isNameFocused)
+
+                FormField(
+                    label: String(localized: "Instance URL", bundle: .module),
+                    placeholder: String(localized: "https://tasks.yourcompany.com", bundle: .module),
+                    text: $viewModel.urlText,
+                )
+                #if os(iOS)
+                .textInputAutocapitalization(.never)
+                .keyboardType(.URL)
+                #endif
+                .autocorrectionDisabled()
+
+                if viewModel.urlUsesInsecureScheme {
+                    insecureConnectionToggle
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+
+                AuthMethodAccordion(
+                    expanded: $viewModel.credentialMode,
+                    isPasswordEnabled: viewModel.localAuthAvailable,
+                    isOIDCEnabled: !viewModel.oidcProviders.isEmpty,
+                    currentMethod: viewModel.currentMethod,
+                    apiToken: { tokenField },
+                    password: { passwordFields },
+                    oidc: { oidcProvidersSection },
+                )
+            }
+            .animation(.smooth(duration: 0.28), value: viewModel.urlUsesInsecureScheme)
+
+            if viewModel.credentialMode != .oidc {
+                testConnectionButton
+            }
+
+            if case let .failure(message) = viewModel.validationState {
+                StatusBanner(style: .danger, message: message)
+            } else if viewModel.validationState == .success {
+                StatusBanner(
+                    style: .success,
+                    message: viewModel.savedAccount != nil
+                        ? String(localized: "Saved", bundle: .module)
+                        : String(localized: "Connection successful", bundle: .module),
+                )
+            }
+
+            if viewModel.credentialMode != .oidc {
+                saveButton
+            }
+
+            if viewModel.isEditing {
+                deleteConnectionButton
+            }
+        }
+    }
+
+    private var deleteConnectionButton: some View {
+        Button(role: .destructive) {
+            isConfirmingDelete = true
+        } label: {
+            HStack(spacing: VikuSpacing.sm) {
+                if viewModel.isDeleting {
+                    ProgressView()
+                }
+                Text(viewModel.isDeleting
+                    ? String(localized: "Removing…", bundle: .module)
+                    : String(localized: "Delete Connection", bundle: .module))
+                    .font(VikuFont.body)
+                    .fontWeight(.bold)
+                    .foregroundStyle(palette.semanticDanger)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, VikuSpacing.sm)
+        .disabled(viewModel.isDeleting)
     }
 
     private var insecureConnectionToggle: some View {
@@ -259,12 +301,16 @@ struct ConnectionFormView: View {
                     placeholder: String(localized: "123456", bundle: .module),
                     text: $viewModel.totpPasscode,
                 )
+                .focused($isTOTPFocused)
                 #if os(iOS)
                 .textInputAutocapitalization(.never)
                 #endif
                 .autocorrectionDisabled()
+                .id("totpField")
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+        .animation(.smooth(duration: 0.28), value: viewModel.awaitingTOTP)
     }
 
     private var passwordField: some View {

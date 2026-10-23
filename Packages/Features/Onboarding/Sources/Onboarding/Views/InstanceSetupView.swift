@@ -9,6 +9,7 @@ public struct InstanceSetupView: View {
     @State private var viewModel: InstanceSetupViewModel
     @State private var isTokenVisible = false
     @State private var isPasswordVisible = false
+    @FocusState private var isTOTPFocused: Bool
     @Environment(\.vikuPalette) private var palette
     private let onConnectionSaved: (InstanceAccount) -> Void
 
@@ -27,6 +28,12 @@ public struct InstanceSetupView: View {
     }
 
     public var body: some View {
+        ScrollViewReader { proxy in
+            scrollContent(proxy: proxy)
+        }
+    }
+
+    private func scrollContent(proxy: ScrollViewProxy) -> some View {
         ScrollView {
             VStack(spacing: VikuSpacing.lg) {
                 header
@@ -57,6 +64,19 @@ public struct InstanceSetupView: View {
         .onChange(of: viewModel.savedAccount) { _, savedAccount in
             if let savedAccount {
                 onConnectionSaved(savedAccount)
+            }
+        }
+        .onChange(of: viewModel.awaitingTOTP) { _, isAwaiting in
+            guard isAwaiting else { return }
+            Task {
+                // Let the field's insertion transition commit before scrolling to
+                // it, otherwise `scrollTo` targets an anchor that isn't laid out yet.
+                try? await Task.sleep(for: .milliseconds(50))
+                withAnimation(.smooth(duration: 0.3)) {
+                    proxy.scrollTo("totpField", anchor: .center)
+                }
+                try? await Task.sleep(for: .milliseconds(300))
+                isTOTPFocused = true
             }
         }
     }
@@ -224,10 +244,14 @@ public struct InstanceSetupView: View {
                     placeholder: String(localized: "123456", bundle: .module),
                     hint: String(localized: "Enter the current code from your authenticator app.", bundle: .module),
                 )
+                .focused($isTOTPFocused)
                 .autocapitalized(.never)
                 .autocorrectionDisabled()
+                .id("totpField")
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+        .animation(.smooth(duration: 0.28), value: viewModel.awaitingTOTP)
     }
 
     private var testConnectionButton: some View {
