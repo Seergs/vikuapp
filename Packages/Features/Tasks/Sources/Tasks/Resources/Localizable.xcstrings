@@ -1194,6 +1194,56 @@
           }
         }
       }
+    },
+    "%@: %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: %@"
+          }
+        }
+      }
+    },
+    "Subtask of: %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subtarea de: %@"
+          }
+        }
+      }
+    },
+    "Task created and linked": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tarea creada y vinculada"
+          }
+        }
+      }
+    },
+    "Task created, but couldn't be linked": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tarea creada, pero no se pudo vincular"
+          }
+        }
+      }
+    },
+    "Will be linked automatically on save": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se vinculará automáticamente al guardar"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

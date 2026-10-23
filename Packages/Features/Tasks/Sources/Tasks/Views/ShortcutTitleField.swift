@@ -39,6 +39,17 @@ struct ShortcutTitleField: UIViewRepresentable {
         view.smartQuotesType = .no
         view.smartDashesType = .no
         view.smartInsertDeleteType = .no
+        // Set directly here, with the caret at the end, rather than left to
+        // `updateUIView`'s own `view.text != text` diff on the first call:
+        // that diff's `min(selection.location, end)` assumes `selection`
+        // reflects a real prior cursor spot, which is only true once the
+        // user has actually interacted with the field. For a prefilled
+        // title (e.g. from the "create as new task" relation picker) a
+        // fresh `UITextView`'s default `selectedRange` is `{0, 0}`, so that
+        // diff would otherwise land the caret at the very start of text the
+        // user never typed.
+        view.text = text
+        view.selectedRange = NSRange(location: view.text.utf16.count, length: 0)
         if focusOnAppear {
             DispatchQueue.main.async { view.becomeFirstResponder() }
         }

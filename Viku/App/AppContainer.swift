@@ -593,6 +593,8 @@ final class AppContainer {
             notificationSettingsStore: notificationSettingsStore,
             accountID: account.id,
             inlineImageLoader: inlineImageLoader(for: account, attachmentRepository: attachmentRepository),
+            syntaxStore: quickAddSyntaxStore,
+            taskChangeBroadcaster: taskChangeCenter,
         )
     }
 

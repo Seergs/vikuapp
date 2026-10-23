@@ -34,6 +34,7 @@ public struct TaskDetailView: View {
     @State private var commentPendingDeletion: TaskComment?
     @State private var commentPendingEdit: TaskComment?
     @State private var relationEditStep: RelationEditStep?
+    @State private var presentedInlineQuickAdd: PresentedInlineQuickAdd?
     @State private var isShowingFileImporter = false
     @State private var attachmentPendingDeletion: TaskAttachment?
     @State private var attachmentPreviewURL: URL?
@@ -68,6 +69,16 @@ public struct TaskDetailView: View {
         let id = UUID()
         let index: Int?
         let reminder: TaskReminder?
+    }
+
+    /// Wraps an already-built `QuickAddTaskViewModel` so `.sheet(item:)` can
+    /// present it, mirroring `MainTabView.PresentedQuickAdd`: built once,
+    /// synchronously, in `onCreateNew`'s tap handler below, never inside a
+    /// `.sheet` content closure, so a re-invoked closure can't silently swap
+    /// out an already-mounted view model.
+    private struct PresentedInlineQuickAdd: Identifiable {
+        let id = UUID()
+        let viewModel: QuickAddTaskViewModel
     }
 
     public init(viewModel: TaskDetailViewModel) {
@@ -366,8 +377,18 @@ public struct TaskDetailView: View {
                             Task { await viewModel.addRelation(relation, kind: kind) }
                             relationEditStep = nil
                         },
+                        onCreateNew: { query in
+                            let quickAddViewModel = viewModel.makeQuickAddTaskViewModel(
+                                prefilledTitle: query, relationKind: kind,
+                            )
+                            presentedInlineQuickAdd = PresentedInlineQuickAdd(viewModel: quickAddViewModel)
+                            relationEditStep = nil
+                        },
                     )
                 }
+            }
+            .sheet(item: $presentedInlineQuickAdd) { presented in
+                QuickAddSheetView(viewModel: presented.viewModel)
             }
             .onChange(of: focusedField) { previous, current in
                 if previous == .title, current != .title {

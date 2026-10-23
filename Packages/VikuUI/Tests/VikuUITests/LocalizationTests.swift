@@ -161,6 +161,7 @@ struct LocalizationTests {
         ("Next Weekend", "Próximo fin de semana"),
         ("Next Week", "Próxima semana"),
         ("Custom...", "Personalizado..."),
+        ("Create \"%@\" as new task", "Crear \"%@\" como tarea nueva"),
     ])
     func `key resolves to its Spanish translation`(key: String, expected: String) {
         #expect(Self.es(key) == expected)
