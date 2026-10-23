@@ -1,0 +1,21 @@
+{
+  "$schema": "/api/v2/schemas/SavedFilterReadBody.json",
+  "id": 5,
+  "title": "Overdue work",
+  "description": "",
+  "is_favorite": false,
+  "max_permission": 2,
+  "owner": {
+    "id": 1,
+    "username": "demo"
+  },
+  "created": "2026-01-01T00:00:00Z",
+  "updated": "2026-01-01T00:00:00Z",
+  "filters": {
+    "filter": "priority >= 3 && done = false",
+    "filter_include_nulls": false,
+    "s": "",
+    "sort_by": ["due_date"],
+    "order_by": ["asc"]
+  }
+}

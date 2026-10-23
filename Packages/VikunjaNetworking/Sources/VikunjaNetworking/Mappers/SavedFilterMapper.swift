@@ -7,6 +7,7 @@ enum SavedFilterMapper {
             title: dto.title,
             description: dto.description ?? "",
             isFavorite: dto.isFavorite ?? false,
+            query: dto.filters?.filter ?? "",
         )
     }
 }

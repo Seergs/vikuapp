@@ -787,6 +787,16 @@
           }
         }
       }
+    },
+    "Matches" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coincide con"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
