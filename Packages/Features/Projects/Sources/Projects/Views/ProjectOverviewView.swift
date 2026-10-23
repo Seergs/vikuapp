@@ -85,6 +85,7 @@ struct ProjectOverviewView: View {
                 ProjectOverviewMenuContent(
                     sortField: $viewModel.sortField,
                     sortDirection: $viewModel.sortDirection,
+                    kind: viewModel.project.kind,
                     onEditProject: { onEditProject(viewModel.project) },
                     onAddSubproject: { isShowingCreateSubproject = true },
                     onDeleteProject: { isShowingDeleteProjectConfirmation = true },
@@ -166,7 +167,11 @@ struct ProjectOverviewView: View {
                         }
                     }
                 } label: {
-                    Text("Delete Project", bundle: .module)
+                    if viewModel.project.kind == .savedFilter {
+                        Text("Delete Filter", bundle: .module)
+                    } else {
+                        Text("Delete Project", bundle: .module)
+                    }
                 }
                 Button(role: .cancel) {} label: {
                     Text("Cancel", bundle: .module)
@@ -246,7 +251,10 @@ struct ProjectOverviewView: View {
     /// Mirrors `ProjectsView.deleteConfirmationMessage`: this screen's own
     /// `subprojects` (direct children only) stand in for `ProjectNode.children`.
     private var deleteProjectConfirmationMessage: String {
-        viewModel.subprojects.isEmpty
+        if viewModel.project.kind == .savedFilter {
+            return String(localized: "This permanently deletes the saved filter.", bundle: .module)
+        }
+        return viewModel.subprojects.isEmpty
             ? String(localized: "This permanently deletes the project and all its tasks.", bundle: .module)
             : String(
                 localized: "This permanently deletes the project, its subprojects, and all their tasks.",
@@ -672,6 +680,7 @@ private struct FilterChip: View {
 private struct ProjectOverviewMenuContent: View {
     @Binding var sortField: TaskSort.Field
     @Binding var sortDirection: TaskSort.Direction
+    let kind: ProjectKind
     let onEditProject: () -> Void
     let onAddSubproject: () -> Void
     let onDeleteProject: () -> Void
@@ -698,7 +707,7 @@ private struct ProjectOverviewMenuContent: View {
             }
         }
         Section(String(localized: "Project", bundle: .module)) {
-            Button(String(localized: "Edit Project", bundle: .module), systemImage: "pencil", action: onEditProject)
+            Button(editTitle, systemImage: "pencil", action: onEditProject)
             Button(
                 String(localized: "Add Subproject", bundle: .module),
                 systemImage: "folder.badge.plus",
@@ -707,14 +716,21 @@ private struct ProjectOverviewMenuContent: View {
             // `role: .destructive` alone renders blue here: the tab bar's
             // tint leaks into the context menu and overrides it, same as the
             // per-task "Delete Task" button on this screen's rows.
-            Button(
-                String(localized: "Delete Project", bundle: .module),
-                systemImage: "trash",
-                role: .destructive,
-                action: onDeleteProject,
-            )
-            .tint(palette.semanticDanger)
+            Button(deleteTitle, systemImage: "trash", role: .destructive, action: onDeleteProject)
+                .tint(palette.semanticDanger)
         }
+    }
+
+    private var editTitle: String {
+        kind == .savedFilter
+            ? String(localized: "Rename Filter", bundle: .module)
+            : String(localized: "Edit Project", bundle: .module)
+    }
+
+    private var deleteTitle: String {
+        kind == .savedFilter
+            ? String(localized: "Delete Filter", bundle: .module)
+            : String(localized: "Delete Project", bundle: .module)
     }
 }
 

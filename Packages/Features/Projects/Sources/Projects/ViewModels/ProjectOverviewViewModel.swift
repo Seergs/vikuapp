@@ -81,6 +81,11 @@ public final class ProjectOverviewViewModel {
     private let projectRepository: ProjectRepositoryProtocol
     private let labelRepository: LabelRepositoryProtocol
     private let relationRepository: TaskRelationRepositoryProtocol
+    /// Only consulted when `project.kind == .savedFilter` — `deleteProject()`
+    /// goes through this, never `projectRepository`, since a filter's real id
+    /// isn't the negative pseudo-project id `/projects` hands back. See
+    /// `FilterRepositoryProtocol`.
+    private let filterRepository: FilterRepositoryProtocol
     private let capabilityProvider: CapabilityProvider
     private let mutator: TaskListMutator
     private let taskSortStore: TaskSortStore
@@ -102,6 +107,7 @@ public final class ProjectOverviewViewModel {
         projectRepository: ProjectRepositoryProtocol,
         labelRepository: LabelRepositoryProtocol,
         relationRepository: TaskRelationRepositoryProtocol,
+        filterRepository: FilterRepositoryProtocol,
         capabilityProvider: CapabilityProvider = NoopCapabilityProvider(),
         toastPresenter: ToastPresenting,
         hapticPresenter: HapticFeedbackPresenting = NoopHapticFeedback(),
@@ -115,6 +121,7 @@ public final class ProjectOverviewViewModel {
         self.projectRepository = projectRepository
         self.labelRepository = labelRepository
         self.relationRepository = relationRepository
+        self.filterRepository = filterRepository
         self.capabilityProvider = capabilityProvider
         self.taskSortStore = taskSortStore
         self.mutator = TaskListMutator(
@@ -389,15 +396,22 @@ public final class ProjectOverviewViewModel {
         subprojectTaskSummaries[project.id] = TaskSummary(done: 0, total: 0)
     }
 
-    /// Deletes this screen's own project from the server. Vikunja cascades
-    /// the delete to subprojects and their tasks, so nothing local needs
-    /// pruning beyond the screen itself - the caller is expected to pop back
-    /// once this returns `true`, mirroring `TaskDetailViewModel.deleteTask()`.
+    /// Deletes this screen's own project (or, for a saved filter, the filter
+    /// itself — through `filterRepository`, never `projectRepository`, see
+    /// its doc comment) from the server. Vikunja cascades a project delete to
+    /// subprojects and their tasks, so nothing local needs pruning beyond the
+    /// screen itself - the caller is expected to pop back once this returns
+    /// `true`, mirroring `TaskDetailViewModel.deleteTask()`.
     @discardableResult
     public func deleteProject() async -> Bool {
         do {
-            try await projectRepository.delete(id: project.id)
-            toastPresenter.show(String(localized: "Project deleted", bundle: .module), style: .success)
+            if let filterID = project.savedFilterID {
+                try await filterRepository.deleteFilter(id: filterID)
+                toastPresenter.show(String(localized: "Filter deleted", bundle: .module), style: .success)
+            } else {
+                try await projectRepository.delete(id: project.id)
+                toastPresenter.show(String(localized: "Project deleted", bundle: .module), style: .success)
+            }
             return true
         } catch let error as VikunjaError {
             toastPresenter.show(error.displayMessage, style: .error)

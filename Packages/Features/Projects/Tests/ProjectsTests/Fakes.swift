@@ -64,6 +64,43 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
     }
 }
 
+final class FakeFilterRepository: FilterRepositoryProtocol, @unchecked Sendable {
+    var filter = SavedFilterDetail(id: 1, title: "", description: "", isFavorite: false)
+    var fetchError: VikunjaError?
+    var renameError: VikunjaError?
+    var deleteError: VikunjaError?
+    private(set) var renamedTitles: [String] = []
+    private(set) var deletedIDs: [Int] = []
+
+    func fetchFilter(id _: Int) async throws -> SavedFilterDetail {
+        if let fetchError {
+            throw fetchError
+        }
+        return filter
+    }
+
+    func renameFilter(id _: Int, title: String) async throws -> SavedFilterDetail {
+        if let renameError {
+            throw renameError
+        }
+        renamedTitles.append(title)
+        filter = SavedFilterDetail(
+            id: filter.id,
+            title: title,
+            description: filter.description,
+            isFavorite: filter.isFavorite,
+        )
+        return filter
+    }
+
+    func deleteFilter(id: Int) async throws {
+        if let deleteError {
+            throw deleteError
+        }
+        deletedIDs.append(id)
+    }
+}
+
 final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     var tasks: [VikunjaTask] = []
     var fetchError: VikunjaError?

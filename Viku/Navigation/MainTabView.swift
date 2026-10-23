@@ -112,6 +112,9 @@ struct MainTabView: View {
                         makeEditProjectViewModel: { project in
                             container.makeEditProjectViewModel(project: project, account: account)
                         },
+                        makeRenameFilterViewModel: { project in
+                            container.makeRenameFilterViewModel(project: project, account: account)
+                        },
                     )
                     .appDestinations(container: container, account: account)
                 }

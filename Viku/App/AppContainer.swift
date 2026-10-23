@@ -368,6 +368,14 @@ final class AppContainer {
         return EditProjectViewModel(project: project, repository: repository, toastPresenter: toastCenter)
     }
 
+    func makeRenameFilterViewModel(project: Project, account: InstanceAccount) -> RenameFilterViewModel {
+        let repository = clientFactory.makeFilterRepository(
+            baseURL: account.baseURL,
+            tokenProvider: tokenProvider(for: account),
+        )
+        return RenameFilterViewModel(project: project, repository: repository, toastPresenter: toastCenter)
+    }
+
     func makeProjectOverviewViewModel(node: ProjectNode, account: InstanceAccount) -> ProjectOverviewViewModel {
         let tokenProvider = tokenProvider(for: account)
         let repository = clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider)
@@ -380,6 +388,10 @@ final class AppContainer {
             baseURL: account.baseURL,
             tokenProvider: tokenProvider,
         )
+        let filterRepository = clientFactory.makeFilterRepository(
+            baseURL: account.baseURL,
+            tokenProvider: tokenProvider,
+        )
         return ProjectOverviewViewModel(
             project: node.project,
             subprojects: node.children,
@@ -387,6 +399,7 @@ final class AppContainer {
             projectRepository: projectRepository,
             labelRepository: labelRepository,
             relationRepository: relationRepository,
+            filterRepository: filterRepository,
             capabilityProvider: clientFactory.makeCapabilityProvider(baseURL: account.baseURL),
             toastPresenter: toastCenter,
             hapticPresenter: hapticCenter,
