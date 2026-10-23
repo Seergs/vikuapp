@@ -18,6 +18,7 @@ struct ProjectsListViewModelTests {
             repository: repository,
             taskRepository: FakeTaskRepository(),
             filterRepository: FakeFilterRepository(),
+            taskSummaryCache: FakeProjectTaskSummaryCaching(),
             toastPresenter: FakeToastPresenter(),
         )
 
@@ -45,6 +46,7 @@ struct ProjectsListViewModelTests {
             repository: repository,
             taskRepository: FakeTaskRepository(),
             filterRepository: FakeFilterRepository(),
+            taskSummaryCache: FakeProjectTaskSummaryCaching(),
             toastPresenter: FakeToastPresenter(),
         )
 
@@ -66,6 +68,7 @@ struct ProjectsListViewModelTests {
             repository: repository,
             taskRepository: FakeTaskRepository(),
             filterRepository: FakeFilterRepository(),
+            taskSummaryCache: FakeProjectTaskSummaryCaching(),
             toastPresenter: FakeToastPresenter(),
         )
 
@@ -85,6 +88,7 @@ struct ProjectsListViewModelTests {
             repository: repository,
             taskRepository: FakeTaskRepository(),
             filterRepository: FakeFilterRepository(),
+            taskSummaryCache: FakeProjectTaskSummaryCaching(),
             toastPresenter: FakeToastPresenter(),
         )
 
@@ -104,6 +108,7 @@ struct ProjectsListViewModelTests {
             repository: repository,
             taskRepository: FakeTaskRepository(),
             filterRepository: FakeFilterRepository(),
+            taskSummaryCache: FakeProjectTaskSummaryCaching(),
             toastPresenter: FakeToastPresenter(),
         )
 
@@ -123,6 +128,7 @@ struct ProjectsListViewModelTests {
             repository: repository,
             taskRepository: FakeTaskRepository(),
             filterRepository: FakeFilterRepository(),
+            taskSummaryCache: FakeProjectTaskSummaryCaching(),
             toastPresenter: FakeToastPresenter(),
         )
 
@@ -149,6 +155,7 @@ struct ProjectsListViewModelTests {
             repository: projectRepository,
             taskRepository: taskRepository,
             filterRepository: FakeFilterRepository(),
+            taskSummaryCache: FakeProjectTaskSummaryCaching(),
             toastPresenter: FakeToastPresenter(),
         )
 
@@ -156,6 +163,44 @@ struct ProjectsListViewModelTests {
 
         #expect(viewModel.taskSummaries[1] == .init(done: 1, total: 2))
         #expect(viewModel.taskSummaries[2] == .init(done: 0, total: 1))
+    }
+
+    @Test
+    func `shows the cached task summaries before load resolves`() {
+        let taskSummaryCache = FakeProjectTaskSummaryCaching(cached: [1: CachedProjectTaskSummary(done: 1, total: 2)])
+        let viewModel = ProjectsListViewModel(
+            repository: FakeProjectRepository(),
+            taskRepository: FakeTaskRepository(),
+            filterRepository: FakeFilterRepository(),
+            taskSummaryCache: taskSummaryCache,
+            toastPresenter: FakeToastPresenter(),
+        )
+
+        #expect(viewModel.taskSummaries[1] == .init(done: 1, total: 2))
+    }
+
+    @Test
+    func `load overwrites the cached task summaries once it resolves`() async {
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 1, title: "Work")]
+        let taskRepository = FakeTaskRepository()
+        taskRepository.tasks = [
+            VikunjaTask(id: 1, title: "Ship it", isDone: true, projectID: 1),
+            VikunjaTask(id: 2, title: "Plan it", isDone: false, projectID: 1),
+        ]
+        let taskSummaryCache = FakeProjectTaskSummaryCaching(cached: [1: CachedProjectTaskSummary(done: 0, total: 1)])
+        let viewModel = ProjectsListViewModel(
+            repository: projectRepository,
+            taskRepository: taskRepository,
+            filterRepository: FakeFilterRepository(),
+            taskSummaryCache: taskSummaryCache,
+            toastPresenter: FakeToastPresenter(),
+        )
+
+        await viewModel.load()
+
+        #expect(viewModel.taskSummaries[1] == .init(done: 1, total: 2))
+        #expect(taskSummaryCache.cached[1] == CachedProjectTaskSummary(done: 1, total: 2))
     }
 
     @Test
@@ -168,6 +213,7 @@ struct ProjectsListViewModelTests {
             repository: projectRepository,
             taskRepository: taskRepository,
             filterRepository: FakeFilterRepository(),
+            taskSummaryCache: FakeProjectTaskSummaryCaching(),
             toastPresenter: FakeToastPresenter(),
         )
 
@@ -185,6 +231,7 @@ struct ProjectsListViewModelTests {
             repository: repository,
             taskRepository: FakeTaskRepository(),
             filterRepository: FakeFilterRepository(),
+            taskSummaryCache: FakeProjectTaskSummaryCaching(),
             toastPresenter: FakeToastPresenter(),
         )
 
@@ -210,6 +257,7 @@ struct ProjectsListViewModelTests {
             repository: repository,
             taskRepository: taskRepository,
             filterRepository: FakeFilterRepository(),
+            taskSummaryCache: FakeProjectTaskSummaryCaching(),
             toastPresenter: toastPresenter,
         )
         await viewModel.load()
@@ -234,6 +282,7 @@ struct ProjectsListViewModelTests {
             repository: repository,
             taskRepository: FakeTaskRepository(),
             filterRepository: FakeFilterRepository(),
+            taskSummaryCache: FakeProjectTaskSummaryCaching(),
             toastPresenter: FakeToastPresenter(),
         )
         await viewModel.load()
@@ -253,6 +302,7 @@ struct ProjectsListViewModelTests {
             repository: repository,
             taskRepository: FakeTaskRepository(),
             filterRepository: FakeFilterRepository(),
+            taskSummaryCache: FakeProjectTaskSummaryCaching(),
             toastPresenter: toastPresenter,
         )
         await viewModel.load()
@@ -275,6 +325,7 @@ struct ProjectsListViewModelTests {
             repository: repository,
             taskRepository: FakeTaskRepository(),
             filterRepository: filterRepository,
+            taskSummaryCache: FakeProjectTaskSummaryCaching(),
             toastPresenter: toastPresenter,
         )
         await viewModel.load()
@@ -298,6 +349,7 @@ struct ProjectsListViewModelTests {
             repository: repository,
             taskRepository: FakeTaskRepository(),
             filterRepository: filterRepository,
+            taskSummaryCache: FakeProjectTaskSummaryCaching(),
             toastPresenter: toastPresenter,
         )
         await viewModel.load()
