@@ -68,6 +68,7 @@ public struct ProjectsRootView: View {
             viewModel: viewModel,
             makeCreateProjectViewModel: makeCreateProjectViewModel,
             makeEditProjectViewModel: makeEditProjectViewModel,
+            makeRenameFilterViewModel: makeRenameFilterViewModel,
         )
         .navigationDestination(for: ProjectsRoute.self) { route in
             switch route {
