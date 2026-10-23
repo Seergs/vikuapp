@@ -531,6 +531,8 @@ final class AppContainer {
             snoozeReminder(on: &task, by: 24 * 60 * 60)
         case PushNotificationActionIdentifier.rescheduleDueTomorrow:
             task.dueDate = Calendar.current.date(byAdding: .day, value: 1, to: Date())
+        case PushNotificationActionIdentifier.rescheduleDueNextWeek:
+            task.dueDate = Calendar.current.date(byAdding: .day, value: 7, to: Date())
         case PushNotificationActionIdentifier.markTaskDone:
             // Always sets done rather than toggling: the task's actual state
             // isn't known until the fetch above lands, and "mark done" from

@@ -19,6 +19,7 @@ enum PushNotificationActionIdentifier {
     static let snoozeReminderThreeHours = "SNOOZE_REMINDER_3H"
     static let snoozeReminderOneDay = "SNOOZE_REMINDER_1D"
     static let rescheduleDueTomorrow = "RESCHEDULE_DUE_TOMORROW"
+    static let rescheduleDueNextWeek = "RESCHEDULE_DUE_NEXT_WEEK"
     static let markTaskDone = "MARK_TASK_DONE"
 }
 
@@ -47,6 +48,11 @@ func registerPushNotificationCategories() {
         title: String(localized: "Due Tomorrow"),
         options: [],
     )
+    let rescheduleDueNextWeek = UNNotificationAction(
+        identifier: PushNotificationActionIdentifier.rescheduleDueNextWeek,
+        title: String(localized: "Due Next Week"),
+        options: [],
+    )
     let markDone = UNNotificationAction(
         identifier: PushNotificationActionIdentifier.markTaskDone,
         title: String(localized: "Mark Done"),
@@ -64,7 +70,7 @@ func registerPushNotificationCategories() {
     )
     let overdue = UNNotificationCategory(
         identifier: PushNotificationCategory.taskOverdue,
-        actions: [rescheduleDue, markDone],
+        actions: [rescheduleDue, rescheduleDueNextWeek, markDone],
         intentIdentifiers: [],
         options: [],
     )

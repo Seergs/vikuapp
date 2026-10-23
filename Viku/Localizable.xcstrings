@@ -41,6 +41,16 @@
         }
       }
     },
+    "Due Next Week" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mover a la siguiente semana"
+          }
+        }
+      }
+    },
     "Due Tomorrow" : {
       "localizations" : {
         "es" : {
