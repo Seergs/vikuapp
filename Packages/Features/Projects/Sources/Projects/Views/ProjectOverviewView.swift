@@ -706,18 +706,27 @@ private struct ProjectOverviewMenuContent: View {
                 }
             }
         }
-        Section(String(localized: "Project", bundle: .module)) {
-            Button(editTitle, systemImage: "pencil", action: onEditProject)
-            Button(
-                String(localized: "Add Subproject", bundle: .module),
-                systemImage: "folder.badge.plus",
-                action: onAddSubproject,
-            )
-            // `role: .destructive` alone renders blue here: the tab bar's
-            // tint leaks into the context menu and overrides it, same as the
-            // per-task "Delete Task" button on this screen's rows.
-            Button(deleteTitle, systemImage: "trash", role: .destructive, action: onDeleteProject)
-                .tint(palette.semanticDanger)
+        // Favorites is a fixed pseudo-list with no row of its own on the
+        // server - nothing here applies to it, so the whole section is left
+        // out rather than showing empty. A saved filter is a real
+        // server-side resource (can be renamed/deleted) but, like Favorites,
+        // can't own a subproject - see "Add Subproject" below.
+        if kind != .favorites {
+            Section(String(localized: "Project", bundle: .module)) {
+                Button(editTitle, systemImage: "pencil", action: onEditProject)
+                if kind == .project {
+                    Button(
+                        String(localized: "Add Subproject", bundle: .module),
+                        systemImage: "folder.badge.plus",
+                        action: onAddSubproject,
+                    )
+                }
+                // `role: .destructive` alone renders blue here: the tab bar's
+                // tint leaks into the context menu and overrides it, same as
+                // the per-task "Delete Task" button on this screen's rows.
+                Button(deleteTitle, systemImage: "trash", role: .destructive, action: onDeleteProject)
+                    .tint(palette.semanticDanger)
+            }
         }
     }
 
