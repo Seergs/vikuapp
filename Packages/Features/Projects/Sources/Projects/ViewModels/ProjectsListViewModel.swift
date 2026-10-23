@@ -17,9 +17,10 @@ public final class ProjectsListViewModel {
     public private(set) var pseudoNodes: [ProjectNode] = []
     public private(set) var loadState: ScreenLoadState<Void> = .idle
     /// Each project's own task-completion tally, keyed by project id, for the
-    /// per-row progress indicator. Populated after the tree itself loads (a
-    /// separate request per project), so a row simply shows no progress bar
-    /// until its entry arrives or if the project has no tasks.
+    /// per-row progress indicator. Seeded from `taskSummaryCache` so rows show
+    /// their last known counts immediately instead of a redacted placeholder,
+    /// then replaced wholesale once the tree loads and each project's own
+    /// (separate) count request resolves.
     public private(set) var taskSummaries: [Int: ProjectTaskSummary] = [:]
 
     public var isLoading: Bool {
@@ -33,18 +34,24 @@ public final class ProjectsListViewModel {
     /// filter's real id isn't the negative pseudo-project id `/projects`
     /// hands back. See `FilterRepositoryProtocol`.
     private let filterRepository: FilterRepositoryProtocol
+    private let taskSummaryCache: ProjectTaskSummaryCaching
     private let toastPresenter: ToastPresenting
 
     public init(
         repository: ProjectRepositoryProtocol,
         taskRepository: TaskRepositoryProtocol,
         filterRepository: FilterRepositoryProtocol,
+        taskSummaryCache: ProjectTaskSummaryCaching,
         toastPresenter: ToastPresenting,
     ) {
         self.repository = repository
         self.taskRepository = taskRepository
         self.filterRepository = filterRepository
+        self.taskSummaryCache = taskSummaryCache
         self.toastPresenter = toastPresenter
+        self.taskSummaries = taskSummaryCache.cachedTaskSummaries().mapValues {
+            ProjectTaskSummary(done: $0.done, total: $0.total)
+        }
     }
 
     /// Skips the `.loading` transition when there's already loaded content
@@ -60,7 +67,11 @@ public final class ProjectsListViewModel {
             rootNodes = Self.tree(from: projects.realProjectsOnly())
             pseudoNodes = Self.pseudoNodes(from: projects)
             loadState = .loaded
-            taskSummaries = await Self.fetchTaskSummaries(for: rootNodes + pseudoNodes, repository: taskRepository)
+            let fetched = await Self.fetchTaskSummaries(for: rootNodes + pseudoNodes, repository: taskRepository)
+            taskSummaries = fetched
+            taskSummaryCache.setCachedTaskSummaries(
+                fetched.mapValues { CachedProjectTaskSummary(done: $0.done, total: $0.total) },
+            )
         } catch let error as VikunjaError {
             loadState = .failure(error.displayMessage)
         } catch {

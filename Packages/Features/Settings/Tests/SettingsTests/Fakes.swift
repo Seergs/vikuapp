@@ -409,6 +409,24 @@ final class FakeAccountTimezoneCaching: AccountTimezoneCaching, @unchecked Senda
     }
 }
 
+final class FakeAccountDisplayNameCaching: AccountDisplayNameCaching, @unchecked Sendable {
+    private(set) var cached: String?
+    private(set) var setCallCount = 0
+
+    init(cached: String? = nil) {
+        self.cached = cached
+    }
+
+    func cachedDisplayName() -> String? {
+        cached
+    }
+
+    func setCachedDisplayName(_ name: String?) {
+        setCallCount += 1
+        cached = name
+    }
+}
+
 final class FakeServerVersionCaching: ServerVersionCaching, @unchecked Sendable {
     private(set) var cached: [InstanceAccount.ID: String]
     private(set) var setCallCount = 0

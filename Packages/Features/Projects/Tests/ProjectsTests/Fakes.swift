@@ -216,6 +216,24 @@ final class FakeToastPresenter: ToastPresenting, @unchecked Sendable {
     }
 }
 
+final class FakeProjectTaskSummaryCaching: ProjectTaskSummaryCaching, @unchecked Sendable {
+    private(set) var cached: [Int: CachedProjectTaskSummary]
+    private(set) var setCallCount = 0
+
+    init(cached: [Int: CachedProjectTaskSummary] = [:]) {
+        self.cached = cached
+    }
+
+    func cachedTaskSummaries() -> [Int: CachedProjectTaskSummary] {
+        cached
+    }
+
+    func setCachedTaskSummaries(_ summaries: [Int: CachedProjectTaskSummary]) {
+        setCallCount += 1
+        cached = summaries
+    }
+}
+
 final class FakeHapticPresenter: HapticFeedbackPresenting, @unchecked Sendable {
     private(set) var played: [HapticStyle] = []
 

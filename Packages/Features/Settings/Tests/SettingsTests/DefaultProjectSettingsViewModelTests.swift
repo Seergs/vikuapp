@@ -9,6 +9,7 @@ struct DefaultProjectSettingsViewModelTests {
         projectRepository: FakeProjectRepository = FakeProjectRepository(),
         defaultProjectCache: FakeDefaultProjectCaching = FakeDefaultProjectCaching(),
         timezoneCache: FakeAccountTimezoneCaching = FakeAccountTimezoneCaching(),
+        displayNameCache: FakeAccountDisplayNameCaching = FakeAccountDisplayNameCaching(),
         toastPresenter: FakeToastPresenter = FakeToastPresenter(),
     ) -> DefaultProjectSettingsViewModel {
         DefaultProjectSettingsViewModel(
@@ -16,6 +17,7 @@ struct DefaultProjectSettingsViewModelTests {
             projectRepository: projectRepository,
             defaultProjectCache: defaultProjectCache,
             timezoneCache: timezoneCache,
+            displayNameCache: displayNameCache,
             toastPresenter: toastPresenter,
         )
     }
@@ -82,44 +84,52 @@ struct DefaultProjectSettingsViewModelTests {
     }
 
     @Test
-    func `shows the cached default project title and time zone before load resolves`() {
+    func `shows the cached default project title, time zone and display name before load resolves`() {
         let cachedProject = CachedDefaultProject(id: 6, title: "Inbox", hexColor: "ff0000")
         let viewModel = makeViewModel(
             defaultProjectCache: FakeDefaultProjectCaching(cached: cachedProject),
             timezoneCache: FakeAccountTimezoneCaching(cached: "Europe/Madrid"),
+            displayNameCache: FakeAccountDisplayNameCaching(cached: "Alex"),
         )
 
         #expect(viewModel.defaultProjectTitle == "Inbox")
         #expect(viewModel.accountTimezone == "Europe/Madrid")
+        #expect(viewModel.accountDisplayName == "Alex")
     }
 
     @Test
-    func `load overwrites the cached title and time zone once it resolves`() async {
+    func `load overwrites the cached title, time zone and display name once it resolves`() async {
         let userRepository = FakeUserRepository(
-            user: User(id: 1, username: "alex", defaultProjectID: 7, timezone: "America/Mexico_City"),
+            user: User(
+                id: 1, username: "alex", name: "Alexandra", defaultProjectID: 7, timezone: "America/Mexico_City",
+            ),
         )
         let projectRepository = FakeProjectRepository(projects: [Project(id: 7, title: "Work", hexColor: "00ff00")])
         let defaultProjectCache = FakeDefaultProjectCaching(
             cached: CachedDefaultProject(id: 6, title: "Inbox", hexColor: "ff0000"),
         )
         let timezoneCache = FakeAccountTimezoneCaching(cached: "Europe/Madrid")
+        let displayNameCache = FakeAccountDisplayNameCaching(cached: "Alex")
         let viewModel = makeViewModel(
             userRepository: userRepository,
             projectRepository: projectRepository,
             defaultProjectCache: defaultProjectCache,
             timezoneCache: timezoneCache,
+            displayNameCache: displayNameCache,
         )
 
         await viewModel.load()
 
         #expect(viewModel.defaultProjectTitle == "Work")
         #expect(viewModel.accountTimezone == "America/Mexico_City")
+        #expect(viewModel.accountDisplayName == "Alexandra")
         #expect(defaultProjectCache.cached == CachedDefaultProject(id: 7, title: "Work", hexColor: "00ff00"))
         #expect(timezoneCache.cached == "America/Mexico_City")
+        #expect(displayNameCache.cached == "Alexandra")
     }
 
     @Test
-    func `a failed load keeps showing the cached title and time zone`() async {
+    func `a failed load keeps showing the cached title, time zone and display name`() async {
         let projectRepository = FakeProjectRepository()
         projectRepository.fetchError = .notFound
         let viewModel = makeViewModel(
@@ -128,6 +138,7 @@ struct DefaultProjectSettingsViewModelTests {
                 cached: CachedDefaultProject(id: 6, title: "Inbox", hexColor: "ff0000"),
             ),
             timezoneCache: FakeAccountTimezoneCaching(cached: "Europe/Madrid"),
+            displayNameCache: FakeAccountDisplayNameCaching(cached: "Alex"),
         )
 
         await viewModel.load()
@@ -135,6 +146,7 @@ struct DefaultProjectSettingsViewModelTests {
         #expect(viewModel.loadState == .failure(VikunjaError.notFound.displayMessage))
         #expect(viewModel.defaultProjectTitle == "Inbox")
         #expect(viewModel.accountTimezone == "Europe/Madrid")
+        #expect(viewModel.accountDisplayName == "Alex")
     }
 
     // MARK: pickableProjects

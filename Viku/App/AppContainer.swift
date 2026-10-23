@@ -71,6 +71,14 @@ final class AppContainer {
     /// `DefaultProjectSettingsViewModel`'s "Time Zone" row the same way
     /// `defaultProjectStore` backs its "Default Project" row.
     let accountTimezoneStore = AccountTimezoneStore()
+    /// On-device cache of each account's display name, backing the avatar
+    /// initials shown on the Settings landing screen the same way
+    /// `accountTimezoneStore` backs its "Time Zone" row.
+    let accountDisplayNameStore = AccountDisplayNameStore()
+    /// On-device cache of each account's last known per-project
+    /// task-completion tallies, shown instantly on the Projects list before
+    /// each project's own count request resolves.
+    let projectTaskSummaryStore = ProjectTaskSummaryStore()
     /// On-device cache of each account's last known Vikunja server version,
     /// shown instantly on the Connections screen before each account's own
     /// probe resolves. See `ServerVersionStore`.
@@ -349,6 +357,7 @@ final class AppContainer {
             repository: repository,
             taskRepository: taskRepository,
             filterRepository: filterRepository,
+            taskSummaryCache: AccountProjectTaskSummaryCache(store: projectTaskSummaryStore, accountID: account.id),
             toastPresenter: toastCenter,
         )
     }
@@ -622,6 +631,7 @@ final class AppContainer {
             ),
             defaultProjectCache: AccountDefaultProjectCache(store: defaultProjectStore, accountID: account.id),
             timezoneCache: AccountTimezoneCache(store: accountTimezoneStore, accountID: account.id),
+            displayNameCache: AccountDisplayNameCache(store: accountDisplayNameStore, accountID: account.id),
             toastPresenter: toastCenter,
         )
     }
