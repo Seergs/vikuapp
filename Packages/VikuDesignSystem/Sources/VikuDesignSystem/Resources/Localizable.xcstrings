@@ -201,6 +201,36 @@
         }
       }
     },
+    "Today" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hoy"
+          }
+        }
+      }
+    },
+    "Today, %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hoy, %@"
+          }
+        }
+      }
+    },
+    "Tomorrow" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mañana"
+          }
+        }
+      }
+    },
     "Urgent" : {
       "localizations" : {
         "es" : {
@@ -217,6 +247,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Usuario y contraseña"
+          }
+        }
+      }
+    },
+    "Yesterday" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ayer"
           }
         }
       }
