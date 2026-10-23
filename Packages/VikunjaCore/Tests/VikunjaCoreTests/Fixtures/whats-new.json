@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "release": {
+    "version": "1.5",
+    "date": "2026-10-23",
+    "minAppVersion": "1.5.0",
+    "title": "What's New in Viku",
+    "subtitle": "Your tasks now reach your home screen, and finding what matters takes one tap."
+  },
+  "hero": {
+    "id": "calendar-widget",
+    "badge": "New",
+    "title": "Calendar widget",
+    "body": "See your week and overdue tasks without opening the app. Available in small, medium, and large sizes.",
+    "image": null,
+    "action": { "type": "guide", "label": "How to add it", "guideId": "add-calendar-widget" }
+  },
+  "features": [
+    {
+      "id": "saved-filters",
+      "icon": "filter",
+      "tint": "purple",
+      "title": "Saved filters",
+      "body": "Combine priority, labels, and dates, and save it alongside your projects.",
+      "action": { "type": "deeplink", "label": "Create a filter", "url": "viku://filters/new" }
+    },
+    {
+      "id": "icon-badge",
+      "icon": "badge",
+      "tint": "red",
+      "title": "App icon badge",
+      "body": "Viku's icon shows how many tasks you have due today or overdue.",
+      "action": { "type": "deeplink", "label": "Configure", "url": "viku://settings/badge" }
+    },
+    {
+      "id": "dependencies",
+      "icon": "link",
+      "tint": "teal",
+      "title": "Task dependencies",
+      "body": "Mark which task blocks another. Viku lets you know when you can start.",
+      "action": { "type": "url", "label": "Read more", "url": "https://viku.app/docs/dependencies" }
+    }
+  ],
+  "fixes": [
+    "Sync is now up to 2x faster on instances with many projects.",
+    "Compatibility with Vikunja 0.24.",
+    "Reminders no longer duplicate when changing time zones.",
+    "Better dark mode contrast for colored labels."
+  ],
+  "guides": {
+    "add-calendar-widget": {
+      "title": "Add the widget",
+      "intro": "Takes less than a minute. You can add several in different sizes.",
+      "steps": [
+        { "title": "Touch and hold the Home Screen", "body": "Touch and hold an empty area until the icons start jiggling.", "image": null },
+        { "title": "Tap Edit, then Add Widget", "body": "It's in the top-left corner.", "image": null },
+        { "title": "Search for Viku and pick a size", "body": "Swipe to see small, medium, and large. Tap Add Widget.", "image": null }
+      ],
+      "tip": "Touch and hold the widget and choose Edit Widget to show just one project or filter.",
+      "primaryAction": { "type": "dismiss", "label": "Got it" },
+      "secondaryAction": { "type": "url", "label": "Read the full guide", "url": "https://viku.app/docs/widgets" }
+    }
+  },
+  "history": [
+    { "version": "1.4", "date": "2026-09-12", "items": ["Push notifications via Viku Relay", "Automatically synced webhooks"] },
+    { "version": "1.3", "date": "2026-07-28", "items": ["Multiple server connections", "Sign in with OIDC", "Offline mode"] },
+    { "version": "1.2", "date": "2026-06-03", "items": ["Calendar view", "Subprojects"] }
+  ]
+}

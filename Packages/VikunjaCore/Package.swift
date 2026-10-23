@@ -12,6 +12,10 @@ let package = Package(
             name: "VikunjaCore",
             resources: [.process("Resources")],
         ),
-        .testTarget(name: "VikunjaCoreTests", dependencies: ["VikunjaCore"]),
+        .testTarget(
+            name: "VikunjaCoreTests",
+            dependencies: ["VikunjaCore"],
+            resources: [.process("Fixtures")],
+        ),
     ],
 )
