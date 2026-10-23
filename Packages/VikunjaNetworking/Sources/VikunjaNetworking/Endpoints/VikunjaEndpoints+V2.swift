@@ -249,4 +249,26 @@ extension VikunjaEndpoints {
     static func userWebhookEventsV2() -> Endpoint {
         Endpoint(path: "/api/v2/user/settings/webhooks/events")
     }
+
+    static func filterV2(id: Int) -> Endpoint {
+        Endpoint(path: "/api/v2/filters/\(id)")
+    }
+
+    /// `PATCH` with `application/merge-patch+json` (RFC 7396), not `PUT` -
+    /// verified against a live v2.6.0 instance's OpenAPI spec, which exposes
+    /// both on `/filters/{filter}`: `PUT` there replaces every field (same
+    /// clobber risk as v1's `POST`), while `PATCH` merges only the keys sent,
+    /// which is exactly what a title-only rename needs.
+    static func renameFilterV2(id: Int, title: String) throws -> Endpoint {
+        try .encoding(
+            path: "/api/v2/filters/\(id)",
+            method: .patch,
+            body: SavedFilterTitlePatchDTO(title: title),
+            contentType: "application/merge-patch+json",
+        )
+    }
+
+    static func deleteFilterV2(id: Int) -> Endpoint {
+        Endpoint(path: "/api/v2/filters/\(id)", method: .delete)
+    }
 }

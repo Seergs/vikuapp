@@ -58,4 +58,9 @@ public protocol InstanceClientFactoryProtocol: Sendable {
         baseURL: URL,
         tokenProvider: @escaping @Sendable () async throws -> String?,
     ) -> WebhookRepositoryProtocol
+
+    func makeFilterRepository(
+        baseURL: URL,
+        tokenProvider: @escaping @Sendable () async throws -> String?,
+    ) -> FilterRepositoryProtocol
 }

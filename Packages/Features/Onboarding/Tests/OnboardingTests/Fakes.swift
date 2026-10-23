@@ -177,4 +177,11 @@ final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @unchecked
     ) -> WebhookRepositoryProtocol {
         fatalError("not exercised by Onboarding tests")
     }
+
+    func makeFilterRepository(
+        baseURL _: URL,
+        tokenProvider _: @escaping @Sendable () async throws -> String?,
+    ) -> FilterRepositoryProtocol {
+        fatalError("not exercised by Onboarding tests")
+    }
 }

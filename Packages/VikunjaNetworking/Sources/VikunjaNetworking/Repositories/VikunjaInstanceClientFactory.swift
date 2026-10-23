@@ -126,4 +126,16 @@ public struct VikunjaInstanceClientFactory: InstanceClientFactoryProtocol {
             capabilityProvider: VikunjaCapabilityProvider(client: client),
         )
     }
+
+    public func makeFilterRepository(
+        baseURL: URL,
+        tokenProvider: @escaping @Sendable () async throws -> String?,
+    ) -> FilterRepositoryProtocol {
+        let client = URLSessionAPIClient(baseURL: baseURL, authTokenProvider: tokenProvider)
+        return VikunjaFilterRepositorySwitch(
+            v1: VikunjaFilterRepository(client: client),
+            v2: VikunjaFilterRepositoryV2(client: client),
+            capabilityProvider: VikunjaCapabilityProvider(client: client),
+        )
+    }
 }

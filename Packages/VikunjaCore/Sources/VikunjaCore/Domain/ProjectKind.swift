@@ -12,6 +12,16 @@ public enum ProjectKind: Codable, Hashable, Sendable {
     case savedFilter
 }
 
+public extension Project {
+    /// The real, positive id Vikunja's `/filters` endpoints expect for this
+    /// pseudo-project, or `nil` if this isn't a saved filter. Use with
+    /// `FilterRepositoryProtocol`, never `ProjectRepositoryProtocol`.
+    var savedFilterID: Int? {
+        guard kind == .savedFilter else { return nil }
+        return -id - 1
+    }
+}
+
 public extension Sequence<Project> {
     /// Drops Favorites and saved filters, keeping only real projects — the
     /// set valid as a task's project or a project's parent, since neither

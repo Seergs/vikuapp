@@ -238,4 +238,18 @@ enum VikunjaEndpoints {
     static func userWebhookEvents() -> Endpoint {
         Endpoint(path: "/api/v1/user/settings/webhooks/events")
     }
+
+    static func filter(id: Int) -> Endpoint {
+        Endpoint(path: "/api/v1/filters/\(id)")
+    }
+
+    /// Full overwrite - no PATCH on v1. See `SavedFilterDTO`'s doc comment for
+    /// why the caller must round-trip `description`/`isFavorite` from a GET.
+    static func updateFilter(id: Int, dto: SavedFilterDTO) throws -> Endpoint {
+        try .encoding(path: "/api/v1/filters/\(id)", method: .post, body: dto)
+    }
+
+    static func deleteFilter(id: Int) -> Endpoint {
+        Endpoint(path: "/api/v1/filters/\(id)", method: .delete)
+    }
 }
