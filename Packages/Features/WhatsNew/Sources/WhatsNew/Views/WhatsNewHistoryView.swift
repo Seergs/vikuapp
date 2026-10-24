@@ -27,8 +27,16 @@ public struct WhatsNewHistoryView: View {
                         timelineRow(entry, isLast: index == viewModel.entries.count - 1)
                     }
                 }
+                // Without this, the VStack only ever takes the width of
+                // its narrowest-fitting content (here, short one-line recap
+                // items that never need to wrap) instead of the
+                // `ScrollView`'s full width — and `ScrollView` centers
+                // content that's narrower than itself instead of pinning
+                // it to the leading edge, which is what was actually
+                // pushing the timeline to the right.
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, VikuSpacing.lg)
-                .padding(.top, VikuSpacing.sm)
+                .padding(.top, VikuSpacing.lg)
                 .padding(.bottom, VikuSpacing.xxl)
             }
         }
@@ -45,6 +53,12 @@ public struct WhatsNewHistoryView: View {
                     .background(palette.fieldBackground, in: Circle())
             }
             .buttonStyle(.plain)
+            // Tap target reaches the 44pt minimum without growing the
+            // visible circle (stays 36pt) or shifting it off the same
+            // leading edge the body content below is aligned to.
+            .frame(width: 44, height: 44, alignment: .leading)
+            .contentShape(Rectangle())
+            .accessibilityLabel(Text("Back", bundle: .module))
 
             Spacer()
 
@@ -54,7 +68,7 @@ public struct WhatsNewHistoryView: View {
 
             Spacer()
 
-            Color.clear.frame(width: 36, height: 36)
+            Color.clear.frame(width: 44, height: 44)
         }
         .padding(.horizontal, VikuSpacing.lg)
         .padding(.top, VikuSpacing.lg)
@@ -62,6 +76,12 @@ public struct WhatsNewHistoryView: View {
 
     private func timelineRow(_ entry: WhatsNewHistoryEntry, isLast: Bool) -> some View {
         HStack(alignment: .top, spacing: VikuSpacing.md) {
+            // Default (center) alignment, not `.leading` — the connecting
+            // line is much thinner than the dot and must stay centered
+            // under it, not flush against its left edge. Column width
+            // matches the dot's own diameter exactly (no extra wrapping
+            // frame), so the dot's leading edge lines up with this row's
+            // own leading edge, same as the header's back button above it.
             VStack(spacing: 0) {
                 Circle()
                     .fill(palette.textTertiary)
@@ -75,20 +95,22 @@ public struct WhatsNewHistoryView: View {
                         .padding(.top, VikuSpacing.xs)
                 }
             }
-            .frame(width: 12)
+            .frame(width: 11)
+            .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: VikuSpacing.sm) {
                 HStack(alignment: .firstTextBaseline, spacing: VikuSpacing.xs) {
                     (
                         Text("Version", bundle: .module)
-                            + Text(verbatim: " \(entry.version)"),
+                            .font(VikuFont.headline.weight(.bold))
+                            + Text(verbatim: " \(entry.version)")
+                            .font(.system(.headline, design: .monospaced, weight: .bold)),
                     )
-                    .font(VikuFont.headline.weight(.bold))
                     .foregroundStyle(palette.textPrimary)
 
                     if let dateLabel = viewModel.dateLabel(for: entry) {
                         Text(verbatim: dateLabel)
-                            .font(.system(.caption, design: .monospaced))
+                            .font(VikuFont.caption)
                             .foregroundStyle(palette.textTertiary)
                     }
                 }

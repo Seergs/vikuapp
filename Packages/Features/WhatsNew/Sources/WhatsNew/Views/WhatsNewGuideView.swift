@@ -46,6 +46,12 @@ public struct WhatsNewGuideView: View {
                             .padding(.top, VikuSpacing.xl - VikuSpacing.xs)
                     }
                 }
+                // See the matching comment in `WhatsNewHistoryView`: without
+                // this, the VStack only takes its content's own narrower
+                // width instead of the `ScrollView`'s full width, and
+                // `ScrollView` centers content narrower than itself instead
+                // of pinning it to the leading edge.
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, VikuSpacing.lg)
                 .padding(.bottom, VikuSpacing.xxl)
             }
@@ -65,6 +71,12 @@ public struct WhatsNewGuideView: View {
                     .background(palette.fieldBackground, in: Circle())
             }
             .buttonStyle(.plain)
+            // Tap target reaches the 44pt minimum without growing the
+            // visible circle (stays 36pt) or shifting it off the same
+            // leading edge the body content below is aligned to.
+            .frame(width: 44, height: 44, alignment: .leading)
+            .contentShape(Rectangle())
+            .accessibilityLabel(Text("Back", bundle: .module))
 
             Spacer()
         }
@@ -119,6 +131,7 @@ public struct WhatsNewGuideView: View {
             Image(systemName: "info.circle.fill")
                 .font(.system(size: 16))
                 .foregroundStyle(palette.brand)
+                .accessibilityHidden(true)
             Text(verbatim: tip)
                 .font(VikuFont.subheadline)
                 .foregroundStyle(palette.textPrimary)

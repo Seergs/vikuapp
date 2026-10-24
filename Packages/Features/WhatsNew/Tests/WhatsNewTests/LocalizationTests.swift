@@ -35,6 +35,9 @@ struct LocalizationTests {
         ("See previous versions", "Ver versiones anteriores"),
         ("Version", "Versión"),
         ("Version history", "Historial de versiones"),
+        ("Back", "Atrás"),
+        ("Expanded", "Expandido"),
+        ("Collapsed", "Contraído"),
     ])
     func `key resolves to its Spanish translation`(key: String, expected: String) {
         #expect(Self.es(key) == expected)
