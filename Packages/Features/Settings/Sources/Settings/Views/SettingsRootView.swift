@@ -19,6 +19,7 @@ public struct SettingsRootView: View {
     private let isDevBuild: Bool
     private let devBadgeStore: DevBadgeVisibilityStoring
     private let networkLoggingStore: NetworkRequestLoggingStoring
+    private let whatsNewSeenVersionStore: WhatsNewSeenVersionStoring
     private let onPreviewOnboarding: () -> Void
     private let makeConnectionsListViewModel: () -> ConnectionsListViewModel
     private let makeConnectionFormViewModel: (ConnectionFormMode) -> ConnectionFormViewModel
@@ -41,8 +42,9 @@ public struct SettingsRootView: View {
     /// itself. `account` is the currently active connection — shown on the
     /// landing screen's "Connections" row. `themeStore` backs the
     /// "Appearance" row. `isDevBuild`/`devBadgeStore`/`networkLoggingStore`/
-    /// `onPreviewOnboarding` back the Developer section, shown only in dev
-    /// builds (see `BuildConfig.isDevBuild` in the app target).
+    /// `whatsNewSeenVersionStore`/`onPreviewOnboarding` back the Developer
+    /// section, shown only in dev builds (see `BuildConfig.isDevBuild` in
+    /// the app target).
     /// `makeConnectionsListViewModel`/`makeConnectionFormViewModel`
     /// come from the app target's `AppContainer`, the only place allowed to
     /// know about the concrete `AccountStoreProtocol`/
@@ -55,6 +57,7 @@ public struct SettingsRootView: View {
         isDevBuild: Bool,
         devBadgeStore: DevBadgeVisibilityStoring,
         networkLoggingStore: NetworkRequestLoggingStoring,
+        whatsNewSeenVersionStore: WhatsNewSeenVersionStoring,
         onPreviewOnboarding: @escaping () -> Void,
         makeConnectionsListViewModel: @escaping () -> ConnectionsListViewModel,
         makeConnectionFormViewModel: @escaping (ConnectionFormMode) -> ConnectionFormViewModel,
@@ -71,6 +74,7 @@ public struct SettingsRootView: View {
         self.isDevBuild = isDevBuild
         self.devBadgeStore = devBadgeStore
         self.networkLoggingStore = networkLoggingStore
+        self.whatsNewSeenVersionStore = whatsNewSeenVersionStore
         self.onPreviewOnboarding = onPreviewOnboarding
         self.makeConnectionsListViewModel = makeConnectionsListViewModel
         self.makeConnectionFormViewModel = makeConnectionFormViewModel
@@ -110,6 +114,7 @@ public struct SettingsRootView: View {
                 isDevBuild: isDevBuild,
                 devBadgeStore: devBadgeStore,
                 networkLoggingStore: networkLoggingStore,
+                whatsNewSeenVersionStore: whatsNewSeenVersionStore,
                 onPreviewOnboarding: onPreviewOnboarding,
                 router: router,
             )

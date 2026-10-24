@@ -21,6 +21,7 @@ struct SettingsView: View {
     let isDevBuild: Bool
     let devBadgeStore: DevBadgeVisibilityStoring
     let networkLoggingStore: NetworkRequestLoggingStoring
+    let whatsNewSeenVersionStore: WhatsNewSeenVersionStoring
     let onPreviewOnboarding: () -> Void
     let router: Router<SettingsRoute>
 
@@ -207,6 +208,14 @@ struct SettingsView: View {
                         subtitle: String(localized: "See the first-launch screen again", bundle: .module),
                     ) {
                         onPreviewOnboarding()
+                    }
+
+                    SettingsNavigationRow(
+                        icon: "sparkles",
+                        title: String(localized: "Reset What's New", bundle: .module),
+                        subtitle: String(localized: "Show the sheet again on the next launch", bundle: .module),
+                    ) {
+                        whatsNewSeenVersionStore.setLastSeenReleaseVersion(nil)
                     }
 
                     // TEMPORARY: the Notifications screen isn't ready for
