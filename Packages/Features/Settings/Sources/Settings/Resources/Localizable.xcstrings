@@ -781,6 +781,36 @@
         }
       }
     },
+    "On This Device" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En este dispositivo"
+          }
+        }
+      }
+    },
+    "Group Overdue Notifications" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agrupar notificaciones de tareas vencidas"
+          }
+        }
+      }
+    },
+    "Applies to every connected account on this device." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aplica a todas las cuentas conectadas en este dispositivo."
+          }
+        }
+      }
+    },
     "Password" : {
       "localizations" : {
         "es" : {
