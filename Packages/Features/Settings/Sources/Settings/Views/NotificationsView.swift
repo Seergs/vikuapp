@@ -22,6 +22,9 @@ struct NotificationsView: View {
     @State private var isShowingConsent = false
     @State private var isShowingDisableConfirmation = false
     @State private var projectQuery = ""
+    /// Which parent projects are expanded to reveal their subprojects —
+    /// empty by default, so every project starts collapsed.
+    @State private var expandedProjectIDs: Set<Int> = []
     /// Mirrors `viewModel.isSyncing`, but only after it's been true for
     /// `syncIndicatorDelay` — see `body`'s `.task(id:)`. A round trip that
     /// finishes faster than that never shows anything, so a quick toggle
@@ -61,9 +64,34 @@ struct NotificationsView: View {
         return result
     }
 
+    /// Parent project IDs that have at least one subproject — used both to
+    /// decide which rows get a disclosure chevron and to collapse their
+    /// children by default.
+    private var projectsWithChildren: Set<Int> {
+        Set(viewModel.projects.compactMap(\.parentProjectID))
+    }
+
+    /// `orderedProjects`, with a parent's subprojects dropped whenever that
+    /// parent isn't in `expandedProjectIDs` — collapsed descendants stay
+    /// hidden transitively, even several levels deep. Search bypasses this
+    /// entirely so a match buried under a collapsed parent still shows up.
     private var filteredProjects: [(project: Project, depth: Int)] {
-        guard !projectQuery.isEmpty else { return orderedProjects }
-        return orderedProjects.filter { $0.project.title.localizedCaseInsensitiveContains(projectQuery) }
+        guard projectQuery.isEmpty else {
+            return orderedProjects.filter { $0.project.title.localizedCaseInsensitiveContains(projectQuery) }
+        }
+        var collapsedParentIDs: Set<Int> = []
+        var visible: [(project: Project, depth: Int)] = []
+        for entry in orderedProjects {
+            if let parentID = entry.project.parentProjectID, collapsedParentIDs.contains(parentID) {
+                collapsedParentIDs.insert(entry.project.id)
+                continue
+            }
+            visible.append(entry)
+            if projectsWithChildren.contains(entry.project.id), !expandedProjectIDs.contains(entry.project.id) {
+                collapsedParentIDs.insert(entry.project.id)
+            }
+        }
+        return visible
     }
 
     /// How many projects currently have at least one event selected — a
@@ -342,17 +370,16 @@ struct NotificationsView: View {
                 }
                 VStack(spacing: 0) {
                     ForEach(Array(filteredProjects.enumerated()), id: \.element.project.id) { index, entry in
-                        Button {
-                            router.push(.projectNotifications(entry.project))
-                        } label: {
-                            ProjectNotificationRow(
-                                viewModel: viewModel,
-                                project: entry.project,
-                                depth: entry.depth,
-                                eventCount: viewModel.settings.events(for: entry.project.id).count,
-                            )
-                        }
-                        .buttonStyle(.plain)
+                        ProjectNotificationRow(
+                            viewModel: viewModel,
+                            project: entry.project,
+                            depth: entry.depth,
+                            eventCount: viewModel.settings.events(for: entry.project.id).count,
+                            hasChildren: projectQuery.isEmpty && projectsWithChildren.contains(entry.project.id),
+                            isExpanded: expandedProjectIDs.contains(entry.project.id),
+                            onSelect: { router.push(.projectNotifications(entry.project)) },
+                            onToggleExpand: { toggleExpanded(entry.project.id) },
+                        )
                         .vikuCardRow(index: index, count: filteredProjects.count)
                     }
                 }
@@ -388,6 +415,16 @@ struct NotificationsView: View {
             get: { viewModel.settings.userLevelEvents.contains(event) },
             set: { newValue in Task { await viewModel.setUserLevelEvent(event, isEnabled: newValue) } },
         )
+    }
+
+    private func toggleExpanded(_ projectID: Int) {
+        withAnimation(.snappy) {
+            if expandedProjectIDs.contains(projectID) {
+                expandedProjectIDs.remove(projectID)
+            } else {
+                expandedProjectIDs.insert(projectID)
+            }
+        }
     }
 
     private func openSystemSettings() {
@@ -433,6 +470,10 @@ private struct ProjectNotificationRow: View {
     let project: Project
     let depth: Int
     let eventCount: Int
+    let hasChildren: Bool
+    let isExpanded: Bool
+    let onSelect: () -> Void
+    let onToggleExpand: () -> Void
 
     /// Fetched lazily via `.task` once this row appears — see
     /// `NotificationsViewModel.otherWebhooks(for:)`. Not loaded eagerly for
@@ -447,6 +488,31 @@ private struct ProjectNotificationRow: View {
 
     var body: some View {
         HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
+            // The disclosure chevron sits before the swatch, like a Finder/
+            // Files disclosure triangle, so the trailing badge / "Not
+            // Connected" label stays flush right on every row regardless of
+            // whether that row has children. Leaf rows reserve the same
+            // width with an empty view, so titles still line up with their
+            // expandable siblings at the same depth.
+            if hasChildren {
+                Button(action: onToggleExpand) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(palette.textTertiary)
+                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                        .frame(width: 20, height: 20)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(
+                    isExpanded
+                        ? Text("Collapse", bundle: .module)
+                        : Text("Expand", bundle: .module),
+                )
+            } else {
+                Color.clear.frame(width: 20, height: 20)
+            }
+
             RoundedRectangle(cornerRadius: 3, style: .continuous)
                 .fill(swatchColor)
                 .frame(width: 10, height: 10)
@@ -480,13 +546,11 @@ private struct ProjectNotificationRow: View {
                     .font(VikuFont.footnote)
                     .foregroundStyle(palette.textTertiary)
             }
-
-            Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(palette.textTertiary)
         }
-        .padding(.vertical, VikuSpacing.xs)
+        .padding(.vertical, VikuSpacing.xs + VikuSpacing.xxs)
         .padding(.leading, CGFloat(depth) * (VikuSpacing.md + VikuSpacing.xxs))
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onSelect)
         .task(id: project.id) {
             otherWebhookCount = await viewModel.otherWebhooks(for: project.id).count
         }
