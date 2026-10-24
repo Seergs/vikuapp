@@ -191,6 +191,16 @@
         }
       }
     },
+    "Collapse" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contraer"
+          }
+        }
+      }
+    },
     "Color" : {
       "localizations" : {
         "es" : {
@@ -447,6 +457,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Desarrollador"
+          }
+        }
+      }
+    },
+    "Expand" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expandir"
           }
         }
       }
