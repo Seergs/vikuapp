@@ -56,8 +56,8 @@ public struct WhatsNewHistoryView: View {
 
             Color.clear.frame(width: 36, height: 36)
         }
-        .padding(.horizontal, VikuSpacing.md)
-        .padding(.top, VikuSpacing.sm)
+        .padding(.horizontal, VikuSpacing.lg)
+        .padding(.top, VikuSpacing.lg)
     }
 
     private func timelineRow(_ entry: WhatsNewHistoryEntry, isLast: Bool) -> some View {
