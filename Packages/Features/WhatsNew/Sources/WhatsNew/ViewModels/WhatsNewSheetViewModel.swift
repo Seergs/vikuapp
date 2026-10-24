@@ -17,6 +17,7 @@ public final class WhatsNewSheetViewModel {
     public enum Screen {
         case new
         case guide(WhatsNewGuide)
+        case history
     }
 
     public let content: WhatsNewContent
@@ -30,15 +31,23 @@ public final class WhatsNewSheetViewModel {
     }
 
     public func makeMainViewModel() -> WhatsNewMainViewModel {
-        WhatsNewMainViewModel(content: content, onAction: handleMainAction)
+        WhatsNewMainViewModel(content: content, onAction: handleMainAction, onShowHistory: showHistory)
     }
 
     public func makeGuideViewModel(for guide: WhatsNewGuide) -> WhatsNewGuideViewModel {
         WhatsNewGuideViewModel(guide: guide, onAction: handleGuideAction)
     }
 
+    public func makeHistoryViewModel() -> WhatsNewHistoryViewModel {
+        WhatsNewHistoryViewModel(entries: content.history)
+    }
+
     public func backToMain() {
         screen = .new
+    }
+
+    private func showHistory() {
+        screen = .history
     }
 
     /// A `.guide` action whose `guideId` resolves switches screens locally;

@@ -18,17 +18,25 @@ public final class WhatsNewMainViewModel {
     public let hero: WhatsNewHero?
     public let features: [WhatsNewFeature]
     public let fixes: [String]
+    public let hasHistory: Bool
 
     public private(set) var isFixesExpanded = false
 
     private let onAction: (WhatsNewAction) -> Void
+    private let onShowHistory: () -> Void
 
-    public init(content: WhatsNewContent, onAction: @escaping (WhatsNewAction) -> Void) {
+    public init(
+        content: WhatsNewContent,
+        onAction: @escaping (WhatsNewAction) -> Void,
+        onShowHistory: @escaping () -> Void = {},
+    ) {
         self.release = content.release
         self.hero = content.hero
         self.features = content.features
         self.fixes = content.fixes
+        self.hasHistory = !content.history.isEmpty
         self.onAction = onAction
+        self.onShowHistory = onShowHistory
     }
 
     public func toggleFixesExpanded() {
@@ -40,6 +48,13 @@ public final class WhatsNewMainViewModel {
     /// does, only that tapping something reports it upward.
     public func handle(_ action: WhatsNewAction) {
         onAction(action)
+    }
+
+    /// "See previous versions" isn't a `WhatsNewAction` from the bundled
+    /// content, it's chrome owned by this screen, so it gets its own
+    /// callback rather than going through `handle`.
+    public func showHistory() {
+        onShowHistory()
     }
 
     /// The release date, formatted as an absolute "Oct 23, 2026" — not
