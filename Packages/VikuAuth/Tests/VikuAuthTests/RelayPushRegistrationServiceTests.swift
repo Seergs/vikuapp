@@ -179,6 +179,68 @@ struct RelayPushRegistrationServiceTests {
 
         #expect(first.secret != second.secret)
     }
+
+    // MARK: updatePreferences
+
+    @Test
+    func `updatePreferences sends the management token as a bearer header and the flag in the body`() async throws {
+        let session = MockURLProtocol.makeSession(responses: [(200, Self.registerResponse), (204, "")])
+        let service = makeService(session: session)
+        _ = try await service.register(deviceToken: Data([0x01]), vikunjaUserID: 1, accountID: Self.accountA)
+
+        try await service.updatePreferences(groupOverdueNotifications: true, accountID: Self.accountA)
+
+        let request = try #require(MockURLProtocol.capturedRequests.last)
+        #expect(request.httpMethod == "PATCH")
+        #expect(request.url?.path == "/v1/registrations/reg-1/preferences")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer mgmt-token-1")
+        let body = try #require(request.httpBody)
+        let decoded = try JSONDecoder().decode(CapturedUpdatePreferencesBody.self, from: body)
+        #expect(decoded.groupOverdueNotifications)
+    }
+
+    @Test
+    func `updatePreferences with nothing registered is a no op`() async throws {
+        let session = MockURLProtocol.makeSession(responses: [])
+        let service = makeService(session: session)
+
+        try await service.updatePreferences(groupOverdueNotifications: true, accountID: Self.accountA)
+
+        #expect(MockURLProtocol.capturedRequests.isEmpty)
+    }
+
+    @Test
+    func `updatePreferences treats a 401 as already gone rather than an error`() async throws {
+        let session = MockURLProtocol.makeSession(responses: [(200, Self.registerResponse), (401, "")])
+        let service = makeService(session: session)
+        _ = try await service.register(deviceToken: Data([0x01]), vikunjaUserID: 1, accountID: Self.accountA)
+
+        try await service.updatePreferences(groupOverdueNotifications: true, accountID: Self.accountA)
+    }
+
+    @Test
+    func `updating one account's preferences leaves another account's registration on the same device untouched`() async throws {
+        let session = MockURLProtocol.makeSession(
+            responses: [(200, Self.registerResponse), (200, Self.registerResponse), (204, "")],
+        )
+        let service = makeService(session: session)
+        _ = try await service.register(deviceToken: Data([0x01]), vikunjaUserID: 1, accountID: Self.accountA)
+        _ = try await service.register(deviceToken: Data([0x01]), vikunjaUserID: 7, accountID: Self.accountB)
+
+        try await service.updatePreferences(groupOverdueNotifications: true, accountID: Self.accountA)
+
+        // Only A's PATCH went out — B's own registration is a separate call
+        // this test never makes.
+        #expect(MockURLProtocol.capturedRequests.count == 3)
+    }
+}
+
+private struct CapturedUpdatePreferencesBody: Decodable {
+    let groupOverdueNotifications: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case groupOverdueNotifications = "group_overdue_notifications"
+    }
 }
 
 private struct CapturedRegisterBody: Decodable {
