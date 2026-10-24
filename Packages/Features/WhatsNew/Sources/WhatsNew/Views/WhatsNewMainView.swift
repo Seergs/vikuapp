@@ -58,7 +58,7 @@ public struct WhatsNewMainView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: VikuSpacing.sm) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: VikuSpacing.xs) {
                 ZStack {
                     Circle().fill(palette.brand)
@@ -74,23 +74,26 @@ public struct WhatsNewMainView: View {
                 )
                 .font(.system(.footnote, design: .monospaced, weight: .semibold))
                 .foregroundStyle(palette.brand)
+            }
 
-                if let dateLabel = viewModel.dateLabel {
-                    Text(verbatim: "· \(dateLabel)")
-                        .font(.system(.footnote, design: .monospaced))
-                        .foregroundStyle(palette.textTertiary)
-                }
+            if let dateLabel = viewModel.dateLabel {
+                Text(verbatim: dateLabel)
+                    .font(.system(.footnote, design: .monospaced))
+                    .foregroundStyle(palette.textTertiary)
+                    .padding(.top, VikuSpacing.xxs)
             }
 
             Text(verbatim: viewModel.release.title)
                 .font(VikuFont.largeTitle.weight(.bold))
                 .foregroundStyle(palette.textPrimary)
+                .padding(.top, VikuSpacing.md)
 
             Text(verbatim: viewModel.release.subtitle)
                 .font(VikuFont.body)
                 .foregroundStyle(palette.textSecondary)
+                .padding(.top, VikuSpacing.sm)
         }
-        .padding(.top, VikuSpacing.lg)
+        .padding(.top, VikuSpacing.xl)
     }
 
     private func heroCard(_ hero: WhatsNewHero) -> some View {
@@ -208,6 +211,7 @@ public struct WhatsNewMainView: View {
                         .rotationEffect(.degrees(viewModel.isFixesExpanded ? 90 : 0))
                 }
                 .padding(VikuSpacing.md)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 

@@ -27,6 +27,7 @@ public struct WhatsNewGuideView: View {
                     Text(verbatim: viewModel.title)
                         .font(VikuFont.title.weight(.bold))
                         .foregroundStyle(palette.textPrimary)
+                        .padding(.top, VikuSpacing.lg)
 
                     Text(verbatim: viewModel.intro)
                         .font(VikuFont.subheadline)
@@ -67,8 +68,8 @@ public struct WhatsNewGuideView: View {
 
             Spacer()
         }
-        .padding(.horizontal, VikuSpacing.md)
-        .padding(.top, VikuSpacing.sm)
+        .padding(.horizontal, VikuSpacing.lg)
+        .padding(.top, VikuSpacing.lg)
     }
 
     private func stepRow(number: Int, step: WhatsNewGuide.Step) -> some View {
@@ -122,6 +123,7 @@ public struct WhatsNewGuideView: View {
                 .font(VikuFont.subheadline)
                 .foregroundStyle(palette.textPrimary)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(VikuSpacing.md)
         .background(palette.brand.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
