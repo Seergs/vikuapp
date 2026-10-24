@@ -27,4 +27,13 @@ public protocol PushRegistrationProviding: Sendable {
     /// — this only tells the relay to stop expecting deliveries for it.
     /// Other accounts' registrations on this device are unaffected.
     func unregister(accountID: InstanceAccount.ID) async throws
+
+    /// Updates the relay's preferences for `accountID`'s registration — today
+    /// just `groupOverdueNotifications`, whether a `tasks.overdue` digest
+    /// should arrive as one combined push instead of one per task. Unlike
+    /// `register`, this never touches the device token, webhook secret, or
+    /// any other registration identity, and it takes effect immediately
+    /// rather than on the relay's next delivery. A no-op when `accountID` was
+    /// never registered.
+    func updatePreferences(groupOverdueNotifications: Bool, accountID: InstanceAccount.ID) async throws
 }
