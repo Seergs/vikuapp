@@ -17,8 +17,31 @@ import Testing
 /// catalog's *content*; verifying it actually renders in Spanish requires
 /// building/running through Xcode.
 struct LocalizationTests {
+    /// Resolves `VikunjaCore`'s own resource bundle rather than this
+    /// target's `Bundle.module` — this file compiles into `VikunjaCoreTests`,
+    /// so once that target declares any resources of its own (see
+    /// `Fixtures/`), SPM generates a `Bundle.module` accessor for
+    /// *this* module, which shadows the one `@testable import VikunjaCore`
+    /// would otherwise fall back to. The two targets' bundles sit side by
+    /// side wherever SPM places `Bundle.module`'s own bundle, so that's used
+    /// as the anchor to find VikunjaCore's sibling bundle by its SPM-assigned
+    /// name (`<package>_<target>.bundle`).
+    private static let vikunjaCoreBundle: Bundle = {
+        let bundleName = "VikunjaCore_VikunjaCore.bundle"
+        let candidates = [
+            Bundle.main.bundleURL,
+            Bundle.module.bundleURL.deletingLastPathComponent(),
+        ]
+        for candidate in candidates {
+            if let bundle = Bundle(url: candidate.appendingPathComponent(bundleName)) {
+                return bundle
+            }
+        }
+        fatalError("could not locate \(bundleName)")
+    }()
+
     private static func loadCatalog() -> [String: Any] {
-        guard let url = Bundle.module.url(forResource: "Localizable", withExtension: "xcstrings"),
+        guard let url = vikunjaCoreBundle.url(forResource: "Localizable", withExtension: "xcstrings"),
               let data = try? Data(contentsOf: url),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let strings = json["strings"] as? [String: Any]
