@@ -14,7 +14,7 @@ import VikunjaCore
 @MainActor
 @Observable
 public final class WhatsNewSheetViewModel {
-    public enum Screen {
+    public enum Screen: Equatable {
         case new
         case guide(WhatsNewGuide)
         case history

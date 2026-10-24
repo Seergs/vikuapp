@@ -9,7 +9,7 @@ import Foundation
 /// only carries the `viku://` URL to open, `.url` only carries the external
 /// link to open in a browser. Whatever presents the "What's New" sheet is
 /// responsible for actually dispatching those.
-public enum WhatsNewAction: Equatable, Sendable {
+public enum WhatsNewAction: Hashable, Sendable {
     case guide(label: String, guideId: String)
     case deeplink(label: String, url: URL)
     case url(label: String, url: URL)

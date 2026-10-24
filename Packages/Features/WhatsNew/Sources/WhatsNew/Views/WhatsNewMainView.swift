@@ -51,8 +51,23 @@ public struct WhatsNewMainView: View {
                         .padding(.top, VikuSpacing.xl - VikuSpacing.sm)
                 }
             }
+            // Without this, the VStack only takes its content's own
+            // narrower width instead of the `ScrollView`'s full width, and
+            // `ScrollView` centers content narrower than itself instead of
+            // pinning it to the leading edge — the root cause behind the
+            // "What's New" history timeline sitting well right of its
+            // intended left margin (see `WhatsNewHistoryView`). Applied
+            // here pre-emptively: a release with no hero/features/fixes
+            // would leave only the header as content, narrow enough to
+            // trigger the same thing.
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, VikuSpacing.lg)
             .padding(.bottom, VikuSpacing.xxl)
+            // Scoped to the whole stack, not just `fixesSection`, so
+            // everything below it (the "See previous versions" link) slides
+            // into its new position along with the accordion instead of
+            // snapping there instantly.
+            .animation(.default, value: viewModel.isFixesExpanded)
         }
         .background(palette.pageBackground)
     }
@@ -67,18 +82,20 @@ public struct WhatsNewMainView: View {
                         .foregroundStyle(palette.brandForeground)
                 }
                 .frame(width: 20, height: 20)
+                .accessibilityHidden(true)
 
                 (
                     Text("VERSION", bundle: .module)
+                        .font(.system(.footnote, weight: .semibold))
                         + Text(verbatim: " \(viewModel.release.version)")
+                        .font(.system(.footnote, design: .monospaced, weight: .semibold))
                 )
-                .font(.system(.footnote, design: .monospaced, weight: .semibold))
                 .foregroundStyle(palette.brand)
             }
 
             if let dateLabel = viewModel.dateLabel {
                 Text(verbatim: dateLabel)
-                    .font(.system(.footnote, design: .monospaced))
+                    .font(VikuFont.footnote)
                     .foregroundStyle(palette.textTertiary)
                     .padding(.top, VikuSpacing.xxs)
             }
@@ -104,7 +121,7 @@ public struct WhatsNewMainView: View {
                 if let badge = hero.badge {
                     Text(verbatim: badge)
                         .font(VikuFont.caption.weight(.bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(palette.brandForeground)
                         .padding(.horizontal, VikuSpacing.sm)
                         .padding(.vertical, VikuSpacing.xxs + 2)
                         .background(palette.brand, in: Capsule())
@@ -175,6 +192,7 @@ public struct WhatsNewMainView: View {
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(tint)
             }
+            .accessibilityHidden(true)
     }
 
     private func actionLink(_ action: WhatsNewAction, isCompact: Bool = false) -> some View {
@@ -186,6 +204,7 @@ public struct WhatsNewMainView: View {
                     .font(isCompact ? VikuFont.subheadline.weight(.semibold) : VikuFont.callout.weight(.semibold))
                 Image(systemName: "chevron.right")
                     .font(.system(size: isCompact ? 11 : 12, weight: .bold))
+                    .accessibilityHidden(true)
             }
             .foregroundStyle(palette.brand)
         }
@@ -214,6 +233,14 @@ public struct WhatsNewMainView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text("Fixes & improvements", bundle: .module))
+            .accessibilityValue(
+                viewModel.isFixesExpanded
+                    ? Text("Expanded", bundle: .module)
+                    : Text("Collapsed", bundle: .module),
+            )
+            .accessibilityAddTraits(.isButton)
 
             if viewModel.isFixesExpanded {
                 VStack(alignment: .leading, spacing: VikuSpacing.sm) {
@@ -235,7 +262,6 @@ public struct WhatsNewMainView: View {
         }
         .background(palette.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
-        .animation(.default, value: viewModel.isFixesExpanded)
     }
 
     private var seePreviousVersionsLink: some View {

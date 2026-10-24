@@ -1,8 +1,8 @@
 /// A step-by-step "how to" screen, opened from a hero or feature's
 /// `.guide` action. Keyed by its own id in `WhatsNewContent.guides`, since a
 /// release may define several (one per feature that needs one).
-public struct WhatsNewGuide: Equatable, Sendable, Codable {
-    public struct Step: Equatable, Sendable, Codable {
+public struct WhatsNewGuide: Hashable, Sendable, Codable {
+    public struct Step: Hashable, Sendable, Codable {
         public let title: String
         public let body: String
         /// A bundled image asset name; `nil` renders a placeholder rather
