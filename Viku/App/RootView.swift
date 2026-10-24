@@ -3,6 +3,7 @@ import SwiftUI
 import VikuDesignSystem
 import VikuNavigation
 import VikunjaCore
+import WhatsNew
 
 /// Top-level navigation between Features. Features never reference each other
 /// directly, so switching from Onboarding to the main tab bar happens only
@@ -17,6 +18,12 @@ struct RootView: View {
     /// Drives the dev-only "Preview Onboarding" row in Settings — see
     /// `OnboardingPreviewView`. Session-only `@State`, not persisted.
     @State private var isPreviewingOnboarding = false
+    /// The release to show in the "What's New" sheet, if any — resolved
+    /// once per launch (see `presentWhatsNewIfEligible`), not recomputed
+    /// while the sheet is up.
+    @State private var whatsNewContent: WhatsNewContent?
+    @State private var isShowingWhatsNew = false
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         Group {
@@ -41,6 +48,9 @@ struct RootView: View {
                         onConnectionSaved: { account in
                             connectedAccount = account
                             Task { await container.refreshDefaultProject(account: account) }
+                            // A fresh install, not a returning launch — see
+                            // `presentWhatsNewIfEligible`'s doc comment.
+                            presentWhatsNewIfEligible(hasCompletedOnboarding: false)
                         },
                     )
                 }
@@ -67,6 +77,9 @@ struct RootView: View {
                 // the active one — notifications are meant to surface
                 // things while the user isn't looking at that account.
                 Task { await container.syncNotificationWebhooksForAllAccounts() }
+                // A returning launch: this account already existed before
+                // today, so it's eligible to see new content.
+                presentWhatsNewIfEligible(hasCompletedOnboarding: true)
             }
         }
         .onOpenURL { url in
@@ -97,6 +110,50 @@ struct RootView: View {
                 onClose: { isPreviewingOnboarding = false },
             )
         }
+        // Presented at the root, same as the dev-only onboarding preview
+        // above, so it layers over the tab bar regardless of which tab is
+        // active. Never collides with onboarding itself or that preview:
+        // both only ever run while `connectedAccount` is nil or has just
+        // been set this instant, and `presentWhatsNewIfEligible` only ever
+        // shows content for a *returning* account.
+        .sheet(
+            isPresented: $isShowingWhatsNew,
+            onDismiss: {
+                // Fires for every dismissal path alike (swipe, the sheet's
+                // own "dismiss" action, or a deep link that closed it
+                // first) — see `WhatsNewActionDispatcher`.
+                if let whatsNewContent {
+                    container.whatsNewSeenVersionStore.setLastSeenReleaseVersion(whatsNewContent.release.version)
+                }
+            },
+            content: {
+                if let whatsNewContent {
+                    WhatsNewSheetView {
+                        WhatsNewSheetViewModel(content: whatsNewContent) { action in
+                            WhatsNewActionDispatcher(
+                                dismissSheet: { isShowingWhatsNew = false },
+                                resolveDeepLink: { DeepLink(url: $0) },
+                                openDeepLink: { container.deepLinkRouter.open($0) },
+                                openURL: { openURL($0) },
+                            ).dispatch(action)
+                        }
+                    }
+                }
+            },
+        )
+    }
+
+    /// Resolves and, if eligible, shows the "What's New" sheet for the
+    /// current bundled release. `hasCompletedOnboarding` must be `false`
+    /// only at the exact call site where `connectedAccount` was just
+    /// created by onboarding this instant, not a returning launch — see
+    /// `WhatsNewPresentationResolver`'s doc comment.
+    private func presentWhatsNewIfEligible(hasCompletedOnboarding: Bool) {
+        guard let content = container.whatsNewContentToPresent(hasCompletedOnboarding: hasCompletedOnboarding) else {
+            return
+        }
+        whatsNewContent = content
+        isShowingWhatsNew = true
     }
 
     /// Re-reads the active account from the store and updates
