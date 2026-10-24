@@ -120,6 +120,14 @@ final class AppContainer {
     /// as `WhatsNewSeenVersionStoring` so its Developer section can offer a
     /// reset, for re-triggering the sheet during manual testing.
     let whatsNewSeenVersionStore: WhatsNewSeenVersionStoring = WhatsNewSeenVersionStore()
+    /// Decides whether there's a "What's New" release to present right now
+    /// — see `WhatsNewPresentationResolver`. Built in `init` (not a default
+    /// value) so it can share `whatsNewSeenVersionStore` above rather than
+    /// a second store instance. `RootView` is the only caller; go through
+    /// `whatsNewContentToPresent(hasCompletedOnboarding:)` below rather
+    /// than this directly, so the current app version and the Debug-only
+    /// minimum-version bypass stay in one place.
+    private let whatsNewPresentationResolver: WhatsNewPresentationResolver
     /// Requests notification authorization, obtains the APNs device token,
     /// and registers it with the push relay — see `PushNotificationCoordinator`.
     /// Pass this as `PushNotificationRegistering` to any ViewModel that
@@ -159,6 +167,10 @@ final class AppContainer {
             accountStore: accountStore,
             sessionExpiryReporter: sessionExpiryCenter,
         )
+        self.whatsNewPresentationResolver = WhatsNewPresentationResolver(
+            contentProvider: BundledWhatsNewContentProvider(),
+            seenVersionStore: whatsNewSeenVersionStore,
+        )
     }
 
     /// One-time move of Keychain items written before the shared
@@ -168,6 +180,26 @@ final class AppContainer {
     func bootstrap() async {
         guard let store = accountStore as? KeychainAccountStore else { return }
         try? await store.migrateToAccessGroup()
+    }
+
+    /// `hasCompletedOnboarding: false` only from the exact call site where
+    /// `connectedAccount` was just created by onboarding, never a returning
+    /// launch — see `WhatsNewPresentationResolver`'s doc comment for why
+    /// that's what keeps a fresh install from ever seeing content that
+    /// predates its own first launch.
+    func whatsNewContentToPresent(hasCompletedOnboarding: Bool) -> WhatsNewContent? {
+        #if DEBUG
+        let bypassMinimumVersion = true
+        #else
+        let bypassMinimumVersion = false
+        #endif
+        let currentAppVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+        return whatsNewPresentationResolver.contentToPresent(
+            locale: .current,
+            currentAppVersion: currentAppVersion,
+            hasCompletedOnboarding: hasCompletedOnboarding,
+            bypassMinimumVersion: bypassMinimumVersion,
+        )
     }
 
     /// Fetches the Today and Calendar data with the app's own (always-working)

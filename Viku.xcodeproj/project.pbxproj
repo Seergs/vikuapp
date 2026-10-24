@@ -14,6 +14,7 @@
 		638AD6AC5148FFCCE7C85848 /* VikunjaNetworking in Frameworks */ = {isa = PBXBuildFile; productRef = E2386D937B2547F27D7735C9 /* VikunjaNetworking */; };
 		6ACFD68581C4ED4510656534 /* Tasks in Frameworks */ = {isa = PBXBuildFile; productRef = CB1292EB9627A6D204BBA18B /* Tasks */; };
 		86F840DFA96537DF891EAEB6 /* VikuNavigation in Frameworks */ = {isa = PBXBuildFile; productRef = DE514324E51E7BE04FBC43F0 /* VikuNavigation */; };
+		8D36636D0FDBD7ED575EA315 /* WhatsNew in Frameworks */ = {isa = PBXBuildFile; productRef = 18D7D1815299123CB4E17140 /* WhatsNew */; };
 		A2C44E7EAB8501F032F94F77 /* VikunjaCore in Frameworks */ = {isa = PBXBuildFile; productRef = C7C86918EA5BF47E31F95689 /* VikunjaCore */; };
 		AF1A9958F7144C64A26AE7DE /* VikuAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 1EDAB22A2783416BA9F0AC6D /* VikuAuth */; };
 		B89F0AB3411531775B788526 /* Viku-widgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 092ABB4ABC46663D77A4333A /* Viku-widgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -120,6 +121,7 @@
 				C0A0235CF7A4953CBF6775E2 /* VikuDesignSystem in Frameworks */,
 				F8DCC6D8B7369D0CF81969F6 /* VikuWidgetKit in Frameworks */,
 				13222C99D726509EF1E32034 /* Kanban in Frameworks */,
+				8D36636D0FDBD7ED575EA315 /* WhatsNew in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -220,6 +222,7 @@
 				887DB5E3A518911BD1897E4B /* VikuDesignSystem */,
 				8A10F10FDD4DC2CAF301F579 /* VikuWidgetKit */,
 				E8024A7799294F5CBCB0B3D8 /* Kanban */,
+				18D7D1815299123CB4E17140 /* WhatsNew */,
 			);
 			productName = Viku;
 			productReference = EC3BB466303D1EF6002753FC /* Viku.app */;
@@ -251,20 +254,21 @@
 			mainGroup = EC3BB45D303D1EF6002753FC;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				3F7D0D7A2D8E0EC22EE402E6 /* XCLocalSwiftPackageReference "Packages/VikunjaCore" */,
-				3A9FB82DE1CB8FCF7F92D8D5 /* XCLocalSwiftPackageReference "Packages/VikunjaNetworking" */,
-				06F83FC1F5114AB2B901D1D6 /* XCLocalSwiftPackageReference "Packages/VikuAuth" */,
-				F4ED8517F32D4805BA91B284 /* XCLocalSwiftPackageReference "Packages/Features/Onboarding" */,
-				FE450F8737274DC4914D99E8 /* XCLocalSwiftPackageReference "Packages/Features/Home" */,
-				CA1EDA0000000000000000A1 /* XCLocalSwiftPackageReference "Packages/Features/Calendar" */,
-				11E80D27D54507DA50620543 /* XCLocalSwiftPackageReference "Packages/Features/Kanban" */,
-				D146E576D31867FAEE64F3E3 /* XCLocalSwiftPackageReference "Packages/VikuNavigation" */,
-				FB9B84FD97A6B958D6347015 /* XCLocalSwiftPackageReference "Packages/Features/Projects" */,
-				630BB56C29B87B52911E4F21 /* XCLocalSwiftPackageReference "Packages/Features/Search" */,
-				CF9745CA233B841AB93A4A82 /* XCLocalSwiftPackageReference "Packages/Features/Settings" */,
-				52D3B6C5FA358E9E99B3F700 /* XCLocalSwiftPackageReference "Packages/Features/Tasks" */,
-				3D1EE9832C8D4F022DF317F5 /* XCLocalSwiftPackageReference "Packages/VikuDesignSystem" */,
-				2D23BFA33FDFA54C75780CE1 /* XCLocalSwiftPackageReference "Packages/VikuWidgetKit" */,
+				3F7D0D7A2D8E0EC22EE402E6 /* XCLocalSwiftPackageReference "VikunjaCore" */,
+				3A9FB82DE1CB8FCF7F92D8D5 /* XCLocalSwiftPackageReference "VikunjaNetworking" */,
+				06F83FC1F5114AB2B901D1D6 /* XCLocalSwiftPackageReference "VikuAuth" */,
+				F4ED8517F32D4805BA91B284 /* XCLocalSwiftPackageReference "Onboarding" */,
+				FE450F8737274DC4914D99E8 /* XCLocalSwiftPackageReference "Home" */,
+				CA1EDA0000000000000000A1 /* XCLocalSwiftPackageReference "Calendar" */,
+				11E80D27D54507DA50620543 /* XCLocalSwiftPackageReference "Kanban" */,
+				D146E576D31867FAEE64F3E3 /* XCLocalSwiftPackageReference "VikuNavigation" */,
+				FB9B84FD97A6B958D6347015 /* XCLocalSwiftPackageReference "Projects" */,
+				630BB56C29B87B52911E4F21 /* XCLocalSwiftPackageReference "Search" */,
+				CF9745CA233B841AB93A4A82 /* XCLocalSwiftPackageReference "Settings" */,
+				52D3B6C5FA358E9E99B3F700 /* XCLocalSwiftPackageReference "Tasks" */,
+				3D1EE9832C8D4F022DF317F5 /* XCLocalSwiftPackageReference "VikuDesignSystem" */,
+				2D23BFA33FDFA54C75780CE1 /* XCLocalSwiftPackageReference "VikuWidgetKit" */,
+				C367BD42904D1C7C119C4FA9 /* XCLocalSwiftPackageReference "WhatsNew" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = EC3BB467303D1EF6002753FC /* Products */;
@@ -625,59 +629,63 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		06F83FC1F5114AB2B901D1D6 /* XCLocalSwiftPackageReference "Packages/VikuAuth" */ = {
+		06F83FC1F5114AB2B901D1D6 /* XCLocalSwiftPackageReference "VikuAuth" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/VikuAuth;
 		};
-		11E80D27D54507DA50620543 /* XCLocalSwiftPackageReference "Packages/Features/Kanban" */ = {
+		11E80D27D54507DA50620543 /* XCLocalSwiftPackageReference "Kanban" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/Features/Kanban;
 		};
-		2D23BFA33FDFA54C75780CE1 /* XCLocalSwiftPackageReference "Packages/VikuWidgetKit" */ = {
+		2D23BFA33FDFA54C75780CE1 /* XCLocalSwiftPackageReference "VikuWidgetKit" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/VikuWidgetKit;
 		};
-		3A9FB82DE1CB8FCF7F92D8D5 /* XCLocalSwiftPackageReference "Packages/VikunjaNetworking" */ = {
+		3A9FB82DE1CB8FCF7F92D8D5 /* XCLocalSwiftPackageReference "VikunjaNetworking" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/VikunjaNetworking;
 		};
-		3D1EE9832C8D4F022DF317F5 /* XCLocalSwiftPackageReference "Packages/VikuDesignSystem" */ = {
+		3D1EE9832C8D4F022DF317F5 /* XCLocalSwiftPackageReference "VikuDesignSystem" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/VikuDesignSystem;
 		};
-		3F7D0D7A2D8E0EC22EE402E6 /* XCLocalSwiftPackageReference "Packages/VikunjaCore" */ = {
+		3F7D0D7A2D8E0EC22EE402E6 /* XCLocalSwiftPackageReference "VikunjaCore" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/VikunjaCore;
 		};
-		52D3B6C5FA358E9E99B3F700 /* XCLocalSwiftPackageReference "Packages/Features/Tasks" */ = {
+		52D3B6C5FA358E9E99B3F700 /* XCLocalSwiftPackageReference "Tasks" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/Features/Tasks;
 		};
-		630BB56C29B87B52911E4F21 /* XCLocalSwiftPackageReference "Packages/Features/Search" */ = {
+		630BB56C29B87B52911E4F21 /* XCLocalSwiftPackageReference "Search" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/Features/Search;
 		};
-		CA1EDA0000000000000000A1 /* XCLocalSwiftPackageReference "Packages/Features/Calendar" */ = {
+		C367BD42904D1C7C119C4FA9 /* XCLocalSwiftPackageReference "WhatsNew" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Features/WhatsNew;
+		};
+		CA1EDA0000000000000000A1 /* XCLocalSwiftPackageReference "Calendar" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/Features/Calendar;
 		};
-		CF9745CA233B841AB93A4A82 /* XCLocalSwiftPackageReference "Packages/Features/Settings" */ = {
+		CF9745CA233B841AB93A4A82 /* XCLocalSwiftPackageReference "Settings" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/Features/Settings;
 		};
-		D146E576D31867FAEE64F3E3 /* XCLocalSwiftPackageReference "Packages/VikuNavigation" */ = {
+		D146E576D31867FAEE64F3E3 /* XCLocalSwiftPackageReference "VikuNavigation" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/VikuNavigation;
 		};
-		F4ED8517F32D4805BA91B284 /* XCLocalSwiftPackageReference "Packages/Features/Onboarding" */ = {
+		F4ED8517F32D4805BA91B284 /* XCLocalSwiftPackageReference "Onboarding" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/Features/Onboarding;
 		};
-		FB9B84FD97A6B958D6347015 /* XCLocalSwiftPackageReference "Packages/Features/Projects" */ = {
+		FB9B84FD97A6B958D6347015 /* XCLocalSwiftPackageReference "Projects" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/Features/Projects;
 		};
-		FE450F8737274DC4914D99E8 /* XCLocalSwiftPackageReference "Packages/Features/Home" */ = {
+		FE450F8737274DC4914D99E8 /* XCLocalSwiftPackageReference "Home" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/Features/Home;
 		};
@@ -686,77 +694,82 @@
 /* Begin XCSwiftPackageProductDependency section */
 		166A7A7237924DFA8CF44351 /* Home */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = FE450F8737274DC4914D99E8 /* XCLocalSwiftPackageReference "Packages/Features/Home" */;
+			package = FE450F8737274DC4914D99E8 /* XCLocalSwiftPackageReference "Home" */;
 			productName = Home;
+		};
+		18D7D1815299123CB4E17140 /* WhatsNew */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C367BD42904D1C7C119C4FA9 /* XCLocalSwiftPackageReference "WhatsNew" */;
+			productName = WhatsNew;
 		};
 		1EDAB22A2783416BA9F0AC6D /* VikuAuth */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 06F83FC1F5114AB2B901D1D6 /* XCLocalSwiftPackageReference "Packages/VikuAuth" */;
+			package = 06F83FC1F5114AB2B901D1D6 /* XCLocalSwiftPackageReference "VikuAuth" */;
 			productName = VikuAuth;
 		};
 		691135973B8B496295E14896 /* Onboarding */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = F4ED8517F32D4805BA91B284 /* XCLocalSwiftPackageReference "Packages/Features/Onboarding" */;
+			package = F4ED8517F32D4805BA91B284 /* XCLocalSwiftPackageReference "Onboarding" */;
 			productName = Onboarding;
 		};
 		887DB5E3A518911BD1897E4B /* VikuDesignSystem */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 3D1EE9832C8D4F022DF317F5 /* XCLocalSwiftPackageReference "Packages/VikuDesignSystem" */;
+			package = 3D1EE9832C8D4F022DF317F5 /* XCLocalSwiftPackageReference "VikuDesignSystem" */;
 			productName = VikuDesignSystem;
 		};
 		8A10F10FDD4DC2CAF301F579 /* VikuWidgetKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 2D23BFA33FDFA54C75780CE1 /* XCLocalSwiftPackageReference "Packages/VikuWidgetKit" */;
+			package = 2D23BFA33FDFA54C75780CE1 /* XCLocalSwiftPackageReference "VikuWidgetKit" */;
 			productName = VikuWidgetKit;
 		};
 		937703EA6DF786A17BC41E96 /* Projects */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = FB9B84FD97A6B958D6347015 /* XCLocalSwiftPackageReference "Packages/Features/Projects" */;
+			package = FB9B84FD97A6B958D6347015 /* XCLocalSwiftPackageReference "Projects" */;
 			productName = Projects;
 		};
 		A6110B94A9B469B91738DBE3 /* Settings */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = CF9745CA233B841AB93A4A82 /* XCLocalSwiftPackageReference "Packages/Features/Settings" */;
+			package = CF9745CA233B841AB93A4A82 /* XCLocalSwiftPackageReference "Settings" */;
 			productName = Settings;
 		};
 		C7C86918EA5BF47E31F95689 /* VikunjaCore */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 3F7D0D7A2D8E0EC22EE402E6 /* XCLocalSwiftPackageReference "Packages/VikunjaCore" */;
+			package = 3F7D0D7A2D8E0EC22EE402E6 /* XCLocalSwiftPackageReference "VikunjaCore" */;
 			productName = VikunjaCore;
 		};
 		CA1EDA0000000000000000C3 /* CalendarFeature */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = CA1EDA0000000000000000A1 /* XCLocalSwiftPackageReference "Packages/Features/Calendar" */;
+			package = CA1EDA0000000000000000A1 /* XCLocalSwiftPackageReference "Calendar" */;
 			productName = CalendarFeature;
 		};
 		CB1292EB9627A6D204BBA18B /* Tasks */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 52D3B6C5FA358E9E99B3F700 /* XCLocalSwiftPackageReference "Packages/Features/Tasks" */;
+			package = 52D3B6C5FA358E9E99B3F700 /* XCLocalSwiftPackageReference "Tasks" */;
 			productName = Tasks;
 		};
 		DE514324E51E7BE04FBC43F0 /* VikuNavigation */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = D146E576D31867FAEE64F3E3 /* XCLocalSwiftPackageReference "Packages/VikuNavigation" */;
+			package = D146E576D31867FAEE64F3E3 /* XCLocalSwiftPackageReference "VikuNavigation" */;
 			productName = VikuNavigation;
 		};
 		DF94C158DB50FABAA1B462AE /* Search */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 630BB56C29B87B52911E4F21 /* XCLocalSwiftPackageReference "Packages/Features/Search" */;
+			package = 630BB56C29B87B52911E4F21 /* XCLocalSwiftPackageReference "Search" */;
 			productName = Search;
 		};
 		E2386D937B2547F27D7735C9 /* VikunjaNetworking */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 3A9FB82DE1CB8FCF7F92D8D5 /* XCLocalSwiftPackageReference "Packages/VikunjaNetworking" */;
+			package = 3A9FB82DE1CB8FCF7F92D8D5 /* XCLocalSwiftPackageReference "VikunjaNetworking" */;
 			productName = VikunjaNetworking;
 		};
 		E436BCA8C1BEFFBB4869643D /* VikuWidgetKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 2D23BFA33FDFA54C75780CE1 /* XCLocalSwiftPackageReference "Packages/VikuWidgetKit" */;
+			package = 2D23BFA33FDFA54C75780CE1 /* XCLocalSwiftPackageReference "VikuWidgetKit" */;
 			productName = VikuWidgetKit;
 		};
 		E8024A7799294F5CBCB0B3D8 /* Kanban */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 11E80D27D54507DA50620543 /* XCLocalSwiftPackageReference "Packages/Features/Kanban" */;
+			package = 11E80D27D54507DA50620543 /* XCLocalSwiftPackageReference "Kanban" */;
 			productName = Kanban;
 		};
 /* End XCSwiftPackageProductDependency section */
