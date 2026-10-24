@@ -45,6 +45,11 @@ public struct WhatsNewMainView: View {
                     fixesSection
                         .padding(.top, VikuSpacing.xl - VikuSpacing.sm)
                 }
+
+                if viewModel.hasHistory {
+                    seePreviousVersionsLink
+                        .padding(.top, VikuSpacing.xl - VikuSpacing.sm)
+                }
             }
             .padding(.horizontal, VikuSpacing.lg)
             .padding(.bottom, VikuSpacing.xxl)
@@ -227,5 +232,17 @@ public struct WhatsNewMainView: View {
         .background(palette.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
         .animation(.default, value: viewModel.isFixesExpanded)
+    }
+
+    private var seePreviousVersionsLink: some View {
+        Button {
+            viewModel.showHistory()
+        } label: {
+            Text("See previous versions", bundle: .module)
+                .font(VikuFont.subheadline.weight(.semibold))
+                .foregroundStyle(palette.brand)
+                .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .buttonStyle(.plain)
     }
 }

@@ -24,6 +24,11 @@ public struct WhatsNewSheetView: View {
                 makeViewModel: { viewModel.makeGuideViewModel(for: guide) },
                 onBack: viewModel.backToMain,
             )
+        case .history:
+            WhatsNewHistoryView(
+                makeViewModel: viewModel.makeHistoryViewModel,
+                onBack: viewModel.backToMain,
+            )
         }
     }
 }

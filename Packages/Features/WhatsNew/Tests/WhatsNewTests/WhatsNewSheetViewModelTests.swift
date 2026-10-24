@@ -6,11 +6,14 @@ import VikunjaCore
 @MainActor
 @Suite("WhatsNewSheetViewModel")
 struct WhatsNewSheetViewModelTests {
-    private func content(guides: [String: WhatsNewGuide] = [:]) -> WhatsNewContent {
+    private func content(
+        guides: [String: WhatsNewGuide] = [:],
+        history: [WhatsNewHistoryEntry] = [],
+    ) -> WhatsNewContent {
         let release = WhatsNewRelease(
             version: "1.5", date: "2026-10-23", minAppVersion: "1.5.0", title: "T", subtitle: "S",
         )
-        return WhatsNewContent(schemaVersion: 1, release: release, guides: guides)
+        return WhatsNewContent(schemaVersion: 1, release: release, guides: guides, history: history)
     }
 
     private func guide() -> WhatsNewGuide {
@@ -86,6 +89,41 @@ struct WhatsNewSheetViewModelTests {
         let guide = guide()
         let viewModel = WhatsNewSheetViewModel(content: content(guides: ["add-widget": guide])) { _ in }
         viewModel.makeMainViewModel().handle(.guide(label: "How to add it", guideId: "add-widget"))
+
+        viewModel.backToMain()
+
+        guard case .new = viewModel.screen else {
+            Issue.record("expected .new")
+            return
+        }
+    }
+
+    @Test
+    func `the main screen's showHistory switches to the history screen`() {
+        let entry = WhatsNewHistoryEntry(version: "1.4", date: "2026-09-12", items: ["Something"])
+        let viewModel = WhatsNewSheetViewModel(content: content(history: [entry])) { _ in }
+
+        viewModel.makeMainViewModel().showHistory()
+
+        guard case .history = viewModel.screen else {
+            Issue.record("expected .history")
+            return
+        }
+    }
+
+    @Test
+    func `makeHistoryViewModel exposes the content's history entries`() {
+        let entry = WhatsNewHistoryEntry(version: "1.4", date: "2026-09-12", items: ["Something"])
+        let viewModel = WhatsNewSheetViewModel(content: content(history: [entry])) { _ in }
+
+        #expect(viewModel.makeHistoryViewModel().entries == [entry])
+    }
+
+    @Test
+    func `backToMain returns from the history screen to the main screen`() {
+        let entry = WhatsNewHistoryEntry(version: "1.4", date: "2026-09-12", items: ["Something"])
+        let viewModel = WhatsNewSheetViewModel(content: content(history: [entry])) { _ in }
+        viewModel.makeMainViewModel().showHistory()
 
         viewModel.backToMain()
 

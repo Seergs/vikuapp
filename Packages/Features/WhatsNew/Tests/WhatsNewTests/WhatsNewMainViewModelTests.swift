@@ -10,6 +10,7 @@ struct WhatsNewMainViewModelTests {
         hero: WhatsNewHero? = nil,
         features: [WhatsNewFeature] = [],
         fixes: [String] = [],
+        history: [WhatsNewHistoryEntry] = [],
         date: String = "2026-10-23",
     ) -> WhatsNewContent {
         WhatsNewContent(
@@ -24,6 +25,7 @@ struct WhatsNewMainViewModelTests {
             hero: hero,
             features: features,
             fixes: fixes,
+            history: history,
         )
     }
 
@@ -81,5 +83,29 @@ struct WhatsNewMainViewModelTests {
     func `an unparseable release date has no label rather than showing garbage`() {
         let viewModel = WhatsNewMainViewModel(content: content(date: "not-a-date")) { _ in }
         #expect(viewModel.dateLabel == nil)
+    }
+
+    @Test
+    func `hasHistory reflects whether the content has any history entries`() {
+        let entry = WhatsNewHistoryEntry(version: "1.4", date: "2026-09-12", items: ["Something"])
+        let withHistory = WhatsNewMainViewModel(content: content(history: [entry])) { _ in }
+        let withoutHistory = WhatsNewMainViewModel(content: content()) { _ in }
+
+        #expect(withHistory.hasHistory == true)
+        #expect(withoutHistory.hasHistory == false)
+    }
+
+    @Test
+    func `showHistory forwards to the caller's onShowHistory closure`() {
+        var showHistoryCalled = false
+        let viewModel = WhatsNewMainViewModel(
+            content: content(),
+            onAction: { _ in },
+            onShowHistory: { showHistoryCalled = true },
+        )
+
+        viewModel.showHistory()
+
+        #expect(showHistoryCalled == true)
     }
 }

@@ -32,6 +32,9 @@ struct LocalizationTests {
     @Test(arguments: [
         ("VERSION", "VERSIÓN"),
         ("Fixes & improvements", "Mejoras y correcciones"),
+        ("See previous versions", "Ver versiones anteriores"),
+        ("Version", "Versión"),
+        ("Version history", "Historial de versiones"),
     ])
     func `key resolves to its Spanish translation`(key: String, expected: String) {
         #expect(Self.es(key) == expected)
