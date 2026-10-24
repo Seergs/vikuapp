@@ -11,6 +11,7 @@ struct NotificationsViewModelTests {
         userRepository: FakeUserRepository = FakeUserRepository(),
         pushNotificationRegistering: FakePushNotificationRegistering = FakePushNotificationRegistering(),
         notificationSettingsStore: FakeNotificationSettingsStore = FakeNotificationSettingsStore(),
+        groupOverdueNotificationsStore: FakeGroupOverdueNotificationsStoring = FakeGroupOverdueNotificationsStoring(),
         toastPresenter: FakeToastPresenter = FakeToastPresenter(),
     ) -> NotificationsViewModel {
         NotificationsViewModel(
@@ -20,6 +21,7 @@ struct NotificationsViewModelTests {
             userRepository: userRepository,
             pushNotificationRegistering: pushNotificationRegistering,
             notificationSettingsStore: notificationSettingsStore,
+            groupOverdueNotificationsStore: groupOverdueNotificationsStore,
             toastPresenter: toastPresenter,
         )
     }
@@ -420,5 +422,22 @@ struct NotificationsViewModelTests {
         // until the user opts back in to each one explicitly.
         #expect(webhookRepository.createdUserWebhooks.count == userCreatesBeforeReenable)
         #expect(webhookRepository.createdProjectWebhooks.count == projectCreatesBeforeReenable)
+    }
+
+    // MARK: group overdue notifications bootstrap
+
+    @Test
+    func `confirming enable applies the device's current group overdue preference to this account`() async {
+        let groupStore = FakeGroupOverdueNotificationsStoring(isEnabled: true)
+        let registering = FakePushNotificationRegistering()
+        let viewModel = makeViewModel(
+            pushNotificationRegistering: registering,
+            groupOverdueNotificationsStore: groupStore,
+        )
+
+        await viewModel.confirmEnable()
+
+        #expect(registering.updatedPreferences.map(\.accountID) == [fakeAccountID])
+        #expect(registering.updatedPreferences.map(\.groupOverdueNotifications) == [true])
     }
 }

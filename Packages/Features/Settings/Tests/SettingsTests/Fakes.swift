@@ -543,8 +543,14 @@ final class FakePushNotificationRegistering: PushNotificationRegistering, @unche
     /// Lets a test hold `enable()` open long enough to issue a second,
     /// overlapping call while the first is still in flight.
     var enableDelay: Duration?
+    var updatePreferencesError: Error?
+    /// Lets a test fail `updatePreferences` for just this one account, while
+    /// every other account's call still succeeds — unlike
+    /// `updatePreferencesError`, which fails every call.
+    var updatePreferencesFailingAccountID: InstanceAccount.ID?
     private(set) var enabledUserIDs: [Int] = []
     private(set) var disabledAccountIDs: [InstanceAccount.ID] = []
+    private(set) var updatedPreferences: [(groupOverdueNotifications: Bool, accountID: InstanceAccount.ID)] = []
     var disableCallCount: Int {
         disabledAccountIDs.count
     }
@@ -559,6 +565,31 @@ final class FakePushNotificationRegistering: PushNotificationRegistering, @unche
 
     func disable(accountID: InstanceAccount.ID) async throws {
         disabledAccountIDs.append(accountID)
+    }
+
+    func updatePreferences(groupOverdueNotifications: Bool, accountID: InstanceAccount.ID) async throws {
+        if let updatePreferencesError {
+            throw updatePreferencesError
+        }
+        if accountID == updatePreferencesFailingAccountID {
+            throw VikunjaError.network("offline")
+        }
+        updatedPreferences.append((groupOverdueNotifications, accountID))
+    }
+}
+
+@MainActor
+final class FakeGroupOverdueNotificationsStoring: GroupOverdueNotificationsStoring {
+    private(set) var isEnabled: Bool
+    private(set) var setEnabledCalls: [Bool] = []
+
+    init(isEnabled: Bool = false) {
+        self.isEnabled = isEnabled
+    }
+
+    func setEnabled(_ enabled: Bool) {
+        isEnabled = enabled
+        setEnabledCalls.append(enabled)
     }
 }
 

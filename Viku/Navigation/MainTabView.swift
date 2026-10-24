@@ -155,6 +155,9 @@ struct MainTabView: View {
                     makeAppIconBadgeViewModel: {
                         container.makeAppIconBadgeViewModel()
                     },
+                    makeGroupOverdueNotificationsViewModel: {
+                        container.makeGroupOverdueNotificationsViewModel()
+                    },
                     makeDefaultProjectSettingsViewModel: {
                         container.makeDefaultProjectSettingsViewModel(account: account)
                     },

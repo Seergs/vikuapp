@@ -91,6 +91,28 @@ public actor RelayPushRegistrationService: PushRegistrationProviding {
         try deleteRecord(account: account)
     }
 
+    public func updatePreferences(groupOverdueNotifications: Bool, accountID: InstanceAccount.ID) async throws {
+        let account = Self.keychainAccount(for: accountID)
+        guard let record = try loadRecord(account: account) else { return }
+
+        let path = "/v1/registrations/\(record.id)/preferences"
+        var request = URLRequest(url: baseURL.appendingPathComponent(path))
+        request.httpMethod = "PATCH"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(record.managementToken)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONEncoder().encode(
+            RelayUpdatePreferencesRequestDTO(groupOverdueNotifications: groupOverdueNotifications),
+        )
+        let (_, response) = try await session.data(for: request)
+        if let http = response as? HTTPURLResponse {
+            NetworkRequestLogging.shared.log(method: "PATCH", path: path, statusCode: http.statusCode)
+        }
+
+        // Same reasoning as unregister's 401: the relay no longer recognizes
+        // this registration, so there's nothing left to update.
+        try Self.validate(response, acceptableStatusCodes: [204, 401])
+    }
+
     // MARK: - HTTP
 
     private func send(path: String, method: String, body: some Encodable) async throws -> (Data, URLResponse) {

@@ -35,3 +35,13 @@ struct RelayRegisterResponseDTO: Decodable {
         case managementToken = "management_token"
     }
 }
+
+/// Mirrors `viku-apn-relay`'s `PATCH /v1/registrations/{id}/preferences`
+/// request body.
+struct RelayUpdatePreferencesRequestDTO: Encodable {
+    let groupOverdueNotifications: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case groupOverdueNotifications = "group_overdue_notifications"
+    }
+}
