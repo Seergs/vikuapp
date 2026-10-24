@@ -53,6 +53,14 @@ public final class NotificationsViewModel {
     /// completed yet).
     public private(set) var accountTimezone: String?
 
+    /// Whether a `tasks.overdue` digest should arrive as one combined push
+    /// instead of one per task. Unlike every other property here, this is
+    /// **not** scoped to `accountID` — it's a device-wide preference (see
+    /// `GroupOverdueNotificationsStoring`), so `setGroupOverdueNotificationsEnabled(_:)`
+    /// applies a change to every account on this device that currently has
+    /// push enabled, not just the one this screen was built for.
+    public private(set) var groupOverdueNotificationsEnabled: Bool
+
     /// Whether *anything* is in flight — drives the delayed "Setting up
     /// notifications…" row, which isn't tied to any single toggle.
     public var isSyncing: Bool {
@@ -94,6 +102,8 @@ public final class NotificationsViewModel {
     private let userRepository: UserRepositoryProtocol
     private let pushNotificationRegistering: PushNotificationRegistering
     private let notificationSettingsStore: NotificationSettingsStore
+    private let groupOverdueNotificationsStore: GroupOverdueNotificationsStoring
+    private let accountStore: AccountStoreProtocol
     private let toastPresenter: ToastPresenting
     private let syncCoordinator: WebhookSyncCoordinator
 
@@ -104,6 +114,8 @@ public final class NotificationsViewModel {
         userRepository: UserRepositoryProtocol,
         pushNotificationRegistering: PushNotificationRegistering,
         notificationSettingsStore: NotificationSettingsStore,
+        groupOverdueNotificationsStore: GroupOverdueNotificationsStoring,
+        accountStore: AccountStoreProtocol,
         toastPresenter: ToastPresenting,
         syncPlanner: WebhookSyncing = WebhookSyncPlanner(),
     ) {
@@ -113,9 +125,12 @@ public final class NotificationsViewModel {
         self.userRepository = userRepository
         self.pushNotificationRegistering = pushNotificationRegistering
         self.notificationSettingsStore = notificationSettingsStore
+        self.groupOverdueNotificationsStore = groupOverdueNotificationsStore
+        self.accountStore = accountStore
         self.toastPresenter = toastPresenter
         self.syncCoordinator = WebhookSyncCoordinator(webhookRepository: webhookRepository, syncPlanner: syncPlanner)
         self.settings = notificationSettingsStore.settings(for: accountID)
+        self.groupOverdueNotificationsEnabled = groupOverdueNotificationsStore.isEnabled
     }
 
     /// This device's relay URL, once registered — what a screen shows as
@@ -178,9 +193,39 @@ public final class NotificationsViewModel {
         defer { pendingChange = nil }
 
         guard await refreshRegistration() else { return }
+        // So this account inherits the device's current group-overdue
+        // preference right away, instead of defaulting to one push per task
+        // until the next time the device-wide toggle happens to change (see
+        // `setGroupOverdueNotificationsEnabled(_:)`). Best-effort, like every
+        // other relay call here: a failure leaves this account ungrouped
+        // until the next launch's sync retries it (`AppContainer.syncNotificationWebhooks`).
+        try? await pushNotificationRegistering.updatePreferences(
+            groupOverdueNotifications: groupOverdueNotificationsStore.isEnabled,
+            accountID: accountID,
+        )
         var updated = settings
         updated.isEnabled = true
         await apply(updated)
+    }
+
+    /// Changes the device-wide group-overdue preference and fans it out to
+    /// every account on this device that currently has push enabled — not
+    /// just `accountID`, the one this screen was built for. Mirrors
+    /// `AppContainer.syncNotificationWebhooksForAllAccounts()`'s own
+    /// per-account loop: each account's `updatePreferences` call is
+    /// independent, so one account's failure (silently ignored, like every
+    /// other relay call here) never stops another's from going through.
+    public func setGroupOverdueNotificationsEnabled(_ enabled: Bool) async {
+        groupOverdueNotificationsEnabled = enabled
+        groupOverdueNotificationsStore.setEnabled(enabled)
+
+        guard let accounts = try? await accountStore.fetchAccounts() else { return }
+        for account in accounts where notificationSettingsStore.settings(for: account.id).isEnabled {
+            try? await pushNotificationRegistering.updatePreferences(
+                groupOverdueNotifications: enabled,
+                accountID: account.id,
+            )
+        }
     }
 
     /// Resets the user-level and per-project selections along with turning

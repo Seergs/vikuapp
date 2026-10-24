@@ -134,6 +134,7 @@ struct NotificationsView: View {
                     enableSection
                     if viewModel.settings.isEnabled {
                         userLevelSection
+                        groupOverdueNotificationsSection
                         projectsSection
                     }
                     // Keeps the last card clear of the tab bar.
@@ -326,6 +327,33 @@ struct NotificationsView: View {
         return String(format: "%02d:%02d", components.hour ?? 9, components.minute ?? 0)
     }
 
+    /// Shown only alongside "Overdue Tasks"' own time row, which is what
+    /// makes overdue pushes relevant to the account currently on screen —
+    /// but unlike that row, the toggle inside this section is device-wide,
+    /// not scoped to this account, which is why it's its own section (with
+    /// its own footer copy) instead of one more row inside
+    /// `userLevelSection`. See `NotificationsViewModel.groupOverdueNotificationsEnabled`.
+    @ViewBuilder
+    private var groupOverdueNotificationsSection: some View {
+        if showsOverdueTasksTimeRow {
+            VStack(alignment: .leading, spacing: 0) {
+                sectionHeader {
+                    Text("On This Device", bundle: .module)
+                        .vikuSectionHeader()
+                }
+                Toggle(isOn: groupOverdueNotificationsBinding) {
+                    VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
+                        Text("Group Overdue Notifications", bundle: .module)
+                        Text("Applies to every connected account on this device.", bundle: .module)
+                            .font(VikuFont.footnote)
+                            .foregroundStyle(palette.textSecondary)
+                    }
+                }
+                .vikuCardRow(index: 0, count: 1)
+            }
+        }
+    }
+
     @ViewBuilder
     private var projectsSection: some View {
         if !viewModel.projects.isEmpty {
@@ -387,6 +415,13 @@ struct NotificationsView: View {
         Binding(
             get: { viewModel.settings.userLevelEvents.contains(event) },
             set: { newValue in Task { await viewModel.setUserLevelEvent(event, isEnabled: newValue) } },
+        )
+    }
+
+    private var groupOverdueNotificationsBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.groupOverdueNotificationsEnabled },
+            set: { newValue in Task { await viewModel.setGroupOverdueNotificationsEnabled(newValue) } },
         )
     }
 

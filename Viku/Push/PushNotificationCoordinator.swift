@@ -57,4 +57,11 @@ actor PushNotificationCoordinator: PushNotificationRegistering {
     func disable(accountID: InstanceAccount.ID) async throws {
         try await registrationService.unregister(accountID: accountID)
     }
+
+    func updatePreferences(groupOverdueNotifications: Bool, accountID: InstanceAccount.ID) async throws {
+        try await registrationService.updatePreferences(
+            groupOverdueNotifications: groupOverdueNotifications,
+            accountID: accountID,
+        )
+    }
 }

@@ -18,4 +18,9 @@ public protocol PushNotificationRegistering: Sendable {
     /// (`WebhookSyncing`). Other accounts registered on this device are
     /// unaffected.
     func disable(accountID: InstanceAccount.ID) async throws
+
+    /// Forwards to `PushRegistrationProviding.updatePreferences` — see that
+    /// protocol's doc comment. Exposed here too so a `Features/*` view model
+    /// can apply it without this seam growing a third, narrower protocol.
+    func updatePreferences(groupOverdueNotifications: Bool, accountID: InstanceAccount.ID) async throws
 }

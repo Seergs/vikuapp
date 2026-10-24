@@ -138,6 +138,15 @@ final class AppContainer {
     /// toggle, enabled projects/events) — see `NotificationSettingsCenter`.
     /// Pass this as `NotificationSettingsStore` to `makeNotificationsViewModel`.
     let notificationSettingsStore: NotificationSettingsStore = NotificationSettingsCenter()
+    /// Device-wide preference for whether overdue-task pushes arrive as one
+    /// combined push instead of one per task — see
+    /// `GroupOverdueNotificationsStoring`'s doc comment for why this is a
+    /// single store, not one more dictionary on `notificationSettingsStore`.
+    /// Pass this as `GroupOverdueNotificationsStoring` to
+    /// `makeNotificationsViewModel`; also read directly below so a newly (or
+    /// already) enabled account's relay registration is kept in sync with
+    /// it, not just a freshly toggled one.
+    let groupOverdueNotificationsStore: GroupOverdueNotificationsStoring = GroupOverdueNotificationsStore()
     /// The user's app-icon-badge preference, and the only thing that calls
     /// `setBadgeCount` — see `AppIconBadgeCenter`. Kept as the concrete type
     /// (not just `AppIconBadgeStoring`) since `refreshWidgetSnapshots()`
@@ -316,6 +325,18 @@ final class AppContainer {
             vikunjaUserID: user.id,
             accountID: account.id,
         ) else { return }
+
+        // Re-applies the device's current group-overdue preference on every
+        // launch, not just the first time this account enables push: this is
+        // what makes a newly connected account inherit the setting instead
+        // of defaulting to one-push-per-task until the user happens to
+        // retoggle it, and self-heals a PATCH that silently failed earlier
+        // (see `NotificationsViewModel.setGroupOverdueNotificationsEnabled`,
+        // which fails the same way, silently).
+        try? await pushNotificationRegistering.updatePreferences(
+            groupOverdueNotifications: groupOverdueNotificationsStore.isEnabled,
+            accountID: account.id,
+        )
 
         let projectRepository = clientFactory.makeProjectRepository(
             baseURL: account.baseURL,
@@ -652,6 +673,8 @@ final class AppContainer {
             userRepository: clientFactory.makeUserRepository(baseURL: account.baseURL, tokenProvider: tokenProvider),
             pushNotificationRegistering: pushNotificationRegistering,
             notificationSettingsStore: notificationSettingsStore,
+            groupOverdueNotificationsStore: groupOverdueNotificationsStore,
+            accountStore: accountStore,
             toastPresenter: toastCenter,
         )
     }
