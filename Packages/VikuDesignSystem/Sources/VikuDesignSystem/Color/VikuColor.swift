@@ -104,4 +104,37 @@ public enum VikuColor {
     public enum Semantic {
         public static let dangerText = VikuPalette.standard.semanticDangerText
     }
+
+    /// A small, theme-independent set of decorative accent colors that
+    /// authored content can pick per item (e.g. each "What's New" feature
+    /// row's icon) — fixed regardless of the active `vikuPalette`, same
+    /// reasoning as `ProjectBadge`: these mark a choice the content itself
+    /// made, not something that should re-theme with the user's appearance.
+    public enum AccentTint: String, Sendable, CaseIterable {
+        case blue
+        case purple
+        case red
+        case teal
+        case green
+        case amber
+
+        public var color: Color {
+            switch self {
+            case .blue: Color(hex: 0x196AFF)
+            case .purple: Color(hex: 0x8B5CF6)
+            case .red: Color(hex: 0xEF4444)
+            case .teal: Color(hex: 0x14B8A6)
+            case .green: Color(hex: 0x22C55E)
+            case .amber: Color(hex: 0xF59E0B)
+            }
+        }
+
+        /// Resolves a free-form content string (e.g. `WhatsNewFeature.tint`)
+        /// to a token, falling back to `.blue` for anything unrecognized —
+        /// bundled content can't be hot-fixed, so a typo in it should never
+        /// crash or render an invisible/clear tint.
+        public static func named(_ rawValue: String) -> AccentTint {
+            AccentTint(rawValue: rawValue) ?? .blue
+        }
+    }
 }
