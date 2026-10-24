@@ -27,6 +27,7 @@ cd Packages/Features/Home && swift build && swift test
 cd Packages/Features/Projects && swift build && swift test
 cd Packages/Features/Tasks && swift build && swift test
 cd Packages/Features/Settings && swift build && swift test
+cd Packages/Features/WhatsNew && swift build && swift test
 cd Packages/VikuWidgetKit && swift build && swift test
 ```
 
@@ -60,7 +61,7 @@ The app uses MVVM with protocol-oriented layering, split across Swift Packages u
 - `VikuNavigation`: cross-feature routing via `AppRoute` and `AppRouter`
 - `VikuDesignSystem`: shared design tokens and reusable views
 - `VikuUI`: shared view primitives and state patterns
-- `Features/*`: feature packages (Onboarding, Home, Projects, Tasks, Settings, Calendar, Search)
+- `Features/*`: feature packages (Onboarding, Home, Projects, Tasks, Settings, Calendar, Search, WhatsNew)
 - `VikuWidgetKit`: home-screen widget extension
 
 The dependency graph is enforced by the compiler: Features depend only on `VikunjaCore`, `VikuNavigation`, and `VikuDesignSystem` (never on `VikunjaNetworking` or `VikuAuth`). Only `AppContainer` knows about concrete networking/auth types and wires them into protocol-typed dependencies.
