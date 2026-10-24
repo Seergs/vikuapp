@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "release": {
+    "version": "1.5",
+    "date": "2026-10-23",
+    "minAppVersion": "1.5.0",
+    "title": "Novedades en Viku",
+    "subtitle": "Tus tareas ahora llegan a la pantalla de inicio, y encontrar lo importante toma un toque."
+  },
+  "hero": {
+    "id": "calendar-widget",
+    "badge": "Nuevo",
+    "title": "Widget de calendario",
+    "body": "Mira tu semana y las tareas vencidas sin abrir la app. Disponible en tamaño pequeño, mediano y grande.",
+    "image": null,
+    "action": { "type": "guide", "label": "Cómo añadirlo", "guideId": "add-calendar-widget" }
+  },
+  "features": [],
+  "fixes": [],
+  "guides": {
+    "add-calendar-widget": {
+      "title": "Añade el widget",
+      "intro": "Toma menos de un minuto.",
+      "steps": [
+        { "title": "Mantén presionada la pantalla de inicio", "body": "Toca y mantén un espacio vacío hasta que los íconos empiecen a moverse.", "image": null }
+      ],
+      "tip": null,
+      "primaryAction": { "type": "dismiss", "label": "Entendido" },
+      "secondaryAction": null
+    }
+  },
+  "history": []
+}
