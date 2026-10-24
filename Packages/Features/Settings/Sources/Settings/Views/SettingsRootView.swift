@@ -29,6 +29,11 @@ public struct SettingsRootView: View {
     /// unlike Notifications, the badge toggle lives directly on this
     /// landing screen, so its view model needs to exist from the start.
     @State private var badgeViewModel: AppIconBadgeViewModel
+    /// Same reasoning as `badgeViewModel`: the "Group Overdue Notifications"
+    /// toggle also lives directly on this landing screen (see
+    /// `GroupOverdueNotificationsViewModel`'s doc comment for why it's not
+    /// folded into `notificationsViewModelCache` instead).
+    @State private var groupOverdueNotificationsViewModel: GroupOverdueNotificationsViewModel
     /// Same reasoning as `badgeViewModel`: the "Default Project" row lives
     /// directly on this landing screen, so its view model needs to exist
     /// from the start rather than being built lazily on first visit.
@@ -64,6 +69,7 @@ public struct SettingsRootView: View {
         makeManageLabelsViewModel: @escaping () -> ManageLabelsViewModel,
         makeNotificationsViewModel: @escaping () -> NotificationsViewModel,
         makeAppIconBadgeViewModel: @escaping () -> AppIconBadgeViewModel,
+        makeGroupOverdueNotificationsViewModel: @escaping () -> GroupOverdueNotificationsViewModel,
         makeDefaultProjectSettingsViewModel: @escaping () -> DefaultProjectSettingsViewModel,
         makeHomeSelectionSettingsViewModel: @escaping () -> HomeSelectionSettingsViewModel,
     ) {
@@ -81,6 +87,7 @@ public struct SettingsRootView: View {
         self.makeManageLabelsViewModel = makeManageLabelsViewModel
         self.makeNotificationsViewModel = makeNotificationsViewModel
         self._badgeViewModel = State(initialValue: makeAppIconBadgeViewModel())
+        self._groupOverdueNotificationsViewModel = State(initialValue: makeGroupOverdueNotificationsViewModel())
         self._defaultProjectViewModel = State(initialValue: makeDefaultProjectSettingsViewModel())
         self._homeSelectionViewModel = State(initialValue: makeHomeSelectionSettingsViewModel())
     }
@@ -109,6 +116,7 @@ public struct SettingsRootView: View {
                 themeStore: themeStore,
                 quickAddSyntaxStore: quickAddSyntaxStore,
                 badgeViewModel: badgeViewModel,
+                groupOverdueNotificationsViewModel: groupOverdueNotificationsViewModel,
                 defaultProjectViewModel: defaultProjectViewModel,
                 homeSelectionViewModel: homeSelectionViewModel,
                 isDevBuild: isDevBuild,

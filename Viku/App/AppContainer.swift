@@ -143,9 +143,11 @@ final class AppContainer {
     /// `GroupOverdueNotificationsStoring`'s doc comment for why this is a
     /// single store, not one more dictionary on `notificationSettingsStore`.
     /// Pass this as `GroupOverdueNotificationsStoring` to
-    /// `makeNotificationsViewModel`; also read directly below so a newly (or
-    /// already) enabled account's relay registration is kept in sync with
-    /// it, not just a freshly toggled one.
+    /// `makeGroupOverdueNotificationsViewModel` and `makeNotificationsViewModel`
+    /// (which only reads it, to apply it to the one account it was built
+    /// for); also read directly below so a newly (or already) enabled
+    /// account's relay registration is kept in sync with it, not just a
+    /// freshly toggled one.
     let groupOverdueNotificationsStore: GroupOverdueNotificationsStoring = GroupOverdueNotificationsStore()
     /// The user's app-icon-badge preference, and the only thing that calls
     /// `setBadgeCount` — see `AppIconBadgeCenter`. Kept as the concrete type
@@ -674,13 +676,26 @@ final class AppContainer {
             pushNotificationRegistering: pushNotificationRegistering,
             notificationSettingsStore: notificationSettingsStore,
             groupOverdueNotificationsStore: groupOverdueNotificationsStore,
-            accountStore: accountStore,
             toastPresenter: toastCenter,
         )
     }
 
     func makeAppIconBadgeViewModel() -> AppIconBadgeViewModel {
         AppIconBadgeViewModel(store: appIconBadgeCenter, permissionRequester: appIconBadgePermissionRequester)
+    }
+
+    /// The device-wide "Group Overdue Notifications" toggle on the Settings
+    /// landing screen's "General" section — see
+    /// `GroupOverdueNotificationsViewModel`'s doc comment for why this is a
+    /// separate view model from `makeNotificationsViewModel`'s, not one more
+    /// property on it.
+    func makeGroupOverdueNotificationsViewModel() -> GroupOverdueNotificationsViewModel {
+        GroupOverdueNotificationsViewModel(
+            store: groupOverdueNotificationsStore,
+            accountStore: accountStore,
+            notificationSettingsStore: notificationSettingsStore,
+            pushNotificationRegistering: pushNotificationRegistering,
+        )
     }
 
     func makeDefaultProjectSettingsViewModel(account: InstanceAccount) -> DefaultProjectSettingsViewModel {

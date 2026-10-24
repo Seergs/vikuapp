@@ -16,6 +16,7 @@ struct SettingsView: View {
     let themeStore: AppThemeStoring
     let quickAddSyntaxStore: QuickAddSyntaxStore
     let badgeViewModel: AppIconBadgeViewModel
+    let groupOverdueNotificationsViewModel: GroupOverdueNotificationsViewModel
     let defaultProjectViewModel: DefaultProjectSettingsViewModel
     let homeSelectionViewModel: HomeSelectionSettingsViewModel
     let isDevBuild: Bool
@@ -59,6 +60,24 @@ struct SettingsView: View {
 
                 if badgeViewModel.isPermissionDenied {
                     badgeDeniedBanner
+                }
+
+                // TEMPORARY: ships alongside Push Notifications (see the
+                // "This connection" section below), so it's gated the same
+                // way for now. A follow-up ticket removes both gates together
+                // once the feature is ready to ship.
+                if isDevBuild {
+                    Toggle(isOn: groupOverdueNotificationsBinding) {
+                        HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
+                            SettingsRowIcon(systemName: "bell.badge")
+                            VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
+                                Text("Group Overdue Notifications", bundle: .module)
+                                Text("One alert instead of one per task", bundle: .module)
+                                    .font(VikuFont.footnote)
+                                    .foregroundStyle(palette.textTertiary)
+                            }
+                        }
+                    }
                 }
             } header: {
                 Text("General", bundle: .module)
@@ -126,6 +145,23 @@ struct SettingsView: View {
                         title: String(localized: "Time Zone", bundle: .module),
                         value: accountTimezone,
                     )
+                    .listRowBackground(palette.cardBackground)
+                }
+
+                // TEMPORARY: the Notifications screen isn't ready for
+                // general release yet — dev-build-only for now so UI work
+                // on it can still be previewed. A follow-up ticket removes
+                // this gate (and "General"'s Group Overdue Notifications
+                // gate above, which ships at the same time) once the
+                // feature is ready to ship.
+                if isDevBuild {
+                    SettingsNavigationRow(
+                        icon: "bell",
+                        title: String(localized: "Push Notifications", bundle: .module),
+                        subtitle: String(localized: "Enable alerts and choose events", bundle: .module),
+                    ) {
+                        router.push(.notifications)
+                    }
                     .listRowBackground(palette.cardBackground)
                 }
             } header: {
@@ -217,18 +253,6 @@ struct SettingsView: View {
                     ) {
                         whatsNewSeenVersionStore.setLastSeenReleaseVersion(nil)
                     }
-
-                    // TEMPORARY: the Notifications screen isn't ready for
-                    // general release yet — dev-build-only for now so UI
-                    // work on it can still be previewed. A follow-up ticket
-                    // removes this gate once the feature is ready to ship.
-                    SettingsNavigationRow(
-                        icon: "bell",
-                        title: String(localized: "Notifications", bundle: .module),
-                        subtitle: String(localized: "Push notifications via Viku Relay", bundle: .module),
-                    ) {
-                        router.push(.notifications)
-                    }
                 } header: {
                     Text("Developer", bundle: .module)
                 }
@@ -308,6 +332,13 @@ struct SettingsView: View {
 
     private var quickAddSyntaxBinding: Binding<QuickAddSyntax?> {
         Binding(get: { quickAddSyntaxStore.syntax }, set: { quickAddSyntaxStore.setSyntax($0) })
+    }
+
+    private var groupOverdueNotificationsBinding: Binding<Bool> {
+        Binding(
+            get: { groupOverdueNotificationsViewModel.isEnabled },
+            set: { newValue in Task { await groupOverdueNotificationsViewModel.setEnabled(newValue) } },
+        )
     }
 
     private var devBadgeBinding: Binding<Bool> {

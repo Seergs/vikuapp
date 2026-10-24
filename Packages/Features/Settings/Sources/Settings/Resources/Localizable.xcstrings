@@ -781,16 +781,6 @@
         }
       }
     },
-    "On This Device" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "En este dispositivo"
-          }
-        }
-      }
-    },
     "Group Overdue Notifications" : {
       "localizations" : {
         "es" : {
@@ -801,12 +791,22 @@
         }
       }
     },
-    "Applies to every connected account on this device." : {
+    "One alert instead of one per task" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aplica a todas las cuentas conectadas en este dispositivo."
+            "value" : "Una sola alerta en vez de una por tarea"
+          }
+        }
+      }
+    },
+    "Enable alerts and choose events" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activa alertas y elige los eventos"
           }
         }
       }
@@ -897,16 +897,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Notificaciones push"
-          }
-        }
-      }
-    },
-    "Push notifications via Viku Relay" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Notificaciones push vía Viku Relay"
           }
         }
       }

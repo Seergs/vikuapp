@@ -12,7 +12,6 @@ struct NotificationsViewModelTests {
         pushNotificationRegistering: FakePushNotificationRegistering = FakePushNotificationRegistering(),
         notificationSettingsStore: FakeNotificationSettingsStore = FakeNotificationSettingsStore(),
         groupOverdueNotificationsStore: FakeGroupOverdueNotificationsStoring = FakeGroupOverdueNotificationsStoring(),
-        accountStore: FakeAccountStore = FakeAccountStore(),
         toastPresenter: FakeToastPresenter = FakeToastPresenter(),
     ) -> NotificationsViewModel {
         NotificationsViewModel(
@@ -23,7 +22,6 @@ struct NotificationsViewModelTests {
             pushNotificationRegistering: pushNotificationRegistering,
             notificationSettingsStore: notificationSettingsStore,
             groupOverdueNotificationsStore: groupOverdueNotificationsStore,
-            accountStore: accountStore,
             toastPresenter: toastPresenter,
         )
     }
@@ -426,15 +424,7 @@ struct NotificationsViewModelTests {
         #expect(webhookRepository.createdProjectWebhooks.count == projectCreatesBeforeReenable)
     }
 
-    // MARK: groupOverdueNotificationsEnabled / setGroupOverdueNotificationsEnabled
-
-    @Test
-    func `groupOverdueNotificationsEnabled starts from the device wide store, not per account state`() {
-        let groupStore = FakeGroupOverdueNotificationsStoring(isEnabled: true)
-        let viewModel = makeViewModel(groupOverdueNotificationsStore: groupStore)
-
-        #expect(viewModel.groupOverdueNotificationsEnabled)
-    }
+    // MARK: group overdue notifications bootstrap
 
     @Test
     func `confirming enable applies the device's current group overdue preference to this account`() async {
@@ -449,74 +439,5 @@ struct NotificationsViewModelTests {
 
         #expect(registering.updatedPreferences.map(\.accountID) == [fakeAccountID])
         #expect(registering.updatedPreferences.map(\.groupOverdueNotifications) == [true])
-    }
-
-    @Test
-    func `setting the device wide toggle persists it and fans it out to every account with push enabled`() async throws {
-        let enabledAccountB = UUID()
-        let disabledAccountC = UUID()
-        let accountStore = FakeAccountStore()
-        try? await accountStore.addAccount(
-            try InstanceAccount(id: fakeAccountID, displayName: "A", baseURL: #require(URL(string: "https://a.example.com"))),
-            token: "token-a",
-        )
-        try? await accountStore.addAccount(
-            try InstanceAccount(id: enabledAccountB, displayName: "B", baseURL: #require(URL(string: "https://b.example.com"))),
-            token: "token-b",
-        )
-        try? await accountStore.addAccount(
-            try InstanceAccount(id: disabledAccountC, displayName: "C", baseURL: #require(URL(string: "https://c.example.com"))),
-            token: "token-c",
-        )
-        let settingsStore = FakeNotificationSettingsStore(settings: NotificationSettings(isEnabled: true))
-        settingsStore.save(NotificationSettings(isEnabled: true), for: enabledAccountB)
-        settingsStore.save(NotificationSettings(isEnabled: false), for: disabledAccountC)
-        let groupStore = FakeGroupOverdueNotificationsStoring()
-        let registering = FakePushNotificationRegistering()
-        let viewModel = makeViewModel(
-            pushNotificationRegistering: registering,
-            notificationSettingsStore: settingsStore,
-            groupOverdueNotificationsStore: groupStore,
-            accountStore: accountStore,
-        )
-
-        await viewModel.setGroupOverdueNotificationsEnabled(true)
-
-        #expect(viewModel.groupOverdueNotificationsEnabled)
-        #expect(groupStore.setEnabledCalls == [true])
-        // fakeAccountID (this screen's own account) and enabledAccountB both
-        // have push enabled; disabledAccountC must be skipped.
-        let updatedAccountIDs = Set(registering.updatedPreferences.map(\.accountID))
-        #expect(updatedAccountIDs == [fakeAccountID, enabledAccountB])
-        #expect(Set(registering.updatedPreferences.map(\.groupOverdueNotifications)) == [true])
-    }
-
-    @Test
-    func `a failed relay update for one account does not stop the others from being updated`() async throws {
-        let accountB = UUID()
-        let accountStore = FakeAccountStore()
-        try? await accountStore.addAccount(
-            try InstanceAccount(id: fakeAccountID, displayName: "A", baseURL: #require(URL(string: "https://a.example.com"))),
-            token: "token-a",
-        )
-        try? await accountStore.addAccount(
-            try InstanceAccount(id: accountB, displayName: "B", baseURL: #require(URL(string: "https://b.example.com"))),
-            token: "token-b",
-        )
-        let settingsStore = FakeNotificationSettingsStore(settings: NotificationSettings(isEnabled: true))
-        settingsStore.save(NotificationSettings(isEnabled: true), for: accountB)
-        let registering = FakePushNotificationRegistering()
-        // This screen's own account (fakeAccountID) fails; accountB must
-        // still go through right after it.
-        registering.updatePreferencesFailingAccountID = fakeAccountID
-        let viewModel = makeViewModel(
-            pushNotificationRegistering: registering,
-            notificationSettingsStore: settingsStore,
-            accountStore: accountStore,
-        )
-
-        await viewModel.setGroupOverdueNotificationsEnabled(true)
-
-        #expect(registering.updatedPreferences.map(\.accountID) == [accountB])
     }
 }
