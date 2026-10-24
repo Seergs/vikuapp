@@ -54,6 +54,7 @@ modules=(
     "Packages/Features/Settings"
     "Packages/Features/Calendar"
     "Packages/Features/Search"
+    "Packages/Features/WhatsNew"
     "Packages/VikuDesignSystem"
     "Packages/VikuUI"
     "Packages/VikuWidgetKit"
