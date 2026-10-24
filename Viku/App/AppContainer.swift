@@ -115,6 +115,11 @@ final class AppContainer {
     /// `DevBadgeVisibilityStoring`, the same way `themeCenter` is passed as
     /// `AppThemeStoring`.
     let devToolsCenter = DevToolsCenter()
+    /// On-device record of which "What's New" release this device has
+    /// already shown — see `WhatsNewSeenVersionStore`. Passed to `Settings`
+    /// as `WhatsNewSeenVersionStoring` so its Developer section can offer a
+    /// reset, for re-triggering the sheet during manual testing.
+    let whatsNewSeenVersionStore: WhatsNewSeenVersionStoring = WhatsNewSeenVersionStore()
     /// Requests notification authorization, obtains the APNs device token,
     /// and registers it with the push relay — see `PushNotificationCoordinator`.
     /// Pass this as `PushNotificationRegistering` to any ViewModel that

@@ -138,6 +138,7 @@ struct MainTabView: View {
                     isDevBuild: BuildConfig.isDevBuild,
                     devBadgeStore: container.devToolsCenter,
                     networkLoggingStore: container.devToolsCenter,
+                    whatsNewSeenVersionStore: container.whatsNewSeenVersionStore,
                     onPreviewOnboarding: onPreviewOnboarding,
                     makeConnectionsListViewModel: {
                         container.makeConnectionsListViewModel(onActiveAccountChanged: onAccountsChanged)

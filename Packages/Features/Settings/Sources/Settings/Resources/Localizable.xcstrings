@@ -951,6 +951,16 @@
         }
       }
     },
+    "Reset What's New" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reiniciar Novedades"
+          }
+        }
+      }
+    },
     "Save" : {
       "localizations" : {
         "es" : {
@@ -1047,6 +1057,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mostrar contraseña"
+          }
+        }
+      }
+    },
+    "Show the sheet again on the next launch" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se mostrará otra vez en el próximo inicio"
           }
         }
       }
