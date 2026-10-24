@@ -1,0 +1,50 @@
+import Foundation
+import GRDB
+
+/// Which local table a queued mutation targets. Grows by one case per
+/// entity as later slices add their own offline support (Label, VikunjaTask,
+/// ...) - the `mutationQueueItem` table itself needs no schema change.
+enum MutationEntityType: String, Codable, Sendable {
+    case project
+}
+
+/// What a queued mutation does to its target. `create`/`update`/`delete`
+/// cover whole-object writes; a sub-resource op (e.g. labels-on-task) can
+/// add its own case later without a schema change.
+enum MutationOperation: String, Codable, Sendable {
+    case create
+    case update
+    case delete
+}
+
+enum MutationStatus: String, Codable, Sendable {
+    case pending
+    case inFlight
+    case failed
+}
+
+/// Row shape of the `mutationQueueItem` table: one pending write to replay
+/// against the server once reachable, entity-agnostic by design (see
+/// `DatabaseMigrations`). `payload` is the JSON-encoded full target state for
+/// `create`/`update` (the API is full-object-replace, not a partial diff);
+/// for `delete` it carries whatever the server needs to address the row
+/// (its `remoteID`), since the local row may already be gone by drain time.
+struct MutationQueueRecord: Codable, Equatable, Sendable {
+    var id: Int64?
+    var entityType: MutationEntityType
+    var operation: MutationOperation
+    var targetLocalID: UUID
+    var payload: String?
+    var createdAt: Date
+    var retryCount: Int
+    var lastError: String?
+    var status: MutationStatus
+}
+
+extension MutationQueueRecord: FetchableRecord, MutablePersistableRecord {
+    static let databaseTableName = "mutationQueueItem"
+
+    mutating func didInsert(_ inserted: InsertionSuccess) {
+        id = inserted.rowID
+    }
+}
