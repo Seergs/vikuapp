@@ -135,7 +135,7 @@ public final class TodayViewModel {
     /// Settings row and this screen's title stay current.
     private func loadPinned(_ pinned: CachedHomeSelection) async throws {
         let projects = try await projectRepository.fetchProjects()
-        guard let current = projects.first(where: { $0.id == pinned.id }) else {
+        guard let current = projects.first(where: { $0.id.remoteValue == pinned.id }) else {
             homeSelectionCache.setCachedHomeSelection(nil)
             pinnedSelection = nil
             toastPresenter.show(
@@ -150,13 +150,22 @@ public final class TodayViewModel {
         }
 
         let refreshed = CachedHomeSelection(
-            id: current.id, title: current.title, hexColor: current.hexColor, kind: current.kind,
+            id: current.id.remoteValue ?? pinned.id, title: current.title, hexColor: current.hexColor,
+            kind: current.kind,
         )
         if refreshed != pinned {
             homeSelectionCache.setCachedHomeSelection(refreshed)
         }
         pinnedSelection = refreshed
-        projectsByID = Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0) })
+        // Keyed by the server id, matching `VikunjaTask.projectID: Int`
+        // (Tasks hasn't migrated to `EntityID` yet). A project without one
+        // yet (offline-created, not synced) is excluded — not reachable
+        // until Projects' own offline-create path exists.
+        projectsByID = Dictionary(
+            uniqueKeysWithValues: projects.compactMap { project in
+                project.id.remoteValue.map { ($0, project) }
+            },
+        )
         tasks = try await taskRepository.fetchTasks(projectID: pinned.id)
     }
 
@@ -312,7 +321,7 @@ public final class TodayViewModel {
     public func makeDuplicateTaskViewModel(for task: VikunjaTask) -> DuplicateTaskViewModel {
         DuplicateTaskViewModel(
             source: task,
-            sourceProject: projectsByID[task.projectID] ?? Project(id: task.projectID, title: ""),
+            sourceProject: projectsByID[task.projectID] ?? Project(id: .remote(task.projectID), title: ""),
             taskRepository: taskRepository,
             labelRepository: labelRepository,
             relationRepository: relationRepository,
