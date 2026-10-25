@@ -82,7 +82,7 @@ struct RelationsSection: View {
     /// which covers subtasks and same-project dependencies without risking a
     /// wrong or fabricated name for the rest.
     private func projectTitle(for relation: TaskRelation) -> String? {
-        relation.projectID == viewModel.project.id ? viewModel.project.title : nil
+        relation.projectID == viewModel.project.id.remoteValue ? viewModel.project.title : nil
     }
 }
 

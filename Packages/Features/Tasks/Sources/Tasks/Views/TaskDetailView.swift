@@ -257,7 +257,7 @@ public struct TaskDetailView: View {
                     title: String(localized: "Move to Project", bundle: .module),
                     projects: viewModel.allProjects,
                     selectedProjectID: nil,
-                    excludingSubtreeOf: viewModel.task.projectID,
+                    excludingSubtreeOf: .remote(viewModel.task.projectID),
                 ) { project in
                     guard let project else { return }
                     Task {

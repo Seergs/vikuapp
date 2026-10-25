@@ -148,7 +148,8 @@ public final class TaskDetailViewModel {
     }
 
     public func markHidden() {
-        quickAddContext?.exitProjectScope(project.id)
+        guard let projectID = project.id.remoteValue else { return }
+        quickAddContext?.exitProjectScope(projectID)
     }
 
     public func load() async {
@@ -372,7 +373,11 @@ public final class TaskDetailViewModel {
     /// already related to it, the same as `searchTasksForRelation(query:)`.
     public func loadRelationSuggestions() async {
         let excludedIDs = relatedTaskIDs.union([task.id])
-        let results = await (try? repository.fetchTasks(projectID: project.id)) ?? []
+        guard let projectID = project.id.remoteValue else {
+            relationSearchResults = []
+            return
+        }
+        let results = await (try? repository.fetchTasks(projectID: projectID)) ?? []
         relationSearchResults = results.filter { !excludedIDs.contains($0.id) }
     }
 
@@ -391,10 +396,14 @@ public final class TaskDetailViewModel {
     /// pop back once this returns `true`, the same way it would after
     /// `deleteTask()`.
     public func move(to newProject: Project) async -> Bool {
+        guard let newProjectID = newProject.id.remoteValue else {
+            toastPresenter.show(VikunjaError.notFound.displayMessage, style: .error)
+            return false
+        }
         let previous = task
         taskWriteToken += 1
         let token = taskWriteToken
-        task.projectID = newProject.id
+        task.projectID = newProjectID
         do {
             var updated = try await repository.update(task)
             updated.subtasks = previous.subtasks
@@ -448,13 +457,15 @@ public final class TaskDetailViewModel {
     /// Returns `nil` if either fetch fails, or the project can't be resolved.
     public func loadRelatedTask(_ relation: TaskRelation) async -> (VikunjaTask, Project)? {
         guard let relatedTask = try? await repository.fetchTask(id: relation.id) else { return nil }
-        if relation.projectID == project.id {
+        if relation.projectID == project.id.remoteValue {
             return (relatedTask, project)
         }
         if allProjects.isEmpty {
             await loadAllProjects()
         }
-        guard let relatedProject = allProjects.first(where: { $0.id == relation.projectID }) else { return nil }
+        guard let relatedProject = allProjects.first(where: { $0.id.remoteValue == relation.projectID }) else {
+            return nil
+        }
         return (relatedTask, relatedProject)
     }
 
@@ -687,10 +698,10 @@ public final class TaskDetailViewModel {
     /// run, any other project on the instance. Returns `nil` if `id` isn't
     /// the current project and hasn't been loaded into `allProjects` yet.
     public func projectTitle(forProjectID id: Int) -> String? {
-        if id == project.id {
+        if id == project.id.remoteValue {
             return project.title
         }
-        return allProjects.first { $0.id == id }?.title
+        return allProjects.first { $0.id.remoteValue == id }?.title
     }
 
     /// Every task id already related to this one, across `subtasks`,
