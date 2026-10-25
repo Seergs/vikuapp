@@ -53,7 +53,7 @@ public final class DefaultProjectSettingsViewModel {
             return cachedDefaultProject?.title
         }
         guard let defaultProjectID else { return nil }
-        return projects.first { $0.id == defaultProjectID }?.title
+        return projects.first { $0.id.remoteValue == defaultProjectID }?.title
     }
 
     private let userRepository: UserRepositoryProtocol
@@ -105,9 +105,10 @@ public final class DefaultProjectSettingsViewModel {
             if accountDisplayName != displayNameCache.cachedDisplayName() {
                 displayNameCache.setCachedDisplayName(accountDisplayName)
             }
-            let freshDefaultProject = defaultProjectID
-                .flatMap { id in projects.first { $0.id == id } }
-                .map { CachedDefaultProject(id: $0.id, title: $0.title, hexColor: $0.hexColor) }
+            let freshDefaultProject = defaultProjectID.flatMap { id in
+                projects.first { $0.id.remoteValue == id }
+                    .map { CachedDefaultProject(id: id, title: $0.title, hexColor: $0.hexColor) }
+            }
             if freshDefaultProject != defaultProjectCache.cachedDefaultProject() {
                 defaultProjectCache.setCachedDefaultProject(freshDefaultProject)
             }
@@ -125,12 +126,17 @@ public final class DefaultProjectSettingsViewModel {
     /// doesn't show the stale default until its next once-per-launch refresh.
     public func selectDefaultProject(_ project: Project?) async {
         let previous = defaultProjectID
-        defaultProjectID = project?.id
+        // Not reachable until Projects' own offline-create path exists — a
+        // project without a synced id yet can't be the server-side default.
+        let projectID = project?.id.remoteValue
+        defaultProjectID = projectID
         do {
-            let updated = try await userRepository.updateDefaultProject(id: project?.id)
+            let updated = try await userRepository.updateDefaultProject(id: projectID)
             defaultProjectID = updated.defaultProjectID
             defaultProjectCache.setCachedDefaultProject(
-                project.map { CachedDefaultProject(id: $0.id, title: $0.title, hexColor: $0.hexColor) },
+                projectID.map { id in
+                    CachedDefaultProject(id: id, title: project?.title ?? "", hexColor: project?.hexColor ?? "")
+                },
             )
         } catch let error as VikunjaError {
             defaultProjectID = previous

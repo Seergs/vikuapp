@@ -60,8 +60,12 @@ public final class HomeSelectionSettingsViewModel {
 
     /// Commits the picker's selection. `nil` pins "Today" (clears the pin).
     public func select(_ project: Project?) {
-        let newSelection = project.map {
-            CachedHomeSelection(id: $0.id, title: $0.title, hexColor: $0.hexColor, kind: $0.kind)
+        // Not reachable until Projects' own offline-create path exists — a
+        // project without a synced id yet can't be pinned.
+        let newSelection = project.flatMap { project in
+            project.id.remoteValue.map {
+                CachedHomeSelection(id: $0, title: project.title, hexColor: project.hexColor, kind: project.kind)
+            }
         }
         selection = newSelection
         store.setCachedHomeSelection(newSelection)

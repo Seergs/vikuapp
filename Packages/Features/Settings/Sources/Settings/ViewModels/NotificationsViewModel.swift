@@ -254,17 +254,20 @@ public final class NotificationsViewModel {
     }
 
     public func setProjectEvent(_ event: WebhookEvent, isEnabled: Bool, for project: Project) async {
-        pendingChange = .project(project.id)
+        // Not reachable until Projects' own offline-create path exists — a
+        // project without a synced id yet can't have webhook settings.
+        guard let projectID = project.id.remoteValue else { return }
+        pendingChange = .project(projectID)
         defer { pendingChange = nil }
 
         var updated = settings
-        var events = updated.events(for: project.id)
+        var events = updated.events(for: projectID)
         if isEnabled {
             events.insert(event)
         } else {
             events.remove(event)
         }
-        updated.projectEvents[project.id] = events
+        updated.projectEvents[projectID] = events
         await apply(updated)
     }
 
@@ -273,11 +276,12 @@ public final class NotificationsViewModel {
     /// per-project screen, where applying each event individually would mean
     /// one sync call per toggle instead of one for the whole preset.
     public func setProjectEvents(_ events: Set<WebhookEvent>, for project: Project) async {
-        pendingChange = .project(project.id)
+        guard let projectID = project.id.remoteValue else { return }
+        pendingChange = .project(projectID)
         defer { pendingChange = nil }
 
         var updated = settings
-        updated.projectEvents[project.id] = events
+        updated.projectEvents[projectID] = events
         await apply(updated)
     }
 
