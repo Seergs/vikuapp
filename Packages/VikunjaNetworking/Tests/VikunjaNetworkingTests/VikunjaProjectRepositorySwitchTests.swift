@@ -71,9 +71,9 @@ private final class SpyProjectRepository: ProjectRepositoryProtocol, @unchecked 
         return [Project(id: 1, title: label)]
     }
 
-    func fetchProject(id: Int) async throws -> Project {
+    func fetchProject(id: EntityID) async throws -> Project {
         fetchProjectCallCount += 1
-        return Project(id: .remote(id), title: label)
+        return Project(id: id, title: label)
     }
 
     func create(_ project: Project) async throws -> Project {
@@ -86,7 +86,7 @@ private final class SpyProjectRepository: ProjectRepositoryProtocol, @unchecked 
         return project
     }
 
-    func delete(id: Int) async throws {
+    func delete(id: EntityID) async throws {
         deleteCallCount += 1
     }
 }

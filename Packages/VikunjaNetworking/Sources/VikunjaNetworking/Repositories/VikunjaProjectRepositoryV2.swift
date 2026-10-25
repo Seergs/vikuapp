@@ -21,7 +21,10 @@ final class VikunjaProjectRepositoryV2: ProjectRepositoryProtocol {
         return envelope.items.map(ProjectMapper.toDomain)
     }
 
-    func fetchProject(id: Int) async throws -> Project {
+    func fetchProject(id: EntityID) async throws -> Project {
+        guard let id = id.remoteValue else {
+            preconditionFailure("VikunjaProjectRepositoryV2.fetchProject: project must be synced before fetching it")
+        }
         let dto: ProjectDTO = try await client.send(VikunjaEndpoints.projectV2(id: id))
         return ProjectMapper.toDomain(dto)
     }
@@ -41,7 +44,10 @@ final class VikunjaProjectRepositoryV2: ProjectRepositoryProtocol {
         return ProjectMapper.toDomain(dto)
     }
 
-    func delete(id: Int) async throws {
+    func delete(id: EntityID) async throws {
+        guard let id = id.remoteValue else {
+            preconditionFailure("VikunjaProjectRepositoryV2.delete: project must be synced before it can be deleted")
+        }
         try await client.send(VikunjaEndpoints.deleteProjectV2(id: id))
     }
 }
