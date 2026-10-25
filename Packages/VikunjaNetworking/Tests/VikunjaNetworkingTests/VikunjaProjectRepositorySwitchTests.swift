@@ -73,7 +73,7 @@ private final class SpyProjectRepository: ProjectRepositoryProtocol, @unchecked 
 
     func fetchProject(id: Int) async throws -> Project {
         fetchProjectCallCount += 1
-        return Project(id: id, title: label)
+        return Project(id: .remote(id), title: label)
     }
 
     func create(_ project: Project) async throws -> Project {

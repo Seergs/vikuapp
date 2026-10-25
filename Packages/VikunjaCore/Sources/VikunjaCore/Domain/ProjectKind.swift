@@ -17,8 +17,10 @@ public extension Project {
     /// pseudo-project, or `nil` if this isn't a saved filter. Use with
     /// `FilterRepositoryProtocol`, never `ProjectRepositoryProtocol`.
     var savedFilterID: Int? {
-        guard kind == .savedFilter else { return nil }
-        return -id - 1
+        // Saved filters are always server-defined pseudo-projects, never
+        // `.local`, so `remoteValue` is always present here.
+        guard kind == .savedFilter, let rawID = id.remoteValue else { return nil }
+        return -rawID - 1
     }
 }
 

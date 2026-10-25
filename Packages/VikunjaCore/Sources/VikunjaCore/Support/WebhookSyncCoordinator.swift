@@ -23,7 +23,11 @@ public struct WebhookSyncCoordinator: Sendable {
         let userWebhooks = try await webhookRepository.fetchUserWebhooks()
         var projectWebhooks: [Int: [Webhook]] = [:]
         for project in projects {
-            projectWebhooks[project.id] = try await webhookRepository.fetchWebhooks(projectID: project.id)
+            // A project that hasn't synced yet (offline-created) can't have
+            // webhooks on the server — not reachable until Projects' own
+            // offline-create path exists.
+            guard let projectID = project.id.remoteValue else { continue }
+            projectWebhooks[projectID] = try await webhookRepository.fetchWebhooks(projectID: projectID)
         }
 
         let plan = syncPlanner.plan(

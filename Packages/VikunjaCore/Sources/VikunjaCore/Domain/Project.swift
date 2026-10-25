@@ -1,22 +1,22 @@
 import Foundation
 
 public struct Project: Identifiable, Hashable, Sendable {
-    public let id: Int
+    public let id: EntityID
     public var title: String
     public var description: String?
     public var isArchived: Bool
     public var isFavorite: Bool
-    public var parentProjectID: Int?
+    public var parentProjectID: EntityID?
     public var position: Double
     public var hexColor: String
 
     public init(
-        id: Int,
+        id: EntityID,
         title: String,
         description: String? = nil,
         isArchived: Bool = false,
         isFavorite: Bool = false,
-        parentProjectID: Int? = nil,
+        parentProjectID: EntityID? = nil,
         position: Double = 0,
         hexColor: String = "",
     ) {
@@ -31,10 +31,16 @@ public struct Project: Identifiable, Hashable, Sendable {
     }
 
     public var kind: ProjectKind {
-        if id == -1 {
+        // A `.local` id (offline-created, not yet synced) is always a real
+        // project — Favorites/saved filters are server-defined constants,
+        // never created on-device.
+        guard let rawID = id.remoteValue else {
+            return .project
+        }
+        if rawID == -1 {
             return .favorites
         }
-        if id < 0 {
+        if rawID < 0 {
             return .savedFilter
         }
         return .project

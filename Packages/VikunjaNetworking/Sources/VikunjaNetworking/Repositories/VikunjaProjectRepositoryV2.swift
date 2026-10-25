@@ -33,7 +33,10 @@ final class VikunjaProjectRepositoryV2: ProjectRepositoryProtocol {
     }
 
     func update(_ project: Project) async throws -> Project {
-        let endpoint = try VikunjaEndpoints.updateProjectV2(id: project.id, dto: ProjectMapper.toDTO(project))
+        guard let id = project.id.remoteValue else {
+            preconditionFailure("VikunjaProjectRepositoryV2.update: project must be synced before it can be updated")
+        }
+        let endpoint = try VikunjaEndpoints.updateProjectV2(id: id, dto: ProjectMapper.toDTO(project))
         let dto: ProjectDTO = try await client.send(endpoint)
         return ProjectMapper.toDomain(dto)
     }
