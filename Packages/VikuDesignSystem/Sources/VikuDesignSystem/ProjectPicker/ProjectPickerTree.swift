@@ -11,7 +11,7 @@ public struct ProjectPickerNode: Identifiable, Hashable {
     public let project: Project
     public let children: [ProjectPickerNode]
 
-    public var id: Int {
+    public var id: EntityID {
         project.id
     }
 }
@@ -30,10 +30,13 @@ public enum ProjectPickerTree {
     /// branch. `excludedID`, when set, drops that project **and its whole
     /// subtree** — a project can't be reparented under itself or a
     /// descendant, and a task's move target can't be its current project.
-    public static func tree(from projects: [Project], excludingSubtreeOf excludedID: Int? = nil) -> [ProjectPickerNode] {
+    public static func tree(
+        from projects: [Project],
+        excludingSubtreeOf excludedID: EntityID? = nil,
+    ) -> [ProjectPickerNode] {
         let childrenByParentID = Dictionary(grouping: projects, by: \.parentProjectID)
 
-        func nodes(withParentID parentID: Int?, ancestors: Set<Int>) -> [ProjectPickerNode] {
+        func nodes(withParentID parentID: EntityID?, ancestors: Set<EntityID>) -> [ProjectPickerNode] {
             (childrenByParentID[parentID] ?? [])
                 .filter { $0.id != excludedID }
                 .sorted { $0.position < $1.position }
@@ -52,7 +55,11 @@ public enum ProjectPickerTree {
     /// Every project whose title matches `query`, flattened (search results
     /// drop the hierarchy). Case-insensitive, same matching the bespoke
     /// pickers used. Honors the same `excludedID` subtree exclusion as `tree`.
-    static func flatMatches(_ projects: [Project], query: String, excludingSubtreeOf excludedID: Int? = nil) -> [Project] {
+    static func flatMatches(
+        _ projects: [Project],
+        query: String,
+        excludingSubtreeOf excludedID: EntityID? = nil,
+    ) -> [Project] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
         let excluded = excludedID.map { subtreeIDs(rootedAt: $0, in: projects) } ?? []
@@ -64,10 +71,10 @@ public enum ProjectPickerTree {
     /// The chain of parent ids from `projectID` up to its root, so the picker
     /// can pre-expand the branch holding the current selection. Excludes
     /// `projectID` itself. Cycle-safe.
-    public static func ancestorIDs(of projectID: Int?, in projects: [Project]) -> Set<Int> {
+    public static func ancestorIDs(of projectID: EntityID?, in projects: [Project]) -> Set<EntityID> {
         guard let projectID else { return [] }
         let byID = Dictionary(projects.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        var result: Set<Int> = []
+        var result: Set<EntityID> = []
         var current = byID[projectID]?.parentProjectID
         while let id = current, !result.contains(id), let project = byID[id] {
             result.insert(id)
@@ -77,11 +84,11 @@ public enum ProjectPickerTree {
     }
 
     /// `rootID` plus every descendant id, cycle-safe.
-    private static func subtreeIDs(rootedAt rootID: Int, in projects: [Project]) -> Set<Int> {
+    private static func subtreeIDs(rootedAt rootID: EntityID, in projects: [Project]) -> Set<EntityID> {
         let childrenByParentID = Dictionary(grouping: projects, by: \.parentProjectID)
-        var result: Set<Int> = []
+        var result: Set<EntityID> = []
 
-        func visit(_ id: Int) {
+        func visit(_ id: EntityID) {
             guard result.insert(id).inserted else { return }
             for child in childrenByParentID[id] ?? [] {
                 visit(child.id)

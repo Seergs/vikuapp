@@ -19,14 +19,14 @@ public struct ProjectPickerSheet: View {
     /// localizes its own title, this sheet just renders it verbatim.
     private let title: String
     private let projects: [Project]
-    private let selectedProjectID: Int?
+    private let selectedProjectID: EntityID?
     private let showsNoneOption: Bool
-    private let excludedID: Int?
+    private let excludedID: EntityID?
     private let onSelect: (Project?) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
-    @State private var expandedIDs: Set<Int> = []
+    @State private var expandedIDs: Set<EntityID> = []
     @State private var didSeedExpansion = false
 
     /// - Parameters:
@@ -45,9 +45,9 @@ public struct ProjectPickerSheet: View {
     public init(
         title: String,
         projects: [Project],
-        selectedProjectID: Int?,
+        selectedProjectID: EntityID?,
         showsNoneOption: Bool = false,
-        excludingSubtreeOf: Int? = nil,
+        excludingSubtreeOf: EntityID? = nil,
         onSelect: @escaping (Project?) -> Void,
     ) {
         self.title = title
@@ -146,7 +146,7 @@ public struct ProjectPickerSheet: View {
         }
     }
 
-    private func toggleExpansion(_ id: Int) {
+    private func toggleExpansion(_ id: EntityID) {
         withAnimation(.snappy(duration: 0.2)) {
             if !expandedIDs.insert(id).inserted {
                 expandedIDs.remove(id)
@@ -162,7 +162,7 @@ public struct ProjectPickerSheet: View {
     private struct Row: Identifiable {
         let node: ProjectPickerNode
         let depth: Int
-        var id: Int {
+        var id: EntityID {
             node.id
         }
     }

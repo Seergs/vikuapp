@@ -5,7 +5,12 @@ import VikunjaCore
 @Suite("ProjectPickerTree")
 struct ProjectPickerTreeTests {
     private func project(_ id: Int, parent: Int? = nil, position: Double = 0, title: String? = nil) -> Project {
-        Project(id: id, title: title ?? "Project \(id)", parentProjectID: parent, position: position)
+        Project(
+            id: .remote(id),
+            title: title ?? "Project \(id)",
+            parentProjectID: parent.map(EntityID.remote),
+            position: position,
+        )
     }
 
     @Test
