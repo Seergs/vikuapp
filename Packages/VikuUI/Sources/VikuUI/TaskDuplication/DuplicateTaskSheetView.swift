@@ -127,9 +127,9 @@ public struct DuplicateTaskSheetView: View {
             ProjectPickerSheet(
                 title: "Choose Project",
                 projects: viewModel.projects,
-                selectedProjectID: viewModel.selectedProjectID,
+                selectedProjectID: viewModel.selectedProjectID.map(EntityID.remote),
             ) { project in
-                viewModel.selectedProjectID = project?.id
+                viewModel.selectedProjectID = project?.id.remoteValue
             }
         }
         .task {
