@@ -27,7 +27,7 @@ public struct ProjectOverviewRootView: View {
     private let kanbanViewModel: KanbanBoardViewModel
     private let makeEditProjectViewModel: (Project) -> EditProjectViewModel
     private let makeRenameFilterViewModel: (Project) -> RenameFilterViewModel
-    private let makeCreateProjectViewModel: (Int?) -> CreateProjectViewModel
+    private let makeCreateProjectViewModel: (EntityID?) -> CreateProjectViewModel
     @State private var editingProject: Project?
 
     public init(
@@ -35,7 +35,7 @@ public struct ProjectOverviewRootView: View {
         kanbanViewModel: KanbanBoardViewModel,
         makeEditProjectViewModel: @escaping (Project) -> EditProjectViewModel,
         makeRenameFilterViewModel: @escaping (Project) -> RenameFilterViewModel,
-        makeCreateProjectViewModel: @escaping (Int?) -> CreateProjectViewModel,
+        makeCreateProjectViewModel: @escaping (EntityID?) -> CreateProjectViewModel,
     ) {
         self.viewModel = viewModel
         self.kanbanViewModel = kanbanViewModel

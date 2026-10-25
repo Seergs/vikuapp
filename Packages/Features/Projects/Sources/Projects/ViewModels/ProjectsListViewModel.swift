@@ -92,13 +92,17 @@ public final class ProjectsListViewModel {
             if let filterID = node.project.savedFilterID {
                 try await filterRepository.deleteFilter(id: filterID)
                 pseudoNodes.removeAll { $0.id == node.id }
-                taskSummaries[node.id] = nil
+                if let remoteID = node.id.remoteValue {
+                    taskSummaries[remoteID] = nil
+                }
                 toastPresenter.show(String(localized: "Filter deleted", bundle: .module), style: .success)
             } else {
                 try await repository.delete(id: node.id)
                 rootNodes = Self.removing(node.id, from: rootNodes)
                 for id in Self.flattenedIDs(of: [node]) {
-                    taskSummaries[id] = nil
+                    if let remoteID = id.remoteValue {
+                        taskSummaries[remoteID] = nil
+                    }
                 }
                 toastPresenter.show(String(localized: "Project deleted", bundle: .module), style: .success)
             }
@@ -111,7 +115,7 @@ public final class ProjectsListViewModel {
 
     /// Removes the node with `id` wherever it sits in the tree, pruning its
     /// descendants along with it.
-    private static func removing(_ id: Int, from nodes: [ProjectNode]) -> [ProjectNode] {
+    private static func removing(_ id: EntityID, from nodes: [ProjectNode]) -> [ProjectNode] {
         nodes.compactMap { node in
             guard node.id != id else { return nil }
             return ProjectNode(project: node.project, children: removing(id, from: node.children))
@@ -129,8 +133,12 @@ public final class ProjectsListViewModel {
         return await withTaskGroup(of: (Int, ProjectTaskSummary)?.self) { group in
             for id in ids {
                 group.addTask {
-                    guard let tasks = try? await repository.fetchTasks(projectID: id) else { return nil }
-                    return (id, ProjectTaskSummary(done: tasks.filter(\.isDone).count, total: tasks.count))
+                    // A node without a synced id yet (offline-created) has no
+                    // tasks to summarize — not reachable until Projects' own
+                    // offline-create path exists.
+                    guard let remoteID = id.remoteValue,
+                          let tasks = try? await repository.fetchTasks(projectID: remoteID) else { return nil }
+                    return (remoteID, ProjectTaskSummary(done: tasks.filter(\.isDone).count, total: tasks.count))
                 }
             }
             var summaries: [Int: ProjectTaskSummary] = [:]
@@ -143,7 +151,7 @@ public final class ProjectsListViewModel {
         }
     }
 
-    private static func flattenedIDs(of nodes: [ProjectNode]) -> [Int] {
+    private static func flattenedIDs(of nodes: [ProjectNode]) -> [EntityID] {
         nodes.flatMap { [$0.id] + flattenedIDs(of: $0.children) }
     }
 
@@ -164,7 +172,7 @@ public final class ProjectsListViewModel {
         let visible = projects.filter { !$0.isArchived }
         let childrenByParentID = Dictionary(grouping: visible, by: \.parentProjectID)
 
-        func nodes(withParentID parentID: Int?, excluding ancestorIDs: Set<Int>) -> [ProjectNode] {
+        func nodes(withParentID parentID: EntityID?, excluding ancestorIDs: Set<EntityID>) -> [ProjectNode] {
             (childrenByParentID[parentID] ?? [])
                 .sorted { $0.position < $1.position }
                 .compactMap { project in

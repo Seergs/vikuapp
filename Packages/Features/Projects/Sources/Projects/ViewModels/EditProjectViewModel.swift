@@ -8,7 +8,7 @@ import VikuUI
 public final class EditProjectViewModel {
     public var title: String = ""
     public var hexColor: String = ""
-    public var parentProjectID: Int?
+    public var parentProjectID: EntityID?
     public private(set) var projects: [Project] = []
     public private(set) var loadState: ScreenLoadState<Void> = .idle
     public private(set) var isSaving: Bool = false
@@ -30,7 +30,7 @@ public final class EditProjectViewModel {
     /// The project being edited — excluded (with its whole subtree) from the
     /// parent-project picker, since a project can't be reparented under
     /// itself or one of its descendants.
-    public var editingProjectID: Int {
+    public var editingProjectID: EntityID {
         project.id
     }
 

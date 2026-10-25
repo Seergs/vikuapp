@@ -14,7 +14,7 @@ public struct ProjectsRootView: View {
     private let viewModel: ProjectsListViewModel
     private let makeOverviewViewModel: (ProjectNode) -> ProjectOverviewViewModel
     private let makeKanbanBoardViewModel: (Project) -> KanbanBoardViewModel
-    private let makeCreateProjectViewModel: (Int?) -> CreateProjectViewModel
+    private let makeCreateProjectViewModel: (EntityID?) -> CreateProjectViewModel
     private let makeEditProjectViewModel: (Project) -> EditProjectViewModel
     private let makeRenameFilterViewModel: (Project) -> RenameFilterViewModel
 
@@ -25,7 +25,7 @@ public struct ProjectsRootView: View {
         viewModel: ProjectsListViewModel,
         makeOverviewViewModel: @escaping (ProjectNode) -> ProjectOverviewViewModel,
         makeKanbanBoardViewModel: @escaping (Project) -> KanbanBoardViewModel,
-        makeCreateProjectViewModel: @escaping (Int?) -> CreateProjectViewModel,
+        makeCreateProjectViewModel: @escaping (EntityID?) -> CreateProjectViewModel,
         makeEditProjectViewModel: @escaping (Project) -> EditProjectViewModel,
         makeRenameFilterViewModel: @escaping (Project) -> RenameFilterViewModel,
     ) {
@@ -41,7 +41,7 @@ public struct ProjectsRootView: View {
     /// `editingProject`'s id, captured alongside it: `.sheet(item:)` clears
     /// `editingProject` to `nil` before calling `onDismiss`, so by then
     /// there's no item left to look the cached view model up by.
-    @State private var editingProjectID: Int?
+    @State private var editingProjectID: EntityID?
     /// A plain reference type, not `@State`, so filling the cache while
     /// building a `navigationDestination` never mutates SwiftUI state mid-
     /// render. It used to be `@State private var overviewViewModels: [Int:
@@ -134,12 +134,12 @@ public struct ProjectsRootView: View {
 /// `@State`'s setter, so it never triggers a SwiftUI view update.
 @MainActor
 private final class OverviewViewModelCache {
-    var storage: [Int: ProjectOverviewViewModel] = [:]
+    var storage: [EntityID: ProjectOverviewViewModel] = [:]
 }
 
 /// Backs `ProjectsRootView.kanbanViewModelCache` - mirrors
 /// `OverviewViewModelCache`.
 @MainActor
 private final class KanbanBoardViewModelCache {
-    var storage: [Int: KanbanBoardViewModel] = [:]
+    var storage: [EntityID: KanbanBoardViewModel] = [:]
 }
