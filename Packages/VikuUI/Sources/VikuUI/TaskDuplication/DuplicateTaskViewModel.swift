@@ -61,7 +61,7 @@ public final class DuplicateTaskViewModel {
 
     public var selectedProject: Project? {
         guard let selectedProjectID else { return nil }
-        return projects.first { $0.id == selectedProjectID }
+        return projects.first { $0.id.remoteValue == selectedProjectID }
     }
 
     public init(
@@ -149,7 +149,7 @@ public final class DuplicateTaskViewModel {
     /// passed in and is the default selection), so there's always something
     /// to navigate to.
     private func project(withID id: Int) -> Project {
-        projects.first { $0.id == id } ?? sourceProject
+        projects.first { $0.id.remoteValue == id } ?? sourceProject
     }
 
     /// Best-effort: a label that fails to attach is skipped rather than

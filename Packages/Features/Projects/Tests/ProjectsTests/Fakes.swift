@@ -19,7 +19,7 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
     var createError: VikunjaError?
     var deleteError: VikunjaError?
     private(set) var createdProjects: [Project] = []
-    private(set) var deletedIDs: [Int] = []
+    private(set) var deletedIDs: [EntityID] = []
 
     func fetchProjects() async throws -> [Project] {
         if let fetchError {
@@ -36,7 +36,7 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
     /// project under test itself, and `ProjectOverviewViewModel.load()`
     /// calls this for the viewed project on every load. Set
     /// `fetchProjectError` to simulate this call specifically failing.
-    func fetchProject(id: Int) async throws -> Project {
+    func fetchProject(id: EntityID) async throws -> Project {
         if let fetchProjectError {
             throw fetchProjectError
         }
@@ -55,7 +55,7 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
         project
     }
 
-    func delete(id: Int) async throws {
+    func delete(id: EntityID) async throws {
         if let deleteError {
             throw deleteError
         }
@@ -246,7 +246,7 @@ final class FakeHapticPresenter: HapticFeedbackPresenting, @unchecked Sendable {
 final class FakeQuickAddContext: QuickAddContextTracking {
     private(set) var scopes: [Project] = []
     var preselectedProjectID: Int? {
-        scopes.last?.id
+        scopes.last?.id.remoteValue
     }
 
     var preselectedProject: Project? {
@@ -258,7 +258,7 @@ final class FakeQuickAddContext: QuickAddContextTracking {
     }
 
     func exitProjectScope(_ projectID: Int) {
-        if let index = scopes.lastIndex(where: { $0.id == projectID }) {
+        if let index = scopes.lastIndex(where: { $0.id.remoteValue == projectID }) {
             scopes.remove(at: index)
         }
     }

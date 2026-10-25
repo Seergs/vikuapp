@@ -35,7 +35,7 @@ struct ProjectOverviewView: View {
     /// project id — mirrors `ProjectsView`/`ProjectsRootView`'s own
     /// `makeCreateProjectViewModel`, reused here with this screen's project
     /// passed as the parent instead of `nil`.
-    let makeCreateProjectViewModel: (Int?) -> CreateProjectViewModel
+    let makeCreateProjectViewModel: (EntityID?) -> CreateProjectViewModel
     @State private var displayMode: ProjectDisplayMode = .list
     @State private var filter: ProjectTaskFilter = .all
     @State private var searchText = ""
@@ -228,7 +228,7 @@ struct ProjectOverviewView: View {
                         kind: kind,
                         results: viewModel.relationSearchResults,
                         projectTitle: { candidate in
-                            viewModel.allProjects.first { $0.id == candidate.projectID }?.title
+                            viewModel.allProjects.first { $0.id.remoteValue == candidate.projectID }?.title
                         },
                         onAppear: {
                             await viewModel.loadMoveCandidates()
@@ -507,7 +507,7 @@ private struct ProjectProgressHeader: View {
 /// the current project's own tasks — see `ProjectOverviewViewModel.load()`).
 private struct SubprojectScrollRow: View {
     let subprojects: [ProjectNode]
-    let taskSummaries: [Int: ProjectOverviewViewModel.TaskSummary]
+    let taskSummaries: [EntityID: ProjectOverviewViewModel.TaskSummary]
     let onSelect: (ProjectNode) -> Void
 
     var body: some View {

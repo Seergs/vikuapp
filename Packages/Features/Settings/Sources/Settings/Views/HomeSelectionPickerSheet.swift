@@ -16,7 +16,7 @@ struct HomeSelectionPickerSheet: View {
     let onSelect: (Project?) -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @State private var expandedIDs: Set<Int> = []
+    @State private var expandedIDs: Set<EntityID> = []
     @State private var didSeedExpansion = false
 
     private var realProjects: [Project] {
@@ -62,7 +62,7 @@ struct HomeSelectionPickerSheet: View {
                                 hasChildren: !row.node.children.isEmpty,
                                 depth: row.depth,
                                 isExpanded: expandedIDs.contains(row.node.id),
-                                isSelected: row.node.project.id == selectedID,
+                                isSelected: row.node.project.id.remoteValue == selectedID,
                                 onToggleExpand: { toggleExpansion(row.node.id) },
                                 onSelect: { select(row.node.project) },
                             )
@@ -77,7 +77,7 @@ struct HomeSelectionPickerSheet: View {
                                 icon: "line.3.horizontal.decrease.circle.fill",
                                 hexColor: "",
                                 title: filter.title,
-                                isSelected: filter.id == selectedID,
+                                isSelected: filter.id.remoteValue == selectedID,
                                 onSelect: { select(filter) },
                             )
                         }
@@ -105,11 +105,11 @@ struct HomeSelectionPickerSheet: View {
         .onAppear {
             guard !didSeedExpansion else { return }
             didSeedExpansion = true
-            expandedIDs = ProjectPickerTree.ancestorIDs(of: selectedID, in: realProjects)
+            expandedIDs = ProjectPickerTree.ancestorIDs(of: selectedID.map(EntityID.remote), in: realProjects)
         }
     }
 
-    private func toggleExpansion(_ id: Int) {
+    private func toggleExpansion(_ id: EntityID) {
         withAnimation(.snappy(duration: 0.2)) {
             if !expandedIDs.insert(id).inserted {
                 expandedIDs.remove(id)
@@ -125,7 +125,7 @@ struct HomeSelectionPickerSheet: View {
     private struct ProjectRow: Identifiable {
         let node: ProjectPickerNode
         let depth: Int
-        var id: Int {
+        var id: EntityID {
             node.id
         }
     }

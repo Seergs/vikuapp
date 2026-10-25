@@ -294,7 +294,7 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
         return projects
     }
 
-    func fetchProject(id: Int) async throws -> Project {
+    func fetchProject(id: EntityID) async throws -> Project {
         guard let project = projects.first(where: { $0.id == id }) else {
             throw VikunjaError.notFound
         }
@@ -309,7 +309,7 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
         project
     }
 
-    func delete(id _: Int) async throws {}
+    func delete(id _: EntityID) async throws {}
 }
 
 final class FakeUserRepository: UserRepositoryProtocol, @unchecked Sendable {

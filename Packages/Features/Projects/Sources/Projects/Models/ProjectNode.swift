@@ -9,7 +9,7 @@ public struct ProjectNode: Identifiable, Hashable, Sendable {
     public let project: Project
     public let children: [ProjectNode]
 
-    public var id: Int {
+    public var id: EntityID {
         project.id
     }
 

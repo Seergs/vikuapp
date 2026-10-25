@@ -48,12 +48,18 @@ struct ProjectNotificationsView: View {
         .taskReminderFired, .taskAssigneeCreated, .taskCommentCreated,
     ]
 
+    /// Not reachable until Projects' own offline-create path exists — a
+    /// project without a synced id yet can't have webhook settings.
+    private var resolvedProjectID: Int? {
+        project.id.remoteValue
+    }
+
     private var selectedEvents: Set<WebhookEvent> {
-        viewModel.settings.events(for: project.id)
+        resolvedProjectID.map { viewModel.settings.events(for: $0) } ?? []
     }
 
     private var isDisabled: Bool {
-        viewModel.pendingChange == .project(project.id)
+        resolvedProjectID.map { viewModel.pendingChange == .project($0) } ?? false
     }
 
     private var swatchColor: Color {
@@ -82,7 +88,9 @@ struct ProjectNotificationsView: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .task {
-            otherWebhooks = await viewModel.otherWebhooks(for: project.id)
+            if let resolvedProjectID {
+                otherWebhooks = await viewModel.otherWebhooks(for: resolvedProjectID)
+            }
         }
         .confirmationDialog(
             Text("Disconnect this project's webhook?", bundle: .module),

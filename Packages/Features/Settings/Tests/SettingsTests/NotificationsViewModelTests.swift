@@ -221,7 +221,7 @@ struct NotificationsViewModelTests {
     }
 
     @Test
-    func `selecting a project's first event creates its webhook with just that event`() async {
+    func `selecting a project's first event creates its webhook with just that event`() async throws {
         let project = Project(id: 4, title: "Work")
         let webhookRepository = FakeWebhookRepository()
         let projectRepository = FakeProjectRepository(projects: [project])
@@ -231,14 +231,14 @@ struct NotificationsViewModelTests {
 
         await viewModel.setProjectEvent(.taskCreated, isEnabled: true, for: project)
 
-        #expect(viewModel.settings.events(for: project.id) == [.taskCreated])
+        #expect(try viewModel.settings.events(for: #require(project.id.remoteValue)) == [.taskCreated])
         #expect(webhookRepository.createdProjectWebhooks.count == 1)
         #expect(webhookRepository.createdProjectWebhooks[0].projectID == 4)
         #expect(webhookRepository.createdProjectWebhooks[0].events == [.taskCreated])
     }
 
     @Test
-    func `customizing a project's events updates its webhook independently of other projects`() async {
+    func `customizing a project's events updates its webhook independently of other projects`() async throws {
         let projectA = Project(id: 1, title: "A")
         let projectB = Project(id: 2, title: "B")
         let webhookRepository = FakeWebhookRepository()
@@ -252,13 +252,13 @@ struct NotificationsViewModelTests {
         await viewModel.setProjectEvent(.taskDeleted, isEnabled: true, for: projectA)
         await viewModel.setProjectEvent(.taskCreated, isEnabled: false, for: projectA)
 
-        #expect(viewModel.settings.events(for: projectA.id) == [.taskDeleted])
-        #expect(viewModel.settings.events(for: projectB.id) == [.taskCreated])
+        #expect(try viewModel.settings.events(for: #require(projectA.id.remoteValue)) == [.taskDeleted])
+        #expect(try viewModel.settings.events(for: #require(projectB.id.remoteValue)) == [.taskCreated])
         #expect(webhookRepository.updatedProjectWebhooks.last?.webhook.projectID == 1)
     }
 
     @Test
-    func `unchecking a project's only event deletes only that project's webhook`() async {
+    func `unchecking a project's only event deletes only that project's webhook`() async throws {
         let projectA = Project(id: 1, title: "A")
         let projectB = Project(id: 2, title: "B")
         let webhookRepository = FakeWebhookRepository()
@@ -271,14 +271,14 @@ struct NotificationsViewModelTests {
 
         await viewModel.setProjectEvent(.taskCreated, isEnabled: false, for: projectA)
 
-        #expect(viewModel.settings.events(for: projectA.id).isEmpty)
-        #expect(viewModel.settings.events(for: projectB.id) == [.taskCreated])
+        #expect(try viewModel.settings.events(for: #require(projectA.id.remoteValue)).isEmpty)
+        #expect(try viewModel.settings.events(for: #require(projectB.id.remoteValue)) == [.taskCreated])
         #expect(webhookRepository.deletedProjectWebhookIDs.map(\.projectID) == [1])
         #expect(webhookRepository.projectWebhooks[2]?.count == 1)
     }
 
     @Test
-    func `changing settings while disabled only persists, with no server calls`() async {
+    func `changing settings while disabled only persists, with no server calls`() async throws {
         let webhookRepository = FakeWebhookRepository()
         let project = Project(id: 4, title: "Work")
         let projectRepository = FakeProjectRepository(projects: [project])
@@ -287,14 +287,14 @@ struct NotificationsViewModelTests {
 
         await viewModel.setProjectEvent(.taskCreated, isEnabled: true, for: project)
 
-        #expect(viewModel.settings.events(for: project.id) == [.taskCreated])
+        #expect(try viewModel.settings.events(for: #require(project.id.remoteValue)) == [.taskCreated])
         #expect(webhookRepository.createdProjectWebhooks.isEmpty)
     }
 
     // MARK: setProjectEvents / disableProjectWebhook
 
     @Test
-    func `setProjectEvents replaces a project's whole selection in one sync call`() async {
+    func `setProjectEvents replaces a project's whole selection in one sync call`() async throws {
         let project = Project(id: 4, title: "Work")
         let webhookRepository = FakeWebhookRepository()
         let projectRepository = FakeProjectRepository(projects: [project])
@@ -304,13 +304,13 @@ struct NotificationsViewModelTests {
 
         await viewModel.setProjectEvents([.taskCreated, .taskDeleted], for: project)
 
-        #expect(viewModel.settings.events(for: project.id) == [.taskCreated, .taskDeleted])
+        #expect(try viewModel.settings.events(for: #require(project.id.remoteValue)) == [.taskCreated, .taskDeleted])
         #expect(webhookRepository.createdProjectWebhooks.count == 1)
         #expect(Set(webhookRepository.createdProjectWebhooks[0].events) == [.taskCreated, .taskDeleted])
     }
 
     @Test
-    func `disableProjectWebhook clears the project's events and deletes its webhook`() async {
+    func `disableProjectWebhook clears the project's events and deletes its webhook`() async throws {
         let project = Project(id: 4, title: "Work")
         let webhookRepository = FakeWebhookRepository()
         let projectRepository = FakeProjectRepository(projects: [project])
@@ -321,7 +321,7 @@ struct NotificationsViewModelTests {
 
         await viewModel.disableProjectWebhook(project)
 
-        #expect(viewModel.settings.events(for: project.id).isEmpty)
+        #expect(try viewModel.settings.events(for: #require(project.id.remoteValue)).isEmpty)
         #expect(webhookRepository.deletedProjectWebhookIDs.map(\.projectID) == [4])
     }
 
@@ -333,16 +333,18 @@ struct NotificationsViewModelTests {
         let ourTargetURL = try #require(URL(string: "https://relay.example.com/h/device-1"))
         let theirWebhook = try Webhook(
             id: 999, targetURL: #require(URL(string: "https://hooks.slack.com/services/x")),
-            events: [.taskCreated], projectID: project.id,
+            events: [.taskCreated], projectID: #require(project.id.remoteValue),
         )
-        let webhookRepository = FakeWebhookRepository(projectWebhooks: [project.id: [theirWebhook]])
+        let webhookRepository = try FakeWebhookRepository(
+            projectWebhooks: [#require(project.id.remoteValue): [theirWebhook]],
+        )
         let projectRepository = FakeProjectRepository(projects: [project])
         let viewModel = makeViewModel(webhookRepository: webhookRepository, projectRepository: projectRepository)
         await viewModel.load()
         await viewModel.confirmEnable()
         await viewModel.setProjectEvent(.taskCreated, isEnabled: true, for: project)
 
-        let others = await viewModel.otherWebhooks(for: project.id)
+        let others = try await viewModel.otherWebhooks(for: #require(project.id.remoteValue))
 
         #expect(others.map(\.id) == [999])
         #expect(others.allSatisfy { $0.targetURL != ourTargetURL })
@@ -353,14 +355,16 @@ struct NotificationsViewModelTests {
         let project = Project(id: 4, title: "Work")
         let theirWebhook = try Webhook(
             id: 999, targetURL: #require(URL(string: "https://hooks.slack.com/services/x")),
-            events: [.taskCreated], projectID: project.id,
+            events: [.taskCreated], projectID: #require(project.id.remoteValue),
         )
-        let webhookRepository = FakeWebhookRepository(projectWebhooks: [project.id: [theirWebhook]])
+        let webhookRepository = try FakeWebhookRepository(
+            projectWebhooks: [#require(project.id.remoteValue): [theirWebhook]],
+        )
         let projectRepository = FakeProjectRepository(projects: [project])
         let viewModel = makeViewModel(webhookRepository: webhookRepository, projectRepository: projectRepository)
         await viewModel.load()
 
-        let others = await viewModel.otherWebhooks(for: project.id)
+        let others = try await viewModel.otherWebhooks(for: #require(project.id.remoteValue))
 
         #expect(others.map(\.id) == [999])
     }
@@ -368,7 +372,7 @@ struct NotificationsViewModelTests {
     // MARK: disable
 
     @Test
-    func `disabling deletes every webhook this device created and unregisters from the relay`() async {
+    func `disabling deletes every webhook this device created and unregisters from the relay`() async throws {
         let project = Project(id: 4, title: "Work")
         let webhookRepository = FakeWebhookRepository()
         let projectRepository = FakeProjectRepository(projects: [project])
@@ -395,11 +399,11 @@ struct NotificationsViewModelTests {
         #expect(store.savedSettings.last?.isEnabled == false)
         // The toggles reset along with the master switch — see the next test.
         #expect(viewModel.settings.userLevelEvents.isEmpty)
-        #expect(viewModel.settings.events(for: project.id).isEmpty)
+        #expect(try viewModel.settings.events(for: #require(project.id.remoteValue)).isEmpty)
     }
 
     @Test
-    func `re enabling after a disable starts from a clean slate instead of recreating what was on before`() async {
+    func `re enabling after a disable starts from a clean slate instead of recreating what was on before`() async throws {
         let project = Project(id: 4, title: "Work")
         let webhookRepository = FakeWebhookRepository()
         let projectRepository = FakeProjectRepository(projects: [project])
@@ -417,7 +421,7 @@ struct NotificationsViewModelTests {
 
         #expect(viewModel.settings.isEnabled)
         #expect(viewModel.settings.userLevelEvents.isEmpty)
-        #expect(viewModel.settings.events(for: project.id).isEmpty)
+        #expect(try viewModel.settings.events(for: #require(project.id.remoteValue)).isEmpty)
         // Re-enabling alone creates no new webhooks: nothing is selected
         // until the user opts back in to each one explicitly.
         #expect(webhookRepository.createdUserWebhooks.count == userCreatesBeforeReenable)

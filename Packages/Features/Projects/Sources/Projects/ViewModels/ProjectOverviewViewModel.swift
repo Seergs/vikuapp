@@ -43,7 +43,7 @@ public final class ProjectOverviewViewModel {
     /// Each subproject's own task completion count, keyed by project id, for
     /// the "Subprojects" cards. Fetched alongside this project's own tasks
     /// since `ProjectNode` only carries project metadata, not tasks.
-    public private(set) var subprojectTaskSummaries: [Int: TaskSummary] = [:]
+    public private(set) var subprojectTaskSummaries: [EntityID: TaskSummary] = [:]
     /// Every project on the instance, for the "Move to Project" picker —
     /// loaded lazily via `loadMoveCandidates()` rather than alongside
     /// `load()`, since most visits to this screen never open that picker.
@@ -147,7 +147,9 @@ public final class ProjectOverviewViewModel {
     /// it changes, so a task created here through the quick-add sheet shows
     /// up immediately instead of waiting for the next pull-to-refresh.
     public var lastCreatedTaskForThisProject: TaskCreatedEvent? {
-        guard let event = taskChangeBroadcaster?.lastCreatedTask, event.projectID == project.id else { return nil }
+        guard let event = taskChangeBroadcaster?.lastCreatedTask, event.projectID == project.id.remoteValue else {
+            return nil
+        }
         return event
     }
 
@@ -163,8 +165,8 @@ public final class ProjectOverviewViewModel {
     }
 
     public func markHidden() {
-        guard project.kind == .project else { return }
-        quickAddContext?.exitProjectScope(project.id)
+        guard project.kind == .project, let projectID = project.id.remoteValue else { return }
+        quickAddContext?.exitProjectScope(projectID)
     }
 
     /// Kept as a nested name for call sites that already spell it
@@ -192,7 +194,13 @@ public final class ProjectOverviewViewModel {
         async let kanbanSupport = capabilityProvider.supports(.apiV2)
         do {
             project = try await projectRepository.fetchProject(id: project.id)
-            tasks = try await repository.fetchTasks(projectID: project.id)
+            // Just-fetched above, so always `.remote` at this point — guarded
+            // rather than force-unwrapped since `OfflineProjectRepository`
+            // will later make a `.local` result from `fetchProject` real.
+            guard let projectID = project.id.remoteValue else {
+                throw VikunjaError.notFound
+            }
+            tasks = try await repository.fetchTasks(projectID: projectID)
             subprojects = try await Self.fetchSubprojects(parentID: project.id, repository: projectRepository)
             subprojectTaskSummaries = await Self.fetchSubprojectSummaries(subprojects, repository: repository)
             if let filterID = project.savedFilterID {
@@ -214,7 +222,7 @@ public final class ProjectOverviewViewModel {
     /// archived, order by position) but only one level deep, since this
     /// screen only ever shows direct children as "Subprojects" cards.
     private static func fetchSubprojects(
-        parentID: Int,
+        parentID: EntityID,
         repository: ProjectRepositoryProtocol,
     ) async throws -> [ProjectNode] {
         try await repository.fetchProjects()
@@ -230,15 +238,19 @@ public final class ProjectOverviewViewModel {
     private static func fetchSubprojectSummaries(
         _ nodes: [ProjectNode],
         repository: TaskRepositoryProtocol,
-    ) async -> [Int: TaskSummary] {
-        await withTaskGroup(of: (Int, TaskSummary)?.self) { group in
+    ) async -> [EntityID: TaskSummary] {
+        await withTaskGroup(of: (EntityID, TaskSummary)?.self) { group in
             for node in nodes {
                 group.addTask {
-                    guard let tasks = try? await repository.fetchTasks(projectID: node.id) else { return nil }
+                    // Not reachable until Projects' own offline-create path
+                    // exists — a subproject without a synced id yet has no
+                    // tasks on the server.
+                    guard let remoteID = node.id.remoteValue,
+                          let tasks = try? await repository.fetchTasks(projectID: remoteID) else { return nil }
                     return (node.id, TaskSummary(done: tasks.filter(\.isDone).count, total: tasks.count))
                 }
             }
-            var summaries: [Int: TaskSummary] = [:]
+            var summaries: [EntityID: TaskSummary] = [:]
             for await result in group {
                 if let (id, summary) = result {
                     summaries[id] = summary

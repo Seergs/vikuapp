@@ -350,7 +350,7 @@ final class AppContainer {
         // being enabled), so the planner never tries to recreate a webhook
         // for a project that's gone.
         var settings = notificationSettingsStore.settings(for: account.id)
-        let validProjectIDs = Set(projects.map(\.id))
+        let validProjectIDs = Set(projects.compactMap(\.id.remoteValue))
         let prunedProjectEvents = settings.projectEvents.filter { validProjectIDs.contains($0.key) }
         if prunedProjectEvents.count != settings.projectEvents.count {
             settings.projectEvents = prunedProjectEvents
@@ -422,7 +422,10 @@ final class AppContainer {
         )
     }
 
-    func makeCreateProjectViewModel(parentProjectID: Int? = nil, account: InstanceAccount) -> CreateProjectViewModel {
+    func makeCreateProjectViewModel(
+        parentProjectID: EntityID? = nil,
+        account: InstanceAccount,
+    ) -> CreateProjectViewModel {
         let repository = clientFactory.makeProjectRepository(
             baseURL: account.baseURL,
             tokenProvider: tokenProvider(for: account),
@@ -559,7 +562,7 @@ final class AppContainer {
             tokenProvider: tokenProvider,
         )
         let task = try await taskRepository.fetchTask(id: id)
-        let project = try await projectRepository.fetchProject(id: task.projectID)
+        let project = try await projectRepository.fetchProject(id: .remote(task.projectID))
         return (task, project)
     }
 

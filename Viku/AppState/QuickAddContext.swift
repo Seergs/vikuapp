@@ -18,7 +18,7 @@ final class QuickAddContext: QuickAddContextTracking {
     private var scopes: [Project] = []
 
     var preselectedProjectID: Int? {
-        scopes.last?.id
+        scopes.last?.id.remoteValue
     }
 
     var preselectedProject: Project? {
@@ -30,7 +30,7 @@ final class QuickAddContext: QuickAddContextTracking {
     }
 
     func exitProjectScope(_ projectID: Int) {
-        if let index = scopes.lastIndex(where: { $0.id == projectID }) {
+        if let index = scopes.lastIndex(where: { $0.id.remoteValue == projectID }) {
             scopes.remove(at: index)
         }
     }

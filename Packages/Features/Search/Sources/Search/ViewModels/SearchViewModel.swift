@@ -151,7 +151,12 @@ public final class SearchViewModel {
         do {
             let projects = try await projectRepository.fetchProjects()
             for project in projects {
-                projectsByID[project.id] = project
+                // A project without a synced id yet (offline-created) has no
+                // tasks in search results to attribute to it — not reachable
+                // until Projects' own offline-create path exists.
+                if let projectID = project.id.remoteValue {
+                    projectsByID[projectID] = project
+                }
             }
             projectsLoaded = true
             didWarnProjectLoadFailure = false

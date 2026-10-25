@@ -26,7 +26,7 @@ final class VikunjaProjectRepositorySwitch: ProjectRepositoryProtocol {
         try await resolve().fetchProjects()
     }
 
-    func fetchProject(id: Int) async throws -> Project {
+    func fetchProject(id: EntityID) async throws -> Project {
         try await resolve().fetchProject(id: id)
     }
 
@@ -38,7 +38,7 @@ final class VikunjaProjectRepositorySwitch: ProjectRepositoryProtocol {
         try await resolve().update(project)
     }
 
-    func delete(id: Int) async throws {
+    func delete(id: EntityID) async throws {
         try await resolve().delete(id: id)
     }
 }

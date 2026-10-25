@@ -41,8 +41,14 @@ public final class KanbanBoardViewModel {
         if loadState != .loaded {
             loadState = .loading
         }
+        // Not reachable until Projects' own offline-create path exists — a
+        // project without a synced id yet has no buckets on the server.
+        guard let projectID = project.id.remoteValue else {
+            loadState = .failure(VikunjaError.notFound.displayMessage)
+            return
+        }
         do {
-            buckets = try await repository.fetchBuckets(projectID: project.id)
+            buckets = try await repository.fetchBuckets(projectID: projectID)
             loadState = .loaded
         } catch let error as VikunjaError {
             loadState = .failure(error.displayMessage)
@@ -64,13 +70,19 @@ public final class KanbanBoardViewModel {
               buckets[sourceIndex].id != bucket.id,
               let destinationIndex = buckets.firstIndex(where: { $0.id == bucket.id })
         else { return }
+        // Not reachable until Projects' own offline-create path exists — a
+        // project without a synced id yet can't have tasks moved within it.
+        guard let projectID = project.id.remoteValue else {
+            toastPresenter.show(VikunjaError.notFound.displayMessage, style: .error)
+            return
+        }
 
         let original = buckets
         buckets[sourceIndex].tasks.removeAll { $0.id == task.id }
         buckets[destinationIndex].tasks.append(task)
 
         do {
-            let moved = try await repository.moveTask(taskID: task.id, toBucketID: bucket.id, projectID: project.id)
+            let moved = try await repository.moveTask(taskID: task.id, toBucketID: bucket.id, projectID: projectID)
             if let index = buckets[destinationIndex].tasks.firstIndex(where: { $0.id == moved.id }) {
                 buckets[destinationIndex].tasks[index] = moved
             }
@@ -104,11 +116,17 @@ public final class KanbanBoardViewModel {
     /// server's copy to that bucket's tasks on success.
     public func createTask(title: String, in bucket: KanbanBucket) async {
         guard let index = buckets.firstIndex(where: { $0.id == bucket.id }) else { return }
+        // Not reachable until Projects' own offline-create path exists — a
+        // project without a synced id yet can't have tasks created in it.
+        guard let projectID = project.id.remoteValue else {
+            toastPresenter.show(VikunjaError.notFound.displayMessage, style: .error)
+            return
+        }
         do {
             let created = try await repository.createTask(
-                VikunjaTask(id: 0, title: title, projectID: project.id),
+                VikunjaTask(id: 0, title: title, projectID: projectID),
                 bucketID: bucket.id,
-                projectID: project.id,
+                projectID: projectID,
             )
             buckets[index].tasks.append(created)
         } catch {

@@ -12,10 +12,10 @@ struct ProjectsView: View {
     @Bindable var viewModel: ProjectsListViewModel
     @Environment(AppRouter.self) private var router
     @Environment(\.vikuPalette) private var palette
-    let makeCreateProjectViewModel: (Int?) -> CreateProjectViewModel
+    let makeCreateProjectViewModel: (EntityID?) -> CreateProjectViewModel
     let makeEditProjectViewModel: (Project) -> EditProjectViewModel
     let makeRenameFilterViewModel: (Project) -> RenameFilterViewModel
-    @State private var expandedProjectIDs: Set<Int> = []
+    @State private var expandedProjectIDs: Set<EntityID> = []
     @State private var isShowingCreateProject = false
     @State private var projectPendingDelete: ProjectNode?
     @State private var editingProject: Project?
@@ -135,7 +135,7 @@ struct ProjectsView: View {
                         ForEach(viewModel.pseudoNodes) { node in
                             PseudoProjectRow(
                                 project: node.project,
-                                taskSummary: viewModel.taskSummaries[node.id],
+                                taskSummary: node.id.remoteValue.flatMap { viewModel.taskSummaries[$0] },
                                 onSelect: { router.push(ProjectsRoute.projectOverview(node)) },
                                 onRename: { renamingFilterProject = $0 },
                                 onDelete: { projectPendingDelete = node },
@@ -153,7 +153,7 @@ struct ProjectsView: View {
                         ForEach(Self.flatten(viewModel.rootNodes, expandedProjectIDs: expandedProjectIDs)) { row in
                             ProjectRow(
                                 project: row.node.project,
-                                taskSummary: viewModel.taskSummaries[row.node.id],
+                                taskSummary: row.node.id.remoteValue.flatMap { viewModel.taskSummaries[$0] },
                                 level: row.level,
                                 hasChildren: !row.node.children.isEmpty,
                                 isExpanded: expandedProjectIDs.contains(row.node.id),
@@ -187,7 +187,7 @@ struct ProjectsView: View {
             : String(localized: "This permanently deletes the project and all its tasks.", bundle: .module)
     }
 
-    private func toggleExpanded(_ id: Int) {
+    private func toggleExpanded(_ id: EntityID) {
         withAnimation(.snappy) {
             if expandedProjectIDs.contains(id) {
                 expandedProjectIDs.remove(id)
@@ -200,7 +200,7 @@ struct ProjectsView: View {
     private static func flatten(
         _ nodes: [ProjectNode],
         level: Int = 0,
-        expandedProjectIDs: Set<Int>,
+        expandedProjectIDs: Set<EntityID>,
     ) -> [ProjectDisplayRow] {
         nodes.flatMap { node -> [ProjectDisplayRow] in
             var rows = [ProjectDisplayRow(node: node, level: level)]
@@ -215,7 +215,7 @@ struct ProjectsView: View {
 private struct ProjectDisplayRow: Identifiable {
     let node: ProjectNode
     let level: Int
-    var id: Int {
+    var id: EntityID {
         node.id
     }
 }

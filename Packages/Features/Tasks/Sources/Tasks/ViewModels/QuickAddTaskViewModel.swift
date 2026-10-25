@@ -73,7 +73,7 @@ public final class QuickAddTaskViewModel {
     /// The user picked a project in the picker. Writes it into the text, so the
     /// title shows what will be saved. Replaces a `#`/`+` shortcut, or appends one.
     public func pickProject(_ project: Project?) {
-        selectedProjectID = project?.id
+        selectedProjectID = project?.id.remoteValue
         guard let syntax else { return }
         input = QuickAddParser.settingProject(project?.title, in: input, syntax: syntax)
     }
@@ -91,7 +91,7 @@ public final class QuickAddTaskViewModel {
 
     public var selectedProject: Project? {
         guard let selectedProjectID else { return nil }
-        return projects.first { $0.id == selectedProjectID }
+        return projects.first { $0.id.remoteValue == selectedProjectID }
     }
 
     /// What the project field shows before `load()` resolves, so the sheet
@@ -108,7 +108,7 @@ public final class QuickAddTaskViewModel {
         }
         guard preselectedProjectID == nil, let cachedDefaultProject else { return nil }
         return Project(
-            id: cachedDefaultProject.id,
+            id: .remote(cachedDefaultProject.id),
             title: cachedDefaultProject.title,
             hexColor: cachedDefaultProject.hexColor,
         )
@@ -198,7 +198,7 @@ public final class QuickAddTaskViewModel {
         defaultProjectCache: DefaultProjectCaching? = nil,
     ) {
         self.preselectedProjectID = preselectedProjectID
-        self.preselectedProject = preselectedProject?.id == preselectedProjectID ? preselectedProject : nil
+        self.preselectedProject = preselectedProject?.id.remoteValue == preselectedProjectID ? preselectedProject : nil
         self.accountDefaultProjectID = accountDefaultProjectID
         self.selectedProjectID = preselectedProjectID
         self.taskRepository = taskRepository
@@ -226,10 +226,10 @@ public final class QuickAddTaskViewModel {
             // left showing as a broken selection.
             if preselectedProjectID == nil,
                let accountDefaultProjectID,
-               let matchedDefault = projects.first(where: { $0.id == accountDefaultProjectID }) {
+               let matchedDefault = projects.first(where: { $0.id.remoteValue == accountDefaultProjectID }) {
                 selectedProjectID = accountDefaultProjectID
                 let fresh = CachedDefaultProject(
-                    id: matchedDefault.id,
+                    id: accountDefaultProjectID,
                     title: matchedDefault.title,
                     hexColor: matchedDefault.hexColor,
                 )
@@ -301,7 +301,7 @@ public final class QuickAddTaskViewModel {
             // Only available when the project list has already loaded (see
             // `canSave`'s doc comment) - the toast just isn't tappable in
             // that edge case rather than guessing at a `Project` value.
-            let action = projects.first { $0.id == projectID }.map { ToastAction.taskDetail(created, $0) }
+            let action = projects.first { $0.id.remoteValue == projectID }.map { ToastAction.taskDetail(created, $0) }
             if failedAttachments == 0 {
                 toastPresenter.show(String(localized: "Task created", bundle: .module), style: .success, action: action)
             } else {

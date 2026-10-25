@@ -6,7 +6,9 @@ import Foundation
 /// the result in its own load-state enum; this only does the fetching.
 ///
 /// Virtual projects (negative ids: Favorites, saved filters) are skipped so
-/// tasks aren't returned once per real project and again per virtual one.
+/// tasks aren't returned once per real project and again per virtual one. A
+/// project that hasn't synced yet (offline-created, `.local` id) is skipped
+/// too — it can't have any tasks on the server yet.
 ///
 /// A project whose task fetch fails is dropped from the result rather than
 /// failing the whole load, so one unreadable project can't blank the screen.
@@ -28,7 +30,15 @@ public struct AccountTaskLoader: Sendable {
     /// project just contributes no tasks).
     public func loadAllTasks() async throws -> (tasks: [VikunjaTask], projectsByID: [Int: Project]) {
         let projects = try await projectRepository.fetchProjects()
-        let projectsByID = Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0) })
+        // Keyed by the server id, matching `VikunjaTask.projectID: Int`
+        // (Tasks hasn't migrated to `EntityID` yet). A project without one
+        // yet (offline-created, not synced) is excluded — not reachable
+        // until Projects' own offline-create path exists.
+        let projectsByID = Dictionary(
+            uniqueKeysWithValues: projects.compactMap { project in
+                project.id.remoteValue.map { ($0, project) }
+            },
+        )
         let tasks = await Self.fetchAllTasks(projects: projects, repository: taskRepository)
         return (tasks, projectsByID)
     }
@@ -43,8 +53,9 @@ public struct AccountTaskLoader: Sendable {
             // already live in a real project, so fetching them would show
             // every such task twice.
             for project in projects where project.kind == .project {
+                guard let projectID = project.id.remoteValue else { continue }
                 group.addTask {
-                    await (try? repository.fetchTasks(projectID: project.id)) ?? []
+                    await (try? repository.fetchTasks(projectID: projectID)) ?? []
                 }
             }
             var allTasks: [VikunjaTask] = []

@@ -10,4 +10,22 @@ import Foundation
 public enum EntityID: Hashable, Sendable {
     case local(UUID)
     case remote(Int)
+
+    /// The server id, or `nil` for a `.local` entity that hasn't synced yet.
+    public var remoteValue: Int? {
+        switch self {
+        case .local:
+            nil
+        case let .remote(id):
+            id
+        }
+    }
+}
+
+/// A literal id always means a known server id — there's no syntax for
+/// writing a `UUID` literal, so this is unambiguous.
+extension EntityID: ExpressibleByIntegerLiteral {
+    public init(integerLiteral value: Int) {
+        self = .remote(value)
+    }
 }

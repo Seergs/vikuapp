@@ -46,7 +46,9 @@ struct CalendarWidgetContentTests {
         let month = CalendarMonth(containing: Self.now, tasks: tasks, now: Self.now, calendar: Self.calendar)
         let content = CalendarWidgetContent.make(
             month: month,
-            projectsByID: Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0) }),
+            projectsByID: Dictionary(
+                uniqueKeysWithValues: projects.compactMap { project in project.id.remoteValue.map { ($0, project) } },
+            ),
             accountName: "Home", now: Self.now, calendar: Self.calendar,
         )
 

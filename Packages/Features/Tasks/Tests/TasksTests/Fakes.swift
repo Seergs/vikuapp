@@ -108,7 +108,7 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
         return projects
     }
 
-    func fetchProject(id: Int) async throws -> Project {
+    func fetchProject(id: EntityID) async throws -> Project {
         guard let project = projects.first(where: { $0.id == id }) else {
             throw VikunjaError.notFound
         }
@@ -123,7 +123,7 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
         project
     }
 
-    func delete(id: Int) async throws {
+    func delete(id: EntityID) async throws {
         projects.removeAll { $0.id == id }
     }
 }
@@ -132,7 +132,7 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
 final class FakeQuickAddContext: QuickAddContextTracking {
     private(set) var scopes: [Project] = []
     var preselectedProjectID: Int? {
-        scopes.last?.id
+        scopes.last?.id.remoteValue
     }
 
     var preselectedProject: Project? {
@@ -144,7 +144,7 @@ final class FakeQuickAddContext: QuickAddContextTracking {
     }
 
     func exitProjectScope(_ projectID: Int) {
-        if let index = scopes.lastIndex(where: { $0.id == projectID }) {
+        if let index = scopes.lastIndex(where: { $0.id.remoteValue == projectID }) {
             scopes.remove(at: index)
         }
     }

@@ -24,7 +24,7 @@ struct NotificationsView: View {
     @State private var projectQuery = ""
     /// Which parent projects are expanded to reveal their subprojects —
     /// empty by default, so every project starts collapsed.
-    @State private var expandedProjectIDs: Set<Int> = []
+    @State private var expandedProjectIDs: Set<EntityID> = []
     /// Mirrors `viewModel.isSyncing`, but only after it's been true for
     /// `syncIndicatorDelay` — see `body`'s `.task(id:)`. A round trip that
     /// finishes faster than that never shows anything, so a quick toggle
@@ -53,7 +53,7 @@ struct NotificationsView: View {
     private var orderedProjects: [(project: Project, depth: Int)] {
         let byParent = Dictionary(grouping: viewModel.projects, by: \.parentProjectID)
         var result: [(project: Project, depth: Int)] = []
-        func append(parentID: Int?, depth: Int) {
+        func append(parentID: EntityID?, depth: Int) {
             let children = (byParent[parentID] ?? []).sorted { $0.position < $1.position }
             for child in children {
                 result.append((child, depth))
@@ -67,7 +67,7 @@ struct NotificationsView: View {
     /// Parent project IDs that have at least one subproject — used both to
     /// decide which rows get a disclosure chevron and to collapse their
     /// children by default.
-    private var projectsWithChildren: Set<Int> {
+    private var projectsWithChildren: Set<EntityID> {
         Set(viewModel.projects.compactMap(\.parentProjectID))
     }
 
@@ -79,7 +79,7 @@ struct NotificationsView: View {
         guard projectQuery.isEmpty else {
             return orderedProjects.filter { $0.project.title.localizedCaseInsensitiveContains(projectQuery) }
         }
-        var collapsedParentIDs: Set<Int> = []
+        var collapsedParentIDs: Set<EntityID> = []
         var visible: [(project: Project, depth: Int)] = []
         for entry in orderedProjects {
             if let parentID = entry.project.parentProjectID, collapsedParentIDs.contains(parentID) {
@@ -99,7 +99,10 @@ struct NotificationsView: View {
     /// (its webhook was just torn down but the key wasn't removed), so this
     /// can't just count that dictionary's keys.
     private var connectedProjectCount: Int {
-        viewModel.projects.count { !viewModel.settings.events(for: $0.id).isEmpty }
+        viewModel.projects.count { project in
+            guard let projectID = project.id.remoteValue else { return false }
+            return !viewModel.settings.events(for: projectID).isEmpty
+        }
     }
 
     var body: some View {
@@ -374,7 +377,8 @@ struct NotificationsView: View {
                             viewModel: viewModel,
                             project: entry.project,
                             depth: entry.depth,
-                            eventCount: viewModel.settings.events(for: entry.project.id).count,
+                            eventCount: entry.project.id.remoteValue
+                                .map { viewModel.settings.events(for: $0).count } ?? 0,
                             hasChildren: projectQuery.isEmpty && projectsWithChildren.contains(entry.project.id),
                             isExpanded: expandedProjectIDs.contains(entry.project.id),
                             onSelect: { router.push(.projectNotifications(entry.project)) },
@@ -417,7 +421,7 @@ struct NotificationsView: View {
         )
     }
 
-    private func toggleExpanded(_ projectID: Int) {
+    private func toggleExpanded(_ projectID: EntityID) {
         withAnimation(.snappy) {
             if expandedProjectIDs.contains(projectID) {
                 expandedProjectIDs.remove(projectID)
@@ -552,7 +556,8 @@ private struct ProjectNotificationRow: View {
         .contentShape(Rectangle())
         .onTapGesture(perform: onSelect)
         .task(id: project.id) {
-            otherWebhookCount = await viewModel.otherWebhooks(for: project.id).count
+            guard let projectID = project.id.remoteValue else { return }
+            otherWebhookCount = await viewModel.otherWebhooks(for: projectID).count
         }
     }
 }

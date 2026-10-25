@@ -100,7 +100,10 @@ public enum QuickAddParser {
         for item in resolved {
             switch item.resolution {
             case let .project(project) where projectID == nil:
-                projectID = project.id
+                // A project that hasn't synced yet (offline-created) has no
+                // server id to attach a new task to — not reachable until
+                // Projects' own offline-create path exists.
+                projectID = project.id.remoteValue
             case let .priority(value) where priority == nil:
                 priority = value
             default:

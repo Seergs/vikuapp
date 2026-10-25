@@ -147,8 +147,15 @@ public struct TaskListMutator {
     /// a screen scoped to its old project — or `false` (with an error toast)
     /// on failure.
     public func move(_ task: VikunjaTask, to destination: Project) async -> Bool {
+        // A destination that hasn't synced yet (offline-created) has no
+        // server id to move the task to — not reachable until Projects' own
+        // offline-create path exists.
+        guard let destinationID = destination.id.remoteValue else {
+            toastPresenter.show(errorMessage(VikunjaError.notFound), style: .error)
+            return false
+        }
         var updated = task
-        updated.projectID = destination.id
+        updated.projectID = destinationID
         do {
             _ = try await repository.update(updated)
             toastPresenter.show("Task moved to \(destination.title)", style: .success)

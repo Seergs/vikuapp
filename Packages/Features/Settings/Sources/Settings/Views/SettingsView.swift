@@ -272,7 +272,7 @@ struct SettingsView: View {
             ProjectPickerSheet(
                 title: String(localized: "Default Project", bundle: .module),
                 projects: defaultProjectViewModel.pickableProjects,
-                selectedProjectID: defaultProjectViewModel.defaultProjectID,
+                selectedProjectID: defaultProjectViewModel.defaultProjectID.map(EntityID.remote),
                 showsNoneOption: true,
             ) { project in
                 Task { await defaultProjectViewModel.selectDefaultProject(project) }

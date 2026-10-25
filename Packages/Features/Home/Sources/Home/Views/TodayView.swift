@@ -57,7 +57,7 @@ struct TodayView: View {
                     title: String(localized: "Move to Project", bundle: .module),
                     projects: viewModel.allProjects,
                     selectedProjectID: nil,
-                    excludingSubtreeOf: task.projectID,
+                    excludingSubtreeOf: .remote(task.projectID),
                 ) { destination in
                     guard let destination else { return }
                     Task { await viewModel.move(task, to: destination) }
@@ -99,7 +99,7 @@ struct TodayView: View {
                         kind: kind,
                         results: viewModel.relationSearchResults,
                         projectTitle: { candidate in
-                            viewModel.allProjects.first { $0.id == candidate.projectID }?.title
+                            viewModel.allProjects.first { $0.id.remoteValue == candidate.projectID }?.title
                         },
                         onAppear: {
                             await viewModel.loadMoveCandidates()
