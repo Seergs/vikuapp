@@ -200,7 +200,9 @@ public extension CalendarWidgetContent {
         let month = CalendarMonth(containing: now, tasks: tasks, now: now, calendar: calendar)
         return CalendarWidgetContent.make(
             month: month,
-            projectsByID: Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0) }),
+            projectsByID: Dictionary(
+                uniqueKeysWithValues: projects.compactMap { project in project.id.remoteValue.map { ($0, project) } },
+            ),
             accountName: "Viku",
             now: now,
             calendar: calendar,
