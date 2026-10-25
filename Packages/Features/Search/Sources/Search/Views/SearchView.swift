@@ -204,7 +204,7 @@ private final class PreviewProjectRepository: @unchecked Sendable, ProjectReposi
         []
     }
 
-    func fetchProject(id _: Int) async throws -> Project {
+    func fetchProject(id _: EntityID) async throws -> Project {
         Project(id: 0, title: "")
     }
 
@@ -216,7 +216,7 @@ private final class PreviewProjectRepository: @unchecked Sendable, ProjectReposi
         project
     }
 
-    func delete(id _: Int) async throws {}
+    func delete(id _: EntityID) async throws {}
 }
 
 private final class PreviewToastPresenter: @unchecked Sendable, ToastPresenting {
