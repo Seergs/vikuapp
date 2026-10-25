@@ -15,6 +15,7 @@ enum ProjectMapper {
             parentProjectID: (dto.parentProjectId == 0 ? nil : dto.parentProjectId).map(EntityID.remote),
             position: dto.position ?? 0,
             hexColor: dto.hexColor ?? "",
+            updated: dto.updated,
         )
     }
 
@@ -28,10 +29,10 @@ enum ProjectMapper {
             isArchived: project.isArchived,
             isFavorite: project.isFavorite,
             parentProjectId: project.parentProjectID.map { parentID in
-                // The mutation queue (OFFLINE_SYNC_DESIGN.md §4.4) must resolve a
-                // project's own create before any child project syncs, so a
-                // `.local` parent reaching the wire here is an ordering bug
-                // upstream, not a value this mapper can encode.
+                // A project's own create must resolve before any child
+                // project syncs, so a `.local` parent reaching the wire here
+                // is an ordering bug upstream, not a value this mapper can
+                // encode.
                 guard let remoteValue = parentID.remoteValue else {
                     preconditionFailure("Project.toDTO: parent project must be synced before this project can sync")
                 }
@@ -39,6 +40,8 @@ enum ProjectMapper {
             },
             position: project.position,
             hexColor: project.hexColor,
+            // Server-set, read-only — never sent back on write.
+            updated: nil,
         )
     }
 }

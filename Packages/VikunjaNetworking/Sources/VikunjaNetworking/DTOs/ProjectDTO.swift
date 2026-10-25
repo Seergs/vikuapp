@@ -1,3 +1,5 @@
+import Foundation
+
 struct ProjectDTO: Codable {
     let id: Int
     let title: String
@@ -7,6 +9,7 @@ struct ProjectDTO: Codable {
     let parentProjectId: Int?
     let position: Double?
     let hexColor: String?
+    let updated: Date?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -17,5 +20,6 @@ struct ProjectDTO: Codable {
         case isFavorite = "is_favorite"
         case parentProjectId = "parent_project_id"
         case hexColor = "hex_color"
+        case updated
     }
 }
