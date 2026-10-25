@@ -9,6 +9,11 @@ public struct Project: Identifiable, Hashable, Sendable {
     public var parentProjectID: EntityID?
     public var position: Double
     public var hexColor: String
+    /// The server's own last-modified timestamp. `nil` for a project that
+    /// hasn't round-tripped through the network yet (a freshly offline-
+    /// created one). Not for display — it's sync bookkeeping, read by
+    /// whatever persists this project locally.
+    public var updated: Date?
 
     public init(
         id: EntityID,
@@ -19,6 +24,7 @@ public struct Project: Identifiable, Hashable, Sendable {
         parentProjectID: EntityID? = nil,
         position: Double = 0,
         hexColor: String = "",
+        updated: Date? = nil,
     ) {
         self.id = id
         self.title = title
@@ -28,6 +34,7 @@ public struct Project: Identifiable, Hashable, Sendable {
         self.parentProjectID = parentProjectID
         self.position = position
         self.hexColor = hexColor
+        self.updated = updated
     }
 
     public var kind: ProjectKind {

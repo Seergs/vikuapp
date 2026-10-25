@@ -28,9 +28,21 @@ struct ProjectDTOTests {
         #expect(projects[2].parentProjectID == 6)
     }
 
+    @Test
+    func `decodes the servers updated timestamp`() throws {
+        let dtos = try loadProjectDTOs()
+        let projects = dtos.map(ProjectMapper.toDomain)
+
+        #expect(dtos[0].updated != nil)
+        #expect(projects[0].updated == dtos[0].updated)
+        #expect(dtos[1].updated == nil)
+    }
+
     private func loadProjectDTOs() throws -> [ProjectDTO] {
         let url = try #require(Bundle.module.url(forResource: "projects", withExtension: "json"))
         let data = try Data(contentsOf: url)
-        return try JSONDecoder().decode([ProjectDTO].self, from: data)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode([ProjectDTO].self, from: data)
     }
 }

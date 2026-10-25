@@ -945,6 +945,11 @@ struct URLSessionAPIClientTests {
     }
     """#
 
+    /// What `projectV2Body`'s `"updated": "2026-01-02T00:00:00Z"` decodes to.
+    /// `projectV1Body` carries no such field, so a v1 fetch/create decodes
+    /// `updated` as `nil` — the two fixtures intentionally differ here.
+    private static let projectV2UpdatedAt = Date(timeIntervalSince1970: 1_767_312_000)
+
     @Test
     func `fetch projects v2 unwraps the envelope AND ignores v2 only fields`() async throws {
         let body = "{\"items\": [" + Self.projectV2Body
@@ -958,6 +963,7 @@ struct URLSessionAPIClientTests {
         #expect(projects == [Project(
             id: 1, title: "Groceries", description: "Weekly shop",
             isArchived: false, isFavorite: true, parentProjectID: nil, position: 1, hexColor: "00ff00",
+            updated: Self.projectV2UpdatedAt,
         )])
         let request = try #require(await capture.lastRequest)
         #expect(request.url?.path == "/api/v2/projects")
@@ -1023,6 +1029,7 @@ struct URLSessionAPIClientTests {
             #expect(project == Project(
                 id: 1, title: "Groceries", description: "Weekly shop",
                 isArchived: false, isFavorite: true, parentProjectID: nil, position: 1, hexColor: "00ff00",
+                updated: path.contains("v1") ? nil : Self.projectV2UpdatedAt,
             ))
             #expect(await capture.lastRequest?.url?.path == path)
         }
@@ -1045,6 +1052,7 @@ struct URLSessionAPIClientTests {
             #expect(created == Project(
                 id: 1, title: "Groceries", description: "Weekly shop",
                 isArchived: false, isFavorite: true, parentProjectID: nil, position: 1, hexColor: "00ff00",
+                updated: method == "PUT" ? nil : Self.projectV2UpdatedAt,
             ))
             let request = try #require(await capture.lastRequest)
             #expect(request.httpMethod == method)

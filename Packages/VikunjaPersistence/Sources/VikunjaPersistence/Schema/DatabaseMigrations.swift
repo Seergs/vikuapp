@@ -13,6 +13,7 @@ enum DatabaseMigrations {
     static func registerAll(on migrator: inout DatabaseMigrator) {
         migrator.registerMigration("createProject", migrate: createProject)
         migrator.registerMigration("createMutationQueue", migrate: createMutationQueue)
+        migrator.registerMigration("createSyncState", migrate: createSyncState)
     }
 
     private static func createProject(_ db: Database) throws {
@@ -56,5 +57,16 @@ enum DatabaseMigrations {
             on: "mutationQueueItem",
             columns: ["status", "createdAt"],
         )
+    }
+
+    private static func createSyncState(_ db: Database) throws {
+        // One row per entity type ("project", later "label"/"task"/...),
+        // reusing the same free-text discriminator `mutationQueueItem.
+        // entityType` already uses, so this table never needs its own
+        // migration when a later slice adds an entity.
+        try db.create(table: "syncState") { table in
+            table.primaryKey("entityType", .text)
+            table.column("lastPulledAt", .datetime).notNull()
+        }
     }
 }
