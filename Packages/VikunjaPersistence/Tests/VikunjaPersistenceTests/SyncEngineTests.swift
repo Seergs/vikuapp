@@ -118,6 +118,43 @@ struct SyncEngineTests {
     }
 
     @Test
+    func `pullProjects resyncs a conflicted rows content to the server once flagged, instead of leaving it stuck forever`() async throws {
+        // Regression test: once `drainUpdate` flags a conflict, that queue
+        // item's status stays `.pending` forever (there's no resolution UI
+        // to ever change it) - which used to mean its row stayed "protected"
+        // from every future pull too, permanently showing the user's
+        // discarded local edit instead of the server's real, accepted
+        // content. A conflicted item must stop protecting its row so the
+        // very next pull resyncs it to the truth.
+        let store = try LocalStore(directory: temporaryDirectory())
+        let repository = FakeProjectRepository()
+        let accountID = UUID()
+        let localID = UUID()
+        try await store.write { db in
+            try ProjectRecord(
+                localID: localID, accountID: accountID, remoteID: 1, title: "Groceries (mobile edit)",
+                description: nil, isArchived: false, isFavorite: false, parentProjectLocalID: nil,
+                position: 0, hexColor: "", serverUpdatedAt: Date(timeIntervalSince1970: 1_000_000),
+            ).insert(db)
+            var mutation = MutationQueueRecord(
+                id: nil, accountID: accountID, entityType: .project, operation: .update, targetLocalID: localID,
+                payload: nil, createdAt: Date(), retryCount: 0, lastError: nil, status: .pending,
+                needsConflictResolution: true, // already flagged by a previous drain
+            )
+            try mutation.insert(db)
+        }
+
+        repository.projects = [
+            Project(id: 1, title: "Groceries (web edit)", updated: Date(timeIntervalSince1970: 2_000_000)),
+        ]
+        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
+        try await engine.pullProjects()
+
+        let row = try await store.read { db in try #require(try ProjectRecord.fetchOne(db, key: localID)) }
+        #expect(row.title == "Groceries (web edit)")
+    }
+
+    @Test
     func `pullProjects resolves a childs parent link regardless of array order`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()

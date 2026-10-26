@@ -150,11 +150,20 @@ public actor SyncEngine {
     /// `resolveParentLinks`, and `deleteMissingRows` to decide what a pull
     /// must leave untouched, since any of those rows holds a local edit the
     /// server doesn't reflect back yet.
+    ///
+    /// Excludes a conflicted item on purpose: once `drainUpdate` has flagged
+    /// one, it can never drain again without a conflict-resolution UI this
+    /// app doesn't have yet, so protecting its row forever would leave the
+    /// local cache permanently stuck showing the discarded local edit
+    /// instead of the server's real state - worse than just letting the
+    /// next pull resync it to the truth. The queue item itself still sticks
+    /// around with `needsConflictResolution` set, in case a future UI wants
+    /// to read it back.
     private static func queuedTargetLocalIDs(accountID: UUID, db: Database) throws -> Set<UUID> {
         try Set(
             MutationQueueRecord.fetchAll(db)
                 .filter {
-                    $0.accountID == accountID
+                    $0.accountID == accountID && !$0.needsConflictResolution
                         && ($0.status == .pending || $0.status == .inFlight || $0.status == .failed)
                 }
                 .map(\.targetLocalID),
