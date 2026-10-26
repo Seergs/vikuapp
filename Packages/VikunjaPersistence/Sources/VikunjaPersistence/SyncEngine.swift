@@ -3,10 +3,10 @@ import GRDB
 import VikunjaCore
 
 /// Keeps the local store's cache of each synced entity in step with the
-/// server. Only pulling for now — draining locally queued mutations back to
-/// the server is a later addition. Nothing constructs this in production
-/// yet (no account-scoped `LocalStore` exists to hand it), so it's unused
-/// until that wiring lands.
+/// server: pulls the server's state in, and drains locally queued
+/// mutations back out. Nothing constructs this in production yet (no
+/// account-scoped `LocalStore` exists to hand it, and nothing queues a
+/// mutation for it to drain), so it's unused until that wiring lands.
 public actor SyncEngine {
     private let localStore: LocalStore
     private let projectRepository: ProjectRepositoryProtocol
@@ -126,5 +126,163 @@ public actor SyncEngine {
             guard !queuedTargetLocalIDs.contains(row.localID) else { continue }
             try row.delete(db)
         }
+    }
+
+    // MARK: - Draining queued mutations
+
+    enum DrainError: Error {
+        /// `payload` was nil, or didn't decode as the shape its `operation` expects.
+        case invalidPayload
+    }
+
+    /// Replays every queued, non-conflicted project mutation against the
+    /// server, oldest first. A `create`/`update` whose payload references a
+    /// parent project that hasn't itself synced yet (no remote id) is left
+    /// in the queue for a later drain pass — by processing in the order
+    /// mutations were queued, a parent's own `create` (necessarily queued
+    /// before any child that references it) has already run earlier in
+    /// this same pass if it's going to succeed at all, so this only
+    /// actually defers anything when the parent's own create is still
+    /// failing. One item's failure doesn't stop the rest from draining.
+    public func drainProjectMutations() async throws {
+        let items = try await localStore.read { db in
+            try MutationQueueRecord.fetchAll(db)
+                .filter { $0.entityType == .project && $0.status == .pending && !$0.needsConflictResolution }
+                .sorted { $0.createdAt < $1.createdAt }
+        }
+        for item in items {
+            await drain(item)
+        }
+    }
+
+    private func drain(_ item: MutationQueueRecord) async {
+        do {
+            switch item.operation {
+            case .create: try await drainCreate(item)
+            case .update: try await drainUpdate(item)
+            case .delete: try await drainDelete(item)
+            }
+        } catch {
+            await markFailed(item, error: error)
+        }
+    }
+
+    private func drainCreate(_ item: MutationQueueRecord) async throws {
+        guard let payload: ProjectCreateOrUpdatePayload = try decodePayload(item.payload) else {
+            throw DrainError.invalidPayload
+        }
+        let resolvedParentID = try await localStore.read { db in
+            try Self.resolveRemoteID(forLocalID: payload.parentProjectLocalID, db: db)
+        }
+        guard payload.parentProjectLocalID == nil || resolvedParentID != nil else {
+            return // The parent hasn't synced yet — retry this item on a later pass.
+        }
+        let project = Project(
+            id: .local(item.targetLocalID),
+            title: payload.title,
+            description: payload.description,
+            isArchived: payload.isArchived,
+            isFavorite: payload.isFavorite,
+            parentProjectID: resolvedParentID.map(EntityID.remote),
+            position: payload.position,
+            hexColor: payload.hexColor,
+        )
+        let created = try await projectRepository.create(project)
+        try await applyPushResult(created, deleting: item)
+    }
+
+    private func drainUpdate(_ item: MutationQueueRecord) async throws {
+        guard let payload: ProjectCreateOrUpdatePayload = try decodePayload(item.payload) else {
+            throw DrainError.invalidPayload
+        }
+        let (currentRow, resolvedParentID) = try await localStore.read { db in
+            let row = try ProjectRecord.fetchOne(db, key: item.targetLocalID)
+            let parentID = try Self.resolveRemoteID(forLocalID: payload.parentProjectLocalID, db: db)
+            return (row, parentID)
+        }
+        guard let currentRow, let remoteID = currentRow.remoteID else {
+            return // Not synced yet — there's nothing server-side to update.
+        }
+        guard payload.parentProjectLocalID == nil || resolvedParentID != nil else {
+            return // The new parent hasn't synced yet — retry this item on a later pass.
+        }
+        if let baseUpdatedAt = payload.baseUpdatedAt, let serverUpdatedAt = currentRow.serverUpdatedAt,
+           serverUpdatedAt > baseUpdatedAt {
+            try await flagConflict(item)
+            return
+        }
+        let project = Project(
+            id: .remote(remoteID),
+            title: payload.title,
+            description: payload.description,
+            isArchived: payload.isArchived,
+            isFavorite: payload.isFavorite,
+            parentProjectID: resolvedParentID.map(EntityID.remote),
+            position: payload.position,
+            hexColor: payload.hexColor,
+        )
+        let updated = try await projectRepository.update(project)
+        try await applyPushResult(updated, deleting: item)
+    }
+
+    private func drainDelete(_ item: MutationQueueRecord) async throws {
+        guard let payload: ProjectDeletePayload = try decodePayload(item.payload) else {
+            throw DrainError.invalidPayload
+        }
+        try await projectRepository.delete(id: .remote(payload.remoteID))
+        try await localStore.write { db in
+            if let row = try ProjectRecord.fetchOne(db, key: item.targetLocalID) {
+                try row.delete(db)
+            }
+            try item.delete(db)
+        }
+    }
+
+    /// Persists a successful `create`/`update`'s server response and
+    /// removes the drained queue item. Shared because the two operations'
+    /// post-success bookkeeping is otherwise identical — `create` is simply
+    /// the case where `remoteID` was `nil` beforehand.
+    private func applyPushResult(_ project: Project, deleting item: MutationQueueRecord) async throws {
+        guard let remoteID = project.id.remoteValue else {
+            preconditionFailure("SyncEngine: a pushed create/update's response must carry a resolved remote id")
+        }
+        try await localStore.write { db in
+            if var row = try ProjectRecord.fetchOne(db, key: item.targetLocalID) {
+                row.remoteID = remoteID
+                row.serverUpdatedAt = project.updated
+                try row.save(db)
+            }
+            try item.delete(db)
+        }
+    }
+
+    private func flagConflict(_ item: MutationQueueRecord) async throws {
+        try await localStore.write { db in
+            var row = item
+            row.needsConflictResolution = true
+            try row.update(db)
+        }
+    }
+
+    private func markFailed(_ item: MutationQueueRecord, error: Error) async {
+        try? await localStore.write { db in
+            var row = item
+            row.retryCount += 1
+            row.lastError = String(describing: error)
+            row.status = .failed
+            try row.update(db)
+        }
+    }
+
+    private static func resolveRemoteID(forLocalID localID: UUID?, db: Database) throws -> Int? {
+        guard let localID else { return nil }
+        return try ProjectRecord.fetchOne(db, key: localID)?.remoteID
+    }
+
+    private func decodePayload<T: Decodable>(_ payload: String?) throws -> T? {
+        guard let payload, let data = payload.data(using: .utf8) else { return nil }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(T.self, from: data)
     }
 }

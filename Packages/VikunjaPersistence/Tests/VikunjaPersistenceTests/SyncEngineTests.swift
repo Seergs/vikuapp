@@ -92,6 +92,7 @@ struct SyncEngineTests {
             var mutation = MutationQueueRecord(
                 id: nil, entityType: .project, operation: .update, targetLocalID: localID,
                 payload: nil, createdAt: Date(), retryCount: 0, lastError: nil, status: .pending,
+                needsConflictResolution: false,
             )
             try mutation.insert(db)
         }
@@ -118,6 +119,7 @@ struct SyncEngineTests {
             var mutation = MutationQueueRecord(
                 id: nil, entityType: .project, operation: .update, targetLocalID: localID,
                 payload: nil, createdAt: Date(), retryCount: 3, lastError: "boom", status: .failed,
+                needsConflictResolution: false,
             )
             try mutation.insert(db)
         }
