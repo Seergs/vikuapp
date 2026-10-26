@@ -186,6 +186,9 @@ struct SyncEngineDrainTests {
         let queuedAt = Date(timeIntervalSince1970: 1000)
         let observedByLaterPull = Date(timeIntervalSince1970: 2000)
         try await insertProject(in: store, localID: localID, remoteID: 1, serverUpdatedAt: observedByLaterPull)
+        // What the server actually has right now - the edit that conflicts
+        // with the queued mutation below.
+        repository.projects = [Project(id: 1, title: "Groceries (edited elsewhere)", updated: observedByLaterPull)]
         try await queueMutation(
             in: store, operation: .update, targetLocalID: localID,
             payload: ProjectCreateOrUpdatePayload(
@@ -201,6 +204,11 @@ struct SyncEngineDrainTests {
         #expect(remaining.count == 1)
         #expect(remaining[0].needsConflictResolution == true)
         #expect(remaining[0].status == .pending)
+        // The conflict no longer protects the row, so the same pass that
+        // flagged it also resyncs its content to the server's real state -
+        // never left showing the discarded local edit.
+        let row = try await store.read { db in try #require(try ProjectRecord.fetchOne(db, key: localID)) }
+        #expect(row.title == "Groceries (edited elsewhere)")
     }
 
     @Test
