@@ -423,7 +423,7 @@ final class AppContainer {
         return TodayViewModel(
             taskRepository: clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider),
             projectRepository: offlineProjectRepository(for: account),
-            labelRepository: clientFactory.makeLabelRepository(baseURL: account.baseURL, tokenProvider: tokenProvider),
+            labelRepository: offlineLabelRepository(for: account),
             relationRepository: clientFactory.makeTaskRelationRepository(
                 baseURL: account.baseURL,
                 tokenProvider: tokenProvider,
@@ -489,7 +489,7 @@ final class AppContainer {
         let tokenProvider = tokenProvider(for: account)
         let repository = clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider)
         let projectRepository = offlineProjectRepository(for: account)
-        let labelRepository = clientFactory.makeLabelRepository(baseURL: account.baseURL, tokenProvider: tokenProvider)
+        let labelRepository = offlineLabelRepository(for: account)
         let relationRepository = clientFactory.makeTaskRelationRepository(
             baseURL: account.baseURL,
             tokenProvider: tokenProvider,
@@ -544,7 +544,7 @@ final class AppContainer {
     func makeTaskDetailViewModel(task: VikunjaTask, project: Project, account: InstanceAccount) -> TaskDetailViewModel {
         let tokenProvider = tokenProvider(for: account)
         let repository = clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider)
-        let labelRepository = clientFactory.makeLabelRepository(baseURL: account.baseURL, tokenProvider: tokenProvider)
+        let labelRepository = offlineLabelRepository(for: account)
         let relationRepository = clientFactory.makeTaskRelationRepository(
             baseURL: account.baseURL,
             tokenProvider: tokenProvider,
@@ -670,17 +670,13 @@ final class AppContainer {
             toastPresenter: toastCenter,
             taskChangeBroadcaster: taskChangeCenter,
             syntaxStore: quickAddSyntaxStore,
-            labelRepository: clientFactory.makeLabelRepository(baseURL: account.baseURL, tokenProvider: tokenProvider),
+            labelRepository: offlineLabelRepository(for: account),
             defaultProjectCache: AccountDefaultProjectCache(store: defaultProjectStore, accountID: account.id),
         )
     }
 
     func makeManageLabelsViewModel(account: InstanceAccount) -> ManageLabelsViewModel {
-        let repository = clientFactory.makeLabelRepository(
-            baseURL: account.baseURL,
-            tokenProvider: tokenProvider(for: account),
-        )
-        return ManageLabelsViewModel(repository: repository, toastPresenter: toastCenter)
+        ManageLabelsViewModel(repository: offlineLabelRepository(for: account), toastPresenter: toastCenter)
     }
 
     func makeNotificationsViewModel(account: InstanceAccount) -> NotificationsViewModel {
@@ -820,18 +816,20 @@ final class AppContainer {
         return { try await sessionRefresher.validToken(for: account) }
     }
 
+    /// `SyncEngine` pulls and drains every entity with offline support for
+    /// an account in one pass, so both `offlineProjectRepository(for:)` and
+    /// `offlineLabelRepository(for:)` need this to build its own copy of
+    /// `SyncEngine` — `OfflineLabelRepository` also keeps its own second
+    /// reference, for `addLabel`/`removeLabel`'s pass-through.
+    private func networkLabelRepository(for account: InstanceAccount) -> LabelRepositoryProtocol {
+        clientFactory.makeLabelRepository(baseURL: account.baseURL, tokenProvider: tokenProvider(for: account))
+    }
+
     /// The `ProjectRepositoryProtocol` every screen reads/writes through —
     /// local-first, queuing a mutation and opportunistically draining it
     /// right away if the network happens to already be up. `networkRepository`
     /// below is now only what this and `syncCoordinator` call to actually
     /// talk to the server; nothing else is handed it directly.
-    /// `SyncEngine` pulls and drains every entity with offline support for
-    /// an account in one pass, so it needs this even though nothing reads
-    /// labels offline yet — that cutover is its own, later wiring change.
-    private func networkLabelRepository(for account: InstanceAccount) -> LabelRepositoryProtocol {
-        clientFactory.makeLabelRepository(baseURL: account.baseURL, tokenProvider: tokenProvider(for: account))
-    }
-
     private func offlineProjectRepository(for account: InstanceAccount) -> ProjectRepositoryProtocol {
         let networkRepository = clientFactory.makeProjectRepository(
             baseURL: account.baseURL,
@@ -848,6 +846,31 @@ final class AppContainer {
             accountID: account.id,
             syncEngine: syncEngine,
             reachability: reachabilityMonitor,
+        )
+    }
+
+    /// The `LabelRepositoryProtocol` every screen reads/writes through — same
+    /// shape as `offlineProjectRepository(for:)`. `addLabel`/`removeLabel`
+    /// (task-label association) still go straight to `networkLabelRepository`
+    /// inside `OfflineLabelRepository` itself; only the label entity's own
+    /// create/edit/delete is local-first here.
+    private func offlineLabelRepository(for account: InstanceAccount) -> LabelRepositoryProtocol {
+        let networkRepository = networkLabelRepository(for: account)
+        let syncEngine = SyncEngine(
+            localStore: localStore,
+            projectRepository: clientFactory.makeProjectRepository(
+                baseURL: account.baseURL,
+                tokenProvider: tokenProvider(for: account),
+            ),
+            labelRepository: networkRepository,
+            accountID: account.id,
+        )
+        return OfflineLabelRepository(
+            localStore: localStore,
+            accountID: account.id,
+            syncEngine: syncEngine,
+            reachability: reachabilityMonitor,
+            networkLabelRepository: networkRepository,
         )
     }
 }
