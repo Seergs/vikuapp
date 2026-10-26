@@ -39,6 +39,10 @@ private actor FakeAccountStore: AccountStoreProtocol {
 /// unused by these tests.
 private final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @unchecked Sendable {
     private var repositoriesByBaseURL: [URL: FakeProjectRepository] = [:]
+    /// Captured, not invoked — lets a test check which `tokenProvider`
+    /// `SyncCoordinator` actually threaded through for a given account's
+    /// `baseURL`, by awaiting it directly.
+    private(set) var tokenProvidersByBaseURL: [URL: @Sendable () async throws -> String?] = [:]
 
     func projectRepository(for baseURL: URL) -> FakeProjectRepository {
         if let existing = repositoriesByBaseURL[baseURL] {
@@ -53,7 +57,8 @@ private final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @u
         baseURL: URL,
         tokenProvider: @escaping @Sendable () async throws -> String?,
     ) -> ProjectRepositoryProtocol {
-        projectRepository(for: baseURL)
+        tokenProvidersByBaseURL[baseURL] = tokenProvider
+        return projectRepository(for: baseURL)
     }
 
     func makeCapabilityProvider(baseURL: URL) -> CapabilityProvider {
@@ -204,6 +209,7 @@ struct SyncCoordinatorTests {
         let repositoryB = factory.projectRepository(for: accountB.baseURL)
         let coordinator = SyncCoordinator(
             localStore: store, accountStore: accountStore, clientFactory: factory, reachability: reachability,
+            tokenProvider: { account in { try await accountStore.token(forAccountID: account.id) } },
         )
 
         await coordinator.start()
@@ -225,6 +231,7 @@ struct SyncCoordinatorTests {
         let repository = factory.projectRepository(for: account.baseURL)
         let coordinator = SyncCoordinator(
             localStore: store, accountStore: accountStore, clientFactory: factory, reachability: reachability,
+            tokenProvider: { account in { try await accountStore.token(forAccountID: account.id) } },
         )
 
         await coordinator.start()
@@ -257,6 +264,7 @@ struct SyncCoordinatorTests {
         healthyRepository.projects = [Project(id: 1, title: "Groceries")]
         let coordinator = SyncCoordinator(
             localStore: store, accountStore: accountStore, clientFactory: factory, reachability: reachability,
+            tokenProvider: { account in { try await accountStore.token(forAccountID: account.id) } },
         )
 
         await coordinator.start()
@@ -289,6 +297,7 @@ struct SyncCoordinatorTests {
         factory.projectRepository(for: accountB.baseURL).projects = [Project(id: 1, title: "B's project")]
         let coordinator = SyncCoordinator(
             localStore: store, accountStore: accountStore, clientFactory: factory, reachability: reachability,
+            tokenProvider: { account in { try await accountStore.token(forAccountID: account.id) } },
         )
 
         await coordinator.start()
@@ -315,6 +324,7 @@ struct SyncCoordinatorTests {
         let repository = factory.projectRepository(for: account.baseURL)
         let coordinator = SyncCoordinator(
             localStore: store, accountStore: accountStore, clientFactory: factory, reachability: reachability,
+            tokenProvider: { account in { try await accountStore.token(forAccountID: account.id) } },
         )
 
         await coordinator.start()
@@ -335,10 +345,39 @@ struct SyncCoordinatorTests {
         let repository = factory.projectRepository(for: account.baseURL)
         let coordinator = SyncCoordinator(
             localStore: store, accountStore: accountStore, clientFactory: factory, reachability: reachability,
+            tokenProvider: { account in { try await accountStore.token(forAccountID: account.id) } },
         )
 
         await coordinator.syncAllAccounts()
 
         #expect(repository.fetchProjectsCallCount == 1)
+    }
+
+    @Test
+    func `sync resolves each account through the injected tokenProvider, not accountStore directly`() async throws {
+        // Regression test: `sync(_:)` used to build its own tokenProvider
+        // straight off `accountStore.token(forAccountID:)`, which for a
+        // password/OIDC account is a JSON credential blob, not a usable
+        // bearer token on its own — sending that as-is gets rejected by the
+        // server every time, regardless of whether the session is actually
+        // still valid. The composition root's injected `tokenProvider` must
+        // be what `sync(_:)` actually threads through to the repository it
+        // builds, not something resolved internally here.
+        let store = try LocalStore(directory: temporaryDirectory())
+        let accountStore = FakeAccountStore()
+        let factory = FakeInstanceClientFactory()
+        let reachability = FakeReachabilityMonitor()
+        let accountA = try makeAccount(host: "a.example.com")
+        try await accountStore.addAccount(accountA, token: "raw-stored-credential-blob")
+        let coordinator = SyncCoordinator(
+            localStore: store, accountStore: accountStore, clientFactory: factory, reachability: reachability,
+            tokenProvider: { account in { "resolved-token-for-\(account.id)" } },
+        )
+
+        await coordinator.syncAllAccounts()
+
+        let tokenProvider = try #require(factory.tokenProvidersByBaseURL[accountA.baseURL])
+        let resolvedToken = try await tokenProvider()
+        #expect(resolvedToken == "resolved-token-for-\(accountA.id)")
     }
 }
