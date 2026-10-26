@@ -4,9 +4,7 @@ import VikunjaCore
 
 /// Keeps one account's slice of the local store's cache in step with the
 /// server: pulls the server's state in, and drains that account's locally
-/// queued mutations back out. Nothing constructs this in production yet
-/// (nothing queues a mutation for it to drain), so it's unused until the
-/// repository and coordinator that will drive it land.
+/// queued mutations back out.
 public actor SyncEngine {
     private let localStore: LocalStore
     private let projectRepository: ProjectRepositoryProtocol
@@ -79,11 +77,19 @@ public actor SyncEngine {
     /// Inserts or updates every remote project, with no parent link yet: a
     /// child can appear before its parent in `remoteProjects`, and
     /// `parentProjectLocalID`'s foreign key would reject pointing at a row
-    /// that doesn't exist in the table yet. Skips a row in `protectedLocalIDs`
-    /// entirely - a mutation still queued against it means there's a local
-    /// edit the server doesn't reflect yet, and overwriting it with the
-    /// server's still-stale response would silently discard that edit until
-    /// the next pull after the queue finally drains.
+    /// that doesn't exist in the table yet.
+    ///
+    /// A row in `protectedLocalIDs` keeps its own content (title,
+    /// description, ...) instead of taking the server's still-stale
+    /// response - a mutation queued against it means there's a local edit
+    /// the server doesn't reflect yet, and overwriting that content would
+    /// silently discard the edit until the next pull after the queue
+    /// finally drains. Its `serverUpdatedAt` is still refreshed, though:
+    /// that's what `drainUpdate`'s conflict check compares the queued
+    /// mutation's own baseline against, and skipping it here would make
+    /// a real conflict (someone else edited this project in the meantime)
+    /// invisible until a pull happens to run again after the local edit
+    /// has already drained.
     private static func upsertRows(
         for remoteProjects: [Project],
         accountID: UUID,
@@ -93,7 +99,12 @@ public actor SyncEngine {
     ) throws {
         for project in remoteProjects {
             guard let remoteID = project.id.remoteValue, let localID = localIDByRemoteID[remoteID] else { continue }
-            guard !protectedLocalIDs.contains(localID) else { continue }
+            if protectedLocalIDs.contains(localID) {
+                guard var existing = try ProjectRecord.fetchOne(db, key: localID) else { continue }
+                existing.serverUpdatedAt = project.updated
+                try existing.save(db)
+                continue
+            }
             let row = ProjectRecord(
                 localID: localID,
                 accountID: accountID,

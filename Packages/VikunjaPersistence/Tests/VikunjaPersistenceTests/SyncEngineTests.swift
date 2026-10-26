@@ -82,6 +82,42 @@ struct SyncEngineTests {
     }
 
     @Test
+    func `pullProjects still refreshes serverUpdatedAt on a protected row, so a real conflict stays detectable`() async throws {
+        // Companion to the test above: protecting a row's *content* from a
+        // stale pull must not also blind `drainUpdate`'s conflict check,
+        // which compares the queued mutation's own baseline against this
+        // same field - refreshing it is what lets that check ever notice
+        // someone else edited the project in the meantime.
+        let store = try LocalStore(directory: temporaryDirectory())
+        let repository = FakeProjectRepository()
+        let firstUpdatedAt = Date(timeIntervalSince1970: 1_000_000)
+        repository.projects = [Project(id: 1, title: "Groceries", updated: firstUpdatedAt)]
+        let accountID = UUID()
+        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
+        try await engine.pullProjects()
+        let localID = try await store.read { db in
+            try #require(ProjectRecord.fetchAll(db).first { $0.remoteID == 1 }).localID
+        }
+        try await store.write { db in
+            var mutation = MutationQueueRecord(
+                id: nil, accountID: accountID, entityType: .project, operation: .update, targetLocalID: localID,
+                payload: nil, createdAt: Date(), retryCount: 0, lastError: nil, status: .pending,
+                needsConflictResolution: false,
+            )
+            try mutation.insert(db)
+        }
+
+        // Someone else edited this project server-side while this device
+        // was offline, after the local edit above was queued.
+        let secondUpdatedAt = Date(timeIntervalSince1970: 2_000_000)
+        repository.projects = [Project(id: 1, title: "Groceries (edited elsewhere)", updated: secondUpdatedAt)]
+        try await engine.pullProjects()
+
+        let row = try await store.read { db in try #require(try ProjectRecord.fetchOne(db, key: localID)) }
+        #expect(row.serverUpdatedAt == secondUpdatedAt)
+    }
+
+    @Test
     func `pullProjects resolves a childs parent link regardless of array order`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
