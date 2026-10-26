@@ -34,7 +34,10 @@ public final class VikunjaLabelRepositoryV2: LabelRepositoryProtocol {
         return LabelMapper.toDomain(dto)
     }
 
-    public func delete(id: Int) async throws {
+    public func delete(id: EntityID) async throws {
+        guard let id = id.remoteValue else {
+            preconditionFailure("VikunjaLabelRepositoryV2.delete: label must be synced before it can be deleted")
+        }
         try await client.send(VikunjaEndpoints.deleteLabelV2(id: id))
     }
 

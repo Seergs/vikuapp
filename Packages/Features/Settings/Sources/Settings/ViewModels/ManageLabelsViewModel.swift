@@ -81,12 +81,8 @@ public final class ManageLabelsViewModel {
     public func deleteLabel(_ label: Label) async {
         let previous = labels
         labels.removeAll { $0.id == label.id }
-        guard let id = label.id.remoteValue else {
-            labels = previous
-            return
-        }
         do {
-            try await repository.delete(id: id)
+            try await repository.delete(id: label.id)
             toastPresenter.show(String(localized: "Label deleted", bundle: .module), style: .success)
         } catch let error as VikunjaError {
             labels = previous

@@ -85,7 +85,7 @@ private final class SpyLabelRepository: LabelRepositoryProtocol, @unchecked Send
         return label
     }
 
-    func delete(id: Int) async throws {
+    func delete(id: EntityID) async throws {
         deleteCallCount += 1
     }
 

@@ -136,8 +136,8 @@ final class FakeLabelRepository: LabelRepositoryProtocol, @unchecked Sendable {
         label
     }
 
-    func delete(id: Int) async throws {
-        labels.removeAll { $0.id.remoteValue == id }
+    func delete(id: EntityID) async throws {
+        labels.removeAll { $0.id == id }
     }
 
     func addLabel(_ labelID: Int, toTask taskID: Int) async throws {
