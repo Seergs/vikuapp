@@ -180,7 +180,7 @@ final class FakeLabelRepository: LabelRepositoryProtocol, @unchecked Sendable {
         if let createError {
             throw createError
         }
-        let created = Label(id: nextID, title: label.title, hexColor: label.hexColor)
+        let created = Label(id: .remote(nextID), title: label.title, hexColor: label.hexColor)
         nextID += 1
         labels.append(created)
         return created
@@ -191,7 +191,7 @@ final class FakeLabelRepository: LabelRepositoryProtocol, @unchecked Sendable {
     }
 
     func delete(id: Int) async throws {
-        labels.removeAll { $0.id == id }
+        labels.removeAll { $0.id.remoteValue == id }
     }
 
     func addLabel(_ labelID: Int, toTask taskID: Int) async throws {

@@ -160,4 +160,43 @@ struct DatabaseMigrationsTests {
         let rows = try dbQueue.read { db in try SyncStateRecord.fetchAll(db) }
         #expect(rows.count == 2)
     }
+
+    @Test
+    func `label table round trips a row with no remote id yet`() throws {
+        let dbQueue = try migratedDatabase()
+        let record = LabelRecord(localID: UUID(), accountID: UUID(), remoteID: nil, title: "Urgent", hexColor: "ff0000")
+
+        try dbQueue.write { db in try record.insert(db) }
+
+        let fetched = try dbQueue.read { db in try LabelRecord.fetchOne(db, key: record.localID) }
+        #expect(fetched == record)
+    }
+
+    @Test
+    func `label remoteID is unique within an account`() throws {
+        let dbQueue = try migratedDatabase()
+        let accountID = UUID()
+        let first = LabelRecord(localID: UUID(), accountID: accountID, remoteID: 42, title: "A", hexColor: "")
+        let second = LabelRecord(localID: UUID(), accountID: accountID, remoteID: 42, title: "B", hexColor: "")
+
+        try dbQueue.write { db in try first.insert(db) }
+        #expect(throws: DatabaseError.self) {
+            try dbQueue.write { db in try second.insert(db) }
+        }
+    }
+
+    @Test
+    func `label remoteID can repeat across different accounts`() throws {
+        let dbQueue = try migratedDatabase()
+        let first = LabelRecord(localID: UUID(), accountID: UUID(), remoteID: 42, title: "A", hexColor: "")
+        let second = LabelRecord(localID: UUID(), accountID: UUID(), remoteID: 42, title: "B", hexColor: "")
+
+        try dbQueue.write { db in
+            try first.insert(db)
+            try second.insert(db)
+        }
+
+        let rows = try dbQueue.read { db in try LabelRecord.fetchAll(db) }
+        #expect(rows.count == 2)
+    }
 }

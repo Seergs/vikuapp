@@ -19,7 +19,10 @@ public final class VikunjaLabelRepository: LabelRepositoryProtocol {
     }
 
     public func update(_ label: Label) async throws -> Label {
-        let endpoint = try VikunjaEndpoints.updateLabel(id: label.id, dto: LabelMapper.toDTO(label))
+        guard let id = label.id.remoteValue else {
+            preconditionFailure("VikunjaLabelRepository.update: label must be synced before it can be updated")
+        }
+        let endpoint = try VikunjaEndpoints.updateLabel(id: id, dto: LabelMapper.toDTO(label))
         let dto: LabelDTO = try await client.send(endpoint)
         return LabelMapper.toDomain(dto)
     }

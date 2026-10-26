@@ -115,8 +115,13 @@ public enum QuickAddParser {
         var newLabelNames: [String] = []
         for item in resolved {
             switch item.resolution {
-            case let .label(label) where !labelIDs.contains(label.id):
-                labelIDs.append(label.id)
+            case let .label(label):
+                // A label that hasn't synced yet (offline-created) has no
+                // server id to attach to a new task - not reachable until
+                // Labels' own offline-create path exists.
+                if let labelID = label.id.remoteValue, !labelIDs.contains(labelID) {
+                    labelIDs.append(labelID)
+                }
             case let .newLabel(name) where !newLabelNames.contains(where: { fold($0) == fold(name) }):
                 newLabelNames.append(name)
             default:

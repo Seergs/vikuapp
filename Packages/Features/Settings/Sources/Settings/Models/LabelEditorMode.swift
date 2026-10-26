@@ -8,9 +8,9 @@ enum LabelEditorMode: Identifiable, Hashable, Sendable {
     case create
     case edit(Label)
 
-    var id: Int {
+    var id: EntityID {
         switch self {
-        case .create: 0
+        case .create: .remote(0)
         case let .edit(label): label.id
         }
     }

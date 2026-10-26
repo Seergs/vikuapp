@@ -14,6 +14,7 @@ enum DatabaseMigrations {
         migrator.registerMigration("createProject", migrate: createProject)
         migrator.registerMigration("createMutationQueue", migrate: createMutationQueue)
         migrator.registerMigration("createSyncState", migrate: createSyncState)
+        migrator.registerMigration("createLabel", migrate: createLabel)
     }
 
     private static func createProject(_ db: Database) throws {
@@ -89,5 +90,22 @@ enum DatabaseMigrations {
             table.column("lastPulledAt", .datetime).notNull()
             table.primaryKey(["accountID", "entityType"])
         }
+    }
+
+    private static func createLabel(_ db: Database) throws {
+        try db.create(table: "label") { table in
+            table.primaryKey("localID", .text)
+            // Same per-account scoping as `project` - see its own comment.
+            table.column("accountID", .text).notNull().indexed()
+            table.column("remoteID", .integer)
+            table.column("title", .text).notNull()
+            table.column("hexColor", .text).notNull().defaults(to: "")
+        }
+        try db.create(
+            index: "label_on_accountID_remoteID",
+            on: "label",
+            columns: ["accountID", "remoteID"],
+            unique: true,
+        )
     }
 }
