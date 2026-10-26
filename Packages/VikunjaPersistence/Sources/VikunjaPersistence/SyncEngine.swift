@@ -210,6 +210,13 @@ public actor SyncEngine {
     /// invisibly forever just because one earlier attempt didn't work.
     /// `status`/`retryCount`/`lastError` stay around as diagnostics, not as
     /// a terminal "never again" state.
+    ///
+    /// Re-pulls once more at the end if this pass flagged a new conflict —
+    /// that conflicted row no longer protects its own content against a
+    /// pull (see `queuedTargetLocalIDs`), so this is what actually resyncs
+    /// it to the server's real state in the same pass that discovered the
+    /// conflict, rather than leaving the discarded local edit on screen
+    /// until whatever the next unrelated sync trigger happens to be.
     public func drainProjectMutations() async throws {
         let items = try await localStore.read { db in
             try MutationQueueRecord.fetchAll(db)
@@ -219,24 +226,41 @@ public actor SyncEngine {
                 }
                 .sorted { $0.createdAt < $1.createdAt }
         }
+        var flaggedNewConflict = false
         for item in items {
-            await drain(item)
+            // Every item must still be drained regardless of outcome, so
+            // this can't be a `where` filter.
+            // swiftlint:disable:next for_where
+            if await drain(item) == .conflicted {
+                flaggedNewConflict = true
+            }
+        }
+        if flaggedNewConflict {
+            try? await pullProjects()
         }
     }
 
-    private func drain(_ item: MutationQueueRecord) async {
+    private enum DrainOutcome {
+        case pushed
+        case deferred
+        case conflicted
+        case skipped
+    }
+
+    private func drain(_ item: MutationQueueRecord) async -> DrainOutcome {
         do {
             switch item.operation {
-            case .create: try await drainCreate(item)
-            case .update: try await drainUpdate(item)
-            case .delete: try await drainDelete(item)
+            case .create: return try await drainCreate(item)
+            case .update: return try await drainUpdate(item)
+            case .delete: return try await drainDelete(item)
             }
         } catch {
             await markFailed(item, error: error)
+            return .skipped
         }
     }
 
-    private func drainCreate(_ item: MutationQueueRecord) async throws {
+    private func drainCreate(_ item: MutationQueueRecord) async throws -> DrainOutcome {
         guard let payload: ProjectCreateOrUpdatePayload = try decodePayload(item.payload) else {
             throw DrainError.invalidPayload
         }
@@ -244,7 +268,7 @@ public actor SyncEngine {
             try Self.resolveRemoteID(forLocalID: payload.parentProjectLocalID, db: db)
         }
         guard payload.parentProjectLocalID == nil || resolvedParentID != nil else {
-            return // The parent hasn't synced yet — retry this item on a later pass.
+            return .deferred // The parent hasn't synced yet — retry this item on a later pass.
         }
         let project = Project(
             id: .local(item.targetLocalID),
@@ -258,9 +282,10 @@ public actor SyncEngine {
         )
         let created = try await projectRepository.create(project)
         try await applyPushResult(created, deleting: item)
+        return .pushed
     }
 
-    private func drainUpdate(_ item: MutationQueueRecord) async throws {
+    private func drainUpdate(_ item: MutationQueueRecord) async throws -> DrainOutcome {
         guard let payload: ProjectCreateOrUpdatePayload = try decodePayload(item.payload) else {
             throw DrainError.invalidPayload
         }
@@ -270,15 +295,15 @@ public actor SyncEngine {
             return (row, parentID)
         }
         guard let currentRow, let remoteID = currentRow.remoteID else {
-            return // Not synced yet — there's nothing server-side to update.
+            return .skipped // Not synced yet — there's nothing server-side to update.
         }
         guard payload.parentProjectLocalID == nil || resolvedParentID != nil else {
-            return // The new parent hasn't synced yet — retry this item on a later pass.
+            return .deferred // The new parent hasn't synced yet — retry this item on a later pass.
         }
         if let baseUpdatedAt = payload.baseUpdatedAt, let serverUpdatedAt = currentRow.serverUpdatedAt,
            serverUpdatedAt > baseUpdatedAt {
             try await flagConflict(item)
-            return
+            return .conflicted
         }
         let project = Project(
             id: .remote(remoteID),
@@ -292,9 +317,10 @@ public actor SyncEngine {
         )
         let updated = try await projectRepository.update(project)
         try await applyPushResult(updated, deleting: item)
+        return .pushed
     }
 
-    private func drainDelete(_ item: MutationQueueRecord) async throws {
+    private func drainDelete(_ item: MutationQueueRecord) async throws -> DrainOutcome {
         guard let payload: ProjectDeletePayload = try decodePayload(item.payload) else {
             throw DrainError.invalidPayload
         }
@@ -305,6 +331,7 @@ public actor SyncEngine {
             }
             try item.delete(db)
         }
+        return .pushed
     }
 
     /// Persists a successful `create`/`update`'s server response and
