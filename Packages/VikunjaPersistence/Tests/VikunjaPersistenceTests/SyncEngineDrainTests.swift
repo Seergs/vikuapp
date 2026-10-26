@@ -4,6 +4,8 @@ import VikunjaCore
 @testable import VikunjaPersistence
 
 struct SyncEngineDrainTests {
+    private let accountID = UUID()
+
     private func temporaryDirectory() -> URL {
         FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     }
@@ -18,7 +20,7 @@ struct SyncEngineDrainTests {
         serverUpdatedAt: Date? = nil,
     ) async throws -> ProjectRecord {
         let row = ProjectRecord(
-            localID: localID, remoteID: remoteID, title: title, description: nil,
+            localID: localID, accountID: accountID, remoteID: remoteID, title: title, description: nil,
             isArchived: false, isFavorite: false, parentProjectLocalID: parentProjectLocalID,
             position: 0, hexColor: "", serverUpdatedAt: serverUpdatedAt,
         )
@@ -39,7 +41,7 @@ struct SyncEngineDrainTests {
         let payloadString = try payload.flatMap { try String(bytes: encoder.encode($0), encoding: .utf8) }
         return try await store.write { db in
             var item = MutationQueueRecord(
-                id: nil, entityType: .project, operation: operation, targetLocalID: targetLocalID,
+                id: nil, accountID: accountID, entityType: .project, operation: operation, targetLocalID: targetLocalID,
                 payload: payloadString, createdAt: Date(), retryCount: 0, lastError: nil,
                 status: status, needsConflictResolution: false,
             )
@@ -52,7 +54,7 @@ struct SyncEngineDrainTests {
     func `drain creates a project queued while offline and resolves its remote id locally`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
-        let engine = SyncEngine(localStore: store, projectRepository: repository)
+        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
         let localID = UUID()
         try await insertProject(in: store, localID: localID, remoteID: nil, title: "Groceries")
         try await queueMutation(
@@ -79,7 +81,7 @@ struct SyncEngineDrainTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
         repository.createError = VikunjaError.network("offline")
-        let engine = SyncEngine(localStore: store, projectRepository: repository)
+        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
         let parentLocalID = UUID()
         let childLocalID = UUID()
         try await insertProject(in: store, localID: parentLocalID, remoteID: nil, title: "Parent")
@@ -113,7 +115,7 @@ struct SyncEngineDrainTests {
     func `drain creates a parent then its child in the same pass once the parent succeeds`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
-        let engine = SyncEngine(localStore: store, projectRepository: repository)
+        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
         let parentLocalID = UUID()
         let childLocalID = UUID()
         try await insertProject(in: store, localID: parentLocalID, remoteID: nil, title: "Parent")
@@ -157,7 +159,7 @@ struct SyncEngineDrainTests {
     func `drain pushes an update and clears the queue item on success`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
-        let engine = SyncEngine(localStore: store, projectRepository: repository)
+        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
         let localID = UUID()
         try await insertProject(in: store, localID: localID, remoteID: 1, title: "Groceries")
         try await queueMutation(
@@ -179,7 +181,7 @@ struct SyncEngineDrainTests {
     func `drain flags a conflict instead of overwriting a newer server side edit`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
-        let engine = SyncEngine(localStore: store, projectRepository: repository)
+        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
         let localID = UUID()
         let queuedAt = Date(timeIntervalSince1970: 1000)
         let observedByLaterPull = Date(timeIntervalSince1970: 2000)
@@ -205,7 +207,7 @@ struct SyncEngineDrainTests {
     func `drain skips a conflicted item on a later pass until it is resolved`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
-        let engine = SyncEngine(localStore: store, projectRepository: repository)
+        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
         let localID = UUID()
         try await insertProject(
             in: store, localID: localID, remoteID: 1, serverUpdatedAt: Date(timeIntervalSince1970: 2000),
@@ -228,7 +230,7 @@ struct SyncEngineDrainTests {
     func `drain deletes a project and removes the local row on success`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
-        let engine = SyncEngine(localStore: store, projectRepository: repository)
+        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
         let localID = UUID()
         try await insertProject(in: store, localID: localID, remoteID: 1)
         try await queueMutation(
@@ -250,7 +252,7 @@ struct SyncEngineDrainTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
         repository.updateError = VikunjaError.network("boom")
-        let engine = SyncEngine(localStore: store, projectRepository: repository)
+        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
         let failingLocalID = UUID()
         let okLocalID = UUID()
         try await insertProject(in: store, localID: failingLocalID, remoteID: 1, title: "Will fail")

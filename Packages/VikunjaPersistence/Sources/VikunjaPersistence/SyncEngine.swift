@@ -2,18 +2,23 @@ import Foundation
 import GRDB
 import VikunjaCore
 
-/// Keeps the local store's cache of each synced entity in step with the
-/// server: pulls the server's state in, and drains locally queued
-/// mutations back out. Nothing constructs this in production yet (no
-/// account-scoped `LocalStore` exists to hand it, and nothing queues a
-/// mutation for it to drain), so it's unused until that wiring lands.
+/// Keeps one account's slice of the local store's cache in step with the
+/// server: pulls the server's state in, and drains that account's locally
+/// queued mutations back out. Nothing constructs this in production yet
+/// (nothing queues a mutation for it to drain), so it's unused until the
+/// repository and coordinator that will drive it land.
 public actor SyncEngine {
     private let localStore: LocalStore
     private let projectRepository: ProjectRepositoryProtocol
+    /// `InstanceAccount.id` — every row this engine reads or writes is
+    /// scoped to this one account, since `LocalStore`'s tables hold every
+    /// saved account's data together rather than one database file each.
+    private let accountID: UUID
 
-    public init(localStore: LocalStore, projectRepository: ProjectRepositoryProtocol) {
+    public init(localStore: LocalStore, projectRepository: ProjectRepositoryProtocol, accountID: UUID) {
         self.localStore = localStore
         self.projectRepository = projectRepository
+        self.accountID = accountID
     }
 
     /// Fetches every project from the server and reconciles it into the
@@ -32,24 +37,29 @@ public actor SyncEngine {
         let now = Date()
 
         try await localStore.write { db in
-            let localRows = try ProjectRecord.fetchAll(db)
+            let localRows = try ProjectRecord.fetchAll(db).filter { $0.accountID == self.accountID }
             let localIDByRemoteID = Self.reserveLocalIDs(for: remoteProjects, existing: localRows)
 
-            try Self.upsertRows(for: remoteProjects, localIDByRemoteID: localIDByRemoteID, db: db)
+            try Self.upsertRows(
+                for: remoteProjects, accountID: self.accountID, localIDByRemoteID: localIDByRemoteID, db: db,
+            )
             try Self.resolveParentLinks(for: remoteProjects, localIDByRemoteID: localIDByRemoteID, db: db)
             try Self.deleteMissingRows(
                 localRows,
                 stillPresentRemoteIDs: Set(remoteProjects.compactMap(\.id.remoteValue)),
+                accountID: self.accountID,
                 db: db,
             )
 
-            try SyncStateRecord(entityType: .project, lastPulledAt: now).save(db)
+            try SyncStateRecord(accountID: self.accountID, entityType: .project, lastPulledAt: now).save(db)
         }
     }
 
     /// A localID for every remote project: an existing row's own, or a
     /// fresh `UUID` for one not seen before. Resolved up front so a child's
     /// parent link can be looked up below regardless of array order.
+    /// `existing` is already scoped to this engine's account, so `remoteID`
+    /// only needs to be unique within it, not across every saved account.
     private static func reserveLocalIDs(for remoteProjects: [Project], existing localRows: [ProjectRecord]) -> [Int: UUID] {
         var localIDByRemoteID: [Int: UUID] = Dictionary(
             uniqueKeysWithValues: localRows.compactMap { row in row.remoteID.map { ($0, row.localID) } },
@@ -67,6 +77,7 @@ public actor SyncEngine {
     /// that doesn't exist in the table yet.
     private static func upsertRows(
         for remoteProjects: [Project],
+        accountID: UUID,
         localIDByRemoteID: [Int: UUID],
         db: Database,
     ) throws {
@@ -74,6 +85,7 @@ public actor SyncEngine {
             guard let remoteID = project.id.remoteValue, let localID = localIDByRemoteID[remoteID] else { continue }
             let row = ProjectRecord(
                 localID: localID,
+                accountID: accountID,
                 remoteID: remoteID,
                 title: project.title,
                 description: project.description,
@@ -110,15 +122,16 @@ public actor SyncEngine {
     /// Drops a local row whose remote id is no longer in the server's
     /// response, unless a mutation is still queued against it — that row
     /// might be a local edit the pull hasn't confirmed yet, not a real
-    /// server-side deletion.
+    /// server-side deletion. `localRows` is already scoped to `accountID`.
     private static func deleteMissingRows(
         _ localRows: [ProjectRecord],
         stillPresentRemoteIDs: Set<Int>,
+        accountID: UUID,
         db: Database,
     ) throws {
         let queuedTargetLocalIDs = try Set(
             MutationQueueRecord.fetchAll(db)
-                .filter { $0.status == .pending || $0.status == .inFlight }
+                .filter { $0.accountID == accountID && ($0.status == .pending || $0.status == .inFlight) }
                 .map(\.targetLocalID),
         )
         for row in localRows {
@@ -147,7 +160,10 @@ public actor SyncEngine {
     public func drainProjectMutations() async throws {
         let items = try await localStore.read { db in
             try MutationQueueRecord.fetchAll(db)
-                .filter { $0.entityType == .project && $0.status == .pending && !$0.needsConflictResolution }
+                .filter {
+                    $0.accountID == self.accountID && $0.entityType == .project
+                        && $0.status == .pending && !$0.needsConflictResolution
+                }
                 .sorted { $0.createdAt < $1.createdAt }
         }
         for item in items {

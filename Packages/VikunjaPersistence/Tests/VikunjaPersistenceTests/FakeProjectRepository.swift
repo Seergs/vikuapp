@@ -3,16 +3,22 @@ import VikunjaCore
 
 final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendable {
     var projects: [Project] = []
+    var fetchError: Error?
     var createError: Error?
     var updateError: Error?
     var deleteError: Error?
     private(set) var createdProjects: [Project] = []
     private(set) var updatedProjects: [Project] = []
     private(set) var deletedIDs: [Int] = []
+    private(set) var fetchProjectsCallCount = 0
     private var nextRemoteID = 100
 
     func fetchProjects() async throws -> [Project] {
-        projects
+        fetchProjectsCallCount += 1
+        if let fetchError {
+            throw fetchError
+        }
+        return projects
     }
 
     func fetchProject(id: EntityID) async throws -> Project {

@@ -7,6 +7,7 @@ import GRDB
 /// not here.
 struct ProjectRecord: Codable, Equatable, Sendable {
     var localID: UUID
+    var accountID: UUID
     var remoteID: Int?
     var title: String
     var description: String?
