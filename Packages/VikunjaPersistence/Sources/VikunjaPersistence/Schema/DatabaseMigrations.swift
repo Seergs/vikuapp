@@ -14,7 +14,6 @@ enum DatabaseMigrations {
         migrator.registerMigration("createProject", migrate: createProject)
         migrator.registerMigration("createMutationQueue", migrate: createMutationQueue)
         migrator.registerMigration("createSyncState", migrate: createSyncState)
-        migrator.registerMigration("addConflictFlagToMutationQueue", migrate: addConflictFlagToMutationQueue)
     }
 
     private static func createProject(_ db: Database) throws {
@@ -51,6 +50,12 @@ enum DatabaseMigrations {
             table.column("lastError", .text)
             table.column("status", .text).notNull().defaults(to: "pending")
                 .check { ["pending", "inFlight", "failed"].contains($0) }
+            // Set when a queued update conflicts with a newer server-side
+            // edit the most recent pull observed. A conflicted row keeps
+            // `status == "pending"` — it isn't a push failure, it's blocked
+            // on a person choosing "keep mine" or "keep server" (not built
+            // yet) — and the drain query excludes it by this flag instead.
+            table.column("needsConflictResolution", .boolean).notNull().defaults(to: false)
         }
         // Queue drain scans pending rows in FIFO order.
         try db.create(
@@ -68,18 +73,6 @@ enum DatabaseMigrations {
         try db.create(table: "syncState") { table in
             table.primaryKey("entityType", .text)
             table.column("lastPulledAt", .datetime).notNull()
-        }
-    }
-
-    /// A plain added column rather than widening `status`'s existing CHECK
-    /// constraint, which SQLite can only change by rebuilding the table.
-    /// A conflicted row keeps `status == "pending"` — it isn't a push
-    /// failure, it's blocked on a person choosing "keep mine" or "keep
-    /// server" (not built yet) — and the drain query excludes it by this
-    /// flag instead.
-    private static func addConflictFlagToMutationQueue(_ db: Database) throws {
-        try db.alter(table: "mutationQueueItem") { table in
-            table.add(column: "needsConflictResolution", .boolean).notNull().defaults(to: false)
         }
     }
 }
