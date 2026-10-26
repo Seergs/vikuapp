@@ -95,6 +95,7 @@ struct DatabaseMigrationsTests {
             retryCount: 0,
             lastError: nil,
             status: .pending,
+            needsConflictResolution: false,
         )
 
         try dbQueue.write { db in try item.insert(db) }

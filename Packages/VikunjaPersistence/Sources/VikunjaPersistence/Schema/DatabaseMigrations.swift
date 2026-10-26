@@ -50,6 +50,12 @@ enum DatabaseMigrations {
             table.column("lastError", .text)
             table.column("status", .text).notNull().defaults(to: "pending")
                 .check { ["pending", "inFlight", "failed"].contains($0) }
+            // Set when a queued update conflicts with a newer server-side
+            // edit the most recent pull observed. A conflicted row keeps
+            // `status == "pending"` — it isn't a push failure, it's blocked
+            // on a person choosing "keep mine" or "keep server" (not built
+            // yet) — and the drain query excludes it by this flag instead.
+            table.column("needsConflictResolution", .boolean).notNull().defaults(to: false)
         }
         // Queue drain scans pending rows in FIFO order.
         try db.create(

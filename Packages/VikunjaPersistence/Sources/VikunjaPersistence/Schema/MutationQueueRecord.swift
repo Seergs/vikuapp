@@ -39,6 +39,10 @@ struct MutationQueueRecord: Codable, Equatable, Sendable {
     var retryCount: Int
     var lastError: String?
     var status: MutationStatus
+    /// Set when a queued `update` conflicts with a newer server-side edit
+    /// observed by the most recent pull — draining skips it until a person
+    /// resolves it, which isn't built yet.
+    var needsConflictResolution: Bool
 }
 
 extension MutationQueueRecord: FetchableRecord, MutablePersistableRecord {
