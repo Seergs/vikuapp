@@ -36,7 +36,10 @@ struct OfflineProjectRepositoryTests {
         network: FakeProjectRepository = FakeProjectRepository(),
     ) throws -> Fixture {
         let store = try LocalStore(directory: temporaryDirectory())
-        let engine = SyncEngine(localStore: store, projectRepository: network, accountID: accountID)
+        let engine = SyncEngine(
+            localStore: store, projectRepository: network,
+            labelRepository: FakeLabelRepository(), accountID: accountID,
+        )
         let reachability = FakeReachabilityMonitor(isReachable: online)
         let repository = OfflineProjectRepository(
             localStore: store, accountID: accountID, syncEngine: engine, reachability: reachability,
@@ -164,7 +167,10 @@ struct OfflineProjectRepositoryTests {
         let accountID = UUID()
         let network = FakeProjectRepository()
         let store = try LocalStore(directory: temporaryDirectory())
-        let onlineEngine = SyncEngine(localStore: store, projectRepository: network, accountID: accountID)
+        let onlineEngine = SyncEngine(
+            localStore: store, projectRepository: network,
+            labelRepository: FakeLabelRepository(), accountID: accountID,
+        )
         let onlineRepository = OfflineProjectRepository(
             localStore: store, accountID: accountID, syncEngine: onlineEngine,
             reachability: FakeReachabilityMonitor(isReachable: true),
@@ -172,7 +178,10 @@ struct OfflineProjectRepositoryTests {
         let created = try await onlineRepository.create(Project(id: .local(UUID()), title: "Groceries"))
         #expect(created.id.remoteValue != nil)
 
-        let offlineEngine = SyncEngine(localStore: store, projectRepository: network, accountID: accountID)
+        let offlineEngine = SyncEngine(
+            localStore: store, projectRepository: network,
+            labelRepository: FakeLabelRepository(), accountID: accountID,
+        )
         let offlineRepository = OfflineProjectRepository(
             localStore: store, accountID: accountID, syncEngine: offlineEngine,
             reachability: FakeReachabilityMonitor(isReachable: false),
@@ -207,14 +216,20 @@ struct OfflineProjectRepositoryTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let onlineRepository = OfflineProjectRepository(
             localStore: store, accountID: accountID,
-            syncEngine: SyncEngine(localStore: store, projectRepository: network, accountID: accountID),
+            syncEngine: SyncEngine(
+                localStore: store, projectRepository: network,
+                labelRepository: FakeLabelRepository(), accountID: accountID,
+            ),
             reachability: FakeReachabilityMonitor(isReachable: true),
         )
         let created = try await onlineRepository.create(Project(id: .local(UUID()), title: "Groceries"))
 
         let offlineRepository = OfflineProjectRepository(
             localStore: store, accountID: accountID,
-            syncEngine: SyncEngine(localStore: store, projectRepository: network, accountID: accountID),
+            syncEngine: SyncEngine(
+                localStore: store, projectRepository: network,
+                labelRepository: FakeLabelRepository(), accountID: accountID,
+            ),
             reachability: FakeReachabilityMonitor(isReachable: false),
         )
         try await offlineRepository.delete(id: created.id)
@@ -263,12 +278,18 @@ struct OfflineProjectRepositoryTests {
         let networkB = FakeProjectRepository()
         let repositoryA = OfflineProjectRepository(
             localStore: store, accountID: accountA,
-            syncEngine: SyncEngine(localStore: store, projectRepository: networkA, accountID: accountA),
+            syncEngine: SyncEngine(
+                localStore: store, projectRepository: networkA,
+                labelRepository: FakeLabelRepository(), accountID: accountA,
+            ),
             reachability: FakeReachabilityMonitor(isReachable: false),
         )
         let repositoryB = OfflineProjectRepository(
             localStore: store, accountID: accountB,
-            syncEngine: SyncEngine(localStore: store, projectRepository: networkB, accountID: accountB),
+            syncEngine: SyncEngine(
+                localStore: store, projectRepository: networkB,
+                labelRepository: FakeLabelRepository(), accountID: accountB,
+            ),
             reachability: FakeReachabilityMonitor(isReachable: false),
         )
 

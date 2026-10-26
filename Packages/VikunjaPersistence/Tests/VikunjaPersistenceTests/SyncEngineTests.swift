@@ -13,7 +13,10 @@ struct SyncEngineTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
         repository.projects = [Project(id: 1, title: "Groceries", hexColor: "ff0000")]
-        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: UUID())
+        let engine = SyncEngine(
+            localStore: store, projectRepository: repository,
+            labelRepository: FakeLabelRepository(), accountID: UUID(),
+        )
 
         try await engine.pullProjects()
 
@@ -29,7 +32,10 @@ struct SyncEngineTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
         repository.projects = [Project(id: 1, title: "Groceries")]
-        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: UUID())
+        let engine = SyncEngine(
+            localStore: store, projectRepository: repository,
+            labelRepository: FakeLabelRepository(), accountID: UUID(),
+        )
         try await engine.pullProjects()
         let localID = try await store.read { db in
             try #require(ProjectRecord.fetchAll(db).first { $0.remoteID == 1 }).localID
@@ -56,7 +62,10 @@ struct SyncEngineTests {
         let repository = FakeProjectRepository()
         repository.projects = [Project(id: 1, title: "Groceries")]
         let accountID = UUID()
-        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
+        let engine = SyncEngine(
+            localStore: store, projectRepository: repository,
+            labelRepository: FakeLabelRepository(), accountID: accountID,
+        )
         try await engine.pullProjects()
         let localID = try await store.read { db in
             try #require(ProjectRecord.fetchAll(db).first { $0.remoteID == 1 }).localID
@@ -93,7 +102,10 @@ struct SyncEngineTests {
         let firstUpdatedAt = Date(timeIntervalSince1970: 1_000_000)
         repository.projects = [Project(id: 1, title: "Groceries", updated: firstUpdatedAt)]
         let accountID = UUID()
-        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
+        let engine = SyncEngine(
+            localStore: store, projectRepository: repository,
+            labelRepository: FakeLabelRepository(), accountID: accountID,
+        )
         try await engine.pullProjects()
         let localID = try await store.read { db in
             try #require(ProjectRecord.fetchAll(db).first { $0.remoteID == 1 }).localID
@@ -147,7 +159,10 @@ struct SyncEngineTests {
         repository.projects = [
             Project(id: 1, title: "Groceries (web edit)", updated: Date(timeIntervalSince1970: 2_000_000)),
         ]
-        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
+        let engine = SyncEngine(
+            localStore: store, projectRepository: repository,
+            labelRepository: FakeLabelRepository(), accountID: accountID,
+        )
         try await engine.pullProjects()
 
         let row = try await store.read { db in try #require(try ProjectRecord.fetchOne(db, key: localID)) }
@@ -163,7 +178,10 @@ struct SyncEngineTests {
             Project(id: 2, title: "Subproject", parentProjectID: 1),
             Project(id: 1, title: "Parent"),
         ]
-        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: UUID())
+        let engine = SyncEngine(
+            localStore: store, projectRepository: repository,
+            labelRepository: FakeLabelRepository(), accountID: UUID(),
+        )
 
         try await engine.pullProjects()
 
@@ -178,7 +196,10 @@ struct SyncEngineTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
         repository.projects = [Project(id: 1, title: "Groceries"), Project(id: 2, title: "Work")]
-        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: UUID())
+        let engine = SyncEngine(
+            localStore: store, projectRepository: repository,
+            labelRepository: FakeLabelRepository(), accountID: UUID(),
+        )
         try await engine.pullProjects()
 
         repository.projects = [Project(id: 1, title: "Groceries")]
@@ -194,7 +215,10 @@ struct SyncEngineTests {
         let repository = FakeProjectRepository()
         repository.projects = [Project(id: 1, title: "Groceries")]
         let accountID = UUID()
-        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
+        let engine = SyncEngine(
+            localStore: store, projectRepository: repository,
+            labelRepository: FakeLabelRepository(), accountID: accountID,
+        )
         try await engine.pullProjects()
         let localID = try await store.read { db in
             try #require(ProjectRecord.fetchAll(db).first { $0.remoteID == 1 }).localID
@@ -222,7 +246,10 @@ struct SyncEngineTests {
         let repository = FakeProjectRepository()
         repository.projects = [Project(id: 1, title: "Groceries")]
         let accountID = UUID()
-        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
+        let engine = SyncEngine(
+            localStore: store, projectRepository: repository,
+            labelRepository: FakeLabelRepository(), accountID: accountID,
+        )
         try await engine.pullProjects()
         let localID = try await store.read { db in
             try #require(ProjectRecord.fetchAll(db).first { $0.remoteID == 1 }).localID
@@ -248,7 +275,10 @@ struct SyncEngineTests {
     func `pullProjects records the pull time in syncState`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
-        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: UUID())
+        let engine = SyncEngine(
+            localStore: store, projectRepository: repository,
+            labelRepository: FakeLabelRepository(), accountID: UUID(),
+        )
         let before = Date()
 
         try await engine.pullProjects()
@@ -271,8 +301,14 @@ struct SyncEngineTests {
         repositoryA.projects = [Project(id: 1, title: "A's project")]
         let repositoryB = FakeProjectRepository()
         repositoryB.projects = [Project(id: 1, title: "B's project")]
-        let engineA = SyncEngine(localStore: store, projectRepository: repositoryA, accountID: accountA)
-        let engineB = SyncEngine(localStore: store, projectRepository: repositoryB, accountID: accountB)
+        let engineA = SyncEngine(
+            localStore: store, projectRepository: repositoryA,
+            labelRepository: FakeLabelRepository(), accountID: accountA,
+        )
+        let engineB = SyncEngine(
+            localStore: store, projectRepository: repositoryB,
+            labelRepository: FakeLabelRepository(), accountID: accountB,
+        )
 
         try await engineA.pullProjects()
         try await engineB.pullProjects()
@@ -288,5 +324,102 @@ struct SyncEngineTests {
 
         let state = try await store.read { db in try SyncStateRecord.fetchAll(db) }
         #expect(state.count == 2)
+    }
+
+    @Test
+    func `pullLabels inserts a label not yet seen locally`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let labelRepository = FakeLabelRepository()
+        labelRepository.labels = [Label(id: 1, title: "Urgent", hexColor: "ff0000")]
+        let engine = SyncEngine(
+            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: labelRepository,
+            accountID: UUID(),
+        )
+
+        try await engine.pullLabels()
+
+        let rows = try await store.read { db in try LabelRecord.fetchAll(db) }
+        #expect(rows.count == 1)
+        #expect(rows[0].remoteID == 1)
+        #expect(rows[0].title == "Urgent")
+        #expect(rows[0].hexColor == "ff0000")
+    }
+
+    @Test
+    func `pullLabels updates an existing row in place rather than duplicating it`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let labelRepository = FakeLabelRepository()
+        labelRepository.labels = [Label(id: 1, title: "Urgent", hexColor: "ff0000")]
+        let accountID = UUID()
+        let engine = SyncEngine(
+            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: labelRepository,
+            accountID: accountID,
+        )
+        try await engine.pullLabels()
+        let localID = try await store.read { db in
+            try #require(LabelRecord.fetchAll(db).first { $0.remoteID == 1 }).localID
+        }
+
+        labelRepository.labels = [Label(id: 1, title: "Urgent (renamed)", hexColor: "ff0000")]
+        try await engine.pullLabels()
+
+        let rows = try await store.read { db in try LabelRecord.fetchAll(db) }
+        #expect(rows.count == 1)
+        #expect(rows[0].localID == localID)
+        #expect(rows[0].title == "Urgent (renamed)")
+    }
+
+    @Test
+    func `pullLabels deletes a local row whose remote id is gone from the server`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let labelRepository = FakeLabelRepository()
+        labelRepository.labels = [
+            Label(id: 1, title: "Urgent", hexColor: ""), Label(id: 2, title: "Work", hexColor: ""),
+        ]
+        let engine = SyncEngine(
+            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: labelRepository,
+            accountID: UUID(),
+        )
+        try await engine.pullLabels()
+
+        labelRepository.labels = [Label(id: 1, title: "Urgent", hexColor: "")]
+        try await engine.pullLabels()
+
+        let rows = try await store.read { db in try LabelRecord.fetchAll(db) }
+        #expect(rows.map(\.remoteID) == [1])
+    }
+
+    @Test
+    func `pullLabels never overwrites a row that still has a queued edit the server hasnt seen yet`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let labelRepository = FakeLabelRepository()
+        labelRepository.labels = [Label(id: 1, title: "Urgent", hexColor: "")]
+        let accountID = UUID()
+        let engine = SyncEngine(
+            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: labelRepository,
+            accountID: accountID,
+        )
+        try await engine.pullLabels()
+        let localID = try await store.read { db in
+            try #require(LabelRecord.fetchAll(db).first { $0.remoteID == 1 }).localID
+        }
+        try await store.write { db in
+            var row = try #require(try LabelRecord.fetchOne(db, key: localID))
+            row.title = "Urgent & Important"
+            try row.save(db)
+            var mutation = MutationQueueRecord(
+                id: nil, accountID: accountID, entityType: .label, operation: .update, targetLocalID: localID,
+                payload: nil, createdAt: Date(), retryCount: 0, lastError: nil, status: .pending,
+                needsConflictResolution: false,
+            )
+            try mutation.insert(db)
+        }
+
+        // The server still reports the pre-edit title - it hasn't seen the
+        // queued update drain yet.
+        try await engine.pullLabels()
+
+        let row = try await store.read { db in try #require(try LabelRecord.fetchOne(db, key: localID)) }
+        #expect(row.title == "Urgent & Important")
     }
 }

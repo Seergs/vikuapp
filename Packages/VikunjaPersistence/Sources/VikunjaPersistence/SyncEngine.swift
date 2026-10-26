@@ -8,14 +8,21 @@ import VikunjaCore
 public actor SyncEngine {
     private let localStore: LocalStore
     private let projectRepository: ProjectRepositoryProtocol
+    private let labelRepository: LabelRepositoryProtocol
     /// `InstanceAccount.id` — every row this engine reads or writes is
     /// scoped to this one account, since `LocalStore`'s tables hold every
     /// saved account's data together rather than one database file each.
     private let accountID: UUID
 
-    public init(localStore: LocalStore, projectRepository: ProjectRepositoryProtocol, accountID: UUID) {
+    public init(
+        localStore: LocalStore,
+        projectRepository: ProjectRepositoryProtocol,
+        labelRepository: LabelRepositoryProtocol,
+        accountID: UUID,
+    ) {
         self.localStore = localStore
         self.projectRepository = projectRepository
+        self.labelRepository = labelRepository
         self.accountID = accountID
     }
 
@@ -37,7 +44,9 @@ public actor SyncEngine {
         try await localStore.write { db in
             let localRows = try ProjectRecord.fetchAll(db).filter { $0.accountID == self.accountID }
             let localIDByRemoteID = Self.reserveLocalIDs(for: remoteProjects, existing: localRows)
-            let queuedTargetLocalIDs = try Self.queuedTargetLocalIDs(accountID: self.accountID, db: db)
+            let queuedTargetLocalIDs = try Self.queuedTargetLocalIDs(
+                accountID: self.accountID, entityType: .project, db: db,
+            )
 
             try Self.upsertRows(
                 for: remoteProjects, accountID: self.accountID, localIDByRemoteID: localIDByRemoteID,
@@ -159,11 +168,15 @@ public actor SyncEngine {
     /// next pull resync it to the truth. The queue item itself still sticks
     /// around with `needsConflictResolution` set, in case a future UI wants
     /// to read it back.
-    private static func queuedTargetLocalIDs(accountID: UUID, db: Database) throws -> Set<UUID> {
+    private static func queuedTargetLocalIDs(
+        accountID: UUID,
+        entityType: MutationEntityType,
+        db: Database,
+    ) throws -> Set<UUID> {
         try Set(
             MutationQueueRecord.fetchAll(db)
                 .filter {
-                    $0.accountID == accountID && !$0.needsConflictResolution
+                    $0.accountID == accountID && $0.entityType == entityType && !$0.needsConflictResolution
                         && ($0.status == .pending || $0.status == .inFlight || $0.status == .failed)
                 }
                 .map(\.targetLocalID),
@@ -176,6 +189,87 @@ public actor SyncEngine {
     /// server-side deletion. `localRows` is already scoped to `accountID`.
     private static func deleteMissingRows(
         _ localRows: [ProjectRecord],
+        stillPresentRemoteIDs: Set<Int>,
+        protectedLocalIDs: Set<UUID>,
+        db: Database,
+    ) throws {
+        for row in localRows {
+            guard let remoteID = row.remoteID, !stillPresentRemoteIDs.contains(remoteID) else { continue }
+            guard !protectedLocalIDs.contains(row.localID) else { continue }
+            try row.delete(db)
+        }
+    }
+
+    // MARK: - Pulling labels
+
+    /// Fetches every label from the server and reconciles it into the local
+    /// store — same shape as `pullProjects()`, minus the parent-link pass:
+    /// labels have no hierarchy, so nothing depends on draining in a
+    /// particular order the way a sub-project does.
+    public func pullLabels() async throws {
+        let remoteLabels = try await labelRepository.fetchLabels()
+        let now = Date()
+
+        try await localStore.write { db in
+            let localRows = try LabelRecord.fetchAll(db).filter { $0.accountID == self.accountID }
+            let localIDByRemoteID = Self.reserveLabelLocalIDs(for: remoteLabels, existing: localRows)
+            let queuedTargetLocalIDs = try Self.queuedTargetLocalIDs(
+                accountID: self.accountID, entityType: .label, db: db,
+            )
+
+            try Self.upsertLabelRows(
+                for: remoteLabels, accountID: self.accountID, localIDByRemoteID: localIDByRemoteID,
+                protectedLocalIDs: queuedTargetLocalIDs, db: db,
+            )
+            try Self.deleteMissingLabelRows(
+                localRows,
+                stillPresentRemoteIDs: Set(remoteLabels.compactMap(\.id.remoteValue)),
+                protectedLocalIDs: queuedTargetLocalIDs,
+                db: db,
+            )
+
+            try SyncStateRecord(accountID: self.accountID, entityType: .label, lastPulledAt: now).save(db)
+        }
+    }
+
+    private static func reserveLabelLocalIDs(for remoteLabels: [Label], existing localRows: [LabelRecord]) -> [Int: UUID] {
+        var localIDByRemoteID: [Int: UUID] = Dictionary(
+            uniqueKeysWithValues: localRows.compactMap { row in row.remoteID.map { ($0, row.localID) } },
+        )
+        for label in remoteLabels {
+            guard let remoteID = label.id.remoteValue, localIDByRemoteID[remoteID] == nil else { continue }
+            localIDByRemoteID[remoteID] = UUID()
+        }
+        return localIDByRemoteID
+    }
+
+    /// Same `protectedLocalIDs` skip as `upsertRows` - see its doc comment.
+    /// Unlike projects, a label never refreshes anything on a protected row:
+    /// there's no `serverUpdatedAt` to keep current, since labels carry no
+    /// conflict-detection baseline at all (see `LabelCreateOrUpdatePayload`).
+    private static func upsertLabelRows(
+        for remoteLabels: [Label],
+        accountID: UUID,
+        localIDByRemoteID: [Int: UUID],
+        protectedLocalIDs: Set<UUID>,
+        db: Database,
+    ) throws {
+        for label in remoteLabels {
+            guard let remoteID = label.id.remoteValue, let localID = localIDByRemoteID[remoteID] else { continue }
+            guard !protectedLocalIDs.contains(localID) else { continue }
+            let row = LabelRecord(
+                localID: localID,
+                accountID: accountID,
+                remoteID: remoteID,
+                title: label.title,
+                hexColor: label.hexColor,
+            )
+            try row.save(db)
+        }
+    }
+
+    private static func deleteMissingLabelRows(
+        _ localRows: [LabelRecord],
         stillPresentRemoteIDs: Set<Int>,
         protectedLocalIDs: Set<UUID>,
         db: Database,
@@ -346,6 +440,86 @@ public actor SyncEngine {
             if var row = try ProjectRecord.fetchOne(db, key: item.targetLocalID) {
                 row.remoteID = remoteID
                 row.serverUpdatedAt = project.updated
+                try row.save(db)
+            }
+            try item.delete(db)
+        }
+    }
+
+    // MARK: - Draining label mutations
+
+    /// Same shape as `drainProjectMutations()`, minus the conflict re-pull:
+    /// a label mutation never gets flagged `.conflicted` in the first place
+    /// (see `LabelCreateOrUpdatePayload`), so there's nothing here that
+    /// would ever need one.
+    public func drainLabelMutations() async throws {
+        let items = try await localStore.read { db in
+            try MutationQueueRecord.fetchAll(db)
+                .filter {
+                    $0.accountID == self.accountID && $0.entityType == .label
+                        && ($0.status == .pending || $0.status == .failed) && !$0.needsConflictResolution
+                }
+                .sorted { $0.createdAt < $1.createdAt }
+        }
+        for item in items {
+            await drainLabel(item)
+        }
+    }
+
+    private func drainLabel(_ item: MutationQueueRecord) async {
+        do {
+            switch item.operation {
+            case .create: try await drainLabelCreate(item)
+            case .update: try await drainLabelUpdate(item)
+            case .delete: try await drainLabelDelete(item)
+            }
+        } catch {
+            await markFailed(item, error: error)
+        }
+    }
+
+    private func drainLabelCreate(_ item: MutationQueueRecord) async throws {
+        guard let payload: LabelCreateOrUpdatePayload = try decodePayload(item.payload) else {
+            throw DrainError.invalidPayload
+        }
+        let label = Label(id: .local(item.targetLocalID), title: payload.title, hexColor: payload.hexColor)
+        let created = try await labelRepository.create(label)
+        try await applyLabelPushResult(created, deleting: item)
+    }
+
+    private func drainLabelUpdate(_ item: MutationQueueRecord) async throws {
+        guard let payload: LabelCreateOrUpdatePayload = try decodePayload(item.payload) else {
+            throw DrainError.invalidPayload
+        }
+        let currentRow = try await localStore.read { db in try LabelRecord.fetchOne(db, key: item.targetLocalID) }
+        guard let currentRow, let remoteID = currentRow.remoteID else {
+            return // Not synced yet — there's nothing server-side to update.
+        }
+        let label = Label(id: .remote(remoteID), title: payload.title, hexColor: payload.hexColor)
+        let updated = try await labelRepository.update(label)
+        try await applyLabelPushResult(updated, deleting: item)
+    }
+
+    private func drainLabelDelete(_ item: MutationQueueRecord) async throws {
+        guard let payload: LabelDeletePayload = try decodePayload(item.payload) else {
+            throw DrainError.invalidPayload
+        }
+        try await labelRepository.delete(id: .remote(payload.remoteID))
+        try await localStore.write { db in
+            if let row = try LabelRecord.fetchOne(db, key: item.targetLocalID) {
+                try row.delete(db)
+            }
+            try item.delete(db)
+        }
+    }
+
+    private func applyLabelPushResult(_ label: Label, deleting item: MutationQueueRecord) async throws {
+        guard let remoteID = label.id.remoteValue else {
+            preconditionFailure("SyncEngine: a pushed label create/update's response must carry a resolved remote id")
+        }
+        try await localStore.write { db in
+            if var row = try LabelRecord.fetchOne(db, key: item.targetLocalID) {
+                row.remoteID = remoteID
                 try row.save(db)
             }
             try item.delete(db)

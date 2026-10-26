@@ -825,12 +825,24 @@ final class AppContainer {
     /// right away if the network happens to already be up. `networkRepository`
     /// below is now only what this and `syncCoordinator` call to actually
     /// talk to the server; nothing else is handed it directly.
+    /// `SyncEngine` pulls and drains every entity with offline support for
+    /// an account in one pass, so it needs this even though nothing reads
+    /// labels offline yet — that cutover is its own, later wiring change.
+    private func networkLabelRepository(for account: InstanceAccount) -> LabelRepositoryProtocol {
+        clientFactory.makeLabelRepository(baseURL: account.baseURL, tokenProvider: tokenProvider(for: account))
+    }
+
     private func offlineProjectRepository(for account: InstanceAccount) -> ProjectRepositoryProtocol {
         let networkRepository = clientFactory.makeProjectRepository(
             baseURL: account.baseURL,
             tokenProvider: tokenProvider(for: account),
         )
-        let syncEngine = SyncEngine(localStore: localStore, projectRepository: networkRepository, accountID: account.id)
+        let syncEngine = SyncEngine(
+            localStore: localStore,
+            projectRepository: networkRepository,
+            labelRepository: networkLabelRepository(for: account),
+            accountID: account.id,
+        )
         return OfflineProjectRepository(
             localStore: localStore,
             accountID: account.id,
