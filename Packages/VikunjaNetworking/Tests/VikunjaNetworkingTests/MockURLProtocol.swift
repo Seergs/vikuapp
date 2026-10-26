@@ -50,6 +50,24 @@ final class MockURLProtocol: URLProtocol {
         return makeSession(responses: mapped)
     }
 
+    /// One scripted response for the overload below — a named struct
+    /// instead of a 3-member tuple, which SwiftLint's tuple-arity rule caps
+    /// at 2.
+    struct ScriptedResponse {
+        let statusCode: Int
+        let body: String
+        var headers: [String: String] = [:]
+    }
+
+    /// Like the overload above, but each response can also carry headers —
+    /// for a retry test asserting on `Retry-After`.
+    static func makeSession(responses: [ScriptedResponse]) -> (URLSession, RequestCapture) {
+        let mapped = responses.map {
+            Response(statusCode: $0.statusCode, body: Data($0.body.utf8), headers: $0.headers)
+        }
+        return makeSession(responses: mapped)
+    }
+
     private static func makeSession(responses: [Response]) -> (URLSession, RequestCapture) {
         let capture = RequestCapture()
         Self.responses = responses
