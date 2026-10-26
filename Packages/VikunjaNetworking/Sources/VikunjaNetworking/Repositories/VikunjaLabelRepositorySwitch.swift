@@ -31,7 +31,7 @@ final class VikunjaLabelRepositorySwitch: LabelRepositoryProtocol {
         try await resolve().update(label)
     }
 
-    func delete(id: Int) async throws {
+    func delete(id: EntityID) async throws {
         try await resolve().delete(id: id)
     }
 

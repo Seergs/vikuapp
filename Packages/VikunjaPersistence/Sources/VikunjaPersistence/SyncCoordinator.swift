@@ -77,12 +77,24 @@ public actor SyncCoordinator {
     }
 
     private func sync(_ account: InstanceAccount) async {
-        let repository = clientFactory.makeProjectRepository(
+        let resolvedTokenProvider = tokenProvider(account)
+        let projectRepository = clientFactory.makeProjectRepository(
             baseURL: account.baseURL,
-            tokenProvider: tokenProvider(account),
+            tokenProvider: resolvedTokenProvider,
         )
-        let engine = SyncEngine(localStore: localStore, projectRepository: repository, accountID: account.id)
+        let labelRepository = clientFactory.makeLabelRepository(
+            baseURL: account.baseURL,
+            tokenProvider: resolvedTokenProvider,
+        )
+        let engine = SyncEngine(
+            localStore: localStore,
+            projectRepository: projectRepository,
+            labelRepository: labelRepository,
+            accountID: account.id,
+        )
         try? await engine.pullProjects()
         try? await engine.drainProjectMutations()
+        try? await engine.pullLabels()
+        try? await engine.drainLabelMutations()
     }
 }

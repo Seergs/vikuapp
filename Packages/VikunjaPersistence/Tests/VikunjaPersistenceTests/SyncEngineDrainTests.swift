@@ -29,8 +29,21 @@ struct SyncEngineDrainTests {
     }
 
     @discardableResult
+    private func insertLabel(
+        in store: LocalStore,
+        localID: UUID = UUID(),
+        remoteID: Int?,
+        title: String = "Urgent",
+    ) async throws -> LabelRecord {
+        let row = LabelRecord(localID: localID, accountID: accountID, remoteID: remoteID, title: title, hexColor: "")
+        try await store.write { db in try row.insert(db) }
+        return row
+    }
+
+    @discardableResult
     private func queueMutation(
         in store: LocalStore,
+        entityType: MutationEntityType = .project,
         operation: MutationOperation,
         targetLocalID: UUID,
         payload: Encodable?,
@@ -41,9 +54,9 @@ struct SyncEngineDrainTests {
         let payloadString = try payload.flatMap { try String(bytes: encoder.encode($0), encoding: .utf8) }
         return try await store.write { db in
             var item = MutationQueueRecord(
-                id: nil, accountID: accountID, entityType: .project, operation: operation, targetLocalID: targetLocalID,
-                payload: payloadString, createdAt: Date(), retryCount: 0, lastError: nil,
-                status: status, needsConflictResolution: false,
+                id: nil, accountID: accountID, entityType: entityType, operation: operation,
+                targetLocalID: targetLocalID, payload: payloadString, createdAt: Date(), retryCount: 0,
+                lastError: nil, status: status, needsConflictResolution: false,
             )
             try item.insert(db)
             return item
@@ -54,7 +67,10 @@ struct SyncEngineDrainTests {
     func `drain creates a project queued while offline and resolves its remote id locally`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
-        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
+        let engine = SyncEngine(
+            localStore: store, projectRepository: repository,
+            labelRepository: FakeLabelRepository(), accountID: accountID,
+        )
         let localID = UUID()
         try await insertProject(in: store, localID: localID, remoteID: nil, title: "Groceries")
         try await queueMutation(
@@ -81,7 +97,10 @@ struct SyncEngineDrainTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
         repository.createError = VikunjaError.network("offline")
-        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
+        let engine = SyncEngine(
+            localStore: store, projectRepository: repository,
+            labelRepository: FakeLabelRepository(), accountID: accountID,
+        )
         let parentLocalID = UUID()
         let childLocalID = UUID()
         try await insertProject(in: store, localID: parentLocalID, remoteID: nil, title: "Parent")
@@ -115,7 +134,10 @@ struct SyncEngineDrainTests {
     func `drain creates a parent then its child in the same pass once the parent succeeds`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
-        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
+        let engine = SyncEngine(
+            localStore: store, projectRepository: repository,
+            labelRepository: FakeLabelRepository(), accountID: accountID,
+        )
         let parentLocalID = UUID()
         let childLocalID = UUID()
         try await insertProject(in: store, localID: parentLocalID, remoteID: nil, title: "Parent")
@@ -159,7 +181,10 @@ struct SyncEngineDrainTests {
     func `drain pushes an update and clears the queue item on success`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
-        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
+        let engine = SyncEngine(
+            localStore: store, projectRepository: repository,
+            labelRepository: FakeLabelRepository(), accountID: accountID,
+        )
         let localID = UUID()
         try await insertProject(in: store, localID: localID, remoteID: 1, title: "Groceries")
         try await queueMutation(
@@ -181,7 +206,10 @@ struct SyncEngineDrainTests {
     func `drain flags a conflict instead of overwriting a newer server side edit`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
-        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
+        let engine = SyncEngine(
+            localStore: store, projectRepository: repository,
+            labelRepository: FakeLabelRepository(), accountID: accountID,
+        )
         let localID = UUID()
         let queuedAt = Date(timeIntervalSince1970: 1000)
         let observedByLaterPull = Date(timeIntervalSince1970: 2000)
@@ -215,7 +243,10 @@ struct SyncEngineDrainTests {
     func `drain skips a conflicted item on a later pass until it is resolved`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
-        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
+        let engine = SyncEngine(
+            localStore: store, projectRepository: repository,
+            labelRepository: FakeLabelRepository(), accountID: accountID,
+        )
         let localID = UUID()
         try await insertProject(
             in: store, localID: localID, remoteID: 1, serverUpdatedAt: Date(timeIntervalSince1970: 2000),
@@ -238,7 +269,10 @@ struct SyncEngineDrainTests {
     func `drain deletes a project and removes the local row on success`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
-        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
+        let engine = SyncEngine(
+            localStore: store, projectRepository: repository,
+            labelRepository: FakeLabelRepository(), accountID: accountID,
+        )
         let localID = UUID()
         try await insertProject(in: store, localID: localID, remoteID: 1)
         try await queueMutation(
@@ -260,7 +294,10 @@ struct SyncEngineDrainTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
         repository.updateError = VikunjaError.network("boom")
-        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
+        let engine = SyncEngine(
+            localStore: store, projectRepository: repository,
+            labelRepository: FakeLabelRepository(), accountID: accountID,
+        )
         let failingLocalID = UUID()
         let okLocalID = UUID()
         try await insertProject(in: store, localID: failingLocalID, remoteID: 1, title: "Will fail")
@@ -296,7 +333,10 @@ struct SyncEngineDrainTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
         repository.createError = VikunjaError.unauthorized
-        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
+        let engine = SyncEngine(
+            localStore: store, projectRepository: repository,
+            labelRepository: FakeLabelRepository(), accountID: accountID,
+        )
         let localID = UUID()
         try await insertProject(in: store, localID: localID, remoteID: nil, title: "Groceries")
         try await queueMutation(
@@ -318,5 +358,103 @@ struct SyncEngineDrainTests {
         let afterSecondDrain = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
         #expect(afterSecondDrain.isEmpty)
         #expect(repository.createdProjects.count == 1)
+    }
+
+    @Test
+    func `drain creates a label queued while offline and resolves its remote id locally`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let labelRepository = FakeLabelRepository()
+        let engine = SyncEngine(
+            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: labelRepository,
+            accountID: accountID,
+        )
+        let localID = UUID()
+        try await insertLabel(in: store, localID: localID, remoteID: nil, title: "Urgent")
+        try await queueMutation(
+            in: store, entityType: .label, operation: .create, targetLocalID: localID,
+            payload: LabelCreateOrUpdatePayload(title: "Urgent", hexColor: "ff0000"),
+        )
+
+        try await engine.drainLabelMutations()
+
+        #expect(labelRepository.createdLabels.map(\.title) == ["Urgent"])
+        let row = try await store.read { db in try #require(try LabelRecord.fetchOne(db, key: localID)) }
+        #expect(row.remoteID != nil)
+        let remaining = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(remaining.isEmpty)
+    }
+
+    @Test
+    func `drain pushes a label update and clears the queue item on success`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let labelRepository = FakeLabelRepository()
+        let engine = SyncEngine(
+            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: labelRepository,
+            accountID: accountID,
+        )
+        let localID = UUID()
+        try await insertLabel(in: store, localID: localID, remoteID: 1, title: "Urgent")
+        try await queueMutation(
+            in: store, entityType: .label, operation: .update, targetLocalID: localID,
+            payload: LabelCreateOrUpdatePayload(title: "Urgent (renamed)", hexColor: "ff0000"),
+        )
+
+        try await engine.drainLabelMutations()
+
+        #expect(labelRepository.updatedLabels.map(\.title) == ["Urgent (renamed)"])
+        let remaining = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(remaining.isEmpty)
+    }
+
+    @Test
+    func `drain deletes a label and removes the local row on success`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let labelRepository = FakeLabelRepository()
+        let engine = SyncEngine(
+            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: labelRepository,
+            accountID: accountID,
+        )
+        let localID = UUID()
+        try await insertLabel(in: store, localID: localID, remoteID: 1, title: "Urgent")
+        try await queueMutation(
+            in: store, entityType: .label, operation: .delete, targetLocalID: localID,
+            payload: LabelDeletePayload(remoteID: 1),
+        )
+
+        try await engine.drainLabelMutations()
+
+        #expect(labelRepository.deletedIDs == [1])
+        let rows = try await store.read { db in try LabelRecord.fetchAll(db) }
+        #expect(rows.isEmpty)
+        let remaining = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(remaining.isEmpty)
+    }
+
+    @Test
+    func `drain marks a failed label mutation and retries it on the next pass`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let labelRepository = FakeLabelRepository()
+        labelRepository.createError = VikunjaError.unauthorized
+        let engine = SyncEngine(
+            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: labelRepository,
+            accountID: accountID,
+        )
+        let localID = UUID()
+        try await insertLabel(in: store, localID: localID, remoteID: nil, title: "Urgent")
+        try await queueMutation(
+            in: store, entityType: .label, operation: .create, targetLocalID: localID,
+            payload: LabelCreateOrUpdatePayload(title: "Urgent", hexColor: "ff0000"),
+        )
+
+        try await engine.drainLabelMutations()
+        let afterFirstDrain = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(afterFirstDrain[0].status == .failed)
+
+        labelRepository.createError = nil
+        try await engine.drainLabelMutations()
+
+        let afterSecondDrain = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(afterSecondDrain.isEmpty)
+        #expect(labelRepository.createdLabels.count == 1)
     }
 }
