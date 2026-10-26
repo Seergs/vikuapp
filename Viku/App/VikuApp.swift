@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import VikunjaPersistence
 
 @main
 struct VikuApp: App {
@@ -13,6 +14,14 @@ struct VikuApp: App {
 
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @Environment(\.scenePhase) private var scenePhase
+    /// Set the first time the scene ever reaches `.active`, so the
+    /// foreground sync trigger below can skip exactly that one activation
+    /// (the cold launch) without needing to guess at the OS's exact phase
+    /// sequence — a real return from the background goes `.background ->
+    /// .inactive -> .active`, so `oldPhase` at that point is `.inactive`,
+    /// not `.background`, indistinguishable from a cold launch's own first
+    /// `.inactive -> .active` step by `oldPhase` alone.
+    @State private var hasCompletedInitialActivation = false
 
     init() {
         AppDelegate.container = container
@@ -30,6 +39,18 @@ struct VikuApp: App {
             // the widgets can't read the keychain themselves.
             if phase == .background {
                 container.refreshWidgetSnapshotsBeforeSuspension()
+                AppDelegate.scheduleNextBackgroundSync()
+            }
+            if phase == .active {
+                // A genuine return from the background — matches the user's
+                // own mental model ("I just came back, check now"). Skipped
+                // on the very first activation (cold launch), which
+                // `AppContainer.bootstrap()`'s `syncCoordinator.start()`
+                // already covers on its own.
+                if hasCompletedInitialActivation {
+                    Task { await container.syncCoordinator.syncAllAccounts() }
+                }
+                hasCompletedInitialActivation = true
             }
         }
     }

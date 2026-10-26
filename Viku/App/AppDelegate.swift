@@ -1,6 +1,8 @@
+import BackgroundTasks
 import UIKit
 import UserNotifications
 import VikuNavigation
+import VikunjaPersistence
 
 /// Backs the Home Screen long-press quick action ("New Task", declared as
 /// `UIApplicationShortcutItems` in `Info.plist`). SwiftUI's `App` has no
@@ -17,13 +19,44 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     /// app.
     @MainActor static var container: AppContainer?
 
+    /// Matches the `BGTaskSchedulerPermittedIdentifiers` entry in Info.plist.
+    static let backgroundSyncTaskIdentifier = "\(Bundle.main.bundleIdentifier ?? "").sync-projects"
+
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?,
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
         registerPushNotificationCategories()
+        registerBackgroundSyncTask()
         return true
+    }
+
+    /// Registers the handler for the opportunistic, OS-scheduled background
+    /// pull/drain of every saved account's projects — the least important of
+    /// `SyncCoordinator`'s sync triggers, since iOS gives no frequency
+    /// guarantee; this only reduces staleness between opens, never the
+    /// primary sync mechanism. Must run before this method returns, per
+    /// `BGTaskScheduler`'s own requirement.
+    private func registerBackgroundSyncTask() {
+        BGTaskScheduler.shared.register(forTaskWithIdentifier: Self.backgroundSyncTaskIdentifier, using: nil) { task in
+            let syncTask = Task {
+                await Self.container?.syncCoordinator.syncAllAccounts()
+                task.setTaskCompleted(success: true)
+            }
+            task.expirationHandler = { syncTask.cancel() }
+            Self.scheduleNextBackgroundSync()
+        }
+        Self.scheduleNextBackgroundSync()
+    }
+
+    /// Submits the next refresh request — called once at launch and again
+    /// every time the previous one actually runs, so there's always one
+    /// outstanding.
+    static func scheduleNextBackgroundSync() {
+        let request = BGAppRefreshTaskRequest(identifier: backgroundSyncTaskIdentifier)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 60 * 60)
+        try? BGTaskScheduler.shared.submit(request)
     }
 
     func application(

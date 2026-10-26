@@ -13,17 +13,34 @@ import VikuDesignSystem
 import VikuNavigation
 import VikunjaCore
 import VikunjaNetworking
+import VikunjaPersistence
 import VikuWidgetKit
 import WidgetKit
 
 /// Composition root. The only type in the app target allowed to know about
-/// concrete `VikunjaNetworking`/`VikuAuth` implementations — it wires them
-/// into the `VikunjaCore` protocols each `Features/*` module receives through
-/// constructor injection.
+/// concrete `VikunjaNetworking`/`VikuAuth`/`VikunjaPersistence` implementations
+/// — it wires them into the `VikunjaCore` protocols each `Features/*` module
+/// receives through constructor injection.
 @MainActor
 final class AppContainer {
     let accountStore: AccountStoreProtocol
     let clientFactory: InstanceClientFactoryProtocol
+    /// Every saved account's offline cache (projects, their mutation queue,
+    /// sync bookkeeping) in one shared SQLite database — see `LocalStore`.
+    /// Falls back to the app's own Application Support directory when the
+    /// App Group container isn't available (an unprovisioned Simulator
+    /// build), the same way every other on-device cache in this app
+    /// degrades rather than crashing.
+    let localStore: LocalStore = AppContainer.makeLocalStore()
+    /// Shared by `syncCoordinator` and every `OfflineProjectRepository` this
+    /// container builds, so they agree on whether the network is up right
+    /// now.
+    let reachabilityMonitor: ReachabilityMonitoring = NWPathReachabilityMonitor()
+    /// Keeps every saved account's offline queue draining and local cache
+    /// refreshed whenever the network is reachable, independent of which
+    /// account is currently active — see `SyncCoordinator`. Started once in
+    /// `bootstrap()`.
+    let syncCoordinator: SyncCoordinator
     /// Resolves a currently-valid bearer credential per account, transparently
     /// refreshing a password-based session's JWT before it expires — every
     /// `tokenProvider` closure below goes through this instead of reading
@@ -174,9 +191,17 @@ final class AppContainer {
     ) {
         self.accountStore = accountStore
         self.clientFactory = clientFactory
-        self.sessionRefresher = PasswordSessionRefresher(
+        let sessionRefresher = PasswordSessionRefresher(
             accountStore: accountStore,
             sessionExpiryReporter: sessionExpiryCenter,
+        )
+        self.sessionRefresher = sessionRefresher
+        self.syncCoordinator = SyncCoordinator(
+            localStore: localStore,
+            accountStore: accountStore,
+            clientFactory: clientFactory,
+            reachability: reachabilityMonitor,
+            tokenProvider: { account in { try await sessionRefresher.validToken(for: account) } },
         )
         self.whatsNewPresentationResolver = WhatsNewPresentationResolver(
             contentProvider: BundledWhatsNewContentProvider(),
@@ -184,11 +209,30 @@ final class AppContainer {
         )
     }
 
+    /// Opens the shared offline database, preferring the App Group
+    /// container (so a widget extension could eventually read it too) and
+    /// falling back to this app's own Application Support directory when
+    /// that container isn't available.
+    private static func makeLocalStore() -> LocalStore {
+        if let store = try? LocalStore(appGroupIdentifier: VikuWidgetConfig.appGroupIdentifier) {
+            return store
+        }
+        let fallbackDirectory = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("VikunjaPersistence", isDirectory: true)
+        guard let store = try? LocalStore(directory: fallbackDirectory) else {
+            fatalError("LocalStore: failed to open the local database in the App Group container or the fallback")
+        }
+        return store
+    }
+
     /// One-time move of Keychain items written before the shared
     /// `keychain-access-group` existed into that group, so the widget can read
     /// the active account and its token. No-op after the first run, and when
-    /// `accountStore` isn't the Keychain-backed one (tests). Call once on launch.
+    /// `accountStore` isn't the Keychain-backed one (tests). Also starts
+    /// `syncCoordinator` observing reachability. Call once on launch.
     func bootstrap() async {
+        await syncCoordinator.start()
         guard let store = accountStore as? KeychainAccountStore else { return }
         try? await store.migrateToAccessGroup()
     }
@@ -378,10 +422,7 @@ final class AppContainer {
         let tokenProvider = tokenProvider(for: account)
         return TodayViewModel(
             taskRepository: clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider),
-            projectRepository: clientFactory.makeProjectRepository(
-                baseURL: account.baseURL,
-                tokenProvider: tokenProvider,
-            ),
+            projectRepository: offlineProjectRepository(for: account),
             labelRepository: clientFactory.makeLabelRepository(baseURL: account.baseURL, tokenProvider: tokenProvider),
             relationRepository: clientFactory.makeTaskRelationRepository(
                 baseURL: account.baseURL,
@@ -397,17 +438,14 @@ final class AppContainer {
         let tokenProvider = tokenProvider(for: account)
         return CalendarViewModel(
             taskRepository: clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider),
-            projectRepository: clientFactory.makeProjectRepository(
-                baseURL: account.baseURL,
-                tokenProvider: tokenProvider,
-            ),
+            projectRepository: offlineProjectRepository(for: account),
             hapticPresenter: hapticCenter,
         )
     }
 
     func makeProjectsListViewModel(account: InstanceAccount) -> ProjectsListViewModel {
         let tokenProvider = tokenProvider(for: account)
-        let repository = clientFactory.makeProjectRepository(baseURL: account.baseURL, tokenProvider: tokenProvider)
+        let repository = offlineProjectRepository(for: account)
         let taskRepository = clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider)
         let filterRepository = clientFactory.makeFilterRepository(
             baseURL: account.baseURL,
@@ -426,10 +464,7 @@ final class AppContainer {
         parentProjectID: EntityID? = nil,
         account: InstanceAccount,
     ) -> CreateProjectViewModel {
-        let repository = clientFactory.makeProjectRepository(
-            baseURL: account.baseURL,
-            tokenProvider: tokenProvider(for: account),
-        )
+        let repository = offlineProjectRepository(for: account)
         return CreateProjectViewModel(
             parentProjectID: parentProjectID,
             repository: repository,
@@ -438,10 +473,7 @@ final class AppContainer {
     }
 
     func makeEditProjectViewModel(project: Project, account: InstanceAccount) -> EditProjectViewModel {
-        let repository = clientFactory.makeProjectRepository(
-            baseURL: account.baseURL,
-            tokenProvider: tokenProvider(for: account),
-        )
+        let repository = offlineProjectRepository(for: account)
         return EditProjectViewModel(project: project, repository: repository, toastPresenter: toastCenter)
     }
 
@@ -456,10 +488,7 @@ final class AppContainer {
     func makeProjectOverviewViewModel(node: ProjectNode, account: InstanceAccount) -> ProjectOverviewViewModel {
         let tokenProvider = tokenProvider(for: account)
         let repository = clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider)
-        let projectRepository = clientFactory.makeProjectRepository(
-            baseURL: account.baseURL,
-            tokenProvider: tokenProvider,
-        )
+        let projectRepository = offlineProjectRepository(for: account)
         let labelRepository = clientFactory.makeLabelRepository(baseURL: account.baseURL, tokenProvider: tokenProvider)
         let relationRepository = clientFactory.makeTaskRelationRepository(
             baseURL: account.baseURL,
@@ -528,10 +557,7 @@ final class AppContainer {
             baseURL: account.baseURL,
             tokenProvider: tokenProvider,
         )
-        let projectRepository = clientFactory.makeProjectRepository(
-            baseURL: account.baseURL,
-            tokenProvider: tokenProvider,
-        )
+        let projectRepository = offlineProjectRepository(for: account)
         return TaskDetailViewModel(
             task: task,
             project: project,
@@ -557,10 +583,7 @@ final class AppContainer {
     func resolveTaskDeepLink(id: Int, account: InstanceAccount) async throws -> (VikunjaTask, Project) {
         let tokenProvider = tokenProvider(for: account)
         let taskRepository = clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider)
-        let projectRepository = clientFactory.makeProjectRepository(
-            baseURL: account.baseURL,
-            tokenProvider: tokenProvider,
-        )
+        let projectRepository = offlineProjectRepository(for: account)
         let task = try await taskRepository.fetchTask(id: id)
         let project = try await projectRepository.fetchProject(id: .remote(task.projectID))
         return (task, project)
@@ -643,10 +666,7 @@ final class AppContainer {
             preselectedProject: preselectedProject,
             accountDefaultProjectID: defaultProjectStore.projectID(forAccountID: account.id),
             taskRepository: clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider),
-            projectRepository: clientFactory.makeProjectRepository(
-                baseURL: account.baseURL,
-                tokenProvider: tokenProvider,
-            ),
+            projectRepository: offlineProjectRepository(for: account),
             toastPresenter: toastCenter,
             taskChangeBroadcaster: taskChangeCenter,
             syntaxStore: quickAddSyntaxStore,
@@ -671,10 +691,7 @@ final class AppContainer {
                 baseURL: account.baseURL,
                 tokenProvider: tokenProvider,
             ),
-            projectRepository: clientFactory.makeProjectRepository(
-                baseURL: account.baseURL,
-                tokenProvider: tokenProvider,
-            ),
+            projectRepository: offlineProjectRepository(for: account),
             userRepository: clientFactory.makeUserRepository(baseURL: account.baseURL, tokenProvider: tokenProvider),
             pushNotificationRegistering: pushNotificationRegistering,
             notificationSettingsStore: notificationSettingsStore,
@@ -705,10 +722,7 @@ final class AppContainer {
         let tokenProvider = tokenProvider(for: account)
         return DefaultProjectSettingsViewModel(
             userRepository: clientFactory.makeUserRepository(baseURL: account.baseURL, tokenProvider: tokenProvider),
-            projectRepository: clientFactory.makeProjectRepository(
-                baseURL: account.baseURL,
-                tokenProvider: tokenProvider,
-            ),
+            projectRepository: offlineProjectRepository(for: account),
             defaultProjectCache: AccountDefaultProjectCache(store: defaultProjectStore, accountID: account.id),
             timezoneCache: AccountTimezoneCache(store: accountTimezoneStore, accountID: account.id),
             displayNameCache: AccountDisplayNameCache(store: accountDisplayNameStore, accountID: account.id),
@@ -718,10 +732,7 @@ final class AppContainer {
 
     func makeHomeSelectionSettingsViewModel(account: InstanceAccount) -> HomeSelectionSettingsViewModel {
         HomeSelectionSettingsViewModel(
-            projectRepository: clientFactory.makeProjectRepository(
-                baseURL: account.baseURL,
-                tokenProvider: tokenProvider(for: account),
-            ),
+            projectRepository: offlineProjectRepository(for: account),
             store: AccountHomeSelectionCache(store: homeSelectionStore, accountID: account.id),
         )
     }
@@ -794,10 +805,7 @@ final class AppContainer {
         let tokenProvider = tokenProvider(for: account)
         return SearchViewModel(
             taskRepository: clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider),
-            projectRepository: clientFactory.makeProjectRepository(
-                baseURL: account.baseURL,
-                tokenProvider: tokenProvider,
-            ),
+            projectRepository: offlineProjectRepository(for: account),
             toastPresenter: toastCenter,
             hapticPresenter: hapticCenter,
         )
@@ -810,5 +818,24 @@ final class AppContainer {
     private func tokenProvider(for account: InstanceAccount) -> @Sendable () async throws -> String? {
         let sessionRefresher = sessionRefresher
         return { try await sessionRefresher.validToken(for: account) }
+    }
+
+    /// The `ProjectRepositoryProtocol` every screen reads/writes through —
+    /// local-first, queuing a mutation and opportunistically draining it
+    /// right away if the network happens to already be up. `networkRepository`
+    /// below is now only what this and `syncCoordinator` call to actually
+    /// talk to the server; nothing else is handed it directly.
+    private func offlineProjectRepository(for account: InstanceAccount) -> ProjectRepositoryProtocol {
+        let networkRepository = clientFactory.makeProjectRepository(
+            baseURL: account.baseURL,
+            tokenProvider: tokenProvider(for: account),
+        )
+        let syncEngine = SyncEngine(localStore: localStore, projectRepository: networkRepository, accountID: account.id)
+        return OfflineProjectRepository(
+            localStore: localStore,
+            accountID: account.id,
+            syncEngine: syncEngine,
+            reachability: reachabilityMonitor,
+        )
     }
 }
