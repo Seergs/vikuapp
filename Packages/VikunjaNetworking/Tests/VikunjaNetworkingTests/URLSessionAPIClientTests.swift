@@ -1905,6 +1905,121 @@ struct URLSessionAPIClientTests {
         #expect(sentJSON["title"] as? String == "New card")
         #expect(sentJSON["bucket_id"] as? Int == 20)
     }
+
+    // MARK: - Retry/backoff
+
+    private func makeRetryClient(
+        session: URLSession,
+        retryPolicy: RetryPolicy,
+        delayer: RetryDelaying,
+    ) throws -> URLSessionAPIClient {
+        try URLSessionAPIClient(
+            baseURL: #require(URL(string: "https://vikunja.example.com")),
+            session: session,
+            authTokenProvider: { nil },
+            retryPolicy: retryPolicy,
+            delayer: delayer,
+        )
+    }
+
+    @Test
+    func `retries A rate limited request and succeeds once the server recovers`() async throws {
+        let (session, _) = MockURLProtocol.makeSession(responses: [
+            (statusCode: 429, body: ""),
+            (statusCode: 200, body: #"{"version":"0.24.6"}"#),
+        ])
+        let delayer = FakeDelayer()
+        let client = try makeRetryClient(
+            session: session,
+            retryPolicy: RetryPolicy(maxAttempts: 3, baseDelay: 0.01, maxDelay: 0.01),
+            delayer: delayer,
+        )
+
+        let info: ServerInfoDTO = try await client.send(VikunjaEndpoints.info())
+
+        #expect(info.version == "0.24.6")
+        #expect(delayer.delays.count == 1)
+    }
+
+    @Test
+    func `retries A service unavailable response the same way as A rate limit`() async throws {
+        let (session, _) = MockURLProtocol.makeSession(responses: [
+            (statusCode: 503, body: ""),
+            (statusCode: 200, body: #"{"version":"0.24.6"}"#),
+        ])
+        let delayer = FakeDelayer()
+        let client = try makeRetryClient(
+            session: session,
+            retryPolicy: RetryPolicy(maxAttempts: 3, baseDelay: 0.01, maxDelay: 0.01),
+            delayer: delayer,
+        )
+
+        let info: ServerInfoDTO = try await client.send(VikunjaEndpoints.info())
+
+        #expect(info.version == "0.24.6")
+        #expect(delayer.delays.count == 1)
+    }
+
+    @Test
+    func `waits for the servers retry after header instead of the default backoff`() async throws {
+        let (session, _) = MockURLProtocol.makeSession(responses: [
+            .init(statusCode: 429, body: "", headers: ["Retry-After": "5"]),
+            .init(statusCode: 200, body: #"{"version":"0.24.6"}"#),
+        ])
+        let delayer = FakeDelayer()
+        let client = try makeRetryClient(
+            session: session,
+            retryPolicy: RetryPolicy(maxAttempts: 3, baseDelay: 0.01, maxDelay: 0.01),
+            delayer: delayer,
+        )
+
+        let _: ServerInfoDTO = try await client.send(VikunjaEndpoints.info())
+
+        #expect(delayer.delays == [.seconds(5)])
+    }
+
+    @Test
+    func `gives up after exhausting every attempt and throws the rate limit error`() async throws {
+        let (session, _) = MockURLProtocol.makeSession(statusCode: 429, body: "slow down")
+        let delayer = FakeDelayer()
+        let client = try makeRetryClient(
+            session: session,
+            retryPolicy: RetryPolicy(maxAttempts: 3, baseDelay: 0.01, maxDelay: 0.01),
+            delayer: delayer,
+        )
+
+        await #expect(throws: VikunjaError.server(message: "slow down", statusCode: 429)) {
+            let _: ServerInfoDTO = try await client.send(VikunjaEndpoints.info())
+        }
+        #expect(delayer.delays.count == 2)
+    }
+
+    @Test
+    func `does not retry A plain server error that isnt A rate limit or service unavailable`() async throws {
+        let (session, _) = MockURLProtocol.makeSession(statusCode: 500, body: "internal server error")
+        let delayer = FakeDelayer()
+        let client = try makeRetryClient(
+            session: session,
+            retryPolicy: RetryPolicy(maxAttempts: 3, baseDelay: 0.01, maxDelay: 0.01),
+            delayer: delayer,
+        )
+
+        await #expect(throws: VikunjaError.server(message: "internal server error", statusCode: 500)) {
+            let _: ServerInfoDTO = try await client.send(VikunjaEndpoints.info())
+        }
+        #expect(delayer.delays.isEmpty)
+    }
+}
+
+/// Records every delay `sendRawWithResponse` asks for instead of actually
+/// waiting it out, so the retry tests above run instantly regardless of how
+/// long a retry's backoff would be in production.
+private final class FakeDelayer: RetryDelaying, @unchecked Sendable {
+    private(set) var delays: [Duration] = []
+
+    func sleep(for duration: Duration) async throws {
+        delays.append(duration)
+    }
 }
 
 /// Shared helpers for the `PasswordSessionRefresher` tests above.

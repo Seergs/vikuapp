@@ -14,15 +14,35 @@ public actor URLSessionAPIClient: APIClient {
     private let authTokenProvider: @Sendable () async throws -> String?
     private let decoder: JSONDecoder
     private let encoder: JSONEncoder
+    private let retryPolicy: RetryPolicy
+    private let delayer: RetryDelaying
 
     public init(
         baseURL: URL,
         session: URLSession = .vikunjaDefault,
         authTokenProvider: @escaping @Sendable () async throws -> String? = { nil },
     ) {
+        self.init(
+            baseURL: baseURL,
+            session: session,
+            authTokenProvider: authTokenProvider,
+            retryPolicy: .default,
+            delayer: TaskSleepDelayer(),
+        )
+    }
+
+    init(
+        baseURL: URL,
+        session: URLSession,
+        authTokenProvider: @escaping @Sendable () async throws -> String?,
+        retryPolicy: RetryPolicy,
+        delayer: RetryDelaying,
+    ) {
         self.baseURL = baseURL
         self.session = session
         self.authTokenProvider = authTokenProvider
+        self.retryPolicy = retryPolicy
+        self.delayer = delayer
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
@@ -63,7 +83,29 @@ public actor URLSessionAPIClient: APIClient {
         try await sendRawWithResponse(endpoint).0
     }
 
+    /// Wraps a rate-limited (429) or temporarily-unavailable (503) failure
+    /// so `sendRawWithResponse` knows it's worth retrying; every other
+    /// failure propagates out of `attemptRequest` as a plain `VikunjaError`
+    /// and is never retried.
+    private struct RetryableFailure: Error, Sendable {
+        let underlying: VikunjaError
+        let retryAfter: TimeInterval?
+    }
+
     private func sendRawWithResponse(_ endpoint: Endpoint) async throws -> (Data, HTTPURLResponse) {
+        var attempt = 0
+        while true {
+            do {
+                return try await attemptRequest(endpoint)
+            } catch let failure as RetryableFailure {
+                guard attempt < retryPolicy.maxAttempts - 1 else { throw failure.underlying }
+                try await delayer.sleep(for: retryPolicy.delay(forAttempt: attempt, retryAfter: failure.retryAfter))
+                attempt += 1
+            }
+        }
+    }
+
+    private func attemptRequest(_ endpoint: Endpoint) async throws -> (Data, HTTPURLResponse) {
         guard let url = makeURL(for: endpoint) else {
             throw VikunjaError.invalidInstanceURL
         }
@@ -117,8 +159,14 @@ public actor URLSessionAPIClient: APIClient {
         default:
             let message = Self.errorMessage(data, response: httpResponse)
             Self.logFailedResponse(data, statusCode: httpResponse.statusCode, endpoint: endpoint)
-            throw VikunjaError.server(message: message, statusCode: httpResponse.statusCode)
+            let error = VikunjaError.server(message: message, statusCode: httpResponse.statusCode)
+            guard RetryPolicy.isRetryable(statusCode: httpResponse.statusCode) else { throw error }
+            throw RetryableFailure(underlying: error, retryAfter: Self.retryAfterSeconds(from: httpResponse))
         }
+    }
+
+    private static func retryAfterSeconds(from response: HTTPURLResponse) -> TimeInterval? {
+        response.value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init)
     }
 
     /// Builds `VikunjaError.server`'s `message` from a failed response body —
