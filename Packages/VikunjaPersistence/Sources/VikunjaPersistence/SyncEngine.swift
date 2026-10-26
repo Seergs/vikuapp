@@ -39,15 +39,20 @@ public actor SyncEngine {
         try await localStore.write { db in
             let localRows = try ProjectRecord.fetchAll(db).filter { $0.accountID == self.accountID }
             let localIDByRemoteID = Self.reserveLocalIDs(for: remoteProjects, existing: localRows)
+            let queuedTargetLocalIDs = try Self.queuedTargetLocalIDs(accountID: self.accountID, db: db)
 
             try Self.upsertRows(
-                for: remoteProjects, accountID: self.accountID, localIDByRemoteID: localIDByRemoteID, db: db,
+                for: remoteProjects, accountID: self.accountID, localIDByRemoteID: localIDByRemoteID,
+                protectedLocalIDs: queuedTargetLocalIDs, db: db,
             )
-            try Self.resolveParentLinks(for: remoteProjects, localIDByRemoteID: localIDByRemoteID, db: db)
+            try Self.resolveParentLinks(
+                for: remoteProjects, localIDByRemoteID: localIDByRemoteID,
+                protectedLocalIDs: queuedTargetLocalIDs, db: db,
+            )
             try Self.deleteMissingRows(
                 localRows,
                 stillPresentRemoteIDs: Set(remoteProjects.compactMap(\.id.remoteValue)),
-                accountID: self.accountID,
+                protectedLocalIDs: queuedTargetLocalIDs,
                 db: db,
             )
 
@@ -74,15 +79,21 @@ public actor SyncEngine {
     /// Inserts or updates every remote project, with no parent link yet: a
     /// child can appear before its parent in `remoteProjects`, and
     /// `parentProjectLocalID`'s foreign key would reject pointing at a row
-    /// that doesn't exist in the table yet.
+    /// that doesn't exist in the table yet. Skips a row in `protectedLocalIDs`
+    /// entirely - a mutation still queued against it means there's a local
+    /// edit the server doesn't reflect yet, and overwriting it with the
+    /// server's still-stale response would silently discard that edit until
+    /// the next pull after the queue finally drains.
     private static func upsertRows(
         for remoteProjects: [Project],
         accountID: UUID,
         localIDByRemoteID: [Int: UUID],
+        protectedLocalIDs: Set<UUID>,
         db: Database,
     ) throws {
         for project in remoteProjects {
             guard let remoteID = project.id.remoteValue, let localID = localIDByRemoteID[remoteID] else { continue }
+            guard !protectedLocalIDs.contains(localID) else { continue }
             let row = ProjectRecord(
                 localID: localID,
                 accountID: accountID,
@@ -102,14 +113,18 @@ public actor SyncEngine {
 
     /// Every row from `upsertRows` already exists by now, so setting a
     /// non-nil parent link in this second pass can't hit the foreign-key
-    /// ordering problem that method avoids.
+    /// ordering problem that method avoids. Same `protectedLocalIDs` skip as
+    /// `upsertRows` - a row with its own local edit queued (which could be a
+    /// re-parent) shouldn't have its parent link silently overwritten either.
     private static func resolveParentLinks(
         for remoteProjects: [Project],
         localIDByRemoteID: [Int: UUID],
+        protectedLocalIDs: Set<UUID>,
         db: Database,
     ) throws {
         for project in remoteProjects {
             guard let remoteID = project.id.remoteValue, let localID = localIDByRemoteID[remoteID] else { continue }
+            guard !protectedLocalIDs.contains(localID) else { continue }
             guard let parentLocalID = project.parentProjectID?.remoteValue.flatMap({ localIDByRemoteID[$0] }) else {
                 continue
             }
@@ -119,6 +134,22 @@ public actor SyncEngine {
         }
     }
 
+    /// Target ids with a mutation still queued against them (pending,
+    /// in-flight, or failed-but-retryable) — shared by `upsertRows`,
+    /// `resolveParentLinks`, and `deleteMissingRows` to decide what a pull
+    /// must leave untouched, since any of those rows holds a local edit the
+    /// server doesn't reflect back yet.
+    private static func queuedTargetLocalIDs(accountID: UUID, db: Database) throws -> Set<UUID> {
+        try Set(
+            MutationQueueRecord.fetchAll(db)
+                .filter {
+                    $0.accountID == accountID
+                        && ($0.status == .pending || $0.status == .inFlight || $0.status == .failed)
+                }
+                .map(\.targetLocalID),
+        )
+    }
+
     /// Drops a local row whose remote id is no longer in the server's
     /// response, unless a mutation is still queued against it — that row
     /// might be a local edit the pull hasn't confirmed yet, not a real
@@ -126,17 +157,12 @@ public actor SyncEngine {
     private static func deleteMissingRows(
         _ localRows: [ProjectRecord],
         stillPresentRemoteIDs: Set<Int>,
-        accountID: UUID,
+        protectedLocalIDs: Set<UUID>,
         db: Database,
     ) throws {
-        let queuedTargetLocalIDs = try Set(
-            MutationQueueRecord.fetchAll(db)
-                .filter { $0.accountID == accountID && ($0.status == .pending || $0.status == .inFlight) }
-                .map(\.targetLocalID),
-        )
         for row in localRows {
             guard let remoteID = row.remoteID, !stillPresentRemoteIDs.contains(remoteID) else { continue }
-            guard !queuedTargetLocalIDs.contains(row.localID) else { continue }
+            guard !protectedLocalIDs.contains(row.localID) else { continue }
             try row.delete(db)
         }
     }
@@ -157,12 +183,19 @@ public actor SyncEngine {
     /// this same pass if it's going to succeed at all, so this only
     /// actually defers anything when the parent's own create is still
     /// failing. One item's failure doesn't stop the rest from draining.
+    ///
+    /// Includes `.failed` items alongside `.pending` ones — a drain that
+    /// failed once (a dead token, a momentary 500, ...) still deserves
+    /// another shot on the very next trigger, rather than being stuck
+    /// invisibly forever just because one earlier attempt didn't work.
+    /// `status`/`retryCount`/`lastError` stay around as diagnostics, not as
+    /// a terminal "never again" state.
     public func drainProjectMutations() async throws {
         let items = try await localStore.read { db in
             try MutationQueueRecord.fetchAll(db)
                 .filter {
                     $0.accountID == self.accountID && $0.entityType == .project
-                        && $0.status == .pending && !$0.needsConflictResolution
+                        && ($0.status == .pending || $0.status == .failed) && !$0.needsConflictResolution
                 }
                 .sorted { $0.createdAt < $1.createdAt }
         }
