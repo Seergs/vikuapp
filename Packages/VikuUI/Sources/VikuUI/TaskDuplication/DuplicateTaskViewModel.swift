@@ -157,7 +157,8 @@ public final class DuplicateTaskViewModel {
     /// there's no partial state worth rolling back to.
     private func attachLabels(to taskID: Int) async {
         for label in source.labels {
-            try? await labelRepository.addLabel(label.id, toTask: taskID)
+            guard let labelID = label.id.remoteValue else { continue }
+            try? await labelRepository.addLabel(labelID, toTask: taskID)
         }
     }
 

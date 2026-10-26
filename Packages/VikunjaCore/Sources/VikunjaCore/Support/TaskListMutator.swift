@@ -97,11 +97,12 @@ public struct TaskListMutator {
         isAdding: Bool,
         labelRepository: LabelRepositoryProtocol,
     ) async -> VikunjaTask {
+        guard let labelID = label.id.remoteValue else { return original }
         do {
             if isAdding {
-                try await labelRepository.addLabel(label.id, toTask: updated.id)
+                try await labelRepository.addLabel(labelID, toTask: updated.id)
             } else {
-                try await labelRepository.removeLabel(label.id, fromTask: updated.id)
+                try await labelRepository.removeLabel(labelID, fromTask: updated.id)
             }
             return updated
         } catch {

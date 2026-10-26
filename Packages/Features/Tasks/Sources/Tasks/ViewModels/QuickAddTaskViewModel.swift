@@ -327,7 +327,9 @@ public final class QuickAddTaskViewModel {
         var ids: [Int] = []
         for name in names {
             let created = try await labelRepository.create(Label(id: 0, title: name, hexColor: Self.newLabelHex))
-            ids.append(created.id)
+            if let id = created.id.remoteValue {
+                ids.append(id)
+            }
         }
         return ids
     }
