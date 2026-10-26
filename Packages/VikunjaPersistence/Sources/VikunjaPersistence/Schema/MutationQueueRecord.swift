@@ -31,6 +31,7 @@ enum MutationStatus: String, Codable, Sendable {
 /// (its `remoteID`), since the local row may already be gone by drain time.
 struct MutationQueueRecord: Codable, Equatable, Sendable {
     var id: Int64?
+    var accountID: UUID
     var entityType: MutationEntityType
     var operation: MutationOperation
     var targetLocalID: UUID

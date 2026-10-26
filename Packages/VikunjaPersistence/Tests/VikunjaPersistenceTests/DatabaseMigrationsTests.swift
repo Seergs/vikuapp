@@ -25,6 +25,7 @@ struct DatabaseMigrationsTests {
         let dbQueue = try migratedDatabase()
         let record = ProjectRecord(
             localID: UUID(),
+            accountID: UUID(),
             remoteID: nil,
             title: "Groceries",
             description: nil,
@@ -43,14 +44,15 @@ struct DatabaseMigrationsTests {
     }
 
     @Test
-    func `project remoteID is unique`() throws {
+    func `project remoteID is unique within an account`() throws {
         let dbQueue = try migratedDatabase()
+        let accountID = UUID()
         let first = ProjectRecord(
-            localID: UUID(), remoteID: 42, title: "A", description: nil, isArchived: false,
+            localID: UUID(), accountID: accountID, remoteID: 42, title: "A", description: nil, isArchived: false,
             isFavorite: false, parentProjectLocalID: nil, position: 0, hexColor: "", serverUpdatedAt: nil,
         )
         let second = ProjectRecord(
-            localID: UUID(), remoteID: 42, title: "B", description: nil, isArchived: false,
+            localID: UUID(), accountID: accountID, remoteID: 42, title: "B", description: nil, isArchived: false,
             isFavorite: false, parentProjectLocalID: nil, position: 0, hexColor: "", serverUpdatedAt: nil,
         )
 
@@ -61,15 +63,39 @@ struct DatabaseMigrationsTests {
     }
 
     @Test
-    func `deleting a parent project nullifies the child's parent reference`() throws {
+    func `project remoteID can repeat across different accounts`() throws {
         let dbQueue = try migratedDatabase()
-        let parent = ProjectRecord(
-            localID: UUID(), remoteID: nil, title: "Parent", description: nil, isArchived: false,
+        let first = ProjectRecord(
+            localID: UUID(), accountID: UUID(), remoteID: 42, title: "A", description: nil, isArchived: false,
             isFavorite: false, parentProjectLocalID: nil, position: 0, hexColor: "", serverUpdatedAt: nil,
         )
+        let second = ProjectRecord(
+            localID: UUID(), accountID: UUID(), remoteID: 42, title: "B", description: nil, isArchived: false,
+            isFavorite: false, parentProjectLocalID: nil, position: 0, hexColor: "", serverUpdatedAt: nil,
+        )
+
+        try dbQueue.write { db in
+            try first.insert(db)
+            try second.insert(db)
+        }
+
+        let rows = try dbQueue.read { db in try ProjectRecord.fetchAll(db) }
+        #expect(rows.count == 2)
+    }
+
+    @Test
+    func `deleting a parent project nullifies the child's parent reference`() throws {
+        let dbQueue = try migratedDatabase()
+        let accountID = UUID()
+        let parent = ProjectRecord(
+            localID: UUID(), accountID: accountID, remoteID: nil, title: "Parent", description: nil,
+            isArchived: false, isFavorite: false, parentProjectLocalID: nil, position: 0, hexColor: "",
+            serverUpdatedAt: nil,
+        )
         var child = ProjectRecord(
-            localID: UUID(), remoteID: nil, title: "Child", description: nil, isArchived: false,
-            isFavorite: false, parentProjectLocalID: parent.localID, position: 0, hexColor: "", serverUpdatedAt: nil,
+            localID: UUID(), accountID: accountID, remoteID: nil, title: "Child", description: nil,
+            isArchived: false, isFavorite: false, parentProjectLocalID: parent.localID, position: 0, hexColor: "",
+            serverUpdatedAt: nil,
         )
 
         try dbQueue.write { db in
@@ -87,6 +113,7 @@ struct DatabaseMigrationsTests {
         let dbQueue = try migratedDatabase()
         var item = MutationQueueRecord(
             id: nil,
+            accountID: UUID(),
             entityType: .project,
             operation: .create,
             targetLocalID: UUID(),
@@ -110,12 +137,27 @@ struct DatabaseMigrationsTests {
                 try db.execute(
                     sql: """
                     INSERT INTO mutationQueueItem
-                        (entityType, operation, targetLocalID, createdAt, status)
-                    VALUES ('project', 'create', ?, ?, 'bogus')
+                        (accountID, entityType, operation, targetLocalID, createdAt, status)
+                    VALUES (?, 'project', 'create', ?, ?, 'bogus')
                     """,
-                    arguments: [UUID().uuidString, Date()],
+                    arguments: [UUID().uuidString, UUID().uuidString, Date()],
                 )
             }
         }
+    }
+
+    @Test
+    func `sync state is keyed per account so two accounts each get their own row`() throws {
+        let dbQueue = try migratedDatabase()
+        let first = SyncStateRecord(accountID: UUID(), entityType: .project, lastPulledAt: Date())
+        let second = SyncStateRecord(accountID: UUID(), entityType: .project, lastPulledAt: Date())
+
+        try dbQueue.write { db in
+            try first.save(db)
+            try second.save(db)
+        }
+
+        let rows = try dbQueue.read { db in try SyncStateRecord.fetchAll(db) }
+        #expect(rows.count == 2)
     }
 }

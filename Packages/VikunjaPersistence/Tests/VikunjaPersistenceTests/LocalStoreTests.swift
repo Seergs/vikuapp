@@ -12,6 +12,7 @@ struct LocalStoreTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let record = ProjectRecord(
             localID: UUID(),
+            accountID: UUID(),
             remoteID: nil,
             title: "Groceries",
             description: nil,
@@ -34,6 +35,7 @@ struct LocalStoreTests {
         let directory = temporaryDirectory()
         let record = ProjectRecord(
             localID: UUID(),
+            accountID: UUID(),
             remoteID: nil,
             title: "Groceries",
             description: nil,

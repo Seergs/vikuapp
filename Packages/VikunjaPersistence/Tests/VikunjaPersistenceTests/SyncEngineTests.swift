@@ -13,7 +13,7 @@ struct SyncEngineTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
         repository.projects = [Project(id: 1, title: "Groceries", hexColor: "ff0000")]
-        let engine = SyncEngine(localStore: store, projectRepository: repository)
+        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: UUID())
 
         try await engine.pullProjects()
 
@@ -29,7 +29,7 @@ struct SyncEngineTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
         repository.projects = [Project(id: 1, title: "Groceries")]
-        let engine = SyncEngine(localStore: store, projectRepository: repository)
+        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: UUID())
         try await engine.pullProjects()
         let localID = try await store.read { db in
             try #require(ProjectRecord.fetchAll(db).first { $0.remoteID == 1 }).localID
@@ -53,7 +53,7 @@ struct SyncEngineTests {
             Project(id: 2, title: "Subproject", parentProjectID: 1),
             Project(id: 1, title: "Parent"),
         ]
-        let engine = SyncEngine(localStore: store, projectRepository: repository)
+        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: UUID())
 
         try await engine.pullProjects()
 
@@ -68,7 +68,7 @@ struct SyncEngineTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
         repository.projects = [Project(id: 1, title: "Groceries"), Project(id: 2, title: "Work")]
-        let engine = SyncEngine(localStore: store, projectRepository: repository)
+        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: UUID())
         try await engine.pullProjects()
 
         repository.projects = [Project(id: 1, title: "Groceries")]
@@ -83,14 +83,15 @@ struct SyncEngineTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
         repository.projects = [Project(id: 1, title: "Groceries")]
-        let engine = SyncEngine(localStore: store, projectRepository: repository)
+        let accountID = UUID()
+        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
         try await engine.pullProjects()
         let localID = try await store.read { db in
             try #require(ProjectRecord.fetchAll(db).first { $0.remoteID == 1 }).localID
         }
         try await store.write { db in
             var mutation = MutationQueueRecord(
-                id: nil, entityType: .project, operation: .update, targetLocalID: localID,
+                id: nil, accountID: accountID, entityType: .project, operation: .update, targetLocalID: localID,
                 payload: nil, createdAt: Date(), retryCount: 0, lastError: nil, status: .pending,
                 needsConflictResolution: false,
             )
@@ -110,14 +111,15 @@ struct SyncEngineTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
         repository.projects = [Project(id: 1, title: "Groceries")]
-        let engine = SyncEngine(localStore: store, projectRepository: repository)
+        let accountID = UUID()
+        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
         try await engine.pullProjects()
         let localID = try await store.read { db in
             try #require(ProjectRecord.fetchAll(db).first { $0.remoteID == 1 }).localID
         }
         try await store.write { db in
             var mutation = MutationQueueRecord(
-                id: nil, entityType: .project, operation: .update, targetLocalID: localID,
+                id: nil, accountID: accountID, entityType: .project, operation: .update, targetLocalID: localID,
                 payload: nil, createdAt: Date(), retryCount: 3, lastError: "boom", status: .failed,
                 needsConflictResolution: false,
             )
@@ -135,7 +137,7 @@ struct SyncEngineTests {
     func `pullProjects records the pull time in syncState`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
-        let engine = SyncEngine(localStore: store, projectRepository: repository)
+        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: UUID())
         let before = Date()
 
         try await engine.pullProjects()
@@ -147,5 +149,33 @@ struct SyncEngineTests {
         // so the round-tripped value can read slightly earlier than the
         // in-memory `before` it was captured just ahead of.
         #expect(state[0].lastPulledAt >= before.addingTimeInterval(-1))
+    }
+
+    @Test
+    func `pullProjects keeps two accounts projects completely separate`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let accountA = UUID()
+        let accountB = UUID()
+        let repositoryA = FakeProjectRepository()
+        repositoryA.projects = [Project(id: 1, title: "A's project")]
+        let repositoryB = FakeProjectRepository()
+        repositoryB.projects = [Project(id: 1, title: "B's project")]
+        let engineA = SyncEngine(localStore: store, projectRepository: repositoryA, accountID: accountA)
+        let engineB = SyncEngine(localStore: store, projectRepository: repositoryB, accountID: accountB)
+
+        try await engineA.pullProjects()
+        try await engineB.pullProjects()
+
+        let rows = try await store.read { db in try ProjectRecord.fetchAll(db) }
+        #expect(rows.count == 2)
+        let rowA = try #require(rows.first { $0.accountID == accountA })
+        let rowB = try #require(rows.first { $0.accountID == accountB })
+        #expect(rowA.remoteID == 1)
+        #expect(rowA.title == "A's project")
+        #expect(rowB.remoteID == 1)
+        #expect(rowB.title == "B's project")
+
+        let state = try await store.read { db in try SyncStateRecord.fetchAll(db) }
+        #expect(state.count == 2)
     }
 }
