@@ -282,4 +282,33 @@ struct SyncEngineDrainTests {
         #expect(remaining[0].lastError != nil)
         #expect(repository.createdProjects.count == 1)
     }
+
+    @Test
+    func `a failed item is retried on the very next drain pass, not stuck forever`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let repository = FakeProjectRepository()
+        repository.createError = VikunjaError.unauthorized
+        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
+        let localID = UUID()
+        try await insertProject(in: store, localID: localID, remoteID: nil, title: "Groceries")
+        try await queueMutation(
+            in: store, operation: .create, targetLocalID: localID,
+            payload: ProjectCreateOrUpdatePayload(
+                title: "Groceries", description: nil, isArchived: false, isFavorite: false,
+                parentProjectLocalID: nil, position: 0, hexColor: "", baseUpdatedAt: nil,
+            ),
+        )
+
+        try await engine.drainProjectMutations() // fails - token still bad
+        let afterFirstDrain = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(afterFirstDrain[0].status == .failed)
+        #expect(repository.createdProjects.isEmpty)
+
+        repository.createError = nil // credential fixed, same as reconnecting with a valid token
+        try await engine.drainProjectMutations()
+
+        let afterSecondDrain = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(afterSecondDrain.isEmpty)
+        #expect(repository.createdProjects.count == 1)
+    }
 }

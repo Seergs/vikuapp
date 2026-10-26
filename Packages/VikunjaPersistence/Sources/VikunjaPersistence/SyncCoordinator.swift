@@ -5,14 +5,19 @@ import VikunjaCore
 /// refreshed whenever the network is reachable, independent of which
 /// account is currently active on screen — a backgrounded account would
 /// otherwise only ever get a chance to sync while someone happens to be
-/// looking at it. Nothing constructs this in production yet (that's the
-/// composition root's job, once there's a repository that actually queues
-/// mutations for it to drain), so it's unused until that wiring lands.
+/// looking at it.
 public actor SyncCoordinator {
     private let localStore: LocalStore
     private let accountStore: AccountStoreProtocol
     private let clientFactory: InstanceClientFactoryProtocol
     private let reachability: ReachabilityMonitoring
+    /// Resolves a currently-valid bearer credential for an account — handed
+    /// in by the composition root rather than read straight off
+    /// `accountStore.token(forAccountID:)` here, since a password/OIDC
+    /// account's stored credential is an opaque JSON blob (access + refresh
+    /// token), not a usable bearer token on its own; only the app target's
+    /// session-refresh logic knows how to turn it into one.
+    private let tokenProvider: @Sendable (InstanceAccount) -> @Sendable () async throws -> String?
     private var observationTask: Task<Void, Never>?
 
     public init(
@@ -20,11 +25,13 @@ public actor SyncCoordinator {
         accountStore: AccountStoreProtocol,
         clientFactory: InstanceClientFactoryProtocol,
         reachability: ReachabilityMonitoring,
+        tokenProvider: @escaping @Sendable (InstanceAccount) -> @Sendable () async throws -> String?,
     ) {
         self.localStore = localStore
         self.accountStore = accountStore
         self.clientFactory = clientFactory
         self.reachability = reachability
+        self.tokenProvider = tokenProvider
     }
 
     deinit {
@@ -72,7 +79,7 @@ public actor SyncCoordinator {
     private func sync(_ account: InstanceAccount) async {
         let repository = clientFactory.makeProjectRepository(
             baseURL: account.baseURL,
-            tokenProvider: { [accountStore] in try await accountStore.token(forAccountID: account.id) },
+            tokenProvider: tokenProvider(account),
         )
         let engine = SyncEngine(localStore: localStore, projectRepository: repository, accountID: account.id)
         try? await engine.pullProjects()

@@ -45,6 +45,43 @@ struct SyncEngineTests {
     }
 
     @Test
+    func `pullProjects never overwrites a row that still has a queued edit the server hasnt seen yet`() async throws {
+        // Regression test: a pull running before a queued update has drained
+        // (exactly what `SyncCoordinator.sync(_:)` does - pull, then drain)
+        // used to unconditionally overwrite the row with the server's still-
+        // stale response, silently discarding the local edit until some
+        // later pull happened to catch up - which could be never, since
+        // nothing else ever re-applies it.
+        let store = try LocalStore(directory: temporaryDirectory())
+        let repository = FakeProjectRepository()
+        repository.projects = [Project(id: 1, title: "Groceries")]
+        let accountID = UUID()
+        let engine = SyncEngine(localStore: store, projectRepository: repository, accountID: accountID)
+        try await engine.pullProjects()
+        let localID = try await store.read { db in
+            try #require(ProjectRecord.fetchAll(db).first { $0.remoteID == 1 }).localID
+        }
+        try await store.write { db in
+            var row = try #require(try ProjectRecord.fetchOne(db, key: localID))
+            row.title = "Groceries & Snacks"
+            try row.save(db)
+            var mutation = MutationQueueRecord(
+                id: nil, accountID: accountID, entityType: .project, operation: .update, targetLocalID: localID,
+                payload: nil, createdAt: Date(), retryCount: 0, lastError: nil, status: .pending,
+                needsConflictResolution: false,
+            )
+            try mutation.insert(db)
+        }
+
+        // The server still reports the pre-edit title - it hasn't seen the
+        // queued update drain yet.
+        try await engine.pullProjects()
+
+        let row = try await store.read { db in try #require(try ProjectRecord.fetchOne(db, key: localID)) }
+        #expect(row.title == "Groceries & Snacks")
+    }
+
+    @Test
     func `pullProjects resolves a childs parent link regardless of array order`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
@@ -107,7 +144,7 @@ struct SyncEngineTests {
     }
 
     @Test
-    func `pullProjects deletes a local row once its queued mutation is no longer pending or inFlight`() async throws {
+    func `pullProjects keeps a local row whose queued mutation failed, since a failed mutation is still retry-eligible`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()
         repository.projects = [Project(id: 1, title: "Groceries")]
@@ -130,7 +167,8 @@ struct SyncEngineTests {
         try await engine.pullProjects()
 
         let rows = try await store.read { db in try ProjectRecord.fetchAll(db) }
-        #expect(rows.isEmpty)
+        #expect(rows.count == 1)
+        #expect(rows[0].localID == localID)
     }
 
     @Test

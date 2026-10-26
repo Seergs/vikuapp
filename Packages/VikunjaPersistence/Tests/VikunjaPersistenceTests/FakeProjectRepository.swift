@@ -27,7 +27,9 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
     }
 
     /// Simulates the server assigning a real id and `updated` timestamp —
-    /// `SyncEngine.applyPushResult` requires both to be present.
+    /// `SyncEngine.applyPushResult` requires both to be present. Also adds
+    /// it to `projects`, like a real server would list it back on the very
+    /// next `fetchProjects()` call.
     func create(_ project: Project) async throws -> Project {
         if let createError {
             throw createError
@@ -35,7 +37,9 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
         createdProjects.append(project)
         let remoteID = nextRemoteID
         nextRemoteID += 1
-        return Self.withServerAssigned(project, id: .remote(remoteID))
+        let created = Self.withServerAssigned(project, id: .remote(remoteID))
+        projects.append(created)
+        return created
     }
 
     func update(_ project: Project) async throws -> Project {
@@ -43,7 +47,11 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
             throw updateError
         }
         updatedProjects.append(project)
-        return Self.withServerAssigned(project, id: project.id)
+        let updated = Self.withServerAssigned(project, id: project.id)
+        if let index = projects.firstIndex(where: { $0.id == project.id }) {
+            projects[index] = updated
+        }
+        return updated
     }
 
     func delete(id: EntityID) async throws {

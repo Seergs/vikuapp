@@ -51,6 +51,49 @@ struct OfflineProjectRepositoryTests {
     }
 
     @Test
+    func `fetchProjects pulls once on a cold, never-synced account instead of racing a background sync`() async throws {
+        let network = FakeProjectRepository()
+        network.projects = [Project(id: 1, title: "Already on the server")]
+        let fixture = try makeRepository(online: true, network: network)
+
+        let projects = try await fixture.repository.fetchProjects()
+
+        #expect(projects.map(\.title) == ["Already on the server"])
+        #expect(network.fetchProjectsCallCount == 1)
+
+        // A second read doesn't pull again - `SyncStateRecord` now says this
+        // account has already synced once.
+        _ = try await fixture.repository.fetchProjects()
+        #expect(network.fetchProjectsCallCount == 1)
+    }
+
+    @Test
+    func `fetchProjects never pulls while offline on a cold, never-synced account`() async throws {
+        let fixture = try makeRepository(online: false)
+
+        #expect(try await fixture.repository.fetchProjects().isEmpty)
+        #expect(fixture.network.fetchProjectsCallCount == 0)
+    }
+
+    @Test
+    func `create on a cold never-synced account is not undone by its own cold-start pull`() async throws {
+        // Regression test: `create`/`update` used to read back the row they
+        // just wrote through the public `fetchProject(id:)`, which (for a
+        // never-synced account) triggered a reconciling pull of its own -
+        // and since the fake server here doesn't echo back what `create`
+        // just pushed, that pull would delete the row before this method
+        // ever got to return it.
+        let fixture = try makeRepository(online: true)
+
+        let created = try await fixture.repository.create(Project(id: .local(UUID()), title: "Groceries"))
+
+        #expect(created.title == "Groceries")
+        #expect(created.id.remoteValue != nil)
+        let projects = try await fixture.repository.fetchProjects()
+        #expect(projects.map(\.title) == ["Groceries"])
+    }
+
+    @Test
     func `create while offline returns a local id and leaves the mutation queued`() async throws {
         let fixture = try makeRepository(online: false)
 

@@ -9,9 +9,7 @@ import VikunjaCore
 /// purely to drain that queue right after a write, if the network happens
 /// to be up already - the third of the four sync triggers, the other three
 /// (foreground, reachability regained, background refresh) living outside
-/// this type entirely. Nothing constructs this in production yet; that's
-/// the composition root's job once it cuts `ProjectRepositoryProtocol`'s
-/// wiring over to it.
+/// this type entirely.
 public actor OfflineProjectRepository: ProjectRepositoryProtocol {
     private let localStore: LocalStore
     private let accountID: UUID
@@ -26,7 +24,8 @@ public actor OfflineProjectRepository: ProjectRepositoryProtocol {
     }
 
     public func fetchProjects() async throws -> [Project] {
-        try await localStore.read { db in
+        await pullIfNeverSynced()
+        return try await localStore.read { db in
             let rows = try Self.accountRows(self.accountID, db: db)
             let hiddenLocalIDs = try Self.pendingDeleteTargetLocalIDs(accountID: self.accountID, db: db)
             let rowsByLocalID = Dictionary(uniqueKeysWithValues: rows.map { ($0.localID, $0) })
@@ -37,6 +36,17 @@ public actor OfflineProjectRepository: ProjectRepositoryProtocol {
     }
 
     public func fetchProject(id: EntityID) async throws -> Project {
+        await pullIfNeverSynced()
+        return try await readProject(id: id)
+    }
+
+    /// The actual local read behind `fetchProject(id:)`, without the
+    /// cold-pull trigger — `create`/`update` call this instead of the public
+    /// method to read back the row they just wrote, since a pull running in
+    /// between could reconcile-delete that same row before the server's own
+    /// response has caught up to it (nothing queued to protect it anymore,
+    /// since the drain that just ran already cleared the queue item).
+    private func readProject(id: EntityID) async throws -> Project {
         try await localStore.read { db in
             let rows = try Self.accountRows(self.accountID, db: db)
             guard let row = Self.findRow(matching: id, in: rows) else { throw VikunjaError.notFound }
@@ -80,7 +90,7 @@ public actor OfflineProjectRepository: ProjectRepositoryProtocol {
             )
         }
         await triggerDrainIfOnline()
-        return try await fetchProject(id: .local(localID))
+        return try await readProject(id: .local(localID))
     }
 
     public func update(_ project: Project) async throws -> Project {
@@ -116,7 +126,7 @@ public actor OfflineProjectRepository: ProjectRepositoryProtocol {
             )
         }
         await triggerDrainIfOnline()
-        return try await fetchProject(id: project.id)
+        return try await readProject(id: project.id)
     }
 
     public func delete(id: EntityID) async throws {
@@ -124,10 +134,13 @@ public actor OfflineProjectRepository: ProjectRepositoryProtocol {
             let rows = try Self.accountRows(self.accountID, db: db)
             guard let row = Self.findRow(matching: id, in: rows) else { throw VikunjaError.notFound }
 
-            // Any other mutation still pending against this row is moot
-            // once it's being deleted.
+            // Any other mutation still pending (or failed but retryable)
+            // against this row is moot once it's being deleted.
             try MutationQueueRecord.fetchAll(db)
-                .filter { $0.accountID == self.accountID && $0.targetLocalID == row.localID && $0.status == .pending }
+                .filter {
+                    $0.accountID == self.accountID && $0.targetLocalID == row.localID
+                        && ($0.status == .pending || $0.status == .failed)
+                }
                 .forEach { try $0.delete(db) }
 
             guard let remoteID = row.remoteID else {
@@ -159,16 +172,34 @@ public actor OfflineProjectRepository: ProjectRepositoryProtocol {
         try? await syncEngine.drainProjectMutations()
     }
 
+    /// Blocks the very first read against an account's cache on a cold pull
+    /// — otherwise a screen that reads before `SyncCoordinator`'s own
+    /// background pull has landed would see an empty cache with nothing to
+    /// ever tell it to refresh, since nothing here observes the local store
+    /// for later changes. Every later read, once a pull has happened at
+    /// least once, serves the cache as-is and leaves staleness to the other
+    /// triggers, exactly as intended.
+    private func pullIfNeverSynced() async {
+        let alreadyPulled = await (try? localStore.read { db in
+            try SyncStateRecord.fetchAll(db).contains { $0.accountID == self.accountID && $0.entityType == .project }
+        }) ?? false
+        guard !alreadyPulled, await reachability.isReachable else { return }
+        try? await syncEngine.pullProjects()
+    }
+
     private static func accountRows(_ accountID: UUID, db: Database) throws -> [ProjectRecord] {
         try ProjectRecord.fetchAll(db).filter { $0.accountID == accountID }
     }
 
+    /// Target ids to hide from a read — a delete the user asked for stays
+    /// hidden whether it's still pending its first attempt or failed and
+    /// waiting to be retried; either way it's not coming back.
     private static func pendingDeleteTargetLocalIDs(accountID: UUID, db: Database) throws -> Set<UUID> {
         try Set(
             MutationQueueRecord.fetchAll(db)
                 .filter {
                     $0.accountID == accountID && $0.entityType == .project && $0.operation == .delete
-                        && $0.status == .pending
+                        && ($0.status == .pending || $0.status == .failed)
                 }
                 .map(\.targetLocalID),
         )
@@ -204,10 +235,13 @@ public actor OfflineProjectRepository: ProjectRepositoryProtocol {
         )
     }
 
-    /// Replaces an existing pending mutation of the same `operation` against
-    /// `targetLocalID` in place (preserving its original `createdAt`, so
-    /// several quick edits still drain in their original queue position)
-    /// rather than stacking up one queue row per edit.
+    /// Replaces an existing pending (or failed and still retryable) mutation
+    /// of the same `operation` against `targetLocalID` in place (preserving
+    /// its original `createdAt`, so several quick edits still drain in their
+    /// original queue position) rather than stacking up one queue row per
+    /// edit. Resets a coalesced-into `.failed` item back to `.pending` —
+    /// this is a fresh edit with its own fresh payload, not a retry of the
+    /// one that failed.
     private static func enqueueOrCoalesce(
         operation: MutationOperation,
         targetLocalID: UUID,
@@ -218,10 +252,11 @@ public actor OfflineProjectRepository: ProjectRepositoryProtocol {
         let encoded = try Self.encode(payload)
         let existing = try MutationQueueRecord.fetchAll(db).first {
             $0.accountID == accountID && $0.entityType == .project && $0.targetLocalID == targetLocalID
-                && $0.status == .pending && $0.operation == operation
+                && ($0.status == .pending || $0.status == .failed) && $0.operation == operation
         }
         if var existing {
             existing.payload = encoded
+            existing.status = .pending
             existing.needsConflictResolution = false
             try existing.update(db)
         } else {
