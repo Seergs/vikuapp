@@ -36,8 +36,11 @@ public final class VikunjaTaskRepositoryV2: TaskRepositoryProtocol {
         return envelope.items.map(TaskMapper.toDomain)
     }
 
-    public func fetchTask(id: Int) async throws -> VikunjaTask {
-        let dto: TaskDTO = try await client.send(VikunjaEndpoints.taskV2(id: id))
+    public func fetchTask(id: EntityID) async throws -> VikunjaTask {
+        guard let remoteID = id.remoteValue else {
+            throw VikunjaError.notFound
+        }
+        let dto: TaskDTO = try await client.send(VikunjaEndpoints.taskV2(id: remoteID))
         return TaskMapper.toDomain(dto)
     }
 
@@ -63,8 +66,11 @@ public final class VikunjaTaskRepositoryV2: TaskRepositoryProtocol {
         return TaskMapper.toDomain(dto)
     }
 
-    public func delete(id: Int) async throws {
-        try await client.send(VikunjaEndpoints.deleteTaskV2(id: id))
+    public func delete(id: EntityID) async throws {
+        guard let remoteID = id.remoteValue else {
+            throw VikunjaError.notFound
+        }
+        try await client.send(VikunjaEndpoints.deleteTaskV2(id: remoteID))
     }
 
     public func searchTasks(query: String) async throws -> [VikunjaTask] {

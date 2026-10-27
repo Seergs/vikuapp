@@ -584,7 +584,7 @@ final class AppContainer {
         let tokenProvider = tokenProvider(for: account)
         let taskRepository = clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider)
         let projectRepository = offlineProjectRepository(for: account)
-        let task = try await taskRepository.fetchTask(id: id)
+        let task = try await taskRepository.fetchTask(id: .remote(id))
         let project = try await projectRepository.fetchProject(id: task.projectID)
         return (task, project)
     }
@@ -606,7 +606,7 @@ final class AppContainer {
 
         let tokenProvider = tokenProvider(for: account)
         let taskRepository = clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider)
-        var task = try await taskRepository.fetchTask(id: taskID)
+        var task = try await taskRepository.fetchTask(id: .remote(taskID))
 
         switch actionIdentifier {
         case PushNotificationActionIdentifier.snoozeReminderOneHour:

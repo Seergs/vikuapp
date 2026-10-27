@@ -181,7 +181,7 @@ private final class PreviewTaskRepository: @unchecked Sendable, TaskRepositoryPr
         []
     }
 
-    func fetchTask(id _: Int) async throws -> VikunjaTask {
+    func fetchTask(id _: EntityID) async throws -> VikunjaTask {
         VikunjaTask(id: 0, title: "", projectID: 0)
     }
 
@@ -193,7 +193,7 @@ private final class PreviewTaskRepository: @unchecked Sendable, TaskRepositoryPr
         task
     }
 
-    func delete(id _: Int) async throws {}
+    func delete(id _: EntityID) async throws {}
     func searchTasks(query _: String) async throws -> [VikunjaTask] {
         []
     }

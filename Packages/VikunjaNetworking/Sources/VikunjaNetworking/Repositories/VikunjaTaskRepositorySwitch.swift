@@ -23,7 +23,7 @@ final class VikunjaTaskRepositorySwitch: TaskRepositoryProtocol {
         try await resolve().fetchTasks(projectID: projectID)
     }
 
-    func fetchTask(id: Int) async throws -> VikunjaTask {
+    func fetchTask(id: EntityID) async throws -> VikunjaTask {
         try await resolve().fetchTask(id: id)
     }
 
@@ -35,7 +35,7 @@ final class VikunjaTaskRepositorySwitch: TaskRepositoryProtocol {
         try await resolve().update(task)
     }
 
-    func delete(id: Int) async throws {
+    func delete(id: EntityID) async throws {
         try await resolve().delete(id: id)
     }
 

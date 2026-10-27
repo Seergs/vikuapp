@@ -1,5 +1,6 @@
 #if canImport(AppIntents)
 import AppIntents
+import VikunjaCore
 import WidgetKit
 
 /// Flips a task's completion state straight from the widget, without opening
@@ -23,7 +24,7 @@ public struct ToggleTaskDoneIntent: AppIntent {
         guard let repository = await VikuWidgetEnvironment.makeTaskRepository() else {
             return .result()
         }
-        var task = try await repository.fetchTask(id: taskID)
+        var task = try await repository.fetchTask(id: .remote(taskID))
         task.isDone.toggle()
         _ = try await repository.update(task)
         return .result()

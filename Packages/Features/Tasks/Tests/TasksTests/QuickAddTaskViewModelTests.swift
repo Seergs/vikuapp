@@ -381,7 +381,7 @@ private final class FailingTaskRepository: TaskRepositoryProtocol, @unchecked Se
         []
     }
 
-    func fetchTask(id _: Int) async throws -> VikunjaTask {
+    func fetchTask(id _: EntityID) async throws -> VikunjaTask {
         throw VikunjaError.notFound
     }
 
@@ -393,7 +393,7 @@ private final class FailingTaskRepository: TaskRepositoryProtocol, @unchecked Se
         task
     }
 
-    func delete(id _: Int) async throws {}
+    func delete(id _: EntityID) async throws {}
     func searchTasks(query _: String) async throws -> [VikunjaTask] {
         []
     }

@@ -760,7 +760,7 @@ public actor SyncEngine {
         guard let payload: TaskDeletePayload = try decodePayload(item.payload) else {
             throw DrainError.invalidPayload
         }
-        try await taskRepository.delete(id: payload.remoteID)
+        try await taskRepository.delete(id: .remote(payload.remoteID))
         try await localStore.write { db in
             if let row = try TaskRecord.fetchOne(db, key: item.targetLocalID) {
                 try row.delete(db)

@@ -23,7 +23,7 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
         return tasks.filter { $0.projectID.remoteValue == projectID }
     }
 
-    func fetchTask(id: Int) async throws -> VikunjaTask {
+    func fetchTask(id: EntityID) async throws -> VikunjaTask {
         // Snapshot before the delay, not after — mirrors a real slow request:
         // the response body reflects server state as of when the server
         // processed it, not whatever's changed by the time it reaches the
@@ -32,7 +32,7 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
         // isn't how the real race a delayed `fetchTask` is standing in for
         // actually plays out.
         let snapshotError = fetchError
-        let snapshotTask = tasks.first(where: { $0.id.remoteValue == id })
+        let snapshotTask = tasks.first(where: { $0.id == id })
         if let fetchTaskDelay {
             try? await Task.sleep(for: fetchTaskDelay)
         }
@@ -82,11 +82,11 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
         return updated
     }
 
-    func delete(id: Int) async throws {
+    func delete(id: EntityID) async throws {
         if let deleteError {
             throw deleteError
         }
-        tasks.removeAll { $0.id.remoteValue == id }
+        tasks.removeAll { $0.id == id }
     }
 
     func searchTasks(query _: String) async throws -> [VikunjaTask] {
