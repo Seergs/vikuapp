@@ -86,15 +86,22 @@ public actor SyncCoordinator {
             baseURL: account.baseURL,
             tokenProvider: resolvedTokenProvider,
         )
+        let taskRepository = clientFactory.makeTaskRepository(
+            baseURL: account.baseURL,
+            tokenProvider: resolvedTokenProvider,
+        )
         let engine = SyncEngine(
             localStore: localStore,
             projectRepository: projectRepository,
             labelRepository: labelRepository,
+            taskRepository: taskRepository,
             accountID: account.id,
         )
         try? await engine.pullProjects()
         try? await engine.drainProjectMutations()
         try? await engine.pullLabels()
         try? await engine.drainLabelMutations()
+        try? await engine.pullTasks()
+        try? await engine.drainTaskMutations()
     }
 }

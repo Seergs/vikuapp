@@ -15,7 +15,7 @@ struct SyncEngineTests {
         repository.projects = [Project(id: 1, title: "Groceries", hexColor: "ff0000")]
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), accountID: UUID(),
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: UUID(),
         )
 
         try await engine.pullProjects()
@@ -34,7 +34,7 @@ struct SyncEngineTests {
         repository.projects = [Project(id: 1, title: "Groceries")]
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), accountID: UUID(),
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: UUID(),
         )
         try await engine.pullProjects()
         let localID = try await store.read { db in
@@ -64,7 +64,7 @@ struct SyncEngineTests {
         let accountID = UUID()
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), accountID: accountID,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountID,
         )
         try await engine.pullProjects()
         let localID = try await store.read { db in
@@ -104,7 +104,7 @@ struct SyncEngineTests {
         let accountID = UUID()
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), accountID: accountID,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountID,
         )
         try await engine.pullProjects()
         let localID = try await store.read { db in
@@ -161,7 +161,7 @@ struct SyncEngineTests {
         ]
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), accountID: accountID,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountID,
         )
         try await engine.pullProjects()
 
@@ -180,7 +180,7 @@ struct SyncEngineTests {
         ]
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), accountID: UUID(),
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: UUID(),
         )
 
         try await engine.pullProjects()
@@ -198,7 +198,7 @@ struct SyncEngineTests {
         repository.projects = [Project(id: 1, title: "Groceries"), Project(id: 2, title: "Work")]
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), accountID: UUID(),
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: UUID(),
         )
         try await engine.pullProjects()
 
@@ -217,7 +217,7 @@ struct SyncEngineTests {
         let accountID = UUID()
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), accountID: accountID,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountID,
         )
         try await engine.pullProjects()
         let localID = try await store.read { db in
@@ -248,7 +248,7 @@ struct SyncEngineTests {
         let accountID = UUID()
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), accountID: accountID,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountID,
         )
         try await engine.pullProjects()
         let localID = try await store.read { db in
@@ -277,7 +277,7 @@ struct SyncEngineTests {
         let repository = FakeProjectRepository()
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), accountID: UUID(),
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: UUID(),
         )
         let before = Date()
 
@@ -303,11 +303,11 @@ struct SyncEngineTests {
         repositoryB.projects = [Project(id: 1, title: "B's project")]
         let engineA = SyncEngine(
             localStore: store, projectRepository: repositoryA,
-            labelRepository: FakeLabelRepository(), accountID: accountA,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountA,
         )
         let engineB = SyncEngine(
             localStore: store, projectRepository: repositoryB,
-            labelRepository: FakeLabelRepository(), accountID: accountB,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountB,
         )
 
         try await engineA.pullProjects()
@@ -332,7 +332,9 @@ struct SyncEngineTests {
         let labelRepository = FakeLabelRepository()
         labelRepository.labels = [Label(id: 1, title: "Urgent", hexColor: "ff0000")]
         let engine = SyncEngine(
-            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: labelRepository,
+            localStore: store, projectRepository: FakeProjectRepository(),
+            labelRepository: labelRepository, taskRepository: FakeTaskRepository(),
+
             accountID: UUID(),
         )
 
@@ -352,7 +354,9 @@ struct SyncEngineTests {
         labelRepository.labels = [Label(id: 1, title: "Urgent", hexColor: "ff0000")]
         let accountID = UUID()
         let engine = SyncEngine(
-            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: labelRepository,
+            localStore: store, projectRepository: FakeProjectRepository(),
+            labelRepository: labelRepository, taskRepository: FakeTaskRepository(),
+
             accountID: accountID,
         )
         try await engine.pullLabels()
@@ -377,7 +381,9 @@ struct SyncEngineTests {
             Label(id: 1, title: "Urgent", hexColor: ""), Label(id: 2, title: "Work", hexColor: ""),
         ]
         let engine = SyncEngine(
-            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: labelRepository,
+            localStore: store, projectRepository: FakeProjectRepository(),
+            labelRepository: labelRepository, taskRepository: FakeTaskRepository(),
+
             accountID: UUID(),
         )
         try await engine.pullLabels()
@@ -396,7 +402,9 @@ struct SyncEngineTests {
         labelRepository.labels = [Label(id: 1, title: "Urgent", hexColor: "")]
         let accountID = UUID()
         let engine = SyncEngine(
-            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: labelRepository,
+            localStore: store, projectRepository: FakeProjectRepository(),
+            labelRepository: labelRepository, taskRepository: FakeTaskRepository(),
+
             accountID: accountID,
         )
         try await engine.pullLabels()
@@ -421,5 +429,192 @@ struct SyncEngineTests {
 
         let row = try await store.read { db in try #require(try LabelRecord.fetchOne(db, key: localID)) }
         #expect(row.title == "Urgent & Important")
+    }
+
+    @Test
+    func `pullTasks inserts a task not yet seen locally, resolving its project to a local id`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 1, title: "Groceries")]
+        let taskRepository = FakeTaskRepository()
+        taskRepository.tasks = [VikunjaTask(id: 10, title: "Buy milk", projectID: 1)]
+        let engine = SyncEngine(
+            localStore: store, projectRepository: projectRepository, labelRepository: FakeLabelRepository(),
+            taskRepository: taskRepository, accountID: UUID(),
+        )
+        try await engine.pullProjects()
+        let projectLocalID = try await store.read { db in
+            try #require(ProjectRecord.fetchAll(db).first { $0.remoteID == 1 }).localID
+        }
+
+        try await engine.pullTasks()
+
+        let rows = try await store.read { db in try TaskRecord.fetchAll(db) }
+        #expect(rows.count == 1)
+        #expect(rows[0].remoteID == 10)
+        #expect(rows[0].title == "Buy milk")
+        #expect(rows[0].projectLocalID == projectLocalID)
+    }
+
+    @Test
+    func `pullTasks skips a task whose project hasnt synced locally yet`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let taskRepository = FakeTaskRepository()
+        let engine = SyncEngine(
+            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: FakeLabelRepository(),
+            taskRepository: taskRepository, accountID: UUID(),
+        )
+        // No pullProjects() call - the project table is empty, so there's
+        // nothing to resolve this task's `projectLocalID` against.
+        taskRepository.tasks = [VikunjaTask(id: 10, title: "Buy milk", projectID: 1)]
+
+        try await engine.pullTasks()
+
+        let rows = try await store.read { db in try TaskRecord.fetchAll(db) }
+        #expect(rows.isEmpty)
+    }
+
+    @Test
+    func `pullTasks never fetches a virtual projects tasks`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let projectRepository = FakeProjectRepository()
+        // Favorites, a virtual project the real API also lists alongside
+        // real ones.
+        projectRepository.projects = [Project(id: -1, title: "Favorites")]
+        let taskRepository = FakeTaskRepository()
+        let engine = SyncEngine(
+            localStore: store, projectRepository: projectRepository, labelRepository: FakeLabelRepository(),
+            taskRepository: taskRepository, accountID: UUID(),
+        )
+        try await engine.pullProjects()
+
+        try await engine.pullTasks()
+
+        #expect(taskRepository.fetchTasksCallCount == 0)
+    }
+
+    @Test
+    func `pullTasks updates an existing row in place rather than duplicating it`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 1, title: "Groceries")]
+        let taskRepository = FakeTaskRepository()
+        taskRepository.tasks = [VikunjaTask(id: 10, title: "Buy milk", projectID: 1)]
+        let engine = SyncEngine(
+            localStore: store, projectRepository: projectRepository, labelRepository: FakeLabelRepository(),
+            taskRepository: taskRepository, accountID: UUID(),
+        )
+        try await engine.pullProjects()
+        try await engine.pullTasks()
+        let localID = try await store.read { db in
+            try #require(TaskRecord.fetchAll(db).first { $0.remoteID == 10 }).localID
+        }
+
+        taskRepository.tasks = [VikunjaTask(id: 10, title: "Buy milk and eggs", projectID: 1)]
+        try await engine.pullTasks()
+
+        let rows = try await store.read { db in try TaskRecord.fetchAll(db) }
+        #expect(rows.count == 1)
+        #expect(rows[0].localID == localID)
+        #expect(rows[0].title == "Buy milk and eggs")
+    }
+
+    @Test
+    func `pullTasks deletes a local row whose remote id is gone from the server`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 1, title: "Groceries")]
+        let taskRepository = FakeTaskRepository()
+        taskRepository.tasks = [
+            VikunjaTask(id: 10, title: "Buy milk", projectID: 1), VikunjaTask(id: 11, title: "Buy eggs", projectID: 1),
+        ]
+        let engine = SyncEngine(
+            localStore: store, projectRepository: projectRepository, labelRepository: FakeLabelRepository(),
+            taskRepository: taskRepository, accountID: UUID(),
+        )
+        try await engine.pullProjects()
+        try await engine.pullTasks()
+
+        taskRepository.tasks = [VikunjaTask(id: 10, title: "Buy milk", projectID: 1)]
+        try await engine.pullTasks()
+
+        let rows = try await store.read { db in try TaskRecord.fetchAll(db) }
+        #expect(rows.map(\.remoteID) == [10])
+    }
+
+    @Test
+    func `pullTasks never overwrites a row that still has a queued edit the server hasnt seen yet`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 1, title: "Groceries")]
+        let taskRepository = FakeTaskRepository()
+        taskRepository.tasks = [VikunjaTask(id: 10, title: "Buy milk", projectID: 1)]
+        let accountID = UUID()
+        let engine = SyncEngine(
+            localStore: store, projectRepository: projectRepository, labelRepository: FakeLabelRepository(),
+            taskRepository: taskRepository, accountID: accountID,
+        )
+        try await engine.pullProjects()
+        try await engine.pullTasks()
+        let localID = try await store.read { db in
+            try #require(TaskRecord.fetchAll(db).first { $0.remoteID == 10 }).localID
+        }
+        try await store.write { db in
+            var row = try #require(try TaskRecord.fetchOne(db, key: localID))
+            row.title = "Buy milk and eggs"
+            try row.save(db)
+            var mutation = MutationQueueRecord(
+                id: nil, accountID: accountID, entityType: .task, operation: .update, targetLocalID: localID,
+                payload: nil, createdAt: Date(), retryCount: 0, lastError: nil, status: .pending,
+                needsConflictResolution: false,
+            )
+            try mutation.insert(db)
+        }
+
+        // The server still reports the pre-edit title - it hasn't seen the
+        // queued update drain yet.
+        try await engine.pullTasks()
+
+        let row = try await store.read { db in try #require(try TaskRecord.fetchOne(db, key: localID)) }
+        #expect(row.title == "Buy milk and eggs")
+    }
+
+    @Test
+    func `pullTasks still refreshes serverUpdatedAt on a protected row, so a real conflict stays detectable`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 1, title: "Groceries")]
+        let taskRepository = FakeTaskRepository()
+        let firstUpdatedAt = Date(timeIntervalSince1970: 1_000_000)
+        taskRepository.tasks = [VikunjaTask(id: 10, title: "Buy milk", projectID: 1, updated: firstUpdatedAt)]
+        let accountID = UUID()
+        let engine = SyncEngine(
+            localStore: store, projectRepository: projectRepository, labelRepository: FakeLabelRepository(),
+            taskRepository: taskRepository, accountID: accountID,
+        )
+        try await engine.pullProjects()
+        try await engine.pullTasks()
+        let localID = try await store.read { db in
+            try #require(TaskRecord.fetchAll(db).first { $0.remoteID == 10 }).localID
+        }
+        try await store.write { db in
+            var mutation = MutationQueueRecord(
+                id: nil, accountID: accountID, entityType: .task, operation: .update, targetLocalID: localID,
+                payload: nil, createdAt: Date(), retryCount: 0, lastError: nil, status: .pending,
+                needsConflictResolution: false,
+            )
+            try mutation.insert(db)
+        }
+
+        // Someone else edited this task server-side while this device was
+        // offline, after the local edit above was queued.
+        let secondUpdatedAt = Date(timeIntervalSince1970: 2_000_000)
+        taskRepository.tasks = [
+            VikunjaTask(id: 10, title: "Buy milk (edited elsewhere)", projectID: 1, updated: secondUpdatedAt),
+        ]
+        try await engine.pullTasks()
+
+        let row = try await store.read { db in try #require(try TaskRecord.fetchOne(db, key: localID)) }
+        #expect(row.serverUpdatedAt == secondUpdatedAt)
     }
 }

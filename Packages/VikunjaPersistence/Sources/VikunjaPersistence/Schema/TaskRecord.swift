@@ -22,6 +22,11 @@ struct TaskRecord: Codable, Equatable, Sendable {
     /// sync. Unlike a project's parent, never nil: every task belongs to
     /// exactly one project.
     var projectLocalID: UUID
+    /// Vikunja's server `updated` timestamp as of the last successful pull
+    /// or push; `nil` until the first one. Compared against on push to
+    /// detect a server-side edit the queued mutation wasn't based on —
+    /// mirrors `ProjectRecord.serverUpdatedAt`.
+    var serverUpdatedAt: Date?
 }
 
 extension TaskRecord: FetchableRecord, PersistableRecord {
