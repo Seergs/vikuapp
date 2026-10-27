@@ -45,6 +45,33 @@ struct ProjectOverviewViewModelTests {
     }
 
     @Test
+    func `load succeeds for a project created offline that has not synced yet`() async {
+        // Regression test: a `.local` project (offline-created, never
+        // synced) used to fail the whole load with "not found" - there was
+        // nothing wrong with the project itself, `fetchTasks(projectID:)`
+        // simply had no way to represent a local-only project before it
+        // widened from `Int` to `EntityID`.
+        let localProjectID = EntityID.local(UUID())
+        let taskRepository = FakeTaskRepository()
+        taskRepository.tasks = [VikunjaTask(id: .local(UUID()), title: "Buy milk", projectID: localProjectID)]
+        let viewModel = ProjectOverviewViewModel(
+            project: Project(id: localProjectID, title: "Errands"),
+            repository: taskRepository,
+            projectRepository: FakeProjectRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
+            toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
+        )
+
+        await viewModel.load()
+
+        #expect(viewModel.loadState == .loaded)
+        #expect(viewModel.tasks.map(\.title) == ["Buy milk"])
+    }
+
+    @Test
     func `load leaves supports kanban false for favorites even when the server supports api v2`() async {
         // Favorites (id -1) is a pseudo-project with no row in the real
         // `projects` table, so the server has no /views entries for it -

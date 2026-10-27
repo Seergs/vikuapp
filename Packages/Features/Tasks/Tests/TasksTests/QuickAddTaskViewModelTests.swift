@@ -377,7 +377,7 @@ struct QuickAddTaskViewModelTests {
 }
 
 private final class FailingTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
-    func fetchTasks(projectID _: Int) async throws -> [VikunjaTask] {
+    func fetchTasks(projectID _: EntityID) async throws -> [VikunjaTask] {
         []
     }
 

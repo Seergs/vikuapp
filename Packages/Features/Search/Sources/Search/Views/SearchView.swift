@@ -177,7 +177,7 @@ private extension View {
 // MARK: - Preview Helpers
 
 private final class PreviewTaskRepository: @unchecked Sendable, TaskRepositoryProtocol {
-    func fetchTasks(projectID _: Int) async throws -> [VikunjaTask] {
+    func fetchTasks(projectID _: EntityID) async throws -> [VikunjaTask] {
         []
     }
 

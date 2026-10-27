@@ -157,16 +157,16 @@ public final class TodayViewModel {
             homeSelectionCache.setCachedHomeSelection(refreshed)
         }
         pinnedSelection = refreshed
-        // Keyed by the server id, matching `VikunjaTask.projectID: Int`
-        // (Tasks hasn't migrated to `EntityID` yet). A project without one
-        // yet (offline-created, not synced) is excluded — not reachable
-        // until Projects' own offline-create path exists.
+        // Keyed by the server id, for looking up a task's project by
+        // `task.projectID.remoteValue`. A project without one yet
+        // (offline-created, not synced) is excluded — there's nothing to
+        // key it by until it syncs.
         projectsByID = Dictionary(
             uniqueKeysWithValues: projects.compactMap { project in
                 project.id.remoteValue.map { ($0, project) }
             },
         )
-        tasks = try await taskRepository.fetchTasks(projectID: pinned.id)
+        tasks = try await taskRepository.fetchTasks(projectID: .remote(pinned.id))
     }
 
     /// Flips a task's completion state, persists the change, and rolls the
@@ -264,11 +264,7 @@ public final class TodayViewModel {
     /// `TaskDetailViewModel.loadRelationSuggestions()`.
     public func loadRelationSuggestions(for task: VikunjaTask) async {
         let excludedIDs = relatedTaskIDs(of: task)
-        guard let projectID = task.projectID.remoteValue else {
-            relationSearchResults = []
-            return
-        }
-        let results = await (try? taskRepository.fetchTasks(projectID: projectID)) ?? []
+        let results = await (try? taskRepository.fetchTasks(projectID: task.projectID)) ?? []
         relationSearchResults = results.filter { !excludedIDs.contains($0.id.remoteValue ?? -1) }
     }
 

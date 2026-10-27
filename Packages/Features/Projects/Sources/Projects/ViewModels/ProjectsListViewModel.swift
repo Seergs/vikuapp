@@ -133,11 +133,14 @@ public final class ProjectsListViewModel {
         return await withTaskGroup(of: (Int, ProjectTaskSummary)?.self) { group in
             for id in ids {
                 group.addTask {
-                    // A node without a synced id yet (offline-created) has no
-                    // tasks to summarize — not reachable until Projects' own
-                    // offline-create path exists.
+                    // The returned dictionary is keyed by remote id (for
+                    // callers that only ever look a project up by one), so a
+                    // node without a synced id yet (offline-created) has
+                    // nowhere to store its summary - it just shows no badge
+                    // until it syncs, even though `fetchTasks(projectID:)`
+                    // itself can resolve its locally-created tasks fine.
                     guard let remoteID = id.remoteValue,
-                          let tasks = try? await repository.fetchTasks(projectID: remoteID) else { return nil }
+                          let tasks = try? await repository.fetchTasks(projectID: id) else { return nil }
                     return (remoteID, ProjectTaskSummary(done: tasks.filter(\.isDone).count, total: tasks.count))
                 }
             }

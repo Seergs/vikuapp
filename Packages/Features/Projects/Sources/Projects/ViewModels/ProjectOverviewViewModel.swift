@@ -194,13 +194,7 @@ public final class ProjectOverviewViewModel {
         async let kanbanSupport = capabilityProvider.supports(.apiV2)
         do {
             project = try await projectRepository.fetchProject(id: project.id)
-            // Just-fetched above, so always `.remote` at this point — guarded
-            // rather than force-unwrapped since `OfflineProjectRepository`
-            // will later make a `.local` result from `fetchProject` real.
-            guard let projectID = project.id.remoteValue else {
-                throw VikunjaError.notFound
-            }
-            tasks = try await repository.fetchTasks(projectID: projectID)
+            tasks = try await repository.fetchTasks(projectID: project.id)
             subprojects = try await Self.fetchSubprojects(parentID: project.id, repository: projectRepository)
             subprojectTaskSummaries = await Self.fetchSubprojectSummaries(subprojects, repository: repository)
             if let filterID = project.savedFilterID {
@@ -242,11 +236,7 @@ public final class ProjectOverviewViewModel {
         await withTaskGroup(of: (EntityID, TaskSummary)?.self) { group in
             for node in nodes {
                 group.addTask {
-                    // Not reachable until Projects' own offline-create path
-                    // exists — a subproject without a synced id yet has no
-                    // tasks on the server.
-                    guard let remoteID = node.id.remoteValue,
-                          let tasks = try? await repository.fetchTasks(projectID: remoteID) else { return nil }
+                    guard let tasks = try? await repository.fetchTasks(projectID: node.id) else { return nil }
                     return (node.id, TaskSummary(done: tasks.filter(\.isDone).count, total: tasks.count))
                 }
             }
@@ -353,11 +343,7 @@ public final class ProjectOverviewViewModel {
     /// `TaskDetailViewModel.loadRelationSuggestions()`.
     public func loadRelationSuggestions(for task: VikunjaTask) async {
         let excludedIDs = relatedTaskIDs(of: task)
-        guard let projectID = task.projectID.remoteValue else {
-            relationSearchResults = []
-            return
-        }
-        let results = await (try? repository.fetchTasks(projectID: projectID)) ?? []
+        let results = await (try? repository.fetchTasks(projectID: task.projectID)) ?? []
         relationSearchResults = results.filter { !excludedIDs.contains($0.id.remoteValue ?? -1) }
     }
 

@@ -31,8 +31,11 @@ public final class VikunjaTaskRepositoryV2: TaskRepositoryProtocol {
         self.client = client
     }
 
-    public func fetchTasks(projectID: Int) async throws -> [VikunjaTask] {
-        let envelope: APIv2Envelope<TaskDTO> = try await client.send(VikunjaEndpoints.tasksV2(projectID: projectID))
+    public func fetchTasks(projectID: EntityID) async throws -> [VikunjaTask] {
+        // A project with no remote id yet (offline-created) has no tasks on
+        // the server to fetch either.
+        guard let remoteID = projectID.remoteValue else { return [] }
+        let envelope: APIv2Envelope<TaskDTO> = try await client.send(VikunjaEndpoints.tasksV2(projectID: remoteID))
         return envelope.items.map(TaskMapper.toDomain)
     }
 
