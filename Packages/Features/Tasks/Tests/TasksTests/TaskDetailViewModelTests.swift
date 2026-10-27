@@ -1752,4 +1752,75 @@ struct TaskDetailViewModelTests {
 
         #expect(viewModel.reminderDeliveryWarning == nil)
     }
+
+    // MARK: - A task created offline, not yet synced
+
+    // Regression tests: a task created offline (`.local` id, not yet
+    // synced) has no sub-resources on the server yet - every write below
+    // used to crash on that missing id instead of degrading gracefully.
+
+    @Test
+    func `loading comments or attachments for an unsynced task leaves them empty rather than erroring`() async {
+        let viewModel = TaskDetailViewModel(
+            task: VikunjaTask(id: .local(UUID()), title: "Write report", projectID: .local(UUID())),
+            project: Project(id: .local(UUID()), title: "Work"),
+            repository: FakeTaskRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            commentRepository: FakeTaskCommentRepository(),
+            attachmentRepository: FakeTaskAttachmentRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: FakeToastPresenter(),
+        )
+
+        await viewModel.loadComments()
+        await viewModel.loadAttachments()
+
+        #expect(viewModel.comments.isEmpty)
+        #expect(viewModel.commentsLoadState == .loaded)
+        #expect(viewModel.attachments.isEmpty)
+        #expect(viewModel.attachmentsLoadState == .loaded)
+    }
+
+    @Test
+    func `adding a comment to an unsynced task shows a toast instead of crashing`() async {
+        let toastPresenter = FakeToastPresenter()
+        let viewModel = TaskDetailViewModel(
+            task: VikunjaTask(id: .local(UUID()), title: "Write report", projectID: .local(UUID())),
+            project: Project(id: .local(UUID()), title: "Work"),
+            repository: FakeTaskRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            commentRepository: FakeTaskCommentRepository(),
+            attachmentRepository: FakeTaskAttachmentRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: toastPresenter,
+        )
+
+        await viewModel.addComment("Looks good")
+
+        #expect(viewModel.comments.isEmpty)
+        #expect(toastPresenter.shownMessages.count == 1)
+    }
+
+    @Test
+    func `toggling a label on an unsynced task shows a toast instead of crashing`() async {
+        let toastPresenter = FakeToastPresenter()
+        let viewModel = TaskDetailViewModel(
+            task: VikunjaTask(id: .local(UUID()), title: "Write report", projectID: .local(UUID())),
+            project: Project(id: .local(UUID()), title: "Work"),
+            repository: FakeTaskRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            commentRepository: FakeTaskCommentRepository(),
+            attachmentRepository: FakeTaskAttachmentRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: toastPresenter,
+        )
+
+        await viewModel.toggleLabel(Label(id: 1, title: "Urgent", hexColor: "ff0000"))
+
+        #expect(viewModel.task.labels.isEmpty)
+        #expect(toastPresenter.shownMessages.count == 1)
+    }
 }
