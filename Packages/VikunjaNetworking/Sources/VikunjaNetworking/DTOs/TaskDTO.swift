@@ -59,6 +59,11 @@ struct TaskDTO: Codable {
     var assignees: [JSONValue]?
     var coverImageAttachmentId: Int?
     var isFavorite: Bool?
+    /// Server-set, read-only — never written by `TaskMapper.toDTO`/`.merge`.
+    /// Round-tripped through `VikunjaCore.VikunjaTask.updated` (unlike the
+    /// other fields in this group) since the sync engine's conflict
+    /// detection needs it, mirroring `ProjectDTO.updated`.
+    var updated: Date?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -69,6 +74,7 @@ struct TaskDTO: Codable {
         case labels
         case reminders
         case assignees
+        case updated
         case dueDate = "due_date"
         case projectId = "project_id"
         case relatedTasks = "related_tasks"

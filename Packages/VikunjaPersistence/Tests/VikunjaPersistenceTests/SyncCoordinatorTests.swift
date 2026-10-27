@@ -73,7 +73,11 @@ private final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @u
         baseURL: URL,
         tokenProvider: @escaping @Sendable () async throws -> String?,
     ) -> TaskRepositoryProtocol {
-        fatalError("not used by SyncCoordinatorTests")
+        // `sync(_:)` always pulls tasks alongside projects/labels, but
+        // nothing in this file asserts on task behavior - a fresh,
+        // otherwise-unused fake per call is enough to keep that pull a
+        // harmless no-op.
+        FakeTaskRepository()
     }
 
     func makeLabelRepository(

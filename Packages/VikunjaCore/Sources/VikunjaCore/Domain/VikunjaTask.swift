@@ -25,6 +25,11 @@ public struct VikunjaTask: Identifiable, Equatable, Hashable, Sendable {
     /// property each.
     public var otherRelations: [RelationKind: [TaskRelation]]
     public var reminders: [TaskReminder]
+    /// The server's own last-modified timestamp. `nil` for a task that
+    /// hasn't round-tripped through the network yet (a freshly offline-
+    /// created one). Not for display — it's sync bookkeeping, read by
+    /// whatever persists this task locally (mirrors `Project.updated`).
+    public var updated: Date?
 
     public init(
         id: EntityID,
@@ -40,6 +45,7 @@ public struct VikunjaTask: Identifiable, Equatable, Hashable, Sendable {
         blocks: [TaskRelation] = [],
         otherRelations: [RelationKind: [TaskRelation]] = [:],
         reminders: [TaskReminder] = [],
+        updated: Date? = nil,
     ) {
         self.id = id
         self.title = title
@@ -54,6 +60,7 @@ public struct VikunjaTask: Identifiable, Equatable, Hashable, Sendable {
         self.blocks = blocks
         self.otherRelations = otherRelations
         self.reminders = reminders
+        self.updated = updated
     }
 
     /// Whether this task is still waiting on an incomplete `dependsOn` task.

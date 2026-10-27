@@ -33,7 +33,9 @@ struct OfflineLabelRepositoryTests {
     ) throws -> Fixture {
         let store = try LocalStore(directory: temporaryDirectory())
         let engine = SyncEngine(
-            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: network,
+            localStore: store, projectRepository: FakeProjectRepository(),
+            labelRepository: network, taskRepository: FakeTaskRepository(),
+
             accountID: accountID,
         )
         let reachability = FakeReachabilityMonitor(isReachable: online)
@@ -159,7 +161,9 @@ struct OfflineLabelRepositoryTests {
         let network = FakeLabelRepository()
         let store = try LocalStore(directory: temporaryDirectory())
         let onlineEngine = SyncEngine(
-            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: network,
+            localStore: store, projectRepository: FakeProjectRepository(),
+            labelRepository: network, taskRepository: FakeTaskRepository(),
+
             accountID: accountID,
         )
         let onlineRepository = OfflineLabelRepository(
@@ -170,7 +174,9 @@ struct OfflineLabelRepositoryTests {
         #expect(created.id.remoteValue != nil)
 
         let offlineEngine = SyncEngine(
-            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: network,
+            localStore: store, projectRepository: FakeProjectRepository(),
+            labelRepository: network, taskRepository: FakeTaskRepository(),
+
             accountID: accountID,
         )
         let offlineRepository = OfflineLabelRepository(
@@ -210,7 +216,9 @@ struct OfflineLabelRepositoryTests {
         let onlineRepository = OfflineLabelRepository(
             localStore: store, accountID: accountID,
             syncEngine: SyncEngine(
-                localStore: store, projectRepository: FakeProjectRepository(), labelRepository: network,
+                localStore: store, projectRepository: FakeProjectRepository(),
+                labelRepository: network, taskRepository: FakeTaskRepository(),
+
                 accountID: accountID,
             ),
             reachability: FakeReachabilityMonitor(isReachable: true), networkLabelRepository: network,
@@ -220,7 +228,9 @@ struct OfflineLabelRepositoryTests {
         let offlineRepository = OfflineLabelRepository(
             localStore: store, accountID: accountID,
             syncEngine: SyncEngine(
-                localStore: store, projectRepository: FakeProjectRepository(), labelRepository: network,
+                localStore: store, projectRepository: FakeProjectRepository(),
+                labelRepository: network, taskRepository: FakeTaskRepository(),
+
                 accountID: accountID,
             ),
             reachability: FakeReachabilityMonitor(isReachable: false), networkLabelRepository: network,
@@ -260,7 +270,9 @@ struct OfflineLabelRepositoryTests {
         let repositoryA = OfflineLabelRepository(
             localStore: store, accountID: accountA,
             syncEngine: SyncEngine(
-                localStore: store, projectRepository: FakeProjectRepository(), labelRepository: networkA,
+                localStore: store, projectRepository: FakeProjectRepository(),
+                labelRepository: networkA, taskRepository: FakeTaskRepository(),
+
                 accountID: accountA,
             ),
             reachability: FakeReachabilityMonitor(isReachable: false), networkLabelRepository: networkA,
@@ -268,7 +280,9 @@ struct OfflineLabelRepositoryTests {
         let repositoryB = OfflineLabelRepository(
             localStore: store, accountID: accountB,
             syncEngine: SyncEngine(
-                localStore: store, projectRepository: FakeProjectRepository(), labelRepository: networkB,
+                localStore: store, projectRepository: FakeProjectRepository(),
+                labelRepository: networkB, taskRepository: FakeTaskRepository(),
+
                 accountID: accountB,
             ),
             reachability: FakeReachabilityMonitor(isReachable: false), networkLabelRepository: networkB,

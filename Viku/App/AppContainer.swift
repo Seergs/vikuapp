@@ -825,6 +825,13 @@ final class AppContainer {
         clientFactory.makeLabelRepository(baseURL: account.baseURL, tokenProvider: tokenProvider(for: account))
     }
 
+    /// `SyncEngine` needs this to pull/drain tasks in the same pass, even
+    /// though nothing reads tasks offline yet — that cutover is its own,
+    /// later wiring change (mirrors `networkLabelRepository(for:)`).
+    private func networkTaskRepository(for account: InstanceAccount) -> TaskRepositoryProtocol {
+        clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider(for: account))
+    }
+
     /// The `ProjectRepositoryProtocol` every screen reads/writes through —
     /// local-first, queuing a mutation and opportunistically draining it
     /// right away if the network happens to already be up. `networkRepository`
@@ -839,6 +846,7 @@ final class AppContainer {
             localStore: localStore,
             projectRepository: networkRepository,
             labelRepository: networkLabelRepository(for: account),
+            taskRepository: networkTaskRepository(for: account),
             accountID: account.id,
         )
         return OfflineProjectRepository(
@@ -863,6 +871,7 @@ final class AppContainer {
                 tokenProvider: tokenProvider(for: account),
             ),
             labelRepository: networkRepository,
+            taskRepository: networkTaskRepository(for: account),
             accountID: account.id,
         )
         return OfflineLabelRepository(

@@ -9,6 +9,7 @@ public actor SyncEngine {
     private let localStore: LocalStore
     private let projectRepository: ProjectRepositoryProtocol
     private let labelRepository: LabelRepositoryProtocol
+    private let taskRepository: TaskRepositoryProtocol
     /// `InstanceAccount.id` — every row this engine reads or writes is
     /// scoped to this one account, since `LocalStore`'s tables hold every
     /// saved account's data together rather than one database file each.
@@ -18,11 +19,13 @@ public actor SyncEngine {
         localStore: LocalStore,
         projectRepository: ProjectRepositoryProtocol,
         labelRepository: LabelRepositoryProtocol,
+        taskRepository: TaskRepositoryProtocol,
         accountID: UUID,
     ) {
         self.localStore = localStore
         self.projectRepository = projectRepository
         self.labelRepository = labelRepository
+        self.taskRepository = taskRepository
         self.accountID = accountID
     }
 
@@ -281,6 +284,134 @@ public actor SyncEngine {
         }
     }
 
+    // MARK: - Pulling tasks
+
+    /// Fetches every task across every real (non-virtual), already-synced
+    /// project and reconciles it into the local store — same shape as
+    /// `pullProjects()`, including its conflict-detection refresh, but with
+    /// no separate FK-resolution pass: unlike a sub-project's parent (which
+    /// can reference a project appearing later in the same response), each
+    /// task's project is already known the moment its own fetch is issued
+    /// (`fetchTasks(projectID:)` is itself scoped to one project), so
+    /// `projectLocalID` is set directly in `upsertTaskRows`.
+    ///
+    /// Reads the already-pulled local project list rather than calling
+    /// `projectRepository.fetchProjects()` again — `pullProjects()` always
+    /// runs first in `SyncCoordinator.sync(_:)`, and reusing its result
+    /// avoids a second network round trip for the same data. Mirrors
+    /// `AccountTaskLoader.loadAllTasks()`'s own "skip virtual projects,
+    /// tolerate one project's fetch failing" behavior.
+    public func pullTasks() async throws {
+        let now = Date()
+        let projectRows = try await localStore.read { db in
+            try ProjectRecord.fetchAll(db).filter { $0.accountID == self.accountID }
+        }
+
+        var remoteTasks: [VikunjaTask] = []
+        for projectRow in projectRows {
+            // A negative or zero remote id is a virtual project (Favorites,
+            // a saved filter) — its "tasks" are just a view over tasks that
+            // already live in a real project, so fetching them would double
+            // every such task. A project with no remote id yet (offline-
+            // created) can't have any tasks on the server yet either.
+            guard let remoteProjectID = projectRow.remoteID, remoteProjectID > 0 else { continue }
+            remoteTasks += await (try? taskRepository.fetchTasks(projectID: remoteProjectID)) ?? []
+        }
+
+        let projectLocalIDByRemoteID: [Int: UUID] = Dictionary(
+            uniqueKeysWithValues: projectRows.compactMap { row in row.remoteID.map { ($0, row.localID) } },
+        )
+        let fetchedTasks = remoteTasks
+
+        try await localStore.write { db in
+            let localRows = try TaskRecord.fetchAll(db).filter { $0.accountID == self.accountID }
+            let localIDByRemoteID = Self.reserveTaskLocalIDs(for: fetchedTasks, existing: localRows)
+            let queuedTargetLocalIDs = try Self.queuedTargetLocalIDs(
+                accountID: self.accountID, entityType: .task, db: db,
+            )
+
+            try Self.upsertTaskRows(
+                for: fetchedTasks, accountID: self.accountID, localIDByRemoteID: localIDByRemoteID,
+                projectLocalIDByRemoteID: projectLocalIDByRemoteID,
+                protectedLocalIDs: queuedTargetLocalIDs, db: db,
+            )
+            try Self.deleteMissingTaskRows(
+                localRows,
+                stillPresentRemoteIDs: Set(fetchedTasks.compactMap(\.id.remoteValue)),
+                protectedLocalIDs: queuedTargetLocalIDs,
+                db: db,
+            )
+
+            try SyncStateRecord(accountID: self.accountID, entityType: .task, lastPulledAt: now).save(db)
+        }
+    }
+
+    private static func reserveTaskLocalIDs(for remoteTasks: [VikunjaTask], existing localRows: [TaskRecord]) -> [Int: UUID] {
+        var localIDByRemoteID: [Int: UUID] = Dictionary(
+            uniqueKeysWithValues: localRows.compactMap { row in row.remoteID.map { ($0, row.localID) } },
+        )
+        for task in remoteTasks {
+            guard let remoteID = task.id.remoteValue, localIDByRemoteID[remoteID] == nil else { continue }
+            localIDByRemoteID[remoteID] = UUID()
+        }
+        return localIDByRemoteID
+    }
+
+    // swiftlint:disable function_parameter_count
+    /// Same `protectedLocalIDs` skip as `upsertRows` — see its doc comment.
+    /// A task whose project can't be resolved locally (shouldn't happen
+    /// given `pullProjects()` always runs first, but defensive against a
+    /// task somehow referencing a project this account's pull hasn't seen)
+    /// is skipped entirely: `projectLocalID` has no `NULL` to fall back to.
+    private static func upsertTaskRows(
+        for remoteTasks: [VikunjaTask],
+        accountID: UUID,
+        localIDByRemoteID: [Int: UUID],
+        projectLocalIDByRemoteID: [Int: UUID],
+        protectedLocalIDs: Set<UUID>,
+        db: Database,
+    ) throws {
+        for task in remoteTasks {
+            guard let remoteID = task.id.remoteValue, let localID = localIDByRemoteID[remoteID] else { continue }
+            guard let projectRemoteID = task.projectID.remoteValue,
+                  let projectLocalID = projectLocalIDByRemoteID[projectRemoteID] else { continue }
+            if protectedLocalIDs.contains(localID) {
+                guard var existing = try TaskRecord.fetchOne(db, key: localID) else { continue }
+                existing.serverUpdatedAt = task.updated
+                try existing.save(db)
+                continue
+            }
+            let row = TaskRecord(
+                localID: localID,
+                accountID: accountID,
+                remoteID: remoteID,
+                title: task.title,
+                description: task.description,
+                isDone: task.isDone,
+                dueDate: task.dueDate,
+                priority: task.priority.rawValue,
+                projectLocalID: projectLocalID,
+                serverUpdatedAt: task.updated,
+            )
+            try row.save(db)
+        }
+    }
+
+    // swiftlint:enable function_parameter_count
+
+    private static func deleteMissingTaskRows(
+        _ localRows: [TaskRecord],
+        stillPresentRemoteIDs: Set<Int>,
+        protectedLocalIDs: Set<UUID>,
+        db: Database,
+    ) throws {
+        for row in localRows {
+            guard let remoteID = row.remoteID, !stillPresentRemoteIDs.contains(remoteID) else { continue }
+            guard !protectedLocalIDs.contains(row.localID) else { continue }
+            try row.delete(db)
+        }
+    }
+
     // MARK: - Draining queued mutations
 
     enum DrainError: Error {
@@ -520,6 +651,133 @@ public actor SyncEngine {
         try await localStore.write { db in
             if var row = try LabelRecord.fetchOne(db, key: item.targetLocalID) {
                 row.remoteID = remoteID
+                try row.save(db)
+            }
+            try item.delete(db)
+        }
+    }
+
+    // MARK: - Draining task mutations
+
+    /// Same shape as `drainProjectMutations()`, including the conflict
+    /// re-pull: a task mutation can be flagged `.conflicted` in
+    /// `drainTaskUpdate`, exactly like a project's.
+    public func drainTaskMutations() async throws {
+        let items = try await localStore.read { db in
+            try MutationQueueRecord.fetchAll(db)
+                .filter {
+                    $0.accountID == self.accountID && $0.entityType == .task
+                        && ($0.status == .pending || $0.status == .failed) && !$0.needsConflictResolution
+                }
+                .sorted { $0.createdAt < $1.createdAt }
+        }
+        var flaggedNewConflict = false
+        for item in items {
+            // Every item must still be drained regardless of outcome, so
+            // this can't be a `where` filter.
+            // swiftlint:disable:next for_where
+            if await drainTask(item) == .conflicted {
+                flaggedNewConflict = true
+            }
+        }
+        if flaggedNewConflict {
+            try? await pullTasks()
+        }
+    }
+
+    private func drainTask(_ item: MutationQueueRecord) async -> DrainOutcome {
+        do {
+            switch item.operation {
+            case .create: return try await drainTaskCreate(item)
+            case .update: return try await drainTaskUpdate(item)
+            case .delete: return try await drainTaskDelete(item)
+            }
+        } catch {
+            await markFailed(item, error: error)
+            return .skipped
+        }
+    }
+
+    private func drainTaskCreate(_ item: MutationQueueRecord) async throws -> DrainOutcome {
+        guard let payload: TaskCreateOrUpdatePayload = try decodePayload(item.payload) else {
+            throw DrainError.invalidPayload
+        }
+        let resolvedProjectID = try await localStore.read { db in
+            try Self.resolveRemoteID(forLocalID: payload.projectLocalID, db: db)
+        }
+        guard let resolvedProjectID else {
+            return .deferred // The project hasn't synced yet — retry this item on a later pass.
+        }
+        let task = VikunjaTask(
+            id: .local(item.targetLocalID),
+            title: payload.title,
+            description: payload.description,
+            isDone: payload.isDone,
+            dueDate: payload.dueDate,
+            priority: VikunjaTask.Priority(rawValue: payload.priority) ?? .unset,
+            projectID: .remote(resolvedProjectID),
+        )
+        let created = try await taskRepository.create(task)
+        try await applyTaskPushResult(created, deleting: item)
+        return .pushed
+    }
+
+    private func drainTaskUpdate(_ item: MutationQueueRecord) async throws -> DrainOutcome {
+        guard let payload: TaskCreateOrUpdatePayload = try decodePayload(item.payload) else {
+            throw DrainError.invalidPayload
+        }
+        let (currentRow, resolvedProjectID) = try await localStore.read { db in
+            let row = try TaskRecord.fetchOne(db, key: item.targetLocalID)
+            let projectID = try Self.resolveRemoteID(forLocalID: payload.projectLocalID, db: db)
+            return (row, projectID)
+        }
+        guard let currentRow, let remoteID = currentRow.remoteID else {
+            return .skipped // Not synced yet — there's nothing server-side to update.
+        }
+        guard let resolvedProjectID else {
+            return .deferred // The new project hasn't synced yet — retry this item on a later pass.
+        }
+        if let baseUpdatedAt = payload.baseUpdatedAt, let serverUpdatedAt = currentRow.serverUpdatedAt,
+           serverUpdatedAt > baseUpdatedAt {
+            try await flagConflict(item)
+            return .conflicted
+        }
+        let task = VikunjaTask(
+            id: .remote(remoteID),
+            title: payload.title,
+            description: payload.description,
+            isDone: payload.isDone,
+            dueDate: payload.dueDate,
+            priority: VikunjaTask.Priority(rawValue: payload.priority) ?? .unset,
+            projectID: .remote(resolvedProjectID),
+        )
+        let updated = try await taskRepository.update(task)
+        try await applyTaskPushResult(updated, deleting: item)
+        return .pushed
+    }
+
+    private func drainTaskDelete(_ item: MutationQueueRecord) async throws -> DrainOutcome {
+        guard let payload: TaskDeletePayload = try decodePayload(item.payload) else {
+            throw DrainError.invalidPayload
+        }
+        try await taskRepository.delete(id: payload.remoteID)
+        try await localStore.write { db in
+            if let row = try TaskRecord.fetchOne(db, key: item.targetLocalID) {
+                try row.delete(db)
+            }
+            try item.delete(db)
+        }
+        return .pushed
+    }
+
+    private func applyTaskPushResult(_ task: VikunjaTask, deleting item: MutationQueueRecord) async throws {
+        guard let remoteID = task.id.remoteValue else {
+            preconditionFailure("SyncEngine: a pushed task create/update's response must carry a resolved remote id")
+        }
+        try await localStore.write { db in
+            if var row = try TaskRecord.fetchOne(db, key: item.targetLocalID) {
+                row.remoteID = remoteID
+                row.serverUpdatedAt = task.updated
                 try row.save(db)
             }
             try item.delete(db)

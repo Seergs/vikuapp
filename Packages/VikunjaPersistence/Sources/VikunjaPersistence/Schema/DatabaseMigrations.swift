@@ -125,6 +125,11 @@ enum DatabaseMigrations {
                 .notNull()
                 .indexed()
                 .references("project", column: "localID", onDelete: .cascade)
+            // Vikunja's server `updated` timestamp as of the last successful
+            // pull or push — same role as `createProject`'s own
+            // `serverUpdatedAt` column, backing the task mutation queue's
+            // conflict detection (`SyncEngine.drainTaskMutations`).
+            table.column("serverUpdatedAt", .datetime)
         }
         try db.create(
             index: "task_on_accountID_remoteID",

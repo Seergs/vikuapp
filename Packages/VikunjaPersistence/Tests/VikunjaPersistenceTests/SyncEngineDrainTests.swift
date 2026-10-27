@@ -41,6 +41,23 @@ struct SyncEngineDrainTests {
     }
 
     @discardableResult
+    private func insertTask(
+        in store: LocalStore,
+        localID: UUID = UUID(),
+        remoteID: Int?,
+        title: String = "Buy milk",
+        projectLocalID: UUID,
+        serverUpdatedAt: Date? = nil,
+    ) async throws -> TaskRecord {
+        let row = TaskRecord(
+            localID: localID, accountID: accountID, remoteID: remoteID, title: title, description: nil,
+            isDone: false, dueDate: nil, priority: 0, projectLocalID: projectLocalID, serverUpdatedAt: serverUpdatedAt,
+        )
+        try await store.write { db in try row.insert(db) }
+        return row
+    }
+
+    @discardableResult
     private func queueMutation(
         in store: LocalStore,
         entityType: MutationEntityType = .project,
@@ -69,7 +86,7 @@ struct SyncEngineDrainTests {
         let repository = FakeProjectRepository()
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), accountID: accountID,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountID,
         )
         let localID = UUID()
         try await insertProject(in: store, localID: localID, remoteID: nil, title: "Groceries")
@@ -99,7 +116,7 @@ struct SyncEngineDrainTests {
         repository.createError = VikunjaError.network("offline")
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), accountID: accountID,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountID,
         )
         let parentLocalID = UUID()
         let childLocalID = UUID()
@@ -136,7 +153,7 @@ struct SyncEngineDrainTests {
         let repository = FakeProjectRepository()
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), accountID: accountID,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountID,
         )
         let parentLocalID = UUID()
         let childLocalID = UUID()
@@ -183,7 +200,7 @@ struct SyncEngineDrainTests {
         let repository = FakeProjectRepository()
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), accountID: accountID,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountID,
         )
         let localID = UUID()
         try await insertProject(in: store, localID: localID, remoteID: 1, title: "Groceries")
@@ -208,7 +225,7 @@ struct SyncEngineDrainTests {
         let repository = FakeProjectRepository()
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), accountID: accountID,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountID,
         )
         let localID = UUID()
         let queuedAt = Date(timeIntervalSince1970: 1000)
@@ -245,7 +262,7 @@ struct SyncEngineDrainTests {
         let repository = FakeProjectRepository()
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), accountID: accountID,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountID,
         )
         let localID = UUID()
         try await insertProject(
@@ -271,7 +288,7 @@ struct SyncEngineDrainTests {
         let repository = FakeProjectRepository()
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), accountID: accountID,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountID,
         )
         let localID = UUID()
         try await insertProject(in: store, localID: localID, remoteID: 1)
@@ -296,7 +313,7 @@ struct SyncEngineDrainTests {
         repository.updateError = VikunjaError.network("boom")
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), accountID: accountID,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountID,
         )
         let failingLocalID = UUID()
         let okLocalID = UUID()
@@ -335,7 +352,7 @@ struct SyncEngineDrainTests {
         repository.createError = VikunjaError.unauthorized
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), accountID: accountID,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountID,
         )
         let localID = UUID()
         try await insertProject(in: store, localID: localID, remoteID: nil, title: "Groceries")
@@ -365,7 +382,9 @@ struct SyncEngineDrainTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let labelRepository = FakeLabelRepository()
         let engine = SyncEngine(
-            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: labelRepository,
+            localStore: store, projectRepository: FakeProjectRepository(),
+            labelRepository: labelRepository, taskRepository: FakeTaskRepository(),
+
             accountID: accountID,
         )
         let localID = UUID()
@@ -389,7 +408,9 @@ struct SyncEngineDrainTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let labelRepository = FakeLabelRepository()
         let engine = SyncEngine(
-            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: labelRepository,
+            localStore: store, projectRepository: FakeProjectRepository(),
+            labelRepository: labelRepository, taskRepository: FakeTaskRepository(),
+
             accountID: accountID,
         )
         let localID = UUID()
@@ -411,7 +432,9 @@ struct SyncEngineDrainTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let labelRepository = FakeLabelRepository()
         let engine = SyncEngine(
-            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: labelRepository,
+            localStore: store, projectRepository: FakeProjectRepository(),
+            labelRepository: labelRepository, taskRepository: FakeTaskRepository(),
+
             accountID: accountID,
         )
         let localID = UUID()
@@ -436,7 +459,9 @@ struct SyncEngineDrainTests {
         let labelRepository = FakeLabelRepository()
         labelRepository.createError = VikunjaError.unauthorized
         let engine = SyncEngine(
-            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: labelRepository,
+            localStore: store, projectRepository: FakeProjectRepository(),
+            labelRepository: labelRepository, taskRepository: FakeTaskRepository(),
+
             accountID: accountID,
         )
         let localID = UUID()
@@ -456,5 +481,190 @@ struct SyncEngineDrainTests {
         let afterSecondDrain = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
         #expect(afterSecondDrain.isEmpty)
         #expect(labelRepository.createdLabels.count == 1)
+    }
+
+    @Test
+    func `drain creates a task queued while offline and resolves its remote id locally`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let taskRepository = FakeTaskRepository()
+        let engine = SyncEngine(
+            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: FakeLabelRepository(),
+            taskRepository: taskRepository, accountID: accountID,
+        )
+        let projectLocalID = try await insertProject(in: store, remoteID: 1).localID
+        let localID = UUID()
+        try await insertTask(
+            in: store, localID: localID, remoteID: nil, title: "Buy milk", projectLocalID: projectLocalID,
+        )
+        try await queueMutation(
+            in: store, entityType: .task, operation: .create, targetLocalID: localID,
+            payload: TaskCreateOrUpdatePayload(
+                title: "Buy milk", description: nil, isDone: false, dueDate: nil, priority: 0,
+                projectLocalID: projectLocalID, baseUpdatedAt: nil,
+            ),
+        )
+
+        try await engine.drainTaskMutations()
+
+        #expect(taskRepository.createdTasks.map(\.title) == ["Buy milk"])
+        let row = try await store.read { db in try #require(try TaskRecord.fetchOne(db, key: localID)) }
+        #expect(row.remoteID != nil)
+        #expect(row.serverUpdatedAt != nil)
+        let remaining = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(remaining.isEmpty)
+    }
+
+    @Test
+    func `drain defers a tasks create until its locally created project has synced`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let taskRepository = FakeTaskRepository()
+        let engine = SyncEngine(
+            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: FakeLabelRepository(),
+            taskRepository: taskRepository, accountID: accountID,
+        )
+        // The project this task belongs to was also created offline and
+        // hasn't synced - its own create isn't even queued in this test, so
+        // it stays unresolved for every drain pass.
+        let projectLocalID = try await insertProject(in: store, remoteID: nil).localID
+        let localID = UUID()
+        try await insertTask(in: store, localID: localID, remoteID: nil, projectLocalID: projectLocalID)
+        try await queueMutation(
+            in: store, entityType: .task, operation: .create, targetLocalID: localID,
+            payload: TaskCreateOrUpdatePayload(
+                title: "Buy milk", description: nil, isDone: false, dueDate: nil, priority: 0,
+                projectLocalID: projectLocalID, baseUpdatedAt: nil,
+            ),
+        )
+
+        try await engine.drainTaskMutations()
+
+        #expect(taskRepository.createdTasks.isEmpty)
+        let remaining = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(remaining.count == 1)
+    }
+
+    @Test
+    func `drain pushes a task update and clears the queue item on success`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let taskRepository = FakeTaskRepository()
+        let engine = SyncEngine(
+            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: FakeLabelRepository(),
+            taskRepository: taskRepository, accountID: accountID,
+        )
+        let projectLocalID = try await insertProject(in: store, remoteID: 1).localID
+        let localID = UUID()
+        try await insertTask(in: store, localID: localID, remoteID: 10, projectLocalID: projectLocalID)
+        try await queueMutation(
+            in: store, entityType: .task, operation: .update, targetLocalID: localID,
+            payload: TaskCreateOrUpdatePayload(
+                title: "Buy milk and eggs", description: nil, isDone: false, dueDate: nil, priority: 0,
+                projectLocalID: projectLocalID, baseUpdatedAt: nil,
+            ),
+        )
+
+        try await engine.drainTaskMutations()
+
+        #expect(taskRepository.updatedTasks.map(\.title) == ["Buy milk and eggs"])
+        let remaining = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(remaining.isEmpty)
+    }
+
+    @Test
+    func `drain flags a task conflict instead of overwriting a newer server side edit`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let taskRepository = FakeTaskRepository()
+        let engine = SyncEngine(
+            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: FakeLabelRepository(),
+            taskRepository: taskRepository, accountID: accountID,
+        )
+        let projectLocalID = try await insertProject(in: store, remoteID: 1).localID
+        let localID = UUID()
+        let queuedAt = Date(timeIntervalSince1970: 1000)
+        let observedByLaterPull = Date(timeIntervalSince1970: 2000)
+        try await insertTask(
+            in: store, localID: localID, remoteID: 10, projectLocalID: projectLocalID,
+            serverUpdatedAt: observedByLaterPull,
+        )
+        // What the server actually has right now - the edit that conflicts
+        // with the queued mutation below.
+        taskRepository.tasks = [
+            VikunjaTask(id: 10, title: "Buy milk (edited elsewhere)", projectID: 1, updated: observedByLaterPull),
+        ]
+        try await queueMutation(
+            in: store, entityType: .task, operation: .update, targetLocalID: localID,
+            payload: TaskCreateOrUpdatePayload(
+                title: "Buy milk and eggs", description: nil, isDone: false, dueDate: nil, priority: 0,
+                projectLocalID: projectLocalID, baseUpdatedAt: queuedAt,
+            ),
+        )
+
+        try await engine.drainTaskMutations()
+
+        #expect(taskRepository.updatedTasks.isEmpty)
+        let remaining = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(remaining.count == 1)
+        #expect(remaining[0].needsConflictResolution == true)
+        #expect(remaining[0].status == .pending)
+        // The conflict no longer protects the row, so the same pass that
+        // flagged it also resyncs its content to the server's real state.
+        let row = try await store.read { db in try #require(try TaskRecord.fetchOne(db, key: localID)) }
+        #expect(row.title == "Buy milk (edited elsewhere)")
+    }
+
+    @Test
+    func `drain deletes a task and removes the local row on success`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let taskRepository = FakeTaskRepository()
+        let engine = SyncEngine(
+            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: FakeLabelRepository(),
+            taskRepository: taskRepository, accountID: accountID,
+        )
+        let projectLocalID = try await insertProject(in: store, remoteID: 1).localID
+        let localID = UUID()
+        try await insertTask(in: store, localID: localID, remoteID: 10, projectLocalID: projectLocalID)
+        try await queueMutation(
+            in: store, entityType: .task, operation: .delete, targetLocalID: localID,
+            payload: TaskDeletePayload(remoteID: 10),
+        )
+
+        try await engine.drainTaskMutations()
+
+        #expect(taskRepository.deletedIDs == [10])
+        let rows = try await store.read { db in try TaskRecord.fetchAll(db) }
+        #expect(rows.isEmpty)
+        let remaining = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(remaining.isEmpty)
+    }
+
+    @Test
+    func `drain marks a failed task mutation and retries it on the next pass`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let taskRepository = FakeTaskRepository()
+        taskRepository.createError = VikunjaError.unauthorized
+        let engine = SyncEngine(
+            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: FakeLabelRepository(),
+            taskRepository: taskRepository, accountID: accountID,
+        )
+        let projectLocalID = try await insertProject(in: store, remoteID: 1).localID
+        let localID = UUID()
+        try await insertTask(in: store, localID: localID, remoteID: nil, projectLocalID: projectLocalID)
+        try await queueMutation(
+            in: store, entityType: .task, operation: .create, targetLocalID: localID,
+            payload: TaskCreateOrUpdatePayload(
+                title: "Buy milk", description: nil, isDone: false, dueDate: nil, priority: 0,
+                projectLocalID: projectLocalID, baseUpdatedAt: nil,
+            ),
+        )
+
+        try await engine.drainTaskMutations()
+        let afterFirstDrain = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(afterFirstDrain[0].status == .failed)
+
+        taskRepository.createError = nil
+        try await engine.drainTaskMutations()
+
+        let afterSecondDrain = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(afterSecondDrain.isEmpty)
+        #expect(taskRepository.createdTasks.count == 1)
     }
 }
