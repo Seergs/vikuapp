@@ -16,7 +16,6 @@ enum DatabaseMigrations {
         migrator.registerMigration("createSyncState", migrate: createSyncState)
         migrator.registerMigration("createLabel", migrate: createLabel)
         migrator.registerMigration("createTask", migrate: createTask)
-        migrator.registerMigration("addLabelRemoteIDsToTask", migrate: addLabelRemoteIDsToTask)
     }
 
     private static func createProject(_ db: Database) throws {
@@ -131,6 +130,10 @@ enum DatabaseMigrations {
             // `serverUpdatedAt` column, backing the task mutation queue's
             // conflict detection (`SyncEngine.drainTaskMutations`).
             table.column("serverUpdatedAt", .datetime)
+            // Denormalized cache of this task's label remote ids, comma-
+            // joined - backs `OfflineTaskRepository`'s best-effort label
+            // display (see `TaskRecord.labelRemoteIDs`'s own doc comment).
+            table.column("labelRemoteIDs", .text).notNull().defaults(to: "")
         }
         try db.create(
             index: "task_on_accountID_remoteID",
@@ -138,14 +141,5 @@ enum DatabaseMigrations {
             columns: ["accountID", "remoteID"],
             unique: true,
         )
-    }
-
-    /// Added after `createTask` shipped — append-only, see this type's own
-    /// doc comment. Backs `OfflineTaskRepository`'s best-effort label
-    /// display (see `TaskRecord.labelRemoteIDs`'s own doc comment).
-    private static func addLabelRemoteIDsToTask(_ db: Database) throws {
-        try db.alter(table: "task") { table in
-            table.add(column: "labelRemoteIDs", .text).notNull().defaults(to: "")
-        }
     }
 }
