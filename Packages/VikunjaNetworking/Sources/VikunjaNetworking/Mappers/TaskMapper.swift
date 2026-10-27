@@ -48,6 +48,7 @@ enum TaskMapper {
             blocks: relations(dto, kind: "blocking"),
             otherRelations: otherRelations(dto),
             reminders: (dto.reminders ?? []).map(ReminderMapper.toDomain),
+            updated: dto.updated,
         )
     }
 
@@ -70,6 +71,8 @@ enum TaskMapper {
             projectId: requireSyncedProjectID(task.projectID),
             labels: nil,
             reminders: task.reminders.map(ReminderMapper.toDTO),
+            // Server-set, read-only — never sent back on write.
+            updated: nil,
         )
     }
 
@@ -113,6 +116,7 @@ enum TaskMapper {
             assignees: current.assignees,
             coverImageAttachmentId: current.coverImageAttachmentId,
             isFavorite: current.isFavorite,
+            updated: current.updated,
         )
     }
 }
