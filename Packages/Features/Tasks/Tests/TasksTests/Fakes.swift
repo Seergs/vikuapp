@@ -16,11 +16,11 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     var fetchTaskDelay: Duration?
     private var nextID = 1000
 
-    func fetchTasks(projectID: Int) async throws -> [VikunjaTask] {
+    func fetchTasks(projectID: EntityID) async throws -> [VikunjaTask] {
         if let fetchError {
             throw fetchError
         }
-        return tasks.filter { $0.projectID.remoteValue == projectID }
+        return tasks.filter { $0.projectID == projectID }
     }
 
     func fetchTask(id: EntityID) async throws -> VikunjaTask {
@@ -131,8 +131,8 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
 @MainActor
 final class FakeQuickAddContext: QuickAddContextTracking {
     private(set) var scopes: [Project] = []
-    var preselectedProjectID: Int? {
-        scopes.last?.id.remoteValue
+    var preselectedProjectID: EntityID? {
+        scopes.last?.id
     }
 
     var preselectedProject: Project? {
@@ -143,8 +143,8 @@ final class FakeQuickAddContext: QuickAddContextTracking {
         scopes.append(project)
     }
 
-    func exitProjectScope(_ projectID: Int) {
-        if let index = scopes.lastIndex(where: { $0.id.remoteValue == projectID }) {
+    func exitProjectScope(_ project: Project) {
+        if let index = scopes.lastIndex(where: { $0.id == project.id }) {
             scopes.remove(at: index)
         }
     }
@@ -154,7 +154,7 @@ final class FakeQuickAddContext: QuickAddContextTracking {
 final class FakeTaskChangeBroadcaster: TaskChangeBroadcasting {
     private(set) var lastCreatedTask: TaskCreatedEvent?
 
-    func taskCreated(projectID: Int) {
+    func taskCreated(projectID: EntityID) {
         lastCreatedTask = TaskCreatedEvent(projectID: projectID)
     }
 }

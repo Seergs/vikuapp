@@ -421,7 +421,7 @@ final class AppContainer {
     func makeTodayViewModel(account: InstanceAccount) -> TodayViewModel {
         let tokenProvider = tokenProvider(for: account)
         return TodayViewModel(
-            taskRepository: clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider),
+            taskRepository: offlineTaskRepository(for: account),
             projectRepository: offlineProjectRepository(for: account),
             labelRepository: offlineLabelRepository(for: account),
             relationRepository: clientFactory.makeTaskRelationRepository(
@@ -437,7 +437,7 @@ final class AppContainer {
     func makeCalendarViewModel(account: InstanceAccount) -> CalendarViewModel {
         let tokenProvider = tokenProvider(for: account)
         return CalendarViewModel(
-            taskRepository: clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider),
+            taskRepository: offlineTaskRepository(for: account),
             projectRepository: offlineProjectRepository(for: account),
             hapticPresenter: hapticCenter,
         )
@@ -446,7 +446,7 @@ final class AppContainer {
     func makeProjectsListViewModel(account: InstanceAccount) -> ProjectsListViewModel {
         let tokenProvider = tokenProvider(for: account)
         let repository = offlineProjectRepository(for: account)
-        let taskRepository = clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider)
+        let taskRepository = offlineTaskRepository(for: account)
         let filterRepository = clientFactory.makeFilterRepository(
             baseURL: account.baseURL,
             tokenProvider: tokenProvider,
@@ -487,7 +487,7 @@ final class AppContainer {
 
     func makeProjectOverviewViewModel(node: ProjectNode, account: InstanceAccount) -> ProjectOverviewViewModel {
         let tokenProvider = tokenProvider(for: account)
-        let repository = clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider)
+        let repository = offlineTaskRepository(for: account)
         let projectRepository = offlineProjectRepository(for: account)
         let labelRepository = offlineLabelRepository(for: account)
         let relationRepository = clientFactory.makeTaskRelationRepository(
@@ -543,7 +543,7 @@ final class AppContainer {
 
     func makeTaskDetailViewModel(task: VikunjaTask, project: Project, account: InstanceAccount) -> TaskDetailViewModel {
         let tokenProvider = tokenProvider(for: account)
-        let repository = clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider)
+        let repository = offlineTaskRepository(for: account)
         let labelRepository = offlineLabelRepository(for: account)
         let relationRepository = clientFactory.makeTaskRelationRepository(
             baseURL: account.baseURL,
@@ -582,7 +582,7 @@ final class AppContainer {
     /// accounts automatically is not built yet).
     func resolveTaskDeepLink(id: Int, account: InstanceAccount) async throws -> (VikunjaTask, Project) {
         let tokenProvider = tokenProvider(for: account)
-        let taskRepository = clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider)
+        let taskRepository = offlineTaskRepository(for: account)
         let projectRepository = offlineProjectRepository(for: account)
         let task = try await taskRepository.fetchTask(id: .remote(id))
         let project = try await projectRepository.fetchProject(id: task.projectID)
@@ -605,7 +605,7 @@ final class AppContainer {
         else { return }
 
         let tokenProvider = tokenProvider(for: account)
-        let taskRepository = clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider)
+        let taskRepository = offlineTaskRepository(for: account)
         var task = try await taskRepository.fetchTask(id: .remote(taskID))
 
         switch actionIdentifier {
@@ -656,7 +656,7 @@ final class AppContainer {
     ///     the same way, so the sheet can show it immediately instead of a
     ///     spinner (see `QuickAddTaskViewModel.displayProject`).
     func makeQuickAddTaskViewModel(
-        preselectedProjectID: Int?,
+        preselectedProjectID: EntityID?,
         preselectedProject: Project?,
         account: InstanceAccount,
     ) -> QuickAddTaskViewModel {
@@ -665,7 +665,7 @@ final class AppContainer {
             preselectedProjectID: preselectedProjectID,
             preselectedProject: preselectedProject,
             accountDefaultProjectID: defaultProjectStore.projectID(forAccountID: account.id),
-            taskRepository: clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider),
+            taskRepository: offlineTaskRepository(for: account),
             projectRepository: offlineProjectRepository(for: account),
             toastPresenter: toastCenter,
             taskChangeBroadcaster: taskChangeCenter,
@@ -800,7 +800,7 @@ final class AppContainer {
     func makeSearchViewModel(account: InstanceAccount) -> SearchViewModel {
         let tokenProvider = tokenProvider(for: account)
         return SearchViewModel(
-            taskRepository: clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider),
+            taskRepository: offlineTaskRepository(for: account),
             projectRepository: offlineProjectRepository(for: account),
             toastPresenter: toastCenter,
             hapticPresenter: hapticCenter,
@@ -825,9 +825,9 @@ final class AppContainer {
         clientFactory.makeLabelRepository(baseURL: account.baseURL, tokenProvider: tokenProvider(for: account))
     }
 
-    /// `SyncEngine` needs this to pull/drain tasks in the same pass, even
-    /// though nothing reads tasks offline yet — that cutover is its own,
-    /// later wiring change (mirrors `networkLabelRepository(for:)`).
+    /// `SyncEngine` needs this to pull/drain tasks in the same pass, and
+    /// `offlineTaskRepository(for:)` needs it to build its own copy of
+    /// `SyncEngine` too (mirrors `networkLabelRepository(for:)`).
     private func networkTaskRepository(for account: InstanceAccount) -> TaskRepositoryProtocol {
         clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider(for: account))
     }
@@ -880,6 +880,30 @@ final class AppContainer {
             syncEngine: syncEngine,
             reachability: reachabilityMonitor,
             networkLabelRepository: networkRepository,
+        )
+    }
+
+    /// The `TaskRepositoryProtocol` every screen reads/writes through for a
+    /// task's core fields — same shape as `offlineProjectRepository(for:)`.
+    /// Task sub-resources (labels-on-task, relations, comments, attachments
+    /// — Slice 4) still go straight to `VikunjaNetworking` via their own
+    /// dedicated repositories until their own slice lands.
+    private func offlineTaskRepository(for account: InstanceAccount) -> TaskRepositoryProtocol {
+        let syncEngine = SyncEngine(
+            localStore: localStore,
+            projectRepository: clientFactory.makeProjectRepository(
+                baseURL: account.baseURL,
+                tokenProvider: tokenProvider(for: account),
+            ),
+            labelRepository: networkLabelRepository(for: account),
+            taskRepository: networkTaskRepository(for: account),
+            accountID: account.id,
+        )
+        return OfflineTaskRepository(
+            localStore: localStore,
+            accountID: account.id,
+            syncEngine: syncEngine,
+            reachability: reachabilityMonitor,
         )
     }
 }

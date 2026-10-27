@@ -102,16 +102,25 @@ public final class TaskDetailViewModel {
     /// later one (a due-date/priority/label edit) and silently overwrite it
     /// with stale data — the edit looks like it didn't stick until the
     /// screen is reopened, even though the server already has it.
-    /// `task.id` as a resolved server id. Always `.remote` today — every
-    /// task this screen can show came straight from the (still network-only)
-    /// `TaskRepositoryProtocol`, since task offline support (Slice 3) hasn't
-    /// shipped yet. Centralizes the extraction so the many repository calls
-    /// below don't each repeat the same guard.
-    private var taskID: Int {
-        guard let remoteValue = task.id.remoteValue else {
-            preconditionFailure("TaskDetailViewModel: task.id must be resolved until task offline support ships")
+    /// `task.id` as a resolved server id, or `nil` for a task created
+    /// offline that hasn't synced yet. None of the sub-resources below
+    /// (labels, relations, comments, attachments) can exist server-side
+    /// before the task itself does, and all of them stay online-only until
+    /// their own slice ships (Slice 4) regardless, so `nil` here means
+    /// "not possible yet" rather than a bug to crash on.
+    private var taskID: Int? {
+        task.id.remoteValue
+    }
+
+    /// Shared early-exit for every sub-resource write below: surfaces the
+    /// same "not possible yet" toast rather than silently doing nothing or
+    /// crashing on the missing id.
+    private func requireSyncedTaskID() -> Int? {
+        guard let taskID else {
+            toastPresenter.show(String(localized: "This task hasn't synced yet", bundle: .module), style: .error)
+            return nil
         }
-        return remoteValue
+        return taskID
     }
 
     private var taskWriteToken = 0
@@ -161,8 +170,7 @@ public final class TaskDetailViewModel {
     }
 
     public func markHidden() {
-        guard let projectID = project.id.remoteValue else { return }
-        quickAddContext?.exitProjectScope(projectID)
+        quickAddContext?.exitProjectScope(project)
     }
 
     public func load() async {
@@ -268,7 +276,7 @@ public final class TaskDetailViewModel {
     /// Adds or removes `label` from the task, optimistically, rolling back if
     /// the server rejects it — mirrors `toggleDone()`.
     public func toggleLabel(_ label: Label) async {
-        guard let labelID = label.id.remoteValue else { return }
+        guard let labelID = label.id.remoteValue, let taskID = requireSyncedTaskID() else { return }
         let previous = task
         taskWriteToken += 1
         let token = taskWriteToken
@@ -309,6 +317,7 @@ public final class TaskDetailViewModel {
     /// found the other task (e.g. a search/picker), since Vikunja's
     /// create-relation response only echoes ids, not those fields.
     public func addRelation(_ relation: TaskRelation, kind: RelationKind) async {
+        guard let taskID = requireSyncedTaskID() else { return }
         let previous = task
         taskWriteToken += 1
         let token = taskWriteToken
@@ -325,6 +334,7 @@ public final class TaskDetailViewModel {
     /// Removes `relation` under `kind` from the task, optimistically, rolling
     /// back if the server rejects it — mirrors `toggleLabel(_:)`.
     public func removeRelation(_ relation: TaskRelation, kind: RelationKind) async {
+        guard let taskID = requireSyncedTaskID() else { return }
         let previous = task
         taskWriteToken += 1
         let token = taskWriteToken
@@ -375,7 +385,7 @@ public final class TaskDetailViewModel {
             await loadRelationSuggestions()
             return
         }
-        let excludedIDs = relatedTaskIDs.union([taskID])
+        let excludedIDs = relatedTaskIDs.union(taskID.map { [$0] } ?? [])
         let results = await (try? repository.searchTasks(query: query)) ?? []
         relationSearchResults = results.filter { !excludedIDs.contains($0.id.remoteValue ?? -1) }
     }
@@ -386,12 +396,8 @@ public final class TaskDetailViewModel {
     /// search for the common case. Excludes the task itself and anything
     /// already related to it, the same as `searchTasksForRelation(query:)`.
     public func loadRelationSuggestions() async {
-        let excludedIDs = relatedTaskIDs.union([taskID])
-        guard let projectID = project.id.remoteValue else {
-            relationSearchResults = []
-            return
-        }
-        let results = await (try? repository.fetchTasks(projectID: projectID)) ?? []
+        let excludedIDs = relatedTaskIDs.union(taskID.map { [$0] } ?? [])
+        let results = await (try? repository.fetchTasks(projectID: project.id)) ?? []
         relationSearchResults = results.filter { !excludedIDs.contains($0.id.remoteValue ?? -1) }
     }
 
@@ -509,6 +515,13 @@ public final class TaskDetailViewModel {
     /// lazy load — comments are always-visible content on this screen, not a
     /// picker's suggestions, so a failure here is worth showing.
     public func loadComments() async {
+        // A task that hasn't synced yet genuinely has no comments on the
+        // server - not an error, just nothing to show until it does.
+        guard let taskID else {
+            comments = []
+            commentsLoadState = .loaded
+            return
+        }
         commentsWriteToken += 1
         let token = commentsWriteToken
         if commentsLoadState != .loaded {
@@ -531,6 +544,13 @@ public final class TaskDetailViewModel {
     /// Loads this task's attachments. Failures surface into
     /// `attachmentsLoadState`, the same as `loadComments()`.
     public func loadAttachments() async {
+        // Same reasoning as `loadComments()`'s early exit - no attachments
+        // can exist server-side before the task itself does.
+        guard let taskID else {
+            attachments = []
+            attachmentsLoadState = .loaded
+            return
+        }
         attachmentsWriteToken += 1
         let token = attachmentsWriteToken
         if attachmentsLoadState != .loaded {
@@ -567,6 +587,7 @@ public final class TaskDetailViewModel {
     /// there's no optimistic placeholder — same reasoning as `addComment(_:)`).
     /// Surfaces a toast either way.
     public func uploadAttachment(data: Data, fileName: String, mimeType: String) async {
+        guard let taskID = requireSyncedTaskID() else { return }
         isUploadingAttachment = true
         defer { isUploadingAttachment = false }
         attachmentsWriteToken += 1
@@ -594,6 +615,7 @@ public final class TaskDetailViewModel {
     /// and surfaces a toast on failure — the caller shows nothing rather than
     /// a broken preview.
     public func attachmentData(for attachment: TaskAttachment) async -> Data? {
+        guard let taskID = requireSyncedTaskID() else { return nil }
         do {
             return try await attachmentRepository.downloadAttachment(
                 attachment.id,
@@ -622,6 +644,7 @@ public final class TaskDetailViewModel {
     /// Deletes `attachment`, optimistically removing it and restoring the
     /// whole list if the server rejects it — mirrors `deleteComment(_:)`.
     public func deleteAttachment(_ attachment: TaskAttachment) async {
+        guard let taskID = requireSyncedTaskID() else { return }
         let previous = attachments
         attachmentsWriteToken += 1
         let token = attachmentsWriteToken
@@ -649,7 +672,7 @@ public final class TaskDetailViewModel {
     /// showing before the server assigns those fields.
     public func addComment(_ text: String) async {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty, let taskID = requireSyncedTaskID() else { return }
         commentsWriteToken += 1
         do {
             let created = try await commentRepository.addComment(trimmed, toTask: taskID)
@@ -675,7 +698,7 @@ public final class TaskDetailViewModel {
     public func editComment(_ comment: TaskComment, newText: String) async {
         let trimmed = newText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        guard comments.contains(where: { $0.id == comment.id }) else { return }
+        guard comments.contains(where: { $0.id == comment.id }), let taskID = requireSyncedTaskID() else { return }
         commentsWriteToken += 1
         do {
             let updated = try await commentRepository.updateComment(comment.id, text: trimmed, onTask: taskID)
@@ -697,6 +720,7 @@ public final class TaskDetailViewModel {
     /// the current user is allowed to delete this comment is the server's
     /// call, and a rejection just rolls back with a toast.
     public func deleteComment(_ comment: TaskComment) async {
+        guard let taskID = requireSyncedTaskID() else { return }
         let previous = comments
         commentsWriteToken += 1
         let token = commentsWriteToken

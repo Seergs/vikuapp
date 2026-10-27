@@ -315,7 +315,7 @@ public actor SyncEngine {
             // every such task. A project with no remote id yet (offline-
             // created) can't have any tasks on the server yet either.
             guard let remoteProjectID = projectRow.remoteID, remoteProjectID > 0 else { continue }
-            remoteTasks += await (try? taskRepository.fetchTasks(projectID: remoteProjectID)) ?? []
+            remoteTasks += await (try? taskRepository.fetchTasks(projectID: .remote(remoteProjectID))) ?? []
         }
 
         let projectLocalIDByRemoteID: [Int: UUID] = Dictionary(
@@ -375,9 +375,14 @@ public actor SyncEngine {
             guard let remoteID = task.id.remoteValue, let localID = localIDByRemoteID[remoteID] else { continue }
             guard let projectRemoteID = task.projectID.remoteValue,
                   let projectLocalID = projectLocalIDByRemoteID[projectRemoteID] else { continue }
+            let labelRemoteIDs = task.labels.compactMap(\.id.remoteValue).map(String.init).joined(separator: ",")
             if protectedLocalIDs.contains(localID) {
                 guard var existing = try TaskRecord.fetchOne(db, key: localID) else { continue }
                 existing.serverUpdatedAt = task.updated
+                // Label association isn't part of the local edit being
+                // protected here (that's core fields only), so this still
+                // refreshes freely - same reasoning as `serverUpdatedAt`.
+                existing.labelRemoteIDs = labelRemoteIDs
                 try existing.save(db)
                 continue
             }
@@ -392,6 +397,7 @@ public actor SyncEngine {
                 priority: task.priority.rawValue,
                 projectLocalID: projectLocalID,
                 serverUpdatedAt: task.updated,
+                labelRemoteIDs: labelRemoteIDs,
             )
             try row.save(db)
         }

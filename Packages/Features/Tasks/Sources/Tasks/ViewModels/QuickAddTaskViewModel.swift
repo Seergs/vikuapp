@@ -29,8 +29,8 @@ public final class QuickAddTaskViewModel {
     }
 
     /// The project the task is saved to: the picker's value, or the last matched shortcut.
-    public var selectedProjectID: Int?
-    private let preselectedProjectID: Int?
+    public var selectedProjectID: EntityID?
+    private let preselectedProjectID: EntityID?
     /// The full project a preselecting screen already had in hand, kept only
     /// when its id matches `preselectedProjectID` (a caller that resolved the
     /// two independently, e.g. a `viku://quick-add?project=` deep link against
@@ -73,7 +73,7 @@ public final class QuickAddTaskViewModel {
     /// The user picked a project in the picker. Writes it into the text, so the
     /// title shows what will be saved. Replaces a `#`/`+` shortcut, or appends one.
     public func pickProject(_ project: Project?) {
-        selectedProjectID = project?.id.remoteValue
+        selectedProjectID = project?.id
         guard let syntax else { return }
         input = QuickAddParser.settingProject(project?.title, in: input, syntax: syntax)
     }
@@ -91,7 +91,7 @@ public final class QuickAddTaskViewModel {
 
     public var selectedProject: Project? {
         guard let selectedProjectID else { return nil }
-        return projects.first { $0.id.remoteValue == selectedProjectID }
+        return projects.first { $0.id == selectedProjectID }
     }
 
     /// What the project field shows before `load()` resolves, so the sheet
@@ -128,7 +128,7 @@ public final class QuickAddTaskViewModel {
         if projectText != appliedProjectText {
             appliedProjectText = projectText
             if let projectID = result.projectID {
-                selectedProjectID = projectID
+                selectedProjectID = .remote(projectID)
             }
         }
 
@@ -186,7 +186,7 @@ public final class QuickAddTaskViewModel {
     ///     reads from and `load()` rewrites. `nil` for tests that don't care
     ///     about the optimistic display (it just leaves `displayProject` nil).
     public init(
-        preselectedProjectID: Int? = nil,
+        preselectedProjectID: EntityID? = nil,
         preselectedProject: Project? = nil,
         accountDefaultProjectID: Int? = nil,
         taskRepository: TaskRepositoryProtocol,
@@ -198,7 +198,7 @@ public final class QuickAddTaskViewModel {
         defaultProjectCache: DefaultProjectCaching? = nil,
     ) {
         self.preselectedProjectID = preselectedProjectID
-        self.preselectedProject = preselectedProject?.id.remoteValue == preselectedProjectID ? preselectedProject : nil
+        self.preselectedProject = preselectedProject?.id == preselectedProjectID ? preselectedProject : nil
         self.accountDefaultProjectID = accountDefaultProjectID
         self.selectedProjectID = preselectedProjectID
         self.taskRepository = taskRepository
@@ -227,7 +227,7 @@ public final class QuickAddTaskViewModel {
             if preselectedProjectID == nil,
                let accountDefaultProjectID,
                let matchedDefault = projects.first(where: { $0.id.remoteValue == accountDefaultProjectID }) {
-                selectedProjectID = accountDefaultProjectID
+                selectedProjectID = .remote(accountDefaultProjectID)
                 let fresh = CachedDefaultProject(
                     id: accountDefaultProjectID,
                     title: matchedDefault.title,
@@ -294,20 +294,22 @@ public final class QuickAddTaskViewModel {
                     id: 0,
                     title: shortcut.title,
                     priority: priority,
-                    projectID: .remote(projectID),
+                    projectID: projectID,
                 ),
             )
-            // A task created via `taskRepository.create` just round-tripped
-            // through the (still network-only) server, so its id is always
-            // `.remote` by the time `TaskMapper.toDomain` builds it.
-            guard let createdTaskID = created.id.remoteValue else {
-                preconditionFailure("QuickAddTaskViewModel: a freshly created task must have a resolved remote id")
+            // A task created offline (not yet synced) has no remote id yet
+            // to attach labels to - labels-on-task stays online-only
+            // (Slice 4), so this counts the same as every requested label
+            // having failed to attach, rather than crashing on the missing id.
+            let failedAttachments: Int = if let createdTaskID = created.id.remoteValue {
+                await attachLabels(shortcut.labelIDs + newLabelIDs, to: createdTaskID)
+            } else {
+                shortcut.labelIDs.count + newLabelIDs.count
             }
-            let failedAttachments = await attachLabels(shortcut.labelIDs + newLabelIDs, to: createdTaskID)
             // Only available when the project list has already loaded (see
             // `canSave`'s doc comment) - the toast just isn't tappable in
             // that edge case rather than guessing at a `Project` value.
-            let action = projects.first { $0.id.remoteValue == projectID }.map { ToastAction.taskDetail(created, $0) }
+            let action = projects.first { $0.id == projectID }.map { ToastAction.taskDetail(created, $0) }
             if failedAttachments == 0 {
                 toastPresenter.show(String(localized: "Task created", bundle: .module), style: .success, action: action)
             } else {

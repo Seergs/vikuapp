@@ -15,11 +15,11 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     var searchResults: [VikunjaTask] = []
     private var nextID = 1000
 
-    func fetchTasks(projectID: Int) async throws -> [VikunjaTask] {
+    func fetchTasks(projectID: EntityID) async throws -> [VikunjaTask] {
         if let fetchError {
             throw fetchError
         }
-        return tasks.filter { $0.projectID.remoteValue == projectID }
+        return tasks.filter { $0.projectID == projectID }
     }
 
     func fetchTask(id: EntityID) async throws -> VikunjaTask {

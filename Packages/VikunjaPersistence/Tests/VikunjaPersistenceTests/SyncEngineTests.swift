@@ -457,6 +457,30 @@ struct SyncEngineTests {
     }
 
     @Test
+    func `pullTasks caches each tasks label ids for OfflineTaskRepository to resolve later`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 1, title: "Groceries")]
+        let taskRepository = FakeTaskRepository()
+        taskRepository.tasks = [
+            VikunjaTask(
+                id: 10, title: "Buy milk", projectID: 1,
+                labels: [Label(id: 5, title: "Urgent", hexColor: "ff0000"), Label(id: 6, title: "Home", hexColor: "")],
+            ),
+        ]
+        let engine = SyncEngine(
+            localStore: store, projectRepository: projectRepository, labelRepository: FakeLabelRepository(),
+            taskRepository: taskRepository, accountID: UUID(),
+        )
+        try await engine.pullProjects()
+
+        try await engine.pullTasks()
+
+        let row = try await store.read { db in try #require(TaskRecord.fetchAll(db).first { $0.remoteID == 10 }) }
+        #expect(Set(row.labelRemoteIDs.split(separator: ",").compactMap { Int($0) }) == [5, 6])
+    }
+
+    @Test
     func `pullTasks skips a task whose project hasnt synced locally yet`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let taskRepository = FakeTaskRepository()

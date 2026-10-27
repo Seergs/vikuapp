@@ -21,19 +21,20 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
         self.reachability = reachability
     }
 
-    public func fetchTasks(projectID: Int) async throws -> [VikunjaTask] {
+    public func fetchTasks(projectID: EntityID) async throws -> [VikunjaTask] {
         await pullIfNeverSynced()
         return try await localStore.read { db in
             let projectRows = try Self.projectRows(self.accountID, db: db)
-            guard let projectLocalID = projectRows.first(where: { $0.remoteID == projectID })?.localID else {
+            guard let projectLocalID = Self.resolveProjectLocalID(matching: projectID, in: projectRows) else {
                 return []
             }
             let rows = try Self.accountRows(self.accountID, db: db).filter { $0.projectLocalID == projectLocalID }
             let hiddenLocalIDs = try Self.pendingDeleteTargetLocalIDs(accountID: self.accountID, db: db)
             let projectsByLocalID = Self.projectsByLocalID(projectRows)
+            let labelsByRemoteID = try Self.labelsByRemoteID(self.accountID, db: db)
             return rows
                 .filter { !hiddenLocalIDs.contains($0.localID) }
-                .map { Self.task(from: $0, projectsByLocalID: projectsByLocalID) }
+                .map { Self.task(from: $0, projectsByLocalID: projectsByLocalID, labelsByRemoteID: labelsByRemoteID) }
         }
     }
 
@@ -54,7 +55,8 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
             let hiddenLocalIDs = try Self.pendingDeleteTargetLocalIDs(accountID: self.accountID, db: db)
             guard !hiddenLocalIDs.contains(row.localID) else { throw VikunjaError.notFound }
             let projectsByLocalID = try Self.projectsByLocalID(Self.projectRows(self.accountID, db: db))
-            return Self.task(from: row, projectsByLocalID: projectsByLocalID)
+            let labelsByRemoteID = try Self.labelsByRemoteID(self.accountID, db: db)
+            return Self.task(from: row, projectsByLocalID: projectsByLocalID, labelsByRemoteID: labelsByRemoteID)
         }
     }
 
@@ -175,9 +177,10 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
             let rows = try Self.accountRows(self.accountID, db: db)
             let hiddenLocalIDs = try Self.pendingDeleteTargetLocalIDs(accountID: self.accountID, db: db)
             let projectsByLocalID = try Self.projectsByLocalID(Self.projectRows(self.accountID, db: db))
+            let labelsByRemoteID = try Self.labelsByRemoteID(self.accountID, db: db)
             return rows
                 .filter { !hiddenLocalIDs.contains($0.localID) && $0.title.localizedCaseInsensitiveContains(query) }
-                .map { Self.task(from: $0, projectsByLocalID: projectsByLocalID) }
+                .map { Self.task(from: $0, projectsByLocalID: projectsByLocalID, labelsByRemoteID: labelsByRemoteID) }
         }
     }
 
@@ -207,6 +210,15 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
 
     private static func projectsByLocalID(_ projectRows: [ProjectRecord]) -> [UUID: ProjectRecord] {
         Dictionary(uniqueKeysWithValues: projectRows.map { ($0.localID, $0) })
+    }
+
+    /// Backs `task(from:projectsByLocalID:labelsByRemoteID:)`'s resolution of
+    /// `TaskRecord.labelRemoteIDs` into real `Label` values - reads the
+    /// already-synced local `label` table (via `OfflineLabelRepository`'s own
+    /// pull), never the network.
+    private static func labelsByRemoteID(_ accountID: UUID, db: Database) throws -> [Int: LabelRecord] {
+        let rows = try LabelRecord.fetchAll(db).filter { $0.accountID == accountID }
+        return Dictionary(uniqueKeysWithValues: rows.compactMap { row in row.remoteID.map { ($0, row) } })
     }
 
     /// Target ids to hide from a read — a delete the user asked for stays
@@ -244,9 +256,20 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
         }
     }
 
-    private static func task(from row: TaskRecord, projectsByLocalID: [UUID: ProjectRecord]) -> VikunjaTask {
+    private static func task(
+        from row: TaskRecord,
+        projectsByLocalID: [UUID: ProjectRecord],
+        labelsByRemoteID: [Int: LabelRecord],
+    ) -> VikunjaTask {
         let projectID = projectsByLocalID[row.projectLocalID]?.remoteID.map(EntityID.remote)
             ?? .local(row.projectLocalID)
+        let labels = row.labelRemoteIDs
+            .split(separator: ",")
+            .compactMap { Int($0) }
+            .compactMap { remoteID -> Label? in
+                guard let labelRow = labelsByRemoteID[remoteID] else { return nil }
+                return Label(id: .remote(remoteID), title: labelRow.title, hexColor: labelRow.hexColor)
+            }
         return VikunjaTask(
             id: row.remoteID.map(EntityID.remote) ?? .local(row.localID),
             title: row.title,
@@ -255,6 +278,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
             dueDate: row.dueDate,
             priority: VikunjaTask.Priority(rawValue: row.priority) ?? .unset,
             projectID: projectID,
+            labels: labels,
             updated: row.serverUpdatedAt,
         )
     }

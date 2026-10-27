@@ -8,8 +8,8 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     private(set) var updatedTasks: [VikunjaTask] = []
     private(set) var deletedIDs: [Int] = []
 
-    func fetchTasks(projectID: Int) async throws -> [VikunjaTask] {
-        tasks.filter { $0.projectID.remoteValue == projectID }
+    func fetchTasks(projectID: EntityID) async throws -> [VikunjaTask] {
+        tasks.filter { $0.projectID == projectID }
     }
 
     func fetchTask(id: EntityID) async throws -> VikunjaTask {

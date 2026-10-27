@@ -19,7 +19,7 @@ final class VikunjaTaskRepositorySwitch: TaskRepositoryProtocol {
         await capabilityProvider.supports(.apiV2) ? v2 : v1
     }
 
-    func fetchTasks(projectID: Int) async throws -> [VikunjaTask] {
+    func fetchTasks(projectID: EntityID) async throws -> [VikunjaTask] {
         try await resolve().fetchTasks(projectID: projectID)
     }
 

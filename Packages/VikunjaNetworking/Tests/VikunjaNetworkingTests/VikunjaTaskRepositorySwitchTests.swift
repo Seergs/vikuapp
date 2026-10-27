@@ -70,9 +70,9 @@ private final class SpyTaskRepository: TaskRepositoryProtocol, @unchecked Sendab
         self.label = label
     }
 
-    func fetchTasks(projectID: Int) async throws -> [VikunjaTask] {
+    func fetchTasks(projectID: EntityID) async throws -> [VikunjaTask] {
         fetchTasksCallCount += 1
-        return [VikunjaTask(id: 1, title: label, projectID: .remote(projectID))]
+        return [VikunjaTask(id: 1, title: label, projectID: projectID)]
     }
 
     func fetchTask(id: EntityID) async throws -> VikunjaTask {

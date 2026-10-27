@@ -651,6 +651,16 @@
         }
       }
     },
+    "This task hasn't synced yet": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta tarea aún no se sincronizó"
+          }
+        }
+      }
+    },
     "Uploading…": {
       "localizations": {
         "es": {
