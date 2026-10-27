@@ -5,10 +5,10 @@ import Foundation
 /// `Equatable`-driven observer (`.onChange(of:)`) fires on every single
 /// creation rather than only the first.
 public struct TaskCreatedEvent: Equatable, Sendable {
-    public let projectID: Int
+    public let projectID: EntityID
     private let token: UUID
 
-    public init(projectID: Int) {
+    public init(projectID: EntityID) {
         self.projectID = projectID
         self.token = UUID()
     }
@@ -22,6 +22,6 @@ public struct TaskCreatedEvent: Equatable, Sendable {
 /// way `QuickAddContextTracking` is.
 @MainActor
 public protocol TaskChangeBroadcasting: AnyObject {
-    func taskCreated(projectID: Int)
+    func taskCreated(projectID: EntityID)
     var lastCreatedTask: TaskCreatedEvent? { get }
 }

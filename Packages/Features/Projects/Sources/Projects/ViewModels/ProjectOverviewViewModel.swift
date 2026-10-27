@@ -147,7 +147,7 @@ public final class ProjectOverviewViewModel {
     /// it changes, so a task created here through the quick-add sheet shows
     /// up immediately instead of waiting for the next pull-to-refresh.
     public var lastCreatedTaskForThisProject: TaskCreatedEvent? {
-        guard let event = taskChangeBroadcaster?.lastCreatedTask, event.projectID == project.id.remoteValue else {
+        guard let event = taskChangeBroadcaster?.lastCreatedTask, event.projectID == project.id else {
             return nil
         }
         return event
@@ -165,8 +165,8 @@ public final class ProjectOverviewViewModel {
     }
 
     public func markHidden() {
-        guard project.kind == .project, let projectID = project.id.remoteValue else { return }
-        quickAddContext?.exitProjectScope(projectID)
+        guard project.kind == .project else { return }
+        quickAddContext?.exitProjectScope(project)
     }
 
     /// Kept as a nested name for call sites that already spell it

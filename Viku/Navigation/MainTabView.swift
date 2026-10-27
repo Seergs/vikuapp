@@ -379,7 +379,7 @@ private struct QuickAddOverlay: View {
         guard case let .quickAdd(projectID) = link else { return }
         presented = PresentedQuickAdd(
             viewModel: container.makeQuickAddTaskViewModel(
-                preselectedProjectID: projectID ?? container.quickAddContext.preselectedProjectID,
+                preselectedProjectID: projectID.map(EntityID.remote) ?? container.quickAddContext.preselectedProjectID,
                 preselectedProject: container.quickAddContext.preselectedProject,
                 account: account,
             ),

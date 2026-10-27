@@ -17,8 +17,8 @@ import VikunjaCore
 final class QuickAddContext: QuickAddContextTracking {
     private var scopes: [Project] = []
 
-    var preselectedProjectID: Int? {
-        scopes.last?.id.remoteValue
+    var preselectedProjectID: EntityID? {
+        scopes.last?.id
     }
 
     var preselectedProject: Project? {
@@ -29,8 +29,8 @@ final class QuickAddContext: QuickAddContextTracking {
         scopes.append(project)
     }
 
-    func exitProjectScope(_ projectID: Int) {
-        if let index = scopes.lastIndex(where: { $0.id.remoteValue == projectID }) {
+    func exitProjectScope(_ project: Project) {
+        if let index = scopes.lastIndex(where: { $0.id == project.id }) {
             scopes.remove(at: index)
         }
     }

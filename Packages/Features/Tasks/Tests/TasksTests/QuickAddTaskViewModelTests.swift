@@ -1,3 +1,4 @@
+import Foundation
 @testable import Tasks
 import Testing
 import VikunjaCore
@@ -256,6 +257,37 @@ struct QuickAddTaskViewModelTests {
         await viewModel.load()
 
         #expect(viewModel.selectedProjectID == 5)
+    }
+
+    @Test
+    func `load keeps a preselected offline created project instead of falling back to the account default`() async {
+        // Regression test: `preselectedProjectID`/`selectedProjectID` used
+        // to be `Int?`, so a project created offline (a `.local` id with no
+        // `remoteValue`) always looked the same as "nothing preselected" -
+        // `load()` then silently defaulted to the account's project,
+        // creating the task there instead of the offline-created project
+        // the user actually opened quick-add from.
+        let localProjectID = UUID()
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [
+            Project(id: .local(localProjectID), title: "New Project"),
+            Project(id: 3, title: "Inbox"),
+        ]
+        let viewModel = QuickAddTaskViewModel(
+            preselectedProjectID: .local(localProjectID),
+            preselectedProject: Project(id: .local(localProjectID), title: "New Project"),
+            accountDefaultProjectID: 3,
+            taskRepository: FakeTaskRepository(),
+            projectRepository: projectRepository,
+            toastPresenter: FakeToastPresenter(),
+        )
+
+        await viewModel.load()
+
+        #expect(viewModel.selectedProjectID == .local(localProjectID))
+        viewModel.input = "Buy milk"
+        let created = await viewModel.save()
+        #expect(created?.projectID == .local(localProjectID))
     }
 
     @Test

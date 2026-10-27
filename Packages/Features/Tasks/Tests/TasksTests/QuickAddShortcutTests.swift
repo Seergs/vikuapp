@@ -8,7 +8,7 @@ struct QuickAddShortcutTests {
         syntax: QuickAddSyntax?,
         taskRepository: FakeTaskRepository = FakeTaskRepository(),
         projects: [Project] = [Project(id: 1, title: "Compras"), Project(id: 2, title: "Trabajo")],
-        selectedProjectID: Int? = nil,
+        selectedProjectID: EntityID? = nil,
     ) async -> QuickAddTaskViewModel {
         let projectRepository = FakeProjectRepository()
         projectRepository.projects = projects

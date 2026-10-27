@@ -9,7 +9,7 @@ import VikunjaCore
 final class TaskChangeCenter: TaskChangeBroadcasting {
     private(set) var lastCreatedTask: TaskCreatedEvent?
 
-    func taskCreated(projectID: Int) {
+    func taskCreated(projectID: EntityID) {
         lastCreatedTask = TaskCreatedEvent(projectID: projectID)
     }
 }

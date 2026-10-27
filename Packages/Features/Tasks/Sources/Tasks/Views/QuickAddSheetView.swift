@@ -131,7 +131,7 @@ public struct QuickAddSheetView: View {
             ProjectPickerSheet(
                 title: String(localized: "Choose Project", bundle: .module),
                 projects: viewModel.projects,
-                selectedProjectID: viewModel.selectedProjectID.map(EntityID.remote),
+                selectedProjectID: viewModel.selectedProjectID,
             ) { project in
                 viewModel.pickProject(project)
             }

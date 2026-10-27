@@ -170,8 +170,7 @@ public final class TaskDetailViewModel {
     }
 
     public func markHidden() {
-        guard let projectID = project.id.remoteValue else { return }
-        quickAddContext?.exitProjectScope(projectID)
+        quickAddContext?.exitProjectScope(project)
     }
 
     public func load() async {

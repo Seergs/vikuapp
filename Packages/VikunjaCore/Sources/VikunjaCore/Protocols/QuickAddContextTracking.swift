@@ -24,7 +24,7 @@
 @MainActor
 public protocol QuickAddContextTracking: AnyObject {
     func enterProjectScope(_ project: Project)
-    func exitProjectScope(_ projectID: Int)
-    var preselectedProjectID: Int? { get }
+    func exitProjectScope(_ project: Project)
+    var preselectedProjectID: EntityID? { get }
     var preselectedProject: Project? { get }
 }

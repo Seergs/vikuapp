@@ -166,6 +166,32 @@ struct ProjectOverviewViewModelTests {
     }
 
     @Test
+    func `mark hidden pops an offline created projects own scope instead of leaving it stuck`() {
+        // Regression test: `markHidden()` used to bail out via a
+        // `project.id.remoteValue` guard, so a project created offline
+        // (`.local`) never actually got popped off the scope stack.
+        let localProjectID = UUID()
+        let context = FakeQuickAddContext()
+        let viewModel = ProjectOverviewViewModel(
+            project: Project(id: .local(localProjectID), title: "New Project"),
+            repository: FakeTaskRepository(),
+            projectRepository: FakeProjectRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
+            toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
+            quickAddContext: context,
+        )
+
+        viewModel.markVisible()
+        #expect(context.preselectedProjectID == .local(localProjectID))
+
+        viewModel.markHidden()
+        #expect(context.preselectedProjectID == nil)
+    }
+
+    @Test
     func `last created task for this project reflects only A matching broadcast`() {
         let broadcaster = FakeTaskChangeBroadcaster()
         let viewModel = ProjectOverviewViewModel(

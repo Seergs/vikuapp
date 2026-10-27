@@ -656,7 +656,7 @@ final class AppContainer {
     ///     the same way, so the sheet can show it immediately instead of a
     ///     spinner (see `QuickAddTaskViewModel.displayProject`).
     func makeQuickAddTaskViewModel(
-        preselectedProjectID: Int?,
+        preselectedProjectID: EntityID?,
         preselectedProject: Project?,
         account: InstanceAccount,
     ) -> QuickAddTaskViewModel {
