@@ -137,12 +137,8 @@ public struct TaskListMutator {
     /// should drop it from the list, `false` (with an error toast) when the
     /// request failed and the row should stay.
     public func delete(_ task: VikunjaTask) async -> Bool {
-        guard let taskID = task.id.remoteValue else {
-            toastPresenter.show(errorMessage(VikunjaError.notFound), style: .error)
-            return false
-        }
         do {
-            try await repository.delete(id: taskID)
+            try await repository.delete(id: task.id)
             toastPresenter.show("Task deleted", style: .success)
             return true
         } catch {
