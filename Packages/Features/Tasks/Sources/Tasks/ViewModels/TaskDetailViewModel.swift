@@ -172,7 +172,7 @@ public final class TaskDetailViewModel {
             loadState = .loading
         }
         do {
-            let fetched = try await repository.fetchTask(id: taskID)
+            let fetched = try await repository.fetchTask(id: task.id)
             guard token == taskWriteToken else { return }
             task = fetched
             updateRelatedTaskIDsCache()
@@ -353,7 +353,7 @@ public final class TaskDetailViewModel {
             hapticPresenter.play(.success)
         }
         do {
-            var relatedTask = try await repository.fetchTask(id: relation.id)
+            var relatedTask = try await repository.fetchTask(id: .remote(relation.id))
             relatedTask.isDone = newIsDone
             _ = try await repository.update(relatedTask)
         } catch {
@@ -454,7 +454,7 @@ public final class TaskDetailViewModel {
     /// screen once it succeeds — the view is expected to pop back.
     public func deleteTask() async -> Bool {
         do {
-            try await repository.delete(id: taskID)
+            try await repository.delete(id: task.id)
             toastPresenter.show(String(localized: "Task deleted", bundle: .module), style: .success)
             return true
         } catch let error as VikunjaError {
@@ -473,7 +473,7 @@ public final class TaskDetailViewModel {
     /// hasn't been already, mirroring the "add relation" picker's lazy load.
     /// Returns `nil` if either fetch fails, or the project can't be resolved.
     public func loadRelatedTask(_ relation: TaskRelation) async -> (VikunjaTask, Project)? {
-        guard let relatedTask = try? await repository.fetchTask(id: relation.id) else { return nil }
+        guard let relatedTask = try? await repository.fetchTask(id: .remote(relation.id)) else { return nil }
         if relation.projectID == project.id.remoteValue {
             return (relatedTask, project)
         }
