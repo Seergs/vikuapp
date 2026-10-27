@@ -1,13 +1,13 @@
 import Foundation
 
 public struct VikunjaTask: Identifiable, Equatable, Hashable, Sendable {
-    public let id: Int
+    public let id: EntityID
     public var title: String
     public var description: String?
     public var isDone: Bool
     public var dueDate: Date?
     public var priority: Priority
-    public var projectID: Int
+    public var projectID: EntityID
     public var labels: [Label]
     /// Other tasks related to this one, keyed by relation direction rather
     /// than Vikunja's raw relation-kind strings ("subtask", "blocked",
@@ -27,13 +27,13 @@ public struct VikunjaTask: Identifiable, Equatable, Hashable, Sendable {
     public var reminders: [TaskReminder]
 
     public init(
-        id: Int,
+        id: EntityID,
         title: String,
         description: String? = nil,
         isDone: Bool = false,
         dueDate: Date? = nil,
         priority: Priority = .unset,
-        projectID: Int,
+        projectID: EntityID,
         labels: [Label] = [],
         subtasks: [TaskRelation] = [],
         dependsOn: [TaskRelation] = [],
