@@ -15,6 +15,7 @@ enum DatabaseMigrations {
         migrator.registerMigration("createMutationQueue", migrate: createMutationQueue)
         migrator.registerMigration("createSyncState", migrate: createSyncState)
         migrator.registerMigration("createLabel", migrate: createLabel)
+        migrator.registerMigration("createTask", migrate: createTask)
     }
 
     private static func createProject(_ db: Database) throws {
@@ -104,6 +105,30 @@ enum DatabaseMigrations {
         try db.create(
             index: "label_on_accountID_remoteID",
             on: "label",
+            columns: ["accountID", "remoteID"],
+            unique: true,
+        )
+    }
+
+    private static func createTask(_ db: Database) throws {
+        try db.create(table: "task") { table in
+            table.primaryKey("localID", .text)
+            // Same per-account scoping as `project`/`label` - see `createProject`'s comment.
+            table.column("accountID", .text).notNull().indexed()
+            table.column("remoteID", .integer)
+            table.column("title", .text).notNull()
+            table.column("description", .text)
+            table.column("isDone", .boolean).notNull().defaults(to: false)
+            table.column("dueDate", .datetime)
+            table.column("priority", .integer).notNull().defaults(to: 0)
+            table.column("projectLocalID", .text)
+                .notNull()
+                .indexed()
+                .references("project", column: "localID", onDelete: .cascade)
+        }
+        try db.create(
+            index: "task_on_accountID_remoteID",
+            on: "task",
             columns: ["accountID", "remoteID"],
             unique: true,
         )

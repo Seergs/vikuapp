@@ -7,6 +7,7 @@ import GRDB
 enum MutationEntityType: String, Codable, Sendable {
     case project
     case label
+    case task
 }
 
 /// What a queued mutation does to its target. `create`/`update`/`delete`
