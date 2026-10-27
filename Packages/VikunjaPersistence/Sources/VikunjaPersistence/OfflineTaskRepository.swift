@@ -32,9 +32,16 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
             let hiddenLocalIDs = try Self.pendingDeleteTargetLocalIDs(accountID: self.accountID, db: db)
             let projectsByLocalID = Self.projectsByLocalID(projectRows)
             let labelsByRemoteID = try Self.labelsByRemoteID(self.accountID, db: db)
+            let labelsByLocalID = try Self.labelsByLocalID(self.accountID, db: db)
+            let pendingLabelMutations = try Self.pendingLabelMutations(accountID: self.accountID, db: db)
             return rows
                 .filter { !hiddenLocalIDs.contains($0.localID) }
-                .map { Self.task(from: $0, projectsByLocalID: projectsByLocalID, labelsByRemoteID: labelsByRemoteID) }
+                .map {
+                    Self.task(
+                        from: $0, projectsByLocalID: projectsByLocalID, labelsByRemoteID: labelsByRemoteID,
+                        labelsByLocalID: labelsByLocalID, pendingLabelMutations: pendingLabelMutations,
+                    )
+                }
         }
     }
 
@@ -56,7 +63,12 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
             guard !hiddenLocalIDs.contains(row.localID) else { throw VikunjaError.notFound }
             let projectsByLocalID = try Self.projectsByLocalID(Self.projectRows(self.accountID, db: db))
             let labelsByRemoteID = try Self.labelsByRemoteID(self.accountID, db: db)
-            return Self.task(from: row, projectsByLocalID: projectsByLocalID, labelsByRemoteID: labelsByRemoteID)
+            let labelsByLocalID = try Self.labelsByLocalID(self.accountID, db: db)
+            let pendingLabelMutations = try Self.pendingLabelMutations(accountID: self.accountID, db: db)
+            return Self.task(
+                from: row, projectsByLocalID: projectsByLocalID, labelsByRemoteID: labelsByRemoteID,
+                labelsByLocalID: labelsByLocalID, pendingLabelMutations: pendingLabelMutations,
+            )
         }
     }
 
@@ -178,9 +190,16 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
             let hiddenLocalIDs = try Self.pendingDeleteTargetLocalIDs(accountID: self.accountID, db: db)
             let projectsByLocalID = try Self.projectsByLocalID(Self.projectRows(self.accountID, db: db))
             let labelsByRemoteID = try Self.labelsByRemoteID(self.accountID, db: db)
+            let labelsByLocalID = try Self.labelsByLocalID(self.accountID, db: db)
+            let pendingLabelMutations = try Self.pendingLabelMutations(accountID: self.accountID, db: db)
             return rows
                 .filter { !hiddenLocalIDs.contains($0.localID) && $0.title.localizedCaseInsensitiveContains(query) }
-                .map { Self.task(from: $0, projectsByLocalID: projectsByLocalID, labelsByRemoteID: labelsByRemoteID) }
+                .map {
+                    Self.task(
+                        from: $0, projectsByLocalID: projectsByLocalID, labelsByRemoteID: labelsByRemoteID,
+                        labelsByLocalID: labelsByLocalID, pendingLabelMutations: pendingLabelMutations,
+                    )
+                }
         }
     }
 
@@ -219,6 +238,41 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
     private static func labelsByRemoteID(_ accountID: UUID, db: Database) throws -> [Int: LabelRecord] {
         let rows = try LabelRecord.fetchAll(db).filter { $0.accountID == accountID }
         return Dictionary(uniqueKeysWithValues: rows.compactMap { row in row.remoteID.map { ($0, row) } })
+    }
+
+    /// Same rows as `labelsByRemoteID`, keyed by local id instead — needed
+    /// to resolve a label referenced by `pendingLabelMutations`, which can
+    /// still be local-only (not yet synced, so no remote id to key by yet).
+    private static func labelsByLocalID(_ accountID: UUID, db: Database) throws -> [UUID: LabelRecord] {
+        let rows = try LabelRecord.fetchAll(db).filter { $0.accountID == accountID }
+        return Dictionary(uniqueKeysWithValues: rows.map { ($0.localID, $0) })
+    }
+
+    /// A task's `addLabel`/`removeLabel` queued but not yet drained -
+    /// offline, or waiting on the task/label to resolve first - isn't
+    /// reflected in `TaskRecord.labelRemoteIDs` yet, since
+    /// `drainTaskLabelMutation` only patches that cache once the push
+    /// actually succeeds. Reading it straight from the queue here means a
+    /// label attached to a task that's still entirely local (neither side
+    /// has a remote id) shows up immediately instead of only after both
+    /// sides sync. Keyed by the task's local id (`targetLocalID`).
+    private static func pendingLabelMutations(
+        accountID: UUID, db: Database,
+    ) throws -> [UUID: [(operation: MutationOperation, labelLocalID: UUID)]] {
+        let items = try MutationQueueRecord.fetchAll(db).filter {
+            $0.accountID == accountID && $0.entityType == .task
+                && ($0.operation == .addLabel || $0.operation == .removeLabel)
+                && ($0.status == .pending || $0.status == .failed)
+        }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        var result: [UUID: [(operation: MutationOperation, labelLocalID: UUID)]] = [:]
+        for item in items {
+            guard let data = item.payload?.data(using: .utf8),
+                  let payload = try? decoder.decode(TaskLabelMutationPayload.self, from: data) else { continue }
+            result[item.targetLocalID, default: []].append((item.operation, payload.labelLocalID))
+        }
+        return result
     }
 
     /// Target ids to hide from a read — a delete the user asked for stays
@@ -260,16 +314,32 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
         from row: TaskRecord,
         projectsByLocalID: [UUID: ProjectRecord],
         labelsByRemoteID: [Int: LabelRecord],
+        labelsByLocalID: [UUID: LabelRecord],
+        pendingLabelMutations: [UUID: [(operation: MutationOperation, labelLocalID: UUID)]],
     ) -> VikunjaTask {
         let projectID = projectsByLocalID[row.projectLocalID]?.remoteID.map(EntityID.remote)
             ?? .local(row.projectLocalID)
-        let labels = row.labelRemoteIDs
+        var labels = row.labelRemoteIDs
             .split(separator: ",")
             .compactMap { Int($0) }
             .compactMap { remoteID -> Label? in
                 guard let labelRow = labelsByRemoteID[remoteID] else { return nil }
                 return Label(id: .remote(remoteID), title: labelRow.title, hexColor: labelRow.hexColor)
             }
+        for mutation in pendingLabelMutations[row.localID] ?? [] {
+            guard let labelRow = labelsByLocalID[mutation.labelLocalID] else { continue }
+            let labelID = labelRow.remoteID.map(EntityID.remote) ?? .local(labelRow.localID)
+            switch mutation.operation {
+            case .addLabel:
+                if !labels.contains(where: { $0.id == labelID }) {
+                    labels.append(Label(id: labelID, title: labelRow.title, hexColor: labelRow.hexColor))
+                }
+            case .removeLabel:
+                labels.removeAll { $0.id == labelID }
+            case .create, .update, .delete:
+                break
+            }
+        }
         return VikunjaTask(
             id: row.remoteID.map(EntityID.remote) ?? .local(row.localID),
             title: row.title,

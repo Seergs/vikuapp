@@ -667,4 +667,68 @@ struct SyncEngineDrainTests {
         #expect(afterSecondDrain.isEmpty)
         #expect(taskRepository.createdTasks.count == 1)
     }
+
+    @Test
+    func `drain pushes a queued addLabel once the task and the label have both synced`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let labelRepository = FakeLabelRepository()
+        let engine = SyncEngine(
+            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: labelRepository,
+            taskRepository: FakeTaskRepository(), accountID: accountID,
+        )
+        let projectLocalID = try await insertProject(in: store, remoteID: 1).localID
+        let taskLocalID = try await insertTask(in: store, remoteID: 10, projectLocalID: projectLocalID).localID
+        let labelLocalID = try await insertLabel(in: store, remoteID: 20).localID
+        try await queueMutation(
+            in: store, entityType: .task, operation: .addLabel, targetLocalID: taskLocalID,
+            payload: TaskLabelMutationPayload(labelLocalID: labelLocalID),
+        )
+
+        try await engine.drainTaskMutations()
+
+        #expect(labelRepository.addedLabelIDs.map(\.labelID) == [.remote(20)])
+        #expect(labelRepository.addedLabelIDs.map(\.taskID) == [.remote(10)])
+        let taskRow = try #require(try await store.read { db in try TaskRecord.fetchOne(db, key: taskLocalID) })
+        #expect(taskRow.labelRemoteIDs == "20")
+        let remaining = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(remaining.isEmpty)
+    }
+
+    @Test
+    func `drain defers a queued addLabel until a locally created label has synced`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let labelRepository = FakeLabelRepository()
+        let engine = SyncEngine(
+            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: labelRepository,
+            taskRepository: FakeTaskRepository(), accountID: accountID,
+        )
+        let projectLocalID = try await insertProject(in: store, remoteID: 1).localID
+        let taskLocalID = try await insertTask(in: store, remoteID: 10, projectLocalID: projectLocalID).localID
+        let labelLocalID = try await insertLabel(in: store, remoteID: nil).localID
+        try await queueMutation(
+            in: store, entityType: .task, operation: .addLabel, targetLocalID: taskLocalID,
+            payload: TaskLabelMutationPayload(labelLocalID: labelLocalID),
+        )
+
+        try await engine.drainTaskMutations()
+
+        #expect(labelRepository.addedLabelIDs.isEmpty)
+        let stillQueued = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(stillQueued.count == 1)
+        #expect(stillQueued[0].status == .pending)
+
+        // The label's own create resolves (as if its queue item had drained
+        // in the same pass, or on an earlier one) - the deferred addLabel
+        // should push through on the very next pass.
+        try await store.write { db in
+            var labelRow = try #require(try LabelRecord.fetchOne(db, key: labelLocalID))
+            labelRow.remoteID = 20
+            try labelRow.save(db)
+        }
+        try await engine.drainTaskMutations()
+
+        #expect(labelRepository.addedLabelIDs.map(\.labelID) == [.remote(20)])
+        let remaining = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(remaining.isEmpty)
+    }
 }

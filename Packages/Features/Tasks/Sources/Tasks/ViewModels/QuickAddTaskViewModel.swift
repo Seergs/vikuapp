@@ -297,15 +297,9 @@ public final class QuickAddTaskViewModel {
                     projectID: projectID,
                 ),
             )
-            // A task created offline (not yet synced) has no remote id yet
-            // to attach labels to - labels-on-task stays online-only
-            // (Slice 4), so this counts the same as every requested label
-            // having failed to attach, rather than crashing on the missing id.
-            let failedAttachments: Int = if let createdTaskID = created.id.remoteValue {
-                await attachLabels(shortcut.labelIDs + newLabelIDs, to: createdTaskID)
-            } else {
-                shortcut.labelIDs.count + newLabelIDs.count
-            }
+            let failedAttachments = await attachLabels(
+                shortcut.labelIDs.map(EntityID.remote) + newLabelIDs, to: created.id,
+            )
             // Only available when the project list has already loaded (see
             // `canSave`'s doc comment) - the toast just isn't tappable in
             // that edge case rather than guessing at a `Project` value.
@@ -330,21 +324,19 @@ public final class QuickAddTaskViewModel {
         }
     }
 
-    private func createLabels(named names: [String]) async throws -> [Int] {
+    private func createLabels(named names: [String]) async throws -> [EntityID] {
         guard let labelRepository else { return [] }
-        var ids: [Int] = []
+        var ids: [EntityID] = []
         for name in names {
             let created = try await labelRepository.create(Label(id: 0, title: name, hexColor: Self.newLabelHex))
-            if let id = created.id.remoteValue {
-                ids.append(id)
-            }
+            ids.append(created.id)
         }
         return ids
     }
 
     /// Attaches each label and returns how many failed. Each attach is independent,
     /// so one failure does not skip the rest.
-    private func attachLabels(_ labelIDs: [Int], to taskID: Int) async -> Int {
+    private func attachLabels(_ labelIDs: [EntityID], to taskID: EntityID) async -> Int {
         guard let labelRepository else { return 0 }
         var failures = 0
         for labelID in labelIDs {

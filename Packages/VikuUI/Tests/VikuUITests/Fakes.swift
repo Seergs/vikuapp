@@ -107,8 +107,8 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
 
 final class FakeLabelRepository: LabelRepositoryProtocol, @unchecked Sendable {
     var labels: [Label] = []
-    var addedLabelIDs: [(labelID: Int, taskID: Int)] = []
-    var removedLabelIDs: [(labelID: Int, taskID: Int)] = []
+    var addedLabelIDs: [(labelID: EntityID, taskID: EntityID)] = []
+    var removedLabelIDs: [(labelID: EntityID, taskID: EntityID)] = []
     var fetchError: VikunjaError?
     var createError: VikunjaError?
     var addError: VikunjaError?
@@ -140,14 +140,14 @@ final class FakeLabelRepository: LabelRepositoryProtocol, @unchecked Sendable {
         labels.removeAll { $0.id == id }
     }
 
-    func addLabel(_ labelID: Int, toTask taskID: Int) async throws {
+    func addLabel(_ labelID: EntityID, toTask taskID: EntityID) async throws {
         if let addError {
             throw addError
         }
         addedLabelIDs.append((labelID, taskID))
     }
 
-    func removeLabel(_ labelID: Int, fromTask taskID: Int) async throws {
+    func removeLabel(_ labelID: EntityID, fromTask taskID: EntityID) async throws {
         if let removeError {
             throw removeError
         }

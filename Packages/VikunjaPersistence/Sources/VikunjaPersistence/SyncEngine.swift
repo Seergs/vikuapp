@@ -484,6 +484,10 @@ public actor SyncEngine {
             case .create: return try await drainCreate(item)
             case .update: return try await drainUpdate(item)
             case .delete: return try await drainDelete(item)
+            case .addLabel, .removeLabel:
+                // Only ever queued against `entityType: .task` - unreachable
+                // here since `drainProjectMutations()` filters to `.project`.
+                return .skipped
             }
         } catch {
             await markFailed(item, error: error)
@@ -609,6 +613,10 @@ public actor SyncEngine {
             case .create: try await drainLabelCreate(item)
             case .update: try await drainLabelUpdate(item)
             case .delete: try await drainLabelDelete(item)
+            case .addLabel, .removeLabel:
+                // Only ever queued against `entityType: .task` - unreachable
+                // here since `drainLabelMutations()` filters to `.label`.
+                break
             }
         } catch {
             await markFailed(item, error: error)
@@ -697,6 +705,8 @@ public actor SyncEngine {
             case .create: return try await drainTaskCreate(item)
             case .update: return try await drainTaskUpdate(item)
             case .delete: return try await drainTaskDelete(item)
+            case .addLabel: return try await drainTaskLabelMutation(item, isAdding: true)
+            case .removeLabel: return try await drainTaskLabelMutation(item, isAdding: false)
             }
         } catch {
             await markFailed(item, error: error)
@@ -770,6 +780,51 @@ public actor SyncEngine {
         try await localStore.write { db in
             if let row = try TaskRecord.fetchOne(db, key: item.targetLocalID) {
                 try row.delete(db)
+            }
+            try item.delete(db)
+        }
+        return .pushed
+    }
+
+    /// `addLabel`/`removeLabel` queued against `targetLocalID` (the task),
+    /// with `payload.labelLocalID` identifying the label - mirrors
+    /// `drainTaskCreate`'s `payload.projectLocalID` dependency-ordering:
+    /// either side still only local-so-far simply defers this item to the
+    /// next drain pass instead of failing it.
+    private func drainTaskLabelMutation(_ item: MutationQueueRecord, isAdding: Bool) async throws -> DrainOutcome {
+        guard let payload: TaskLabelMutationPayload = try decodePayload(item.payload) else {
+            throw DrainError.invalidPayload
+        }
+        let (taskRemoteID, labelRemoteID) = try await localStore.read { db in
+            let taskRemoteID = try TaskRecord.fetchOne(db, key: item.targetLocalID)?.remoteID
+            let labelRemoteID = try LabelRecord.fetchOne(db, key: payload.labelLocalID)?.remoteID
+            return (taskRemoteID, labelRemoteID)
+        }
+        guard let taskRemoteID, let labelRemoteID else {
+            return .deferred // The task or label hasn't synced yet — retry this item on a later pass.
+        }
+        if isAdding {
+            try await labelRepository.addLabel(.remote(labelRemoteID), toTask: .remote(taskRemoteID))
+        } else {
+            try await labelRepository.removeLabel(.remote(labelRemoteID), fromTask: .remote(taskRemoteID))
+        }
+        try await localStore.write { db in
+            if var row = try TaskRecord.fetchOne(db, key: item.targetLocalID) {
+                // The push just made this true server-side, but every screen
+                // reads a task's labels from this cache (see its doc
+                // comment), which otherwise only catches up on the next
+                // `pullTasks()` — patch it now instead of leaving it stale
+                // until then.
+                var ids = row.labelRemoteIDs.split(separator: ",").compactMap { Int($0) }
+                if isAdding {
+                    if !ids.contains(labelRemoteID) {
+                        ids.append(labelRemoteID)
+                    }
+                } else {
+                    ids.removeAll { $0 == labelRemoteID }
+                }
+                row.labelRemoteIDs = ids.map(String.init).joined(separator: ",")
+                try row.save(db)
             }
             try item.delete(db)
         }

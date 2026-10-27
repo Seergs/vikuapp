@@ -858,10 +858,9 @@ final class AppContainer {
     }
 
     /// The `LabelRepositoryProtocol` every screen reads/writes through — same
-    /// shape as `offlineProjectRepository(for:)`. `addLabel`/`removeLabel`
-    /// (task-label association) still go straight to `networkLabelRepository`
-    /// inside `OfflineLabelRepository` itself; only the label entity's own
-    /// create/edit/delete is local-first here.
+    /// shape as `offlineProjectRepository(for:)`, now including
+    /// `addLabel`/`removeLabel` (task-label association), which drain
+    /// through this same `syncEngine`'s task queue.
     private func offlineLabelRepository(for account: InstanceAccount) -> LabelRepositoryProtocol {
         let networkRepository = networkLabelRepository(for: account)
         let syncEngine = SyncEngine(
@@ -879,7 +878,6 @@ final class AppContainer {
             accountID: account.id,
             syncEngine: syncEngine,
             reachability: reachabilityMonitor,
-            networkLabelRepository: networkRepository,
         )
     }
 

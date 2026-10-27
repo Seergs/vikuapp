@@ -1804,23 +1804,27 @@ struct TaskDetailViewModelTests {
     }
 
     @Test
-    func `toggling a label on an unsynced task shows a toast instead of crashing`() async {
-        let toastPresenter = FakeToastPresenter()
+    func `toggling a label on an unsynced task queues the attach instead of crashing`() async {
+        // VIKU-134: labels-on-task now queue through `OfflineLabelRepository`
+        // against the task's local row, so it no longer needs to be synced
+        // first - this replaces the earlier toast-and-bail workaround.
+        let labelRepository = FakeLabelRepository()
+        let task = VikunjaTask(id: .local(UUID()), title: "Write report", projectID: .local(UUID()))
         let viewModel = TaskDetailViewModel(
-            task: VikunjaTask(id: .local(UUID()), title: "Write report", projectID: .local(UUID())),
+            task: task,
             project: Project(id: .local(UUID()), title: "Work"),
             repository: FakeTaskRepository(),
-            labelRepository: FakeLabelRepository(),
+            labelRepository: labelRepository,
             relationRepository: FakeTaskRelationRepository(),
             commentRepository: FakeTaskCommentRepository(),
             attachmentRepository: FakeTaskAttachmentRepository(),
             projectRepository: FakeProjectRepository(),
-            toastPresenter: toastPresenter,
+            toastPresenter: FakeToastPresenter(),
         )
 
         await viewModel.toggleLabel(Label(id: 1, title: "Urgent", hexColor: "ff0000"))
 
-        #expect(viewModel.task.labels.isEmpty)
-        #expect(toastPresenter.shownMessages.count == 1)
+        #expect(viewModel.task.labels == [Label(id: 1, title: "Urgent", hexColor: "ff0000")])
+        #expect(labelRepository.addedLabelIDs.map(\.taskID) == [task.id])
     }
 }

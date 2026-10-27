@@ -264,11 +264,11 @@ final class FakeLabelRepository: LabelRepositoryProtocol, @unchecked Sendable {
         }
     }
 
-    func addLabel(_: Int, toTask _: Int) async throws {
+    func addLabel(_: EntityID, toTask _: EntityID) async throws {
         fatalError("not exercised by Settings tests")
     }
 
-    func removeLabel(_: Int, fromTask _: Int) async throws {
+    func removeLabel(_: EntityID, fromTask _: EntityID) async throws {
         fatalError("not exercised by Settings tests")
     }
 }

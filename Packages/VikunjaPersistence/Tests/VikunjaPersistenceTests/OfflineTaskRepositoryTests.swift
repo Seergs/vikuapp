@@ -371,8 +371,8 @@ struct OfflineTaskRepositoryTests {
         }
         // Simulates what `pullTasks` would have cached after a real pull -
         // this repository's own `create`/`update` never touch
-        // `labelRemoteIDs` themselves (label-on-task association stays
-        // online-only, Slice 4).
+        // `labelRemoteIDs` themselves; it's `SyncEngine.drainTaskLabelMutation`
+        // that patches it, once an `addLabel`/`removeLabel` actually drains.
         try await fixture.store.write { db in
             guard var row = try TaskRecord.fetchOne(db, key: localID) else { return }
             row.labelRemoteIDs = "5"
@@ -382,5 +382,86 @@ struct OfflineTaskRepositoryTests {
         let tasks = try await fixture.repository.fetchTasks(projectID: 1)
 
         #expect(tasks.first?.labels == [Label(id: .remote(5), title: "Urgent", hexColor: "ff0000")])
+    }
+
+    private func queueTaskLabelMutation(
+        operation: MutationOperation,
+        taskLocalID: UUID,
+        labelLocalID: UUID,
+        accountID: UUID,
+        in store: LocalStore,
+    ) async throws {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let payload = try String(
+            data: encoder.encode(TaskLabelMutationPayload(labelLocalID: labelLocalID)), encoding: .utf8,
+        )
+        try await store.write { db in
+            var item = MutationQueueRecord(
+                id: nil, accountID: accountID, entityType: .task, operation: operation, targetLocalID: taskLocalID,
+                payload: payload, createdAt: Date(), retryCount: 0, lastError: nil, status: .pending,
+                needsConflictResolution: false,
+            )
+            try item.insert(db)
+        }
+    }
+
+    @Test
+    func `fetchTasks shows a label still only queued, before the attach has synced`() async throws {
+        // Regression test: a label attached to a task that's still entirely
+        // local (neither the task nor the label has a remote id yet, or the
+        // device is simply offline) used to be invisible everywhere, since
+        // `TaskRecord.labelRemoteIDs` only gets patched once
+        // `drainTaskLabelMutation` actually succeeds - a queued-but-not-yet-
+        // drained `addLabel` must still show up immediately.
+        let fixture = try await makeRepository(online: false)
+        let created = try await fixture.repository.create(
+            VikunjaTask(id: .local(UUID()), title: "Buy milk", projectID: fixture.project),
+        )
+        guard case let .local(taskLocalID) = created.id else {
+            Issue.record("expected a local id while offline, got \(created.id)")
+            return
+        }
+        let labelRow = LabelRecord(
+            localID: UUID(), accountID: fixture.accountID, remoteID: nil, title: "Urgent", hexColor: "ff0000",
+        )
+        try await fixture.store.write { db in try labelRow.insert(db) }
+        try await queueTaskLabelMutation(
+            operation: .addLabel, taskLocalID: taskLocalID, labelLocalID: labelRow.localID,
+            accountID: fixture.accountID, in: fixture.store,
+        )
+
+        let tasks = try await fixture.repository.fetchTasks(projectID: 1)
+
+        #expect(tasks.first?.labels == [Label(id: .local(labelRow.localID), title: "Urgent", hexColor: "ff0000")])
+    }
+
+    @Test
+    func `fetchTask hides a cached label once its removal is queued, before the drain confirms it`() async throws {
+        let fixture = try await makeRepository(online: false)
+        let labelRow = LabelRecord(
+            localID: UUID(), accountID: fixture.accountID, remoteID: 5, title: "Urgent", hexColor: "ff0000",
+        )
+        try await fixture.store.write { db in try labelRow.insert(db) }
+        let created = try await fixture.repository.create(
+            VikunjaTask(id: .local(UUID()), title: "Buy milk", projectID: fixture.project),
+        )
+        guard case let .local(taskLocalID) = created.id else {
+            Issue.record("expected a local id while offline, got \(created.id)")
+            return
+        }
+        try await fixture.store.write { db in
+            guard var row = try TaskRecord.fetchOne(db, key: taskLocalID) else { return }
+            row.labelRemoteIDs = "5"
+            try row.save(db)
+        }
+        try await queueTaskLabelMutation(
+            operation: .removeLabel, taskLocalID: taskLocalID, labelLocalID: labelRow.localID,
+            accountID: fixture.accountID, in: fixture.store,
+        )
+
+        let task = try await fixture.repository.fetchTask(id: created.id)
+
+        #expect(task.labels.isEmpty)
     }
 }

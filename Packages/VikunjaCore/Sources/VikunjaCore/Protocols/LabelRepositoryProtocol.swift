@@ -4,6 +4,6 @@ public protocol LabelRepositoryProtocol: Sendable {
     func update(_ label: Label) async throws -> Label
     func delete(id: EntityID) async throws
 
-    func addLabel(_ labelID: Int, toTask taskID: Int) async throws
-    func removeLabel(_ labelID: Int, fromTask taskID: Int) async throws
+    func addLabel(_ labelID: EntityID, toTask taskID: EntityID) async throws
+    func removeLabel(_ labelID: EntityID, fromTask taskID: EntityID) async throws
 }

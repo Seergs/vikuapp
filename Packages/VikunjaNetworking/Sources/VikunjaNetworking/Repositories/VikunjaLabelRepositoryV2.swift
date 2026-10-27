@@ -41,12 +41,18 @@ public final class VikunjaLabelRepositoryV2: LabelRepositoryProtocol {
         try await client.send(VikunjaEndpoints.deleteLabelV2(id: id))
     }
 
-    public func addLabel(_ labelID: Int, toTask taskID: Int) async throws {
+    public func addLabel(_ labelID: EntityID, toTask taskID: EntityID) async throws {
+        guard let labelID = labelID.remoteValue, let taskID = taskID.remoteValue else {
+            preconditionFailure("VikunjaLabelRepositoryV2.addLabel: both the label and task must be synced first")
+        }
         let endpoint = try VikunjaEndpoints.addLabelToTaskV2(taskID: taskID, labelID: labelID)
         try await client.send(endpoint)
     }
 
-    public func removeLabel(_ labelID: Int, fromTask taskID: Int) async throws {
+    public func removeLabel(_ labelID: EntityID, fromTask taskID: EntityID) async throws {
+        guard let labelID = labelID.remoteValue, let taskID = taskID.remoteValue else {
+            preconditionFailure("VikunjaLabelRepositoryV2.removeLabel: both the label and task must be synced first")
+        }
         try await client.send(VikunjaEndpoints.removeLabelFromTaskV2(taskID: taskID, labelID: labelID))
     }
 }

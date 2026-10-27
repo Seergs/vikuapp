@@ -276,14 +276,13 @@ public final class TaskDetailViewModel {
     /// Adds or removes `label` from the task, optimistically, rolling back if
     /// the server rejects it — mirrors `toggleDone()`.
     public func toggleLabel(_ label: Label) async {
-        guard let labelID = label.id.remoteValue, let taskID = requireSyncedTaskID() else { return }
         let previous = task
         taskWriteToken += 1
         let token = taskWriteToken
         if task.labels.contains(label) {
             task.labels.removeAll { $0.id == label.id }
             do {
-                try await labelRepository.removeLabel(labelID, fromTask: taskID)
+                try await labelRepository.removeLabel(label.id, fromTask: task.id)
             } catch {
                 guard token == taskWriteToken else { return }
                 task = previous
@@ -291,7 +290,7 @@ public final class TaskDetailViewModel {
         } else {
             task.labels.append(label)
             do {
-                try await labelRepository.addLabel(labelID, toTask: taskID)
+                try await labelRepository.addLabel(label.id, toTask: task.id)
             } catch {
                 guard token == taskWriteToken else { return }
                 task = previous

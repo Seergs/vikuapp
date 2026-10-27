@@ -141,7 +141,7 @@ struct DuplicateTaskViewModelTests {
         let created = await viewModel.duplicate()
 
         #expect(Set(labelRepository.addedLabelIDs.map(\.labelID)) == [11, 12])
-        #expect(labelRepository.addedLabelIDs.allSatisfy { $0.taskID == created?.task.id.remoteValue })
+        #expect(labelRepository.addedLabelIDs.allSatisfy { $0.taskID == created?.task.id })
     }
 
     @Test

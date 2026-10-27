@@ -12,9 +12,17 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
     private(set) var deletedIDs: [Int] = []
     private(set) var fetchProjectsCallCount = 0
     private var nextRemoteID = 100
+    /// Lets a test hold `fetchProjects()` open for a bit — simulating a
+    /// slow network call still in flight — so it can start a second,
+    /// overlapping sync against the same account and check it was skipped
+    /// rather than racing a second `fetchProjects()` call of its own.
+    var fetchDelay: Duration?
 
     func fetchProjects() async throws -> [Project] {
         fetchProjectsCallCount += 1
+        if let fetchDelay {
+            try await Task.sleep(for: fetchDelay)
+        }
         if let fetchError {
             throw fetchError
         }

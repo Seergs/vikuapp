@@ -126,16 +126,14 @@ public final class DuplicateTaskViewModel {
                     projectID: .remote(selectedProjectID),
                 ),
             )
-            // A task created via `taskRepository.create` just round-tripped
-            // through the server, so its id and project are always `.remote`
-            // by the time `TaskMapper.toDomain` builds it.
-            if let createdTaskID = created.id.remoteValue {
-                if copyLabels {
-                    await attachLabels(to: createdTaskID)
-                }
-                if copyRelations {
-                    await attachRelations(to: createdTaskID)
-                }
+            if copyLabels {
+                await attachLabels(to: created.id)
+            }
+            // Relations stay online-only (Slice 4 covers only labels-on-task
+            // so far) - a duplicate created offline simply skips copying them,
+            // same as before.
+            if copyRelations, let createdTaskID = created.id.remoteValue {
+                await attachRelations(to: createdTaskID)
             }
             hapticPresenter.play(.success)
             toastPresenter.show("Task duplicated", style: .success)
@@ -160,10 +158,9 @@ public final class DuplicateTaskViewModel {
     /// Best-effort: a label that fails to attach is skipped rather than
     /// failing the whole duplicate — the task itself is already created, and
     /// there's no partial state worth rolling back to.
-    private func attachLabels(to taskID: Int) async {
+    private func attachLabels(to taskID: EntityID) async {
         for label in source.labels {
-            guard let labelID = label.id.remoteValue else { continue }
-            try? await labelRepository.addLabel(labelID, toTask: taskID)
+            try? await labelRepository.addLabel(label.id, toTask: taskID)
         }
     }
 

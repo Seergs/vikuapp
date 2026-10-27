@@ -12,11 +12,15 @@ enum MutationEntityType: String, Codable, Sendable {
 
 /// What a queued mutation does to its target. `create`/`update`/`delete`
 /// cover whole-object writes; a sub-resource op (e.g. labels-on-task) can
-/// add its own case later without a schema change.
+/// add its own case later without a schema change. `addLabel`/`removeLabel`
+/// are the first of these: queued against a `.task` item, resolved via
+/// `TaskLabelMutationPayload`.
 enum MutationOperation: String, Codable, Sendable {
     case create
     case update
     case delete
+    case addLabel
+    case removeLabel
 }
 
 enum MutationStatus: String, Codable, Sendable {
