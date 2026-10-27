@@ -27,6 +27,15 @@ struct TaskRecord: Codable, Equatable, Sendable {
     /// detect a server-side edit the queued mutation wasn't based on —
     /// mirrors `ProjectRecord.serverUpdatedAt`.
     var serverUpdatedAt: Date?
+    /// The task's labels as of the last pull, as their remote ids —
+    /// comma-joined since GRDB has no native array column type; empty
+    /// string when there are none. A denormalized read-only cache, not a
+    /// join table: label-on-task association (add/remove) still goes
+    /// straight to the network via `OfflineLabelRepository`'s pass-through
+    /// (full local support is Slice 4's job). Resolving these back to
+    /// `Label` values is `OfflineTaskRepository`'s job, by looking them up
+    /// in the already-synced local `label` table.
+    var labelRemoteIDs: String = ""
 }
 
 extension TaskRecord: FetchableRecord, PersistableRecord {

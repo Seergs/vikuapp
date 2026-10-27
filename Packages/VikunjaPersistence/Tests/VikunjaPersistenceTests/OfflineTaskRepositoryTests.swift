@@ -24,6 +24,7 @@ struct OfflineTaskRepositoryTests {
         let repository: OfflineTaskRepository
         let store: LocalStore
         let network: FakeTaskRepository
+        let accountID: UUID
         /// A project already present locally (as if `pullProjects()` had
         /// already synced it), so `create`/`update`/`fetchTasks` have a real
         /// project to resolve `projectLocalID` against.
@@ -65,7 +66,7 @@ struct OfflineTaskRepositoryTests {
             localStore: store, accountID: accountID, syncEngine: engine, reachability: reachability,
         )
         return Fixture(
-            repository: repository, store: store, network: network,
+            repository: repository, store: store, network: network, accountID: accountID,
             project: project.remoteID.map(EntityID.remote) ?? .local(project.localID),
         )
     }
@@ -346,5 +347,40 @@ struct OfflineTaskRepositoryTests {
 
         #expect(tasksA.map(\.title) == ["Account A's task"])
         #expect(tasksB.map(\.title) == ["Account B's task"])
+    }
+
+    @Test
+    func `fetchTasks resolves a tasks cached label ids against the local label table`() async throws {
+        // Regression test: `TaskRecord` has no storage for a task's own
+        // fields' worth of label details, only the ids `pullTasks` cached
+        // (`TaskRecord.labelRemoteIDs`) - resolving them back to real
+        // `Label` values (title, color) by joining against the local
+        // `label` table (already synced by `OfflineLabelRepository`) is
+        // what makes a synced task's labels show up at all.
+        let fixture = try await makeRepository(online: false)
+        let labelRow = LabelRecord(
+            localID: UUID(), accountID: fixture.accountID, remoteID: 5, title: "Urgent", hexColor: "ff0000",
+        )
+        try await fixture.store.write { db in try labelRow.insert(db) }
+        let created = try await fixture.repository.create(
+            VikunjaTask(id: .local(UUID()), title: "Buy milk", projectID: fixture.project),
+        )
+        guard case let .local(localID) = created.id else {
+            Issue.record("expected a local id while offline, got \(created.id)")
+            return
+        }
+        // Simulates what `pullTasks` would have cached after a real pull -
+        // this repository's own `create`/`update` never touch
+        // `labelRemoteIDs` themselves (label-on-task association stays
+        // online-only, Slice 4).
+        try await fixture.store.write { db in
+            guard var row = try TaskRecord.fetchOne(db, key: localID) else { return }
+            row.labelRemoteIDs = "5"
+            try row.save(db)
+        }
+
+        let tasks = try await fixture.repository.fetchTasks(projectID: 1)
+
+        #expect(tasks.first?.labels == [Label(id: .remote(5), title: "Urgent", hexColor: "ff0000")])
     }
 }
