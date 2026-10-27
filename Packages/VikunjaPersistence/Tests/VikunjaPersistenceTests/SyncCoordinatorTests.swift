@@ -361,6 +361,36 @@ struct SyncCoordinatorTests {
     }
 
     @Test
+    func `an overlapping sync for the same account is skipped instead of racing the first`() async throws {
+        // Regression test: foregrounding the app and regaining reachability
+        // at nearly the same moment each fire their own `syncAllAccounts()`
+        // independently. Without a guard, both calls build their own
+        // `SyncEngine` and can both drain the very same still-pending
+        // mutation before either's network call returns - duplicating a
+        // create server-side. The second overlapping call must be a no-op
+        // while the first is still in flight for that account.
+        let store = try LocalStore(directory: temporaryDirectory())
+        let accountStore = FakeAccountStore()
+        let factory = FakeInstanceClientFactory()
+        let reachability = FakeReachabilityMonitor()
+        let account = try makeAccount(host: "a.example.com")
+        try await accountStore.addAccount(account, token: "token-a")
+        let repository = factory.projectRepository(for: account.baseURL)
+        repository.fetchDelay = .milliseconds(200)
+        let coordinator = SyncCoordinator(
+            localStore: store, accountStore: accountStore, clientFactory: factory, reachability: reachability,
+            tokenProvider: { account in { try await accountStore.token(forAccountID: account.id) } },
+        )
+
+        async let first: Void = coordinator.syncAllAccounts()
+        await waitUntil { repository.fetchProjectsCallCount > 0 }
+        async let second: Void = coordinator.syncAllAccounts()
+        _ = await (first, second)
+
+        #expect(repository.fetchProjectsCallCount == 1)
+    }
+
+    @Test
     func `sync resolves each account through the injected tokenProvider, not accountStore directly`() async throws {
         // Regression test: `sync(_:)` used to build its own tokenProvider
         // straight off `accountStore.token(forAccountID:)`, which for a

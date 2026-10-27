@@ -19,6 +19,16 @@ public actor SyncCoordinator {
     /// session-refresh logic knows how to turn it into one.
     private let tokenProvider: @Sendable (InstanceAccount) -> @Sendable () async throws -> String?
     private var observationTask: Task<Void, Never>?
+    /// Accounts with a `sync(_:)` already in flight — `syncAllAccounts()`
+    /// can itself be triggered more than once in close succession (going
+    /// reachable fires `reachabilityRegained()`, and foregrounding the app
+    /// fires its own call independently), and each call builds a brand new
+    /// `SyncEngine` with no shared state between them. Without this guard,
+    /// two overlapping calls can both read the same still-pending `create`
+    /// mutation (the first hasn't gotten its network response back yet, so
+    /// it's not deleted from the queue) and both push it, creating the same
+    /// task twice server-side.
+    private var syncingAccountIDs: Set<UUID> = []
 
     public init(
         localStore: LocalStore,
@@ -77,6 +87,8 @@ public actor SyncCoordinator {
     }
 
     private func sync(_ account: InstanceAccount) async {
+        guard syncingAccountIDs.insert(account.id).inserted else { return }
+        defer { syncingAccountIDs.remove(account.id) }
         let resolvedTokenProvider = tokenProvider(account)
         let projectRepository = clientFactory.makeProjectRepository(
             baseURL: account.baseURL,
