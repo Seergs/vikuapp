@@ -7,29 +7,30 @@ import VikunjaCore
 /// machinery projects need: a label is just a title and a color, with
 /// nothing else depending on it syncing in any particular order.
 ///
-/// `addLabel`/`removeLabel` (attaching a label to a task) are a plain
-/// pass-through to `networkLabelRepository`, never queued here — that's
-/// task-label association, which stays online-only until task offline
-/// support (Slice 4) exists to give it somewhere to queue against.
+/// `addLabel`/`removeLabel` (attaching a label to a task) are queued here
+/// too, against the *task* side (`entityType: .task`, same table
+/// `drainTaskMutations()` already drains) — the label side is resolved at
+/// drain time via `TaskLabelMutationPayload.labelLocalID`, the same
+/// dependency-ordering pattern a sub-project's parent uses. Either side
+/// still being only local-so-far simply defers the item to the next drain
+/// pass, instead of silently dropping the attach like the pre-Slice-4
+/// pass-through did.
 public actor OfflineLabelRepository: LabelRepositoryProtocol {
     private let localStore: LocalStore
     private let accountID: UUID
     private let syncEngine: SyncEngine
     private let reachability: ReachabilityMonitoring
-    private let networkLabelRepository: LabelRepositoryProtocol
 
     public init(
         localStore: LocalStore,
         accountID: UUID,
         syncEngine: SyncEngine,
         reachability: ReachabilityMonitoring,
-        networkLabelRepository: LabelRepositoryProtocol,
     ) {
         self.localStore = localStore
         self.accountID = accountID
         self.syncEngine = syncEngine
         self.reachability = reachability
-        self.networkLabelRepository = networkLabelRepository
     }
 
     public func fetchLabels() async throws -> [Label] {
@@ -121,39 +122,65 @@ public actor OfflineLabelRepository: LabelRepositoryProtocol {
         await triggerDrainIfOnline()
     }
 
-    public func addLabel(_ labelID: Int, toTask taskID: Int) async throws {
-        try await networkLabelRepository.addLabel(labelID, toTask: taskID)
-        // The network call just made this true server-side, but every
-        // screen reads a task's labels from `TaskRecord.labelRemoteIDs`
-        // (see its doc comment), which otherwise only catches up on the
-        // next `pullTasks()` - patch it now so the rest of the app shows
-        // the new label immediately instead of looking stale until then.
-        await updateCachedTaskLabels(taskID: taskID) { ids in
-            ids.contains(labelID) ? ids : ids + [labelID]
+    public func addLabel(_ labelID: EntityID, toTask taskID: EntityID) async throws {
+        try await enqueueTaskLabelMutation(.addLabel, labelID: labelID, taskID: taskID)
+        await triggerTaskDrainIfOnline()
+    }
+
+    public func removeLabel(_ labelID: EntityID, fromTask taskID: EntityID) async throws {
+        try await enqueueTaskLabelMutation(.removeLabel, labelID: labelID, taskID: taskID)
+        await triggerTaskDrainIfOnline()
+    }
+
+    /// Queues the attach/detach against the task's own row (`entityType:
+    /// .task`, same table `drainTaskMutations()` already drains) rather than
+    /// the label's - a task is the thing this mutation is fundamentally
+    /// about, and `TaskRecord.labelRemoteIDs` (the cache every screen reads)
+    /// lives there. The label side is just a reference, resolved at drain
+    /// time via `payload.labelLocalID`.
+    private func enqueueTaskLabelMutation(_ operation: MutationOperation, labelID: EntityID, taskID: EntityID) async throws {
+        try await localStore.write { db in
+            guard let taskRow = try Self.findTaskRow(matching: taskID, accountID: self.accountID, db: db) else {
+                throw VikunjaError.notFound
+            }
+            let labelRows = try Self.accountRows(self.accountID, db: db)
+            guard let labelRow = Self.findRow(matching: labelID, in: labelRows) else {
+                throw VikunjaError.notFound
+            }
+            let payload = TaskLabelMutationPayload(labelLocalID: labelRow.localID)
+            var item = try MutationQueueRecord(
+                id: nil,
+                accountID: self.accountID,
+                entityType: .task,
+                operation: operation,
+                targetLocalID: taskRow.localID,
+                payload: Self.encode(payload),
+                createdAt: Date(),
+                retryCount: 0,
+                lastError: nil,
+                status: .pending,
+                needsConflictResolution: false,
+            )
+            try item.insert(db)
         }
     }
 
-    public func removeLabel(_ labelID: Int, fromTask taskID: Int) async throws {
-        try await networkLabelRepository.removeLabel(labelID, fromTask: taskID)
-        await updateCachedTaskLabels(taskID: taskID) { ids in
-            ids.filter { $0 != labelID }
-        }
-    }
-
-    private func updateCachedTaskLabels(taskID: Int, mutate: @Sendable ([Int]) -> [Int]) async {
-        let accountID = accountID
-        try? await localStore.write { db in
-            guard var row = try TaskRecord.fetchAll(db)
-                .first(where: { $0.accountID == accountID && $0.remoteID == taskID }) else { return }
-            let ids = row.labelRemoteIDs.split(separator: ",").compactMap { Int($0) }
-            row.labelRemoteIDs = mutate(ids).map(String.init).joined(separator: ",")
-            try row.save(db)
+    private static func findTaskRow(matching id: EntityID, accountID: UUID, db: Database) throws -> TaskRecord? {
+        let rows = try TaskRecord.fetchAll(db).filter { $0.accountID == accountID }
+        switch id {
+        case let .local(localID): return rows.first { $0.localID == localID }
+        case let .remote(remoteID): return rows.first { $0.remoteID == remoteID }
         }
     }
 
     private func triggerDrainIfOnline() async {
         guard await reachability.isReachable else { return }
         try? await syncEngine.drainLabelMutations()
+    }
+
+    private func triggerTaskDrainIfOnline() async {
+        guard await reachability.isReachable else { return }
+        try? await syncEngine.drainTaskMutations()
     }
 
     /// Blocks the very first read against an account's cache on a cold pull

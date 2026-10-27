@@ -35,11 +35,11 @@ final class VikunjaLabelRepositorySwitch: LabelRepositoryProtocol {
         try await resolve().delete(id: id)
     }
 
-    func addLabel(_ labelID: Int, toTask taskID: Int) async throws {
+    func addLabel(_ labelID: EntityID, toTask taskID: EntityID) async throws {
         try await resolve().addLabel(labelID, toTask: taskID)
     }
 
-    func removeLabel(_ labelID: Int, fromTask taskID: Int) async throws {
+    func removeLabel(_ labelID: EntityID, fromTask taskID: EntityID) async throws {
         try await resolve().removeLabel(labelID, fromTask: taskID)
     }
 }

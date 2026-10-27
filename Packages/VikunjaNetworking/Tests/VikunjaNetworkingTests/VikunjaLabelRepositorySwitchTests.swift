@@ -89,11 +89,11 @@ private final class SpyLabelRepository: LabelRepositoryProtocol, @unchecked Send
         deleteCallCount += 1
     }
 
-    func addLabel(_ labelID: Int, toTask taskID: Int) async throws {
+    func addLabel(_ labelID: EntityID, toTask taskID: EntityID) async throws {
         addLabelCallCount += 1
     }
 
-    func removeLabel(_ labelID: Int, fromTask taskID: Int) async throws {
+    func removeLabel(_ labelID: EntityID, fromTask taskID: EntityID) async throws {
         removeLabelCallCount += 1
     }
 }

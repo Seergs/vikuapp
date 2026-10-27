@@ -41,7 +41,6 @@ struct OfflineLabelRepositoryTests {
         let reachability = FakeReachabilityMonitor(isReachable: online)
         let repository = OfflineLabelRepository(
             localStore: store, accountID: accountID, syncEngine: engine, reachability: reachability,
-            networkLabelRepository: network,
         )
         return Fixture(repository: repository, store: store, network: network)
     }
@@ -168,7 +167,7 @@ struct OfflineLabelRepositoryTests {
         )
         let onlineRepository = OfflineLabelRepository(
             localStore: store, accountID: accountID, syncEngine: onlineEngine,
-            reachability: FakeReachabilityMonitor(isReachable: true), networkLabelRepository: network,
+            reachability: FakeReachabilityMonitor(isReachable: true),
         )
         let created = try await onlineRepository.create(Label(id: .local(UUID()), title: "Urgent", hexColor: "ff0000"))
         #expect(created.id.remoteValue != nil)
@@ -181,7 +180,7 @@ struct OfflineLabelRepositoryTests {
         )
         let offlineRepository = OfflineLabelRepository(
             localStore: store, accountID: accountID, syncEngine: offlineEngine,
-            reachability: FakeReachabilityMonitor(isReachable: false), networkLabelRepository: network,
+            reachability: FakeReachabilityMonitor(isReachable: false),
         )
         _ = try await offlineRepository.update(Label(id: created.id, title: "Urgent v2", hexColor: "ff0000"))
         let updated = try await offlineRepository.update(Label(id: created.id, title: "Urgent v3", hexColor: "ff0000"))
@@ -221,7 +220,7 @@ struct OfflineLabelRepositoryTests {
 
                 accountID: accountID,
             ),
-            reachability: FakeReachabilityMonitor(isReachable: true), networkLabelRepository: network,
+            reachability: FakeReachabilityMonitor(isReachable: true),
         )
         let created = try await onlineRepository.create(Label(id: .local(UUID()), title: "Urgent", hexColor: "ff0000"))
 
@@ -233,7 +232,7 @@ struct OfflineLabelRepositoryTests {
 
                 accountID: accountID,
             ),
-            reachability: FakeReachabilityMonitor(isReachable: false), networkLabelRepository: network,
+            reachability: FakeReachabilityMonitor(isReachable: false),
         )
         try await offlineRepository.delete(id: created.id)
 
@@ -275,7 +274,7 @@ struct OfflineLabelRepositoryTests {
 
                 accountID: accountA,
             ),
-            reachability: FakeReachabilityMonitor(isReachable: false), networkLabelRepository: networkA,
+            reachability: FakeReachabilityMonitor(isReachable: false),
         )
         let repositoryB = OfflineLabelRepository(
             localStore: store, accountID: accountB,
@@ -285,7 +284,7 @@ struct OfflineLabelRepositoryTests {
 
                 accountID: accountB,
             ),
-            reachability: FakeReachabilityMonitor(isReachable: false), networkLabelRepository: networkB,
+            reachability: FakeReachabilityMonitor(isReachable: false),
         )
 
         _ = try await repositoryA.create(Label(id: .local(UUID()), title: "A's label", hexColor: ""))
@@ -295,49 +294,114 @@ struct OfflineLabelRepositoryTests {
         #expect(try await repositoryB.fetchLabels().map(\.title) == ["B's label"])
     }
 
-    @Test
-    func `addLabel and removeLabel pass straight through to the network repository`() async throws {
-        let fixture = try makeRepository(online: true)
-
-        try await fixture.repository.addLabel(1, toTask: 5)
-        try await fixture.repository.removeLabel(1, fromTask: 5)
-
-        // `FakeLabelRepository.addLabel`/`removeLabel` are no-ops that
-        // never throw - reaching here without error confirms the calls
-        // were forwarded rather than queued or misrouted.
-    }
-
-    @Test
-    func `addLabel and removeLabel patch the tasks cached label ids so other screens see it immediately`() async throws {
-        // Regression test: without this, a label added on one screen only
-        // showed up elsewhere after the next full `pullTasks()`, since every
-        // screen reads a task's labels from `TaskRecord.labelRemoteIDs`.
-        let accountID = UUID()
-        let fixture = try makeRepository(online: true, accountID: accountID)
+    @discardableResult
+    private func seedTask(
+        in store: LocalStore,
+        accountID: UUID,
+        remoteID: Int?,
+        labelRemoteIDs: String = "",
+    ) async throws -> TaskRecord {
         let projectRow = ProjectRecord(
             localID: UUID(), accountID: accountID, remoteID: 1, title: "Groceries", description: nil,
             isArchived: false, isFavorite: false, parentProjectLocalID: nil, position: 0, hexColor: "",
             serverUpdatedAt: nil,
         )
         let taskRow = TaskRecord(
-            localID: UUID(), accountID: accountID, remoteID: 5, title: "Buy milk", description: nil, isDone: false,
-            dueDate: nil, priority: 0, projectLocalID: projectRow.localID, serverUpdatedAt: nil, labelRemoteIDs: "1",
+            localID: UUID(), accountID: accountID, remoteID: remoteID, title: "Buy milk", description: nil,
+            isDone: false, dueDate: nil, priority: 0, projectLocalID: projectRow.localID, serverUpdatedAt: nil,
+            labelRemoteIDs: labelRemoteIDs,
         )
-        try await fixture.store.write { db in
+        try await store.write { db in
             try projectRow.insert(db)
             try taskRow.insert(db)
         }
+        return taskRow
+    }
 
-        try await fixture.repository.addLabel(2, toTask: 5)
-        var row = try await fixture.store.read { db in
-            try #require(try TaskRecord.fetchOne(db, key: taskRow.localID))
-        }
+    @discardableResult
+    private func seedLabel(in store: LocalStore, accountID: UUID, remoteID: Int?) async throws -> LabelRecord {
+        let row = LabelRecord(
+            localID: UUID(), accountID: accountID, remoteID: remoteID, title: "Urgent", hexColor: "ff0000",
+        )
+        try await store.write { db in try row.insert(db) }
+        return row
+    }
+
+    @Test
+    func `addLabel while online drains immediately, attaches via the network, and patches the cache`() async throws {
+        let accountID = UUID()
+        let fixture = try makeRepository(online: true, accountID: accountID)
+        let taskRow = try await seedTask(in: fixture.store, accountID: accountID, remoteID: 5, labelRemoteIDs: "1")
+        try await seedLabel(in: fixture.store, accountID: accountID, remoteID: 2)
+
+        try await fixture.repository.addLabel(.remote(2), toTask: .remote(5))
+
+        #expect(fixture.network.addedLabelIDs.map(\.labelID) == [.remote(2)])
+        #expect(fixture.network.addedLabelIDs.map(\.taskID) == [.remote(5)])
+        let row = try await fixture.store.read { db in try #require(try TaskRecord.fetchOne(db, key: taskRow.localID)) }
         #expect(Set(row.labelRemoteIDs.split(separator: ",").compactMap { Int($0) }) == [1, 2])
+        let queued = try await fixture.store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(queued.isEmpty)
+    }
 
-        try await fixture.repository.removeLabel(1, fromTask: 5)
-        row = try await fixture.store.read { db in
-            try #require(try TaskRecord.fetchOne(db, key: taskRow.localID))
-        }
+    @Test
+    func `removeLabel while online drains immediately, detaches via the network, and patches the cache`() async throws {
+        let accountID = UUID()
+        let fixture = try makeRepository(online: true, accountID: accountID)
+        let taskRow = try await seedTask(in: fixture.store, accountID: accountID, remoteID: 5, labelRemoteIDs: "1,2")
+        try await seedLabel(in: fixture.store, accountID: accountID, remoteID: 1)
+
+        try await fixture.repository.removeLabel(.remote(1), fromTask: .remote(5))
+
+        #expect(fixture.network.removedLabelIDs.map(\.labelID) == [.remote(1)])
+        let row = try await fixture.store.read { db in try #require(try TaskRecord.fetchOne(db, key: taskRow.localID)) }
         #expect(Set(row.labelRemoteIDs.split(separator: ",").compactMap { Int($0) }) == [2])
+    }
+
+    @Test
+    func `addLabel while offline queues without reaching the network`() async throws {
+        let accountID = UUID()
+        let fixture = try makeRepository(online: false, accountID: accountID)
+        try await seedTask(in: fixture.store, accountID: accountID, remoteID: 5)
+        try await seedLabel(in: fixture.store, accountID: accountID, remoteID: 2)
+
+        try await fixture.repository.addLabel(.remote(2), toTask: .remote(5))
+
+        #expect(fixture.network.addedLabelIDs.isEmpty)
+        let queued = try await fixture.store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(queued.count == 1)
+        #expect(queued[0].operation == .addLabel)
+        #expect(queued[0].status == .pending)
+    }
+
+    @Test
+    func `addLabel queued against a task that has not synced yet defers until the task resolves`() async throws {
+        let accountID = UUID()
+        let fixture = try makeRepository(online: true, accountID: accountID)
+        let taskRow = try await seedTask(in: fixture.store, accountID: accountID, remoteID: nil)
+        try await seedLabel(in: fixture.store, accountID: accountID, remoteID: 2)
+
+        try await fixture.repository.addLabel(.remote(2), toTask: .local(taskRow.localID))
+
+        #expect(fixture.network.addedLabelIDs.isEmpty)
+        let queued = try await fixture.store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(queued.count == 1)
+        #expect(queued[0].operation == .addLabel)
+        #expect(queued[0].status == .pending)
+    }
+
+    @Test
+    func `addLabel queued against a label that has not synced yet defers until the label resolves`() async throws {
+        let accountID = UUID()
+        let fixture = try makeRepository(online: true, accountID: accountID)
+        try await seedTask(in: fixture.store, accountID: accountID, remoteID: 5)
+        let labelRow = try await seedLabel(in: fixture.store, accountID: accountID, remoteID: nil)
+
+        try await fixture.repository.addLabel(.local(labelRow.localID), toTask: .remote(5))
+
+        #expect(fixture.network.addedLabelIDs.isEmpty)
+        let queued = try await fixture.store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(queued.count == 1)
+        #expect(queued[0].status == .pending)
     }
 }
