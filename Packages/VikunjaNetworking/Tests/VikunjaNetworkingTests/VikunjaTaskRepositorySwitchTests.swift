@@ -75,9 +75,9 @@ private final class SpyTaskRepository: TaskRepositoryProtocol, @unchecked Sendab
         return [VikunjaTask(id: 1, title: label, projectID: .remote(projectID))]
     }
 
-    func fetchTask(id: Int) async throws -> VikunjaTask {
+    func fetchTask(id: EntityID) async throws -> VikunjaTask {
         fetchTaskCallCount += 1
-        return VikunjaTask(id: .remote(id), title: label, projectID: 1)
+        return VikunjaTask(id: id, title: label, projectID: 1)
     }
 
     func create(_ task: VikunjaTask) async throws -> VikunjaTask {
@@ -90,7 +90,7 @@ private final class SpyTaskRepository: TaskRepositoryProtocol, @unchecked Sendab
         return task
     }
 
-    func delete(id: Int) async throws {
+    func delete(id: EntityID) async throws {
         deleteCallCount += 1
     }
 
