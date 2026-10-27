@@ -77,7 +77,7 @@ public final class DuplicateTaskViewModel {
         self.source = source
         self.sourceProject = sourceProject
         self.title = Self.copyTitle(of: source.title)
-        self.selectedProjectID = source.projectID
+        self.selectedProjectID = source.projectID.remoteValue
         self.priority = source.priority
         self.taskRepository = taskRepository
         self.labelRepository = labelRepository
@@ -123,18 +123,23 @@ public final class DuplicateTaskViewModel {
                     description: source.description,
                     dueDate: source.dueDate,
                     priority: priority,
-                    projectID: selectedProjectID,
+                    projectID: .remote(selectedProjectID),
                 ),
             )
-            if copyLabels {
-                await attachLabels(to: created.id)
-            }
-            if copyRelations {
-                await attachRelations(to: created.id)
+            // A task created via `taskRepository.create` just round-tripped
+            // through the server, so its id and project are always `.remote`
+            // by the time `TaskMapper.toDomain` builds it.
+            if let createdTaskID = created.id.remoteValue {
+                if copyLabels {
+                    await attachLabels(to: createdTaskID)
+                }
+                if copyRelations {
+                    await attachRelations(to: createdTaskID)
+                }
             }
             hapticPresenter.play(.success)
             toastPresenter.show("Task duplicated", style: .success)
-            return (created, project(withID: created.projectID))
+            return (created, project(withID: created.projectID.remoteValue ?? selectedProjectID))
         } catch let error as VikunjaError {
             saveErrorMessage = error.displayMessage
             return nil

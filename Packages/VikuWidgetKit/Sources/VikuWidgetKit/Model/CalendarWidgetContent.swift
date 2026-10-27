@@ -139,10 +139,10 @@ public struct CalendarWidgetContent: Sendable, Hashable, Codable {
         let todayCell = month.weeks.flatMap(\.self).first { $0.isToday }
         let todayTasks = todayCell?.tasks ?? []
         let rows = todayTasks.prefix(taskLimit).map { task -> CalendarWidgetTask in
-            let project = projectsByID[task.projectID]
+            let project = task.projectID.remoteValue.flatMap { projectsByID[$0] }
             let overdue = !task.isDone && (task.dueDate.map { $0 < now } ?? false)
             return CalendarWidgetTask(
-                id: task.id,
+                id: task.id.remoteValue ?? -1,
                 title: task.title,
                 isDone: task.isDone,
                 isOverdue: overdue,
@@ -188,7 +188,7 @@ public extension CalendarWidgetContent {
         ]
         func task(_ id: Int, _ title: String, _ dayOffset: Int, project: Int, done: Bool = false) -> VikunjaTask {
             let due = calendar.date(byAdding: .day, value: dayOffset, to: now) ?? now
-            return VikunjaTask(id: id, title: title, isDone: done, dueDate: due, projectID: project)
+            return VikunjaTask(id: .remote(id), title: title, isDone: done, dueDate: due, projectID: .remote(project))
         }
         let tasks = [
             task(1, "Reply to the hosting invoice", -2, project: 1),

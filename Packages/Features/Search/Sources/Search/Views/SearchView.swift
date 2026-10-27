@@ -116,7 +116,7 @@ struct SearchView: View {
         .listRowBackground(Color.clear)
 
         ForEach(Array(tasks.enumerated()), id: \.element.id) { index, task in
-            if let project = viewModel.projectsByID[task.projectID] {
+            if let project = task.projectID.remoteValue.flatMap({ viewModel.projectsByID[$0] }) {
                 VikuTaskRow(
                     task: task,
                     project: project,

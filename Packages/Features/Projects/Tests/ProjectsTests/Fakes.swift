@@ -113,11 +113,11 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
         if let fetchError {
             throw fetchError
         }
-        return tasks.filter { $0.projectID == projectID }
+        return tasks.filter { $0.projectID.remoteValue == projectID }
     }
 
     func fetchTask(id: Int) async throws -> VikunjaTask {
-        guard let task = tasks.first(where: { $0.id == id }) else {
+        guard let task = tasks.first(where: { $0.id.remoteValue == id }) else {
             throw VikunjaError.notFound
         }
         return task
@@ -142,7 +142,7 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
         if let deleteError {
             throw deleteError
         }
-        tasks.removeAll { $0.id == id }
+        tasks.removeAll { $0.id.remoteValue == id }
     }
 
     func searchTasks(query: String) async throws -> [VikunjaTask] {

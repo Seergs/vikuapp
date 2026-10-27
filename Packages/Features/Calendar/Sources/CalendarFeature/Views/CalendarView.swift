@@ -136,7 +136,7 @@ struct CalendarView: View {
                 ForEach(Array(selectedTasks.enumerated()), id: \.element.id) { index, task in
                     CalendarTaskRow(
                         task: task,
-                        project: viewModel.projectsByID[task.projectID],
+                        project: task.projectID.remoteValue.flatMap { viewModel.projectsByID[$0] },
                         onToggle: { Task { await viewModel.toggleDone(task) } },
                         onOpen: { open(task) },
                     )
@@ -165,7 +165,9 @@ struct CalendarView: View {
     }
 
     private func open(_ task: VikunjaTask) {
-        guard let project = viewModel.projectsByID[task.projectID] else { return }
+        guard let projectID = task.projectID.remoteValue, let project = viewModel.projectsByID[projectID] else {
+            return
+        }
         router.push(.taskDetail(task, project))
     }
 }

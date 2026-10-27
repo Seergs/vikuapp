@@ -35,7 +35,7 @@ struct QuickAddLabelTests {
 
         #expect(created?.title == "Leche")
         #expect(labelRepository.addedLabelIDs.map(\.labelID) == [10])
-        #expect(labelRepository.addedLabelIDs.first?.taskID == created?.id)
+        #expect(labelRepository.addedLabelIDs.first?.taskID == created?.id.remoteValue)
         #expect(labelRepository.labels.count == 1)
     }
 
@@ -49,7 +49,7 @@ struct QuickAddLabelTests {
 
         #expect(labelRepository.labels.map(\.title) == ["hogar", "compras"])
         #expect(labelRepository.addedLabelIDs.map(\.labelID) == [10, 100])
-        #expect(labelRepository.addedLabelIDs.allSatisfy { $0.taskID == created?.id })
+        #expect(labelRepository.addedLabelIDs.allSatisfy { $0.taskID == created?.id.remoteValue })
     }
 
     @Test

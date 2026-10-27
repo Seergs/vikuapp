@@ -105,8 +105,10 @@ public struct KanbanBoardView: View {
                         onSelectTask: onSelectTask,
                         onToggleDone: { task in Task { await viewModel.toggleDone(task) } },
                         onDropTaskID: { taskID in
-                            guard let task = viewModel.buckets.flatMap(\.tasks).first(where: { $0.id == taskID })
-                            else { return }
+                            let matchingTask = viewModel.buckets.flatMap(\.tasks).first {
+                                $0.id.remoteValue == taskID
+                            }
+                            guard let task = matchingTask else { return }
                             Task { await viewModel.moveTask(task, to: bucket) }
                         },
                         onAddTask: { title in Task { await viewModel.createTask(title: title, in: bucket) } },
@@ -158,11 +160,11 @@ private final class PreviewBucketRepository: @unchecked Sendable, BucketReposito
     }
 
     func moveTask(taskID: Int, toBucketID _: Int, projectID: Int) async throws -> VikunjaTask {
-        VikunjaTask(id: taskID, title: "", projectID: projectID)
+        VikunjaTask(id: .remote(taskID), title: "", projectID: .remote(projectID))
     }
 
     func createTask(_ task: VikunjaTask, bucketID _: Int, projectID: Int) async throws -> VikunjaTask {
-        VikunjaTask(id: Int.random(in: 1000 ... 9999), title: task.title, projectID: projectID)
+        VikunjaTask(id: .remote(Int.random(in: 1000 ... 9999)), title: task.title, projectID: .remote(projectID))
     }
 }
 

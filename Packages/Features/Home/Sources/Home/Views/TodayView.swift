@@ -57,7 +57,7 @@ struct TodayView: View {
                     title: String(localized: "Move to Project", bundle: .module),
                     projects: viewModel.allProjects,
                     selectedProjectID: nil,
-                    excludingSubtreeOf: .remote(task.projectID),
+                    excludingSubtreeOf: task.projectID,
                 ) { destination in
                     guard let destination else { return }
                     Task { await viewModel.move(task, to: destination) }
@@ -99,7 +99,9 @@ struct TodayView: View {
                         kind: kind,
                         results: viewModel.relationSearchResults,
                         projectTitle: { candidate in
-                            viewModel.allProjects.first { $0.id.remoteValue == candidate.projectID }?.title
+                            candidate.projectID.remoteValue.flatMap { candidateProjectID in
+                                viewModel.allProjects.first { $0.id.remoteValue == candidateProjectID }?.title
+                            }
                         },
                         onAppear: {
                             await viewModel.loadMoveCandidates()
@@ -107,9 +109,14 @@ struct TodayView: View {
                         },
                         onSearch: { query in await viewModel.searchTasksForRelation(for: task, query: query) },
                         onSelect: { candidate in
+                            // Every search/suggestion result is a synced
+                            // task fetched from the network, so both ids are
+                            // always `.remote` here.
+                            guard let candidateID = candidate.id.remoteValue,
+                                  let candidateProjectID = candidate.projectID.remoteValue else { return }
                             let relation = TaskRelation(
-                                id: candidate.id, title: candidate.title,
-                                isDone: candidate.isDone, projectID: candidate.projectID,
+                                id: candidateID, title: candidate.title,
+                                isDone: candidate.isDone, projectID: candidateProjectID,
                             )
                             Task { await viewModel.addRelation(relation, kind: kind, to: task) }
                             relationEditStep = nil
@@ -261,7 +268,7 @@ struct TodayView: View {
     /// `setPriority`, etc.) already works the same either way.
     @ViewBuilder
     private func taskRow(_ task: VikunjaTask, index: Int, count: Int) -> some View {
-        let project = viewModel.projectsByID[task.projectID]
+        let project = task.projectID.remoteValue.flatMap { viewModel.projectsByID[$0] }
         VikuTaskRow(
             task: task,
             project: project,

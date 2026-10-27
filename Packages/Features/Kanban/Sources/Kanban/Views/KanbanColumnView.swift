@@ -100,7 +100,7 @@ struct KanbanColumnView: View {
         )
         .padding(VikuSpacing.sm)
         .background(palette.fieldBackground, in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
-        .draggable(String(task.id))
+        .draggable(String(task.id.remoteValue ?? -1))
     }
 
     private var addTaskField: some View {

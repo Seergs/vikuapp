@@ -294,10 +294,16 @@ public final class QuickAddTaskViewModel {
                     id: 0,
                     title: shortcut.title,
                     priority: priority,
-                    projectID: projectID,
+                    projectID: .remote(projectID),
                 ),
             )
-            let failedAttachments = await attachLabels(shortcut.labelIDs + newLabelIDs, to: created.id)
+            // A task created via `taskRepository.create` just round-tripped
+            // through the (still network-only) server, so its id is always
+            // `.remote` by the time `TaskMapper.toDomain` builds it.
+            guard let createdTaskID = created.id.remoteValue else {
+                preconditionFailure("QuickAddTaskViewModel: a freshly created task must have a resolved remote id")
+            }
+            let failedAttachments = await attachLabels(shortcut.labelIDs + newLabelIDs, to: createdTaskID)
             // Only available when the project list has already loaded (see
             // `canSave`'s doc comment) - the toast just isn't tappable in
             // that edge case rather than guessing at a `Project` value.
