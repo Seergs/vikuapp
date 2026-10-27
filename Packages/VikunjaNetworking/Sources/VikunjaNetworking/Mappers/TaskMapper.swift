@@ -35,13 +35,13 @@ enum TaskMapper {
 
     static func toDomain(_ dto: TaskDTO) -> VikunjaTask {
         VikunjaTask(
-            id: dto.id,
+            id: .remote(dto.id),
             title: dto.title,
             description: dto.description,
             isDone: dto.done,
             dueDate: dueDate(from: dto),
             priority: VikunjaTask.Priority(rawValue: dto.priority ?? 0) ?? .unset,
-            projectID: dto.projectId,
+            projectID: .remote(dto.projectId),
             labels: (dto.labels ?? []).map(LabelMapper.toDomain),
             subtasks: relations(dto, kind: "subtask"),
             dependsOn: relations(dto, kind: "blocked"),
@@ -59,16 +59,29 @@ enum TaskMapper {
     /// ride along in the create body.
     static func toDTO(_ task: VikunjaTask) -> TaskDTO {
         TaskDTO(
-            id: task.id,
+            // Ignored by the server on create — same reasoning as
+            // `ProjectMapper.toDTO`.
+            id: task.id.remoteValue ?? 0,
             title: task.title,
             description: task.description,
             done: task.isDone,
             dueDate: task.dueDate,
             priority: task.priority.rawValue,
-            projectId: task.projectID,
+            projectId: requireSyncedProjectID(task.projectID),
             labels: nil,
             reminders: task.reminders.map(ReminderMapper.toDTO),
         )
+    }
+
+    /// A task's own create must wait for its project's create to resolve
+    /// first, so a `.local` project id reaching the wire here is an
+    /// ordering bug upstream, not a value this mapper can encode — same
+    /// reasoning as `ProjectMapper.toDTO`'s parent-project guard.
+    private static func requireSyncedProjectID(_ projectID: EntityID) -> Int {
+        guard let remoteValue = projectID.remoteValue else {
+            preconditionFailure("TaskMapper: task's project must be synced before this task can sync")
+        }
+        return remoteValue
     }
 
     /// Builds the safe body for `VikunjaTaskRepository.update(_:)`: starts
@@ -86,7 +99,7 @@ enum TaskMapper {
             done: task.isDone,
             dueDate: task.dueDate,
             priority: task.priority.rawValue,
-            projectId: task.projectID,
+            projectId: requireSyncedProjectID(task.projectID),
             labels: current.labels,
             relatedTasks: current.relatedTasks,
             doneAt: current.doneAt,
