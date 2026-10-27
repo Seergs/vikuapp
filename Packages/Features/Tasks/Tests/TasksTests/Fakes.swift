@@ -20,7 +20,7 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
         if let fetchError {
             throw fetchError
         }
-        return tasks.filter { $0.projectID == projectID }
+        return tasks.filter { $0.projectID.remoteValue == projectID }
     }
 
     func fetchTask(id: Int) async throws -> VikunjaTask {
@@ -32,7 +32,7 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
         // isn't how the real race a delayed `fetchTask` is standing in for
         // actually plays out.
         let snapshotError = fetchError
-        let snapshotTask = tasks.first(where: { $0.id == id })
+        let snapshotTask = tasks.first(where: { $0.id.remoteValue == id })
         if let fetchTaskDelay {
             try? await Task.sleep(for: fetchTaskDelay)
         }
@@ -54,7 +54,7 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
         // reminders, unlike those, ride along in the create body (see
         // `TaskMapper.toDTO`'s doc comment), so they're carried through.
         let created = VikunjaTask(
-            id: nextID,
+            id: .remote(nextID),
             title: task.title,
             description: task.description,
             isDone: task.isDone,
@@ -86,7 +86,7 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
         if let deleteError {
             throw deleteError
         }
-        tasks.removeAll { $0.id == id }
+        tasks.removeAll { $0.id.remoteValue == id }
     }
 
     func searchTasks(query _: String) async throws -> [VikunjaTask] {

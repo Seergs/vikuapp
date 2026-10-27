@@ -256,7 +256,7 @@ public final class TodayViewModel {
         }
         let excludedIDs = relatedTaskIDs(of: task)
         let results = await (try? taskRepository.searchTasks(query: query)) ?? []
-        relationSearchResults = results.filter { !excludedIDs.contains($0.id) }
+        relationSearchResults = results.filter { !excludedIDs.contains($0.id.remoteValue ?? -1) }
     }
 
     /// Populates `relationSearchResults` with `task`'s own project's other
@@ -264,8 +264,12 @@ public final class TodayViewModel {
     /// `TaskDetailViewModel.loadRelationSuggestions()`.
     public func loadRelationSuggestions(for task: VikunjaTask) async {
         let excludedIDs = relatedTaskIDs(of: task)
-        let results = await (try? taskRepository.fetchTasks(projectID: task.projectID)) ?? []
-        relationSearchResults = results.filter { !excludedIDs.contains($0.id) }
+        guard let projectID = task.projectID.remoteValue else {
+            relationSearchResults = []
+            return
+        }
+        let results = await (try? taskRepository.fetchTasks(projectID: projectID)) ?? []
+        relationSearchResults = results.filter { !excludedIDs.contains($0.id.remoteValue ?? -1) }
     }
 
     /// `task`'s own id plus every relation it already carries, excluded from
@@ -278,7 +282,9 @@ public final class TodayViewModel {
         for relations in task.otherRelations.values {
             ids.formUnion(relations.map(\.id))
         }
-        ids.insert(task.id)
+        if let taskID = task.id.remoteValue {
+            ids.insert(taskID)
+        }
         return ids
     }
 
@@ -319,9 +325,12 @@ public final class TodayViewModel {
     /// populates both from the same fetch, so this is only a defensive
     /// fallback), mirroring `TaskDetailViewModel.makeDuplicateTaskViewModel()`.
     public func makeDuplicateTaskViewModel(for task: VikunjaTask) -> DuplicateTaskViewModel {
-        DuplicateTaskViewModel(
+        let sourceProject = task.projectID.remoteValue.flatMap { projectsByID[$0] } ?? Project(
+            id: task.projectID, title: "",
+        )
+        return DuplicateTaskViewModel(
             source: task,
-            sourceProject: projectsByID[task.projectID] ?? Project(id: .remote(task.projectID), title: ""),
+            sourceProject: sourceProject,
             taskRepository: taskRepository,
             labelRepository: labelRepository,
             relationRepository: relationRepository,

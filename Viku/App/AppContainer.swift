@@ -585,7 +585,7 @@ final class AppContainer {
         let taskRepository = clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider)
         let projectRepository = offlineProjectRepository(for: account)
         let task = try await taskRepository.fetchTask(id: id)
-        let project = try await projectRepository.fetchProject(id: .remote(task.projectID))
+        let project = try await projectRepository.fetchProject(id: task.projectID)
         return (task, project)
     }
 

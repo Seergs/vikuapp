@@ -42,14 +42,23 @@ public final class VikunjaTaskRepositoryV2: TaskRepositoryProtocol {
     }
 
     public func create(_ task: VikunjaTask) async throws -> VikunjaTask {
-        let endpoint = try VikunjaEndpoints.createTaskV2(projectID: task.projectID, dto: TaskMapper.toDTO(task))
+        // The task's project must be synced before this repository — the
+        // raw network layer, with no queue of its own — can create a task
+        // under it at all.
+        guard let projectID = task.projectID.remoteValue else {
+            throw VikunjaError.notFound
+        }
+        let endpoint = try VikunjaEndpoints.createTaskV2(projectID: projectID, dto: TaskMapper.toDTO(task))
         let dto: TaskDTO = try await client.send(endpoint)
         return TaskMapper.toDomain(dto)
     }
 
     public func update(_ task: VikunjaTask) async throws -> VikunjaTask {
-        let current: TaskDTO = try await client.send(VikunjaEndpoints.taskV2(id: task.id))
-        let endpoint = try VikunjaEndpoints.updateTaskV2(id: task.id, dto: TaskMapper.merge(task, onto: current))
+        guard let taskID = task.id.remoteValue else {
+            throw VikunjaError.notFound
+        }
+        let current: TaskDTO = try await client.send(VikunjaEndpoints.taskV2(id: taskID))
+        let endpoint = try VikunjaEndpoints.updateTaskV2(id: taskID, dto: TaskMapper.merge(task, onto: current))
         let dto: TaskDTO = try await client.send(endpoint)
         return TaskMapper.toDomain(dto)
     }

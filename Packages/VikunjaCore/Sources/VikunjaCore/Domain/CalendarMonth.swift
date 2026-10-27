@@ -44,9 +44,13 @@ public struct CalendarMonth: Equatable, Sendable {
         public var dotProjectIDs: [Int] {
             var seen: Set<Int> = []
             var result: [Int] = []
-            for task in pendingTasks where !seen.contains(task.projectID) {
-                seen.insert(task.projectID)
-                result.append(task.projectID)
+            for task in pendingTasks {
+                // A task under a project that hasn't synced yet has no
+                // remote id to look a color up by — it simply gets no dot
+                // until its project resolves.
+                guard let projectID = task.projectID.remoteValue, !seen.contains(projectID) else { continue }
+                seen.insert(projectID)
+                result.append(projectID)
                 if result.count == 3 {
                     break
                 }

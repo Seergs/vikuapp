@@ -345,7 +345,7 @@ public final class ProjectOverviewViewModel {
         }
         let excludedIDs = relatedTaskIDs(of: task)
         let results = await (try? repository.searchTasks(query: query)) ?? []
-        relationSearchResults = results.filter { !excludedIDs.contains($0.id) }
+        relationSearchResults = results.filter { !excludedIDs.contains($0.id.remoteValue ?? -1) }
     }
 
     /// Populates `relationSearchResults` with `task`'s own project's other
@@ -353,8 +353,12 @@ public final class ProjectOverviewViewModel {
     /// `TaskDetailViewModel.loadRelationSuggestions()`.
     public func loadRelationSuggestions(for task: VikunjaTask) async {
         let excludedIDs = relatedTaskIDs(of: task)
-        let results = await (try? repository.fetchTasks(projectID: task.projectID)) ?? []
-        relationSearchResults = results.filter { !excludedIDs.contains($0.id) }
+        guard let projectID = task.projectID.remoteValue else {
+            relationSearchResults = []
+            return
+        }
+        let results = await (try? repository.fetchTasks(projectID: projectID)) ?? []
+        relationSearchResults = results.filter { !excludedIDs.contains($0.id.remoteValue ?? -1) }
     }
 
     /// `task`'s own id plus every relation it already carries, excluded from
@@ -367,7 +371,9 @@ public final class ProjectOverviewViewModel {
         for relations in task.otherRelations.values {
             ids.formUnion(relations.map(\.id))
         }
-        ids.insert(task.id)
+        if let taskID = task.id.remoteValue {
+            ids.insert(taskID)
+        }
         return ids
     }
 

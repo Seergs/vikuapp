@@ -28,8 +28,8 @@ final class FakeBucketRepository: BucketRepositoryProtocol, @unchecked Sendable 
         if let moveResult {
             return moveResult(taskID, toBucketID)
         }
-        let task = buckets.flatMap(\.tasks).first { $0.id == taskID }
-        return task ?? VikunjaTask(id: taskID, title: "", projectID: projectID)
+        let task = buckets.flatMap(\.tasks).first { $0.id.remoteValue == taskID }
+        return task ?? VikunjaTask(id: .remote(taskID), title: "", projectID: .remote(projectID))
     }
 
     func createTask(_ task: VikunjaTask, bucketID: Int, projectID: Int) async throws -> VikunjaTask {
@@ -40,7 +40,7 @@ final class FakeBucketRepository: BucketRepositoryProtocol, @unchecked Sendable 
         if let createResult {
             return createResult(task, bucketID)
         }
-        return VikunjaTask(id: 99, title: task.title, projectID: projectID)
+        return VikunjaTask(id: 99, title: task.title, projectID: .remote(projectID))
     }
 }
 

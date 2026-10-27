@@ -29,3 +29,18 @@ extension EntityID: ExpressibleByIntegerLiteral {
         self = .remote(value)
     }
 }
+
+/// An arbitrary but stable total order — not a meaningful ranking, just
+/// enough for a sort's tiebreak (e.g. "same due date, break ties by id") to
+/// produce a consistent result. A `.remote` id always sorts before every
+/// `.local` one.
+extension EntityID: Comparable {
+    public static func < (lhs: EntityID, rhs: EntityID) -> Bool {
+        switch (lhs, rhs) {
+        case let (.remote(lhsValue), .remote(rhsValue)): lhsValue < rhsValue
+        case let (.local(lhsValue), .local(rhsValue)): lhsValue.uuidString < rhsValue.uuidString
+        case (.remote, .local): true
+        case (.local, .remote): false
+        }
+    }
+}

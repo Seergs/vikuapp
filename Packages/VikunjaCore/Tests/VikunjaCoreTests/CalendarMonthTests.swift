@@ -18,7 +18,7 @@ struct CalendarMonthTests {
     }
 
     private static func task(id: Int, due: Date, done: Bool = false, project: Int = 1) -> VikunjaTask {
-        VikunjaTask(id: id, title: "Task \(id)", isDone: done, dueDate: due, projectID: project)
+        VikunjaTask(id: .remote(id), title: "Task \(id)", isDone: done, dueDate: due, projectID: .remote(project))
     }
 
     // September 2026: the 1st is a Tuesday, 30 days → 5 whole weeks (35 cells),

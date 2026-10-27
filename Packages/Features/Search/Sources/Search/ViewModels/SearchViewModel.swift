@@ -98,7 +98,7 @@ public final class SearchViewModel {
             // A task pointing at a project created since the list was cached:
             // refresh once so its row can render instead of being dropped by
             // the `if let project` lookup in the view.
-            if tasks.contains(where: { projectsByID[$0.projectID] == nil }) {
+            if tasks.contains(where: { $0.projectID.remoteValue.map { projectsByID[$0] == nil } ?? true }) {
                 await loadProjects(force: true)
                 guard !Task.isCancelled else { return }
             }

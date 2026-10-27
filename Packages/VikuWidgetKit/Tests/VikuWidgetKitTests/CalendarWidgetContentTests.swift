@@ -19,7 +19,7 @@ struct CalendarWidgetContentTests {
     private static let now = date(2026, 9, 15)
 
     private static func task(id: Int, due: Date, done: Bool = false, project: Int = 1) -> VikunjaTask {
-        VikunjaTask(id: id, title: "Task \(id)", isDone: done, dueDate: due, projectID: project)
+        VikunjaTask(id: .remote(id), title: "Task \(id)", isDone: done, dueDate: due, projectID: .remote(project))
     }
 
     @Test

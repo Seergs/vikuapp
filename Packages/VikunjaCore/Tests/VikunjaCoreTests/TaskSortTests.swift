@@ -16,7 +16,7 @@ struct TaskSortTests {
         due: Date? = nil,
         priority: VikunjaTask.Priority = .unset,
     ) -> VikunjaTask {
-        VikunjaTask(id: id, title: title, dueDate: due, priority: priority, projectID: 1)
+        VikunjaTask(id: .remote(id), title: title, dueDate: due, priority: priority, projectID: 1)
     }
 
     @Test

@@ -196,7 +196,7 @@ struct TodaySnapshotLoaderTests {
     func `caps the task list at the configured limit`() async {
         let projects = [Project(id: 1, title: "Work")]
         let tasks = (0 ..< 20).map {
-            VikunjaTask(id: $0, title: "T\($0)", dueDate: Self.laterToday, projectID: 1)
+            VikunjaTask(id: .remote($0), title: "T\($0)", dueDate: Self.laterToday, projectID: 1)
         }
         let (loader, _) = makeLoader(projects: projects, tasks: tasks)
 

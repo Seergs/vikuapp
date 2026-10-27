@@ -97,12 +97,12 @@ public struct TaskListMutator {
         isAdding: Bool,
         labelRepository: LabelRepositoryProtocol,
     ) async -> VikunjaTask {
-        guard let labelID = label.id.remoteValue else { return original }
+        guard let labelID = label.id.remoteValue, let taskID = updated.id.remoteValue else { return original }
         do {
             if isAdding {
-                try await labelRepository.addLabel(labelID, toTask: updated.id)
+                try await labelRepository.addLabel(labelID, toTask: taskID)
             } else {
-                try await labelRepository.removeLabel(labelID, fromTask: updated.id)
+                try await labelRepository.removeLabel(labelID, fromTask: taskID)
             }
             return updated
         } catch {
@@ -121,8 +121,12 @@ public struct TaskListMutator {
         to task: VikunjaTask,
         relationRepository: TaskRelationRepositoryProtocol,
     ) async {
+        guard let taskID = task.id.remoteValue else {
+            toastPresenter.show(errorMessage(VikunjaError.notFound), style: .error)
+            return
+        }
         do {
-            try await relationRepository.addRelation(kind: kind, otherTaskID: relation.id, toTask: task.id)
+            try await relationRepository.addRelation(kind: kind, otherTaskID: relation.id, toTask: taskID)
             toastPresenter.show("Relation added", style: .success)
         } catch {
             toastPresenter.show(errorMessage(error), style: .error)
@@ -133,8 +137,12 @@ public struct TaskListMutator {
     /// should drop it from the list, `false` (with an error toast) when the
     /// request failed and the row should stay.
     public func delete(_ task: VikunjaTask) async -> Bool {
+        guard let taskID = task.id.remoteValue else {
+            toastPresenter.show(errorMessage(VikunjaError.notFound), style: .error)
+            return false
+        }
         do {
-            try await repository.delete(id: task.id)
+            try await repository.delete(id: taskID)
             toastPresenter.show("Task deleted", style: .success)
             return true
         } catch {
@@ -149,14 +157,16 @@ public struct TaskListMutator {
     /// on failure.
     public func move(_ task: VikunjaTask, to destination: Project) async -> Bool {
         // A destination that hasn't synced yet (offline-created) has no
-        // server id to move the task to — not reachable until Projects' own
-        // offline-create path exists.
-        guard let destinationID = destination.id.remoteValue else {
+        // server id to move the task to via this still network-only
+        // repository — revisit once task offline support (Slice 3) can
+        // resolve a local project id the way Slice 1 already does for a
+        // sub-project's parent.
+        guard destination.id.remoteValue != nil else {
             toastPresenter.show(errorMessage(VikunjaError.notFound), style: .error)
             return false
         }
         var updated = task
-        updated.projectID = destinationID
+        updated.projectID = destination.id
         do {
             _ = try await repository.update(updated)
             toastPresenter.show("Task moved to \(destination.title)", style: .success)

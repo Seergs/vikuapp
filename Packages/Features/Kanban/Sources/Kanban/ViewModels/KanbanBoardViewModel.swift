@@ -72,7 +72,7 @@ public final class KanbanBoardViewModel {
         else { return }
         // Not reachable until Projects' own offline-create path exists — a
         // project without a synced id yet can't have tasks moved within it.
-        guard let projectID = project.id.remoteValue else {
+        guard let projectID = project.id.remoteValue, let taskID = task.id.remoteValue else {
             toastPresenter.show(VikunjaError.notFound.displayMessage, style: .error)
             return
         }
@@ -82,7 +82,7 @@ public final class KanbanBoardViewModel {
         buckets[destinationIndex].tasks.append(task)
 
         do {
-            let moved = try await repository.moveTask(taskID: task.id, toBucketID: bucket.id, projectID: projectID)
+            let moved = try await repository.moveTask(taskID: taskID, toBucketID: bucket.id, projectID: projectID)
             if let index = buckets[destinationIndex].tasks.firstIndex(where: { $0.id == moved.id }) {
                 buckets[destinationIndex].tasks[index] = moved
             }
@@ -124,7 +124,7 @@ public final class KanbanBoardViewModel {
         }
         do {
             let created = try await repository.createTask(
-                VikunjaTask(id: 0, title: title, projectID: projectID),
+                VikunjaTask(id: 0, title: title, projectID: .remote(projectID)),
                 bucketID: bucket.id,
                 projectID: projectID,
             )

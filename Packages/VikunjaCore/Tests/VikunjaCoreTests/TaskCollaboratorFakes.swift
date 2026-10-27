@@ -30,11 +30,11 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
         if failingProjectIDs.contains(projectID) {
             throw VikunjaError.network("offline")
         }
-        return tasks.filter { $0.projectID == projectID }
+        return tasks.filter { $0.projectID.remoteValue == projectID }
     }
 
     func fetchTask(id: Int) async throws -> VikunjaTask {
-        guard let task = tasks.first(where: { $0.id == id }) else { throw VikunjaError.notFound }
+        guard let task = tasks.first(where: { $0.id.remoteValue == id }) else { throw VikunjaError.notFound }
         return task
     }
 
@@ -55,7 +55,7 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
             throw deleteError
         }
         deletedIDs.append(id)
-        tasks.removeAll { $0.id == id }
+        tasks.removeAll { $0.id.remoteValue == id }
     }
 
     func searchTasks(query: String) async throws -> [VikunjaTask] {

@@ -61,10 +61,11 @@ public final class TaskDetailViewModel {
     /// rather than the dev-only caveat it actually is.
     public var reminderDeliveryWarning: ReminderDeliveryWarning? {
         #if DEBUG
-        guard !task.reminders.isEmpty, let notificationSettingsStore, let accountID else { return nil }
+        guard !task.reminders.isEmpty, let notificationSettingsStore, let accountID,
+              let projectID = task.projectID.remoteValue else { return nil }
         let settings = notificationSettingsStore.settings(for: accountID)
         guard settings.isEnabled else { return .pushDisabled }
-        let subscribed = settings.events(for: task.projectID).contains(.taskReminderFired)
+        let subscribed = settings.events(for: projectID).contains(.taskReminderFired)
             || settings.userLevelEvents.contains(.taskReminderFired)
         return subscribed ? nil : .eventNotSubscribed
         #else
@@ -101,6 +102,18 @@ public final class TaskDetailViewModel {
     /// later one (a due-date/priority/label edit) and silently overwrite it
     /// with stale data — the edit looks like it didn't stick until the
     /// screen is reopened, even though the server already has it.
+    /// `task.id` as a resolved server id. Always `.remote` today — every
+    /// task this screen can show came straight from the (still network-only)
+    /// `TaskRepositoryProtocol`, since task offline support (Slice 3) hasn't
+    /// shipped yet. Centralizes the extraction so the many repository calls
+    /// below don't each repeat the same guard.
+    private var taskID: Int {
+        guard let remoteValue = task.id.remoteValue else {
+            preconditionFailure("TaskDetailViewModel: task.id must be resolved until task offline support ships")
+        }
+        return remoteValue
+    }
+
     private var taskWriteToken = 0
     /// Same guard as `taskWriteToken`, scoped to `comments`/`commentsLoadState`
     /// so a stale `loadComments()` can't erase a comment just posted, edited,
@@ -159,7 +172,7 @@ public final class TaskDetailViewModel {
             loadState = .loading
         }
         do {
-            let fetched = try await repository.fetchTask(id: task.id)
+            let fetched = try await repository.fetchTask(id: taskID)
             guard token == taskWriteToken else { return }
             task = fetched
             updateRelatedTaskIDsCache()
@@ -262,7 +275,7 @@ public final class TaskDetailViewModel {
         if task.labels.contains(label) {
             task.labels.removeAll { $0.id == label.id }
             do {
-                try await labelRepository.removeLabel(labelID, fromTask: task.id)
+                try await labelRepository.removeLabel(labelID, fromTask: taskID)
             } catch {
                 guard token == taskWriteToken else { return }
                 task = previous
@@ -270,7 +283,7 @@ public final class TaskDetailViewModel {
         } else {
             task.labels.append(label)
             do {
-                try await labelRepository.addLabel(labelID, toTask: task.id)
+                try await labelRepository.addLabel(labelID, toTask: taskID)
             } catch {
                 guard token == taskWriteToken else { return }
                 task = previous
@@ -301,7 +314,7 @@ public final class TaskDetailViewModel {
         let token = taskWriteToken
         insertRelation(relation, kind: kind)
         do {
-            try await relationRepository.addRelation(kind: kind, otherTaskID: relation.id, toTask: task.id)
+            try await relationRepository.addRelation(kind: kind, otherTaskID: relation.id, toTask: taskID)
             toastPresenter.show(String(localized: "Relation added", bundle: .module), style: .success)
         } catch {
             guard token == taskWriteToken else { return }
@@ -317,7 +330,7 @@ public final class TaskDetailViewModel {
         let token = taskWriteToken
         deleteRelation(relation, kind: kind)
         do {
-            try await relationRepository.removeRelation(kind: kind, otherTaskID: relation.id, fromTask: task.id)
+            try await relationRepository.removeRelation(kind: kind, otherTaskID: relation.id, fromTask: taskID)
         } catch {
             guard token == taskWriteToken else { return }
             task = previous
@@ -362,9 +375,9 @@ public final class TaskDetailViewModel {
             await loadRelationSuggestions()
             return
         }
-        let excludedIDs = relatedTaskIDs.union([task.id])
+        let excludedIDs = relatedTaskIDs.union([taskID])
         let results = await (try? repository.searchTasks(query: query)) ?? []
-        relationSearchResults = results.filter { !excludedIDs.contains($0.id) }
+        relationSearchResults = results.filter { !excludedIDs.contains($0.id.remoteValue ?? -1) }
     }
 
     /// Populates `relationSearchResults` with this task's own project's other
@@ -373,13 +386,13 @@ public final class TaskDetailViewModel {
     /// search for the common case. Excludes the task itself and anything
     /// already related to it, the same as `searchTasksForRelation(query:)`.
     public func loadRelationSuggestions() async {
-        let excludedIDs = relatedTaskIDs.union([task.id])
+        let excludedIDs = relatedTaskIDs.union([taskID])
         guard let projectID = project.id.remoteValue else {
             relationSearchResults = []
             return
         }
         let results = await (try? repository.fetchTasks(projectID: projectID)) ?? []
-        relationSearchResults = results.filter { !excludedIDs.contains($0.id) }
+        relationSearchResults = results.filter { !excludedIDs.contains($0.id.remoteValue ?? -1) }
     }
 
     /// Loads every project on the instance, for the "add relation" task
@@ -397,14 +410,17 @@ public final class TaskDetailViewModel {
     /// pop back once this returns `true`, the same way it would after
     /// `deleteTask()`.
     public func move(to newProject: Project) async -> Bool {
-        guard let newProjectID = newProject.id.remoteValue else {
+        // This still network-only repository can't move a task into a
+        // project that hasn't synced yet - revisit once task offline
+        // support (Slice 3) can resolve a local project id.
+        guard newProject.id.remoteValue != nil else {
             toastPresenter.show(VikunjaError.notFound.displayMessage, style: .error)
             return false
         }
         let previous = task
         taskWriteToken += 1
         let token = taskWriteToken
-        task.projectID = newProjectID
+        task.projectID = newProject.id
         do {
             var updated = try await repository.update(task)
             updated.subtasks = previous.subtasks
@@ -438,7 +454,7 @@ public final class TaskDetailViewModel {
     /// screen once it succeeds — the view is expected to pop back.
     public func deleteTask() async -> Bool {
         do {
-            try await repository.delete(id: task.id)
+            try await repository.delete(id: taskID)
             toastPresenter.show(String(localized: "Task deleted", bundle: .module), style: .success)
             return true
         } catch let error as VikunjaError {
@@ -499,7 +515,7 @@ public final class TaskDetailViewModel {
             commentsLoadState = .loading
         }
         do {
-            let fetched = try await commentRepository.fetchComments(taskID: task.id)
+            let fetched = try await commentRepository.fetchComments(taskID: taskID)
             guard token == commentsWriteToken else { return }
             comments = fetched
             commentsLoadState = .loaded
@@ -521,7 +537,7 @@ public final class TaskDetailViewModel {
             attachmentsLoadState = .loading
         }
         do {
-            let fetched = try await attachmentRepository.fetchAttachments(taskID: task.id)
+            let fetched = try await attachmentRepository.fetchAttachments(taskID: taskID)
             guard token == attachmentsWriteToken else { return }
             attachments = fetched
             attachmentsLoadState = .loaded
@@ -559,7 +575,7 @@ public final class TaskDetailViewModel {
                 data: data,
                 fileName: fileName,
                 mimeType: mimeType,
-                toTask: task.id,
+                toTask: taskID,
             )
             // Guards against a slower, in-flight `loadAttachments()` having
             // already landed this same attachment by the time the upload
@@ -581,7 +597,7 @@ public final class TaskDetailViewModel {
         do {
             return try await attachmentRepository.downloadAttachment(
                 attachment.id,
-                fromTask: task.id,
+                fromTask: taskID,
                 previewSize: nil,
             )
         } catch let error as VikunjaError {
@@ -611,7 +627,7 @@ public final class TaskDetailViewModel {
         let token = attachmentsWriteToken
         attachments.removeAll { $0.id == attachment.id }
         do {
-            try await attachmentRepository.deleteAttachment(attachment.id, fromTask: task.id)
+            try await attachmentRepository.deleteAttachment(attachment.id, fromTask: taskID)
             toastPresenter.show(String(localized: "Attachment deleted", bundle: .module), style: .success)
         } catch {
             guard token == attachmentsWriteToken else { return }
@@ -636,7 +652,7 @@ public final class TaskDetailViewModel {
         guard !trimmed.isEmpty else { return }
         commentsWriteToken += 1
         do {
-            let created = try await commentRepository.addComment(trimmed, toTask: task.id)
+            let created = try await commentRepository.addComment(trimmed, toTask: taskID)
             // Bumping the token above means a slower, already in-flight
             // `loadComments()` will drop its (now stale) response instead of
             // overwriting `comments` and erasing this one. Guard the append
@@ -662,7 +678,7 @@ public final class TaskDetailViewModel {
         guard comments.contains(where: { $0.id == comment.id }) else { return }
         commentsWriteToken += 1
         do {
-            let updated = try await commentRepository.updateComment(comment.id, text: trimmed, onTask: task.id)
+            let updated = try await commentRepository.updateComment(comment.id, text: trimmed, onTask: taskID)
             // Re-resolve the index instead of reusing the one captured
             // before the `await`: a concurrent `loadComments()` or
             // `deleteComment(_:)` landing in between could have reshuffled
@@ -686,7 +702,7 @@ public final class TaskDetailViewModel {
         let token = commentsWriteToken
         comments.removeAll { $0.id == comment.id }
         do {
-            try await commentRepository.deleteComment(comment.id, fromTask: task.id)
+            try await commentRepository.deleteComment(comment.id, fromTask: taskID)
         } catch {
             guard token == commentsWriteToken else { return }
             comments = previous

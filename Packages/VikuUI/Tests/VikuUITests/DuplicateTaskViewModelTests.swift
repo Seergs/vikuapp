@@ -15,12 +15,12 @@ struct DuplicateTaskViewModelTests {
         otherRelations: [RelationKind: [TaskRelation]] = [:],
     ) -> VikunjaTask {
         VikunjaTask(
-            id: id,
+            id: .remote(id),
             title: title,
             description: "notes",
             dueDate: .distantFuture,
             priority: priority,
-            projectID: projectID,
+            projectID: .remote(projectID),
             labels: labels,
             dependsOn: dependsOn,
             blocks: blocks,
@@ -141,7 +141,7 @@ struct DuplicateTaskViewModelTests {
         let created = await viewModel.duplicate()
 
         #expect(Set(labelRepository.addedLabelIDs.map(\.labelID)) == [11, 12])
-        #expect(labelRepository.addedLabelIDs.allSatisfy { $0.taskID == created?.task.id })
+        #expect(labelRepository.addedLabelIDs.allSatisfy { $0.taskID == created?.task.id.remoteValue })
     }
 
     @Test
@@ -171,7 +171,7 @@ struct DuplicateTaskViewModelTests {
         let created = await viewModel.duplicate()
 
         let added = relationRepository.addedRelations
-        #expect(added.allSatisfy { $0.taskID == created?.task.id })
+        #expect(added.allSatisfy { $0.taskID == created?.task.id.remoteValue })
         #expect(Set(added.map(\.otherTaskID)) == [20, 21, 22])
         #expect(added.contains { $0.kind == .blocked && $0.otherTaskID == 20 })
         #expect(added.contains { $0.kind == .blocking && $0.otherTaskID == 21 })

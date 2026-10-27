@@ -228,7 +228,9 @@ struct ProjectOverviewView: View {
                         kind: kind,
                         results: viewModel.relationSearchResults,
                         projectTitle: { candidate in
-                            viewModel.allProjects.first { $0.id.remoteValue == candidate.projectID }?.title
+                            candidate.projectID.remoteValue.flatMap { candidateProjectID in
+                                viewModel.allProjects.first { $0.id.remoteValue == candidateProjectID }?.title
+                            }
                         },
                         onAppear: {
                             await viewModel.loadMoveCandidates()
@@ -236,9 +238,14 @@ struct ProjectOverviewView: View {
                         },
                         onSearch: { query in await viewModel.searchTasksForRelation(for: task, query: query) },
                         onSelect: { candidate in
+                            // Every search/suggestion result is a synced
+                            // task fetched from the network, so both ids are
+                            // always `.remote` here.
+                            guard let candidateID = candidate.id.remoteValue,
+                                  let candidateProjectID = candidate.projectID.remoteValue else { return }
                             let relation = TaskRelation(
-                                id: candidate.id, title: candidate.title,
-                                isDone: candidate.isDone, projectID: candidate.projectID,
+                                id: candidateID, title: candidate.title,
+                                isDone: candidate.isDone, projectID: candidateProjectID,
                             )
                             Task { await viewModel.addRelation(relation, kind: kind, to: task) }
                             relationEditStep = nil

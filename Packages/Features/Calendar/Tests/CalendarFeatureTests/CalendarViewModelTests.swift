@@ -28,7 +28,7 @@ struct CalendarViewModelTests {
     }
 
     private func dated(_ id: Int, project: Int = 1, done: Bool = false) -> VikunjaTask {
-        VikunjaTask(id: id, title: "Task \(id)", isDone: done, dueDate: Date(), projectID: project)
+        VikunjaTask(id: .remote(id), title: "Task \(id)", isDone: done, dueDate: Date(), projectID: .remote(project))
     }
 
     @Test

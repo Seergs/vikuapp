@@ -83,9 +83,9 @@ public struct TodayWidgetContent: Sendable, Hashable, Codable {
         taskLimit: Int = VikuWidgetConfig.taskLimit,
     ) -> TodayWidgetContent {
         func widgetTask(_ task: VikunjaTask, _ bucket: TaskDueBucket) -> TodayWidgetTask {
-            let project = projectsByID[task.projectID]
+            let project = task.projectID.remoteValue.flatMap { projectsByID[$0] }
             return TodayWidgetTask(
-                id: task.id,
+                id: task.id.remoteValue ?? -1,
                 title: task.title,
                 isDone: task.isDone,
                 dueDate: task.dueDate,
