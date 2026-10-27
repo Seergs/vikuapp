@@ -199,4 +199,108 @@ struct DatabaseMigrationsTests {
         let rows = try dbQueue.read { db in try LabelRecord.fetchAll(db) }
         #expect(rows.count == 2)
     }
+
+    @Test
+    func `task table round trips a row with no remote id yet`() throws {
+        let dbQueue = try migratedDatabase()
+        let project = ProjectRecord(
+            localID: UUID(), accountID: UUID(), remoteID: 1, title: "Groceries", description: nil,
+            isArchived: false, isFavorite: false, parentProjectLocalID: nil, position: 0, hexColor: "",
+            serverUpdatedAt: nil,
+        )
+        let record = TaskRecord(
+            localID: UUID(), accountID: project.accountID, remoteID: nil, title: "Buy milk", description: nil,
+            isDone: false, dueDate: nil, priority: 0, projectLocalID: project.localID,
+        )
+
+        try dbQueue.write { db in
+            try project.insert(db)
+            try record.insert(db)
+        }
+
+        let fetched = try dbQueue.read { db in try TaskRecord.fetchOne(db, key: record.localID) }
+        #expect(fetched == record)
+    }
+
+    @Test
+    func `task remoteID is unique within an account`() throws {
+        let dbQueue = try migratedDatabase()
+        let accountID = UUID()
+        let project = ProjectRecord(
+            localID: UUID(), accountID: accountID, remoteID: 1, title: "Groceries", description: nil,
+            isArchived: false, isFavorite: false, parentProjectLocalID: nil, position: 0, hexColor: "",
+            serverUpdatedAt: nil,
+        )
+        let first = TaskRecord(
+            localID: UUID(), accountID: accountID, remoteID: 42, title: "A", description: nil, isDone: false,
+            dueDate: nil, priority: 0, projectLocalID: project.localID,
+        )
+        let second = TaskRecord(
+            localID: UUID(), accountID: accountID, remoteID: 42, title: "B", description: nil, isDone: false,
+            dueDate: nil, priority: 0, projectLocalID: project.localID,
+        )
+
+        try dbQueue.write { db in
+            try project.insert(db)
+            try first.insert(db)
+        }
+        #expect(throws: DatabaseError.self) {
+            try dbQueue.write { db in try second.insert(db) }
+        }
+    }
+
+    @Test
+    func `task remoteID can repeat across different accounts`() throws {
+        let dbQueue = try migratedDatabase()
+        let projectA = ProjectRecord(
+            localID: UUID(), accountID: UUID(), remoteID: 1, title: "A", description: nil, isArchived: false,
+            isFavorite: false, parentProjectLocalID: nil, position: 0, hexColor: "", serverUpdatedAt: nil,
+        )
+        let projectB = ProjectRecord(
+            localID: UUID(), accountID: UUID(), remoteID: 1, title: "B", description: nil, isArchived: false,
+            isFavorite: false, parentProjectLocalID: nil, position: 0, hexColor: "", serverUpdatedAt: nil,
+        )
+        let first = TaskRecord(
+            localID: UUID(), accountID: projectA.accountID, remoteID: 42, title: "A", description: nil,
+            isDone: false, dueDate: nil, priority: 0, projectLocalID: projectA.localID,
+        )
+        let second = TaskRecord(
+            localID: UUID(), accountID: projectB.accountID, remoteID: 42, title: "B", description: nil,
+            isDone: false, dueDate: nil, priority: 0, projectLocalID: projectB.localID,
+        )
+
+        try dbQueue.write { db in
+            try projectA.insert(db)
+            try projectB.insert(db)
+            try first.insert(db)
+            try second.insert(db)
+        }
+
+        let rows = try dbQueue.read { db in try TaskRecord.fetchAll(db) }
+        #expect(rows.count == 2)
+    }
+
+    @Test
+    func `deleting a project cascades to its cached tasks`() throws {
+        let dbQueue = try migratedDatabase()
+        let accountID = UUID()
+        let project = ProjectRecord(
+            localID: UUID(), accountID: accountID, remoteID: 1, title: "Groceries", description: nil,
+            isArchived: false, isFavorite: false, parentProjectLocalID: nil, position: 0, hexColor: "",
+            serverUpdatedAt: nil,
+        )
+        let task = TaskRecord(
+            localID: UUID(), accountID: accountID, remoteID: nil, title: "Buy milk", description: nil,
+            isDone: false, dueDate: nil, priority: 0, projectLocalID: project.localID,
+        )
+
+        try dbQueue.write { db in
+            try project.insert(db)
+            try task.insert(db)
+            try project.delete(db)
+        }
+
+        let rows = try dbQueue.read { db in try TaskRecord.fetchAll(db) }
+        #expect(rows.isEmpty)
+    }
 }
