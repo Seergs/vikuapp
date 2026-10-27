@@ -123,10 +123,32 @@ public actor OfflineLabelRepository: LabelRepositoryProtocol {
 
     public func addLabel(_ labelID: Int, toTask taskID: Int) async throws {
         try await networkLabelRepository.addLabel(labelID, toTask: taskID)
+        // The network call just made this true server-side, but every
+        // screen reads a task's labels from `TaskRecord.labelRemoteIDs`
+        // (see its doc comment), which otherwise only catches up on the
+        // next `pullTasks()` - patch it now so the rest of the app shows
+        // the new label immediately instead of looking stale until then.
+        await updateCachedTaskLabels(taskID: taskID) { ids in
+            ids.contains(labelID) ? ids : ids + [labelID]
+        }
     }
 
     public func removeLabel(_ labelID: Int, fromTask taskID: Int) async throws {
         try await networkLabelRepository.removeLabel(labelID, fromTask: taskID)
+        await updateCachedTaskLabels(taskID: taskID) { ids in
+            ids.filter { $0 != labelID }
+        }
+    }
+
+    private func updateCachedTaskLabels(taskID: Int, mutate: @Sendable ([Int]) -> [Int]) async {
+        let accountID = accountID
+        try? await localStore.write { db in
+            guard var row = try TaskRecord.fetchAll(db)
+                .first(where: { $0.accountID == accountID && $0.remoteID == taskID }) else { return }
+            let ids = row.labelRemoteIDs.split(separator: ",").compactMap { Int($0) }
+            row.labelRemoteIDs = mutate(ids).map(String.init).joined(separator: ",")
+            try row.save(db)
+        }
     }
 
     private func triggerDrainIfOnline() async {

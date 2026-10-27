@@ -306,4 +306,38 @@ struct OfflineLabelRepositoryTests {
         // never throw - reaching here without error confirms the calls
         // were forwarded rather than queued or misrouted.
     }
+
+    @Test
+    func `addLabel and removeLabel patch the tasks cached label ids so other screens see it immediately`() async throws {
+        // Regression test: without this, a label added on one screen only
+        // showed up elsewhere after the next full `pullTasks()`, since every
+        // screen reads a task's labels from `TaskRecord.labelRemoteIDs`.
+        let accountID = UUID()
+        let fixture = try makeRepository(online: true, accountID: accountID)
+        let projectRow = ProjectRecord(
+            localID: UUID(), accountID: accountID, remoteID: 1, title: "Groceries", description: nil,
+            isArchived: false, isFavorite: false, parentProjectLocalID: nil, position: 0, hexColor: "",
+            serverUpdatedAt: nil,
+        )
+        let taskRow = TaskRecord(
+            localID: UUID(), accountID: accountID, remoteID: 5, title: "Buy milk", description: nil, isDone: false,
+            dueDate: nil, priority: 0, projectLocalID: projectRow.localID, serverUpdatedAt: nil, labelRemoteIDs: "1",
+        )
+        try await fixture.store.write { db in
+            try projectRow.insert(db)
+            try taskRow.insert(db)
+        }
+
+        try await fixture.repository.addLabel(2, toTask: 5)
+        var row = try await fixture.store.read { db in
+            try #require(try TaskRecord.fetchOne(db, key: taskRow.localID))
+        }
+        #expect(Set(row.labelRemoteIDs.split(separator: ",").compactMap { Int($0) }) == [1, 2])
+
+        try await fixture.repository.removeLabel(1, fromTask: 5)
+        row = try await fixture.store.read { db in
+            try #require(try TaskRecord.fetchOne(db, key: taskRow.localID))
+        }
+        #expect(Set(row.labelRemoteIDs.split(separator: ",").compactMap { Int($0) }) == [2])
+    }
 }
