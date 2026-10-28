@@ -20,16 +20,24 @@ public enum VikuWidgetConfig {
     public static let bundleIDPrefix = "dev.sergiosuarez.viku"
     #endif
 
-    /// App Group container, used only for the cached Today snapshot. Added to
-    /// the App Groups capability of both targets as `group.$(VIKU_ID_PREFIX)`.
+    /// App Group container holding the shared offline database the widgets
+    /// read as their fallback. Added to the App Groups capability of both
+    /// targets as `group.$(VIKU_ID_PREFIX)`.
     public static let appGroupIdentifier = "group.\(bundleIDPrefix)"
 
-    /// Shared keychain group holding the account index, the active-account
-    /// pointer, and each account's bearer token. Listed as
+    /// Fully-qualified shared keychain group holding the account index, the
+    /// active-account pointer, and each account's bearer token. Listed as
     /// `$(AppIdentifierPrefix)$(VIKU_ID_PREFIX).shared` under Keychain
-    /// Sharing in both targets' entitlements; the runtime prepends the team
-    /// prefix, so the code passes only the suffix.
-    public static let keychainAccessGroup = "\(bundleIDPrefix).shared"
+    /// Sharing in both targets' entitlements. Keychain Services requires the
+    /// expanded group at runtime, so the prefix comes from the target's
+    /// Info.plist (`VikuAppIdentifierPrefix`) rather than being hardcoded.
+    public static let keychainAccessGroup = "\(appIdentifierPrefix)\(bundleIDPrefix).shared"
+
+    /// Xcode expands `$(AppIdentifierPrefix)` into both targets' Info.plist.
+    /// Empty in package unit tests, which never construct a shared keychain
+    /// store.
+    private static let appIdentifierPrefix =
+        Bundle.main.object(forInfoDictionaryKey: "VikuAppIdentifierPrefix") as? String ?? ""
 
     /// Must match the `service:` passed to `KeychainAccountStore` in the app's
     /// `AppContainer` and in `VikuWidgetEnvironment`.
