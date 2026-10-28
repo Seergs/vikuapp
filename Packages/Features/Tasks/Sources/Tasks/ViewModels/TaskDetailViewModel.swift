@@ -756,12 +756,7 @@ public final class TaskDetailViewModel {
     /// `kind` corresponds to — the named `subtasks`/`dependsOn`/`blocks`
     /// fields for those three kinds, `otherRelations` for everything else.
     private func insertRelation(_ relation: TaskRelation, kind: RelationKind) {
-        switch kind {
-        case .subtask: task.subtasks.append(relation)
-        case .blocked: task.dependsOn.append(relation)
-        case .blocking: task.blocks.append(relation)
-        default: task.otherRelations[kind, default: []].append(relation)
-        }
+        task.addRelation(relation, kind: kind)
         updateRelatedTaskIDsCache()
     }
 

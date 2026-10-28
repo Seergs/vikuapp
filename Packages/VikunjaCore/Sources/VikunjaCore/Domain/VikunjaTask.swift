@@ -76,6 +76,20 @@ public struct VikunjaTask: Identifiable, Equatable, Hashable, Sendable {
         !dependsOn.isEmpty || !blocks.isEmpty || !otherRelations.isEmpty
     }
 
+    /// Adds `relation` to whichever relation collection `kind` maps to: the
+    /// named `subtasks`/`dependsOn`/`blocks` arrays for those three kinds,
+    /// `otherRelations` for everything else. Shared by every screen that
+    /// inserts a relation optimistically, so the routing stays identical to
+    /// `TaskDetailViewModel`'s.
+    public mutating func addRelation(_ relation: TaskRelation, kind: RelationKind) {
+        switch kind {
+        case .subtask: subtasks.append(relation)
+        case .blocked: dependsOn.append(relation)
+        case .blocking: blocks.append(relation)
+        default: otherRelations[kind, default: []].append(relation)
+        }
+    }
+
     public enum Priority: Int, Sendable, CaseIterable, Hashable {
         case unset = 0
         case low = 1

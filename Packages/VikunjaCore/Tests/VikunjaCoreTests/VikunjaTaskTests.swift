@@ -49,6 +49,22 @@ struct VikunjaTaskTests {
     }
 
     @Test
+    func `add relation routes each kind into its matching collection`() {
+        var task = VikunjaTask(id: 1, title: "Buy coffee", projectID: 4)
+
+        task.addRelation(TaskRelation(id: 2, title: "Child", projectID: 4), kind: .subtask)
+        task.addRelation(TaskRelation(id: 3, title: "Dependency", projectID: 4), kind: .blocked)
+        task.addRelation(TaskRelation(id: 4, title: "Dependent", projectID: 4), kind: .blocking)
+        task.addRelation(TaskRelation(id: 5, title: "Related", projectID: 4), kind: .related)
+
+        #expect(task.subtasks.map(\.id) == [2])
+        #expect(task.dependsOn.map(\.id) == [3])
+        #expect(task.blocks.map(\.id) == [4])
+        #expect(task.otherRelations[.related]?.map(\.id) == [5])
+        #expect(task.hasRelations)
+    }
+
+    @Test
     func `priority display name folds do now into urgent`() {
         #expect(VikunjaTask.Priority.unset.displayName == "None")
         #expect(VikunjaTask.Priority.low.displayName == "Low")
