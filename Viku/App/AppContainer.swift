@@ -435,8 +435,7 @@ final class AppContainer {
     }
 
     func makeCalendarViewModel(account: InstanceAccount) -> CalendarViewModel {
-        let tokenProvider = tokenProvider(for: account)
-        return CalendarViewModel(
+        CalendarViewModel(
             taskRepository: offlineTaskRepository(for: account),
             projectRepository: offlineProjectRepository(for: account),
             hapticPresenter: hapticCenter,
@@ -572,7 +571,6 @@ final class AppContainer {
     /// mismatch is handled before this by showing a toast instead (switching
     /// accounts automatically is not built yet).
     func resolveTaskDeepLink(id: Int, account: InstanceAccount) async throws -> (VikunjaTask, Project) {
-        let tokenProvider = tokenProvider(for: account)
         let taskRepository = offlineTaskRepository(for: account)
         let projectRepository = offlineProjectRepository(for: account)
         let task = try await taskRepository.fetchTask(id: .remote(id))
@@ -595,7 +593,6 @@ final class AppContainer {
               let account = accounts.first(where: { $0.id.uuidString == accountKey })
         else { return }
 
-        let tokenProvider = tokenProvider(for: account)
         let taskRepository = offlineTaskRepository(for: account)
         var task = try await taskRepository.fetchTask(id: .remote(taskID))
 
@@ -651,8 +648,7 @@ final class AppContainer {
         preselectedProject: Project?,
         account: InstanceAccount,
     ) -> QuickAddTaskViewModel {
-        let tokenProvider = tokenProvider(for: account)
-        return QuickAddTaskViewModel(
+        QuickAddTaskViewModel(
             preselectedProjectID: preselectedProjectID,
             preselectedProject: preselectedProject,
             accountDefaultProjectID: defaultProjectStore.projectID(forAccountID: account.id),
@@ -804,8 +800,7 @@ final class AppContainer {
     }
 
     func makeSearchViewModel(account: InstanceAccount) -> SearchViewModel {
-        let tokenProvider = tokenProvider(for: account)
-        return SearchViewModel(
+        SearchViewModel(
             taskRepository: offlineTaskRepository(for: account),
             projectRepository: offlineProjectRepository(for: account),
             toastPresenter: toastCenter,
