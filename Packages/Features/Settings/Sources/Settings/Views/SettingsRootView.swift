@@ -24,6 +24,7 @@ public struct SettingsRootView: View {
     private let makeConnectionsListViewModel: () -> ConnectionsListViewModel
     private let makeConnectionFormViewModel: (ConnectionFormMode) -> ConnectionFormViewModel
     private let makeManageLabelsViewModel: () -> ManageLabelsViewModel
+    private let makePendingSyncViewModel: () -> PendingSyncViewModel
     private let makeNotificationsViewModel: () -> NotificationsViewModel
     /// Built once in `init`, not lazily like `notificationsViewModelCache` —
     /// unlike Notifications, the badge toggle lives directly on this
@@ -67,6 +68,7 @@ public struct SettingsRootView: View {
         makeConnectionsListViewModel: @escaping () -> ConnectionsListViewModel,
         makeConnectionFormViewModel: @escaping (ConnectionFormMode) -> ConnectionFormViewModel,
         makeManageLabelsViewModel: @escaping () -> ManageLabelsViewModel,
+        makePendingSyncViewModel: @escaping () -> PendingSyncViewModel,
         makeNotificationsViewModel: @escaping () -> NotificationsViewModel,
         makeAppIconBadgeViewModel: @escaping () -> AppIconBadgeViewModel,
         makeGroupOverdueNotificationsViewModel: @escaping () -> GroupOverdueNotificationsViewModel,
@@ -85,6 +87,7 @@ public struct SettingsRootView: View {
         self.makeConnectionsListViewModel = makeConnectionsListViewModel
         self.makeConnectionFormViewModel = makeConnectionFormViewModel
         self.makeManageLabelsViewModel = makeManageLabelsViewModel
+        self.makePendingSyncViewModel = makePendingSyncViewModel
         self.makeNotificationsViewModel = makeNotificationsViewModel
         self._badgeViewModel = State(initialValue: makeAppIconBadgeViewModel())
         self._groupOverdueNotificationsViewModel = State(initialValue: makeGroupOverdueNotificationsViewModel())
@@ -136,6 +139,8 @@ public struct SettingsRootView: View {
                     ConnectionFormView(makeViewModel: { makeConnectionFormViewModel(mode) }, router: router)
                 case .manageLabels:
                     ManageLabelsView(makeViewModel: makeManageLabelsViewModel)
+                case .pendingSync:
+                    PendingSyncView(makeViewModel: makePendingSyncViewModel)
                 case .notifications:
                     NotificationsView(viewModel: cachedNotificationsViewModel(), router: router)
                 case let .projectNotifications(project):

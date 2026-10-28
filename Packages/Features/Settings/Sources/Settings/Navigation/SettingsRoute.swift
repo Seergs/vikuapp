@@ -10,6 +10,8 @@ public enum SettingsRoute: Hashable, Sendable {
     case connectionForm(ConnectionFormMode)
     /// The account-wide label management screen.
     case manageLabels
+    /// The account's queued offline mutations.
+    case pendingSync
     /// The push-notification opt-in, user-level toggle, and per-project list.
     case notifications
     /// One project's own webhook event selection, reached from

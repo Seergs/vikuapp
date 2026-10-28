@@ -157,6 +157,9 @@ struct MainTabView: View {
                     makeManageLabelsViewModel: {
                         container.makeManageLabelsViewModel(account: account)
                     },
+                    makePendingSyncViewModel: {
+                        container.makePendingSyncViewModel(account: account)
+                    },
                     makeNotificationsViewModel: {
                         container.makeNotificationsViewModel(account: account)
                     },

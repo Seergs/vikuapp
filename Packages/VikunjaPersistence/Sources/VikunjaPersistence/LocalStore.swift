@@ -82,4 +82,61 @@ public actor LocalStore {
             continuation.onTermination = { _ in task.cancel() }
         }
     }
+
+    /// The account's queued mutations as display-ready rows. One-shot read,
+    /// used by tests; the Settings "Pending Sync" screen consumes the live
+    /// stream below.
+    public func pendingSyncOperations(accountID: UUID) async throws -> [PendingSyncOperation] {
+        try await read { db in try PendingSyncOperationsReader.operations(accountID: accountID, db: db) }
+    }
+
+    /// Streams `pendingSyncOperations(accountID:)` on every change to the
+    /// mutation queue or to any table a target title comes from. Backed by
+    /// GRDB's `ValueObservation`, so a screen left open follows the queue as
+    /// it drains. The stream ends when the consuming task is cancelled.
+    public func observePendingSyncOperations(
+        accountID: UUID,
+    ) -> AsyncThrowingStream<[PendingSyncOperation], Error> {
+        let observation = ValueObservation.tracking(
+            regions: [
+                Table("mutationQueueItem"),
+                Table("project"),
+                Table("label"),
+                Table("task"),
+                Table("taskComment"),
+            ],
+        ) { db in
+            try PendingSyncOperationsReader.operations(accountID: accountID, db: db)
+        }
+        .removeDuplicates()
+        let values = observation.values(in: dbPool)
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    for try await operations in values {
+                        continuation.yield(operations)
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    /// Removes one conflicted queue item. A non-conflict, another account's
+    /// item, or an id that already drained is a no-op: this isn't a general
+    /// cancel mechanism, only cleanup for conflicts that can never drain.
+    public func discardConflictedPendingSyncOperation(id: Int64, accountID: UUID) async throws {
+        try await write { db in
+            guard let item = try MutationQueueRecord.fetchOne(db, key: id),
+                  item.accountID == accountID,
+                  item.needsConflictResolution
+            else { return }
+            try item.delete(db)
+        }
+    }
 }
+
+extension LocalStore: PendingSyncOperationsProviding {}
