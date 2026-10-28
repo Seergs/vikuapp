@@ -579,6 +579,68 @@ struct SyncEngineDrainTests {
     }
 
     @Test
+    func `drain pushes a task create with its reminders`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let taskRepository = FakeTaskRepository()
+        let engine = SyncEngine(
+            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: FakeLabelRepository(),
+            taskRepository: taskRepository, relationRepository: FakeTaskRelationRepository(), accountID: accountID,
+        )
+        let projectLocalID = try await insertProject(in: store, remoteID: 1).localID
+        let localID = UUID()
+        let reminder = TaskReminder(reminder: Date(timeIntervalSince1970: 2_000_000_000))
+        try await insertTask(in: store, localID: localID, remoteID: nil, projectLocalID: projectLocalID)
+        try await store.write { db in
+            try TaskReminderRecord.replace(
+                for: localID, accountID: accountID, reminders: [reminder], db: db,
+            )
+        }
+        try await queueMutation(
+            in: store, entityType: .task, operation: .create, targetLocalID: localID,
+            payload: TaskCreateOrUpdatePayload(
+                title: "Buy milk", description: nil, isDone: false, dueDate: nil, priority: 0,
+                projectLocalID: projectLocalID, baseUpdatedAt: nil, reminders: [reminder],
+            ),
+        )
+
+        try await engine.drainTaskMutations()
+
+        #expect(taskRepository.createdTasks.first?.reminders == [reminder])
+        let reminderRows = try await store.read { db in try TaskReminderRecord.fetchAll(db) }
+        #expect(reminderRows.map(\.reminder) == [reminder.reminder])
+    }
+
+    @Test
+    func `drain pushes a task update with its reminders`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let taskRepository = FakeTaskRepository()
+        let engine = SyncEngine(
+            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: FakeLabelRepository(),
+            taskRepository: taskRepository, relationRepository: FakeTaskRelationRepository(), accountID: accountID,
+        )
+        let projectLocalID = try await insertProject(in: store, remoteID: 1).localID
+        let localID = UUID()
+        try await insertTask(in: store, localID: localID, remoteID: 10, projectLocalID: projectLocalID)
+        let reminder = TaskReminder(
+            reminder: Date(timeIntervalSince1970: 2_000_000_000), relativePeriod: -3600, relativeTo: .dueDate,
+        )
+        try await queueMutation(
+            in: store, entityType: .task, operation: .update, targetLocalID: localID,
+            payload: TaskCreateOrUpdatePayload(
+                title: "Buy milk", description: nil, isDone: false, dueDate: nil, priority: 0,
+                projectLocalID: projectLocalID, baseUpdatedAt: nil, reminders: [reminder],
+            ),
+        )
+
+        try await engine.drainTaskMutations()
+
+        #expect(taskRepository.updatedTasks.first?.reminders == [reminder])
+        let reminderRows = try await store.read { db in try TaskReminderRecord.fetchAll(db) }
+        #expect(reminderRows.map(\.reminder) == [reminder.reminder])
+        #expect(reminderRows.first?.relativeTo == .dueDate)
+    }
+
+    @Test
     func `drain flags a task conflict instead of overwriting a newer server side edit`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let taskRepository = FakeTaskRepository()

@@ -160,6 +160,72 @@ struct OfflineTaskRepositoryTests {
     }
 
     @Test
+    func `create persists reminders locally`() async throws {
+        let fixture = try await makeRepository(online: false)
+        let reminder = TaskReminder(reminder: Date(timeIntervalSince1970: 2_000_000_000))
+
+        let created = try await fixture.repository.create(
+            VikunjaTask(id: .local(UUID()), title: "Buy milk", projectID: fixture.project, reminders: [reminder]),
+        )
+
+        #expect(created.reminders == [reminder])
+        let fetched = try await fixture.repository.fetchTask(id: created.id)
+        #expect(fetched.reminders == [reminder])
+    }
+
+    @Test
+    func `update replaces a tasks reminders`() async throws {
+        let fixture = try await makeRepository(online: false)
+        let first = TaskReminder(reminder: Date(timeIntervalSince1970: 2_000_000_000))
+        let second = TaskReminder(
+            reminder: Date(timeIntervalSince1970: 2_000_100_000), relativePeriod: -3600, relativeTo: .dueDate,
+        )
+        let created = try await fixture.repository.create(
+            VikunjaTask(id: .local(UUID()), title: "Buy milk", projectID: fixture.project, reminders: [first]),
+        )
+
+        let updated = try await fixture.repository.update(
+            VikunjaTask(
+                id: created.id, title: "Buy milk", projectID: fixture.project, reminders: [second],
+            ),
+        )
+
+        #expect(updated.reminders == [second])
+        let fetched = try await fixture.repository.fetchTask(id: created.id)
+        #expect(fetched.reminders == [second])
+    }
+
+    @Test
+    func `update clears a tasks reminders when the new state has none`() async throws {
+        let fixture = try await makeRepository(online: false)
+        let reminder = TaskReminder(reminder: Date(timeIntervalSince1970: 2_000_000_000))
+        let created = try await fixture.repository.create(
+            VikunjaTask(id: .local(UUID()), title: "Buy milk", projectID: fixture.project, reminders: [reminder]),
+        )
+
+        let updated = try await fixture.repository.update(
+            VikunjaTask(id: created.id, title: "Buy milk", projectID: fixture.project),
+        )
+
+        #expect(updated.reminders.isEmpty)
+        let fetched = try await fixture.repository.fetchTask(id: created.id)
+        #expect(fetched.reminders.isEmpty)
+    }
+
+    @Test
+    func `online create pushes reminders to the network and keeps the echoed set`() async throws {
+        let fixture = try await makeRepository(online: true)
+        let reminder = TaskReminder(reminder: Date(timeIntervalSince1970: 2_000_000_000))
+
+        let created = try await fixture.repository.create(
+            VikunjaTask(id: .local(UUID()), title: "Buy milk", projectID: fixture.project, reminders: [reminder]),
+        )
+
+        #expect(fixture.network.createdTasks.first?.reminders == [reminder])
+        #expect(created.reminders == [reminder])
+    }
+
+    @Test
     func `fetchTask throws notFound for an id that was never created`() async throws {
         let fixture = try await makeRepository(online: false)
         await #expect(throws: VikunjaError.self) {

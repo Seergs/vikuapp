@@ -18,6 +18,7 @@ enum DatabaseMigrations {
         migrator.registerMigration("createTask", migrate: createTask)
         migrator.registerMigration("createTaskRelation", migrate: createTaskRelation)
         migrator.registerMigration("createTaskComment", migrate: createTaskComment)
+        migrator.registerMigration("createTaskReminder", migrate: createTaskReminder)
     }
 
     private static func createProject(_ db: Database) throws {
@@ -192,6 +193,27 @@ enum DatabaseMigrations {
             index: "taskRelation_on_taskLocalID_kind_otherTaskRemoteID",
             on: "taskRelation",
             columns: ["taskLocalID", "kind", "otherTaskRemoteID"],
+            unique: true,
+        )
+    }
+
+    private static func createTaskReminder(_ db: Database) throws {
+        try db.create(table: "taskReminder") { table in
+            table.primaryKey("localID", .text)
+            table.column("accountID", .text).notNull().indexed()
+            table.column("taskLocalID", .text)
+                .notNull()
+                .indexed()
+                .references("task", column: "localID", onDelete: .cascade)
+            table.column("position", .integer).notNull().defaults(to: 0)
+            table.column("reminder", .datetime).notNull()
+            table.column("relativePeriod", .integer).notNull().defaults(to: 0)
+            table.column("relativeTo", .text)
+        }
+        try db.create(
+            index: "taskReminder_on_taskLocalID_position",
+            on: "taskReminder",
+            columns: ["taskLocalID", "position"],
             unique: true,
         )
     }
