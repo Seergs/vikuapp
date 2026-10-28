@@ -282,11 +282,18 @@ public final class TodayViewModel {
         return ids
     }
 
-    /// Adds `relation` under `kind` to `task` - mirrors
-    /// `TaskDetailViewModel.addRelation(_:kind:)`, but this list doesn't
-    /// render relations, so there's nothing to update locally.
+    /// Adds `relation` under `kind` to `task`, optimistically updating the
+    /// row (so its link glyph appears immediately) and rolling back if the
+    /// server rejects it - mirrors `TaskDetailViewModel.addRelation(_:kind:)`.
     public func addRelation(_ relation: TaskRelation, kind: RelationKind, to task: VikunjaTask) async {
-        await mutator.persistAddRelation(relation, kind: kind, to: task, relationRepository: relationRepository)
+        guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
+        let original = tasks[index]
+        var updated = original
+        updated.addRelation(relation, kind: kind)
+        tasks[index] = updated
+        tasks[index] = await mutator.persistAddRelation(
+            relation, kind: kind, updated: updated, original: original, relationRepository: relationRepository,
+        )
     }
 
     /// Deletes a task from the server and drops it from the local list on

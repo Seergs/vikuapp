@@ -109,22 +109,24 @@ public struct TaskListMutator {
         }
     }
 
-    /// Adds `relation` under `kind` to `task` via `relationRepository`'s
-    /// dedicated endpoint. Unlike `persistToggleLabel`, there's no local list
-    /// state to update optimistically or roll back - task lists don't render
-    /// relations - so this only reports the outcome as a toast, mirroring
-    /// `delete`/`move`.
+    /// Persists the relation the caller has already added to `updated`
+    /// locally via `relationRepository`'s dedicated endpoint. Returns the task
+    /// the list should show: `updated` on success, `original` on failure -
+    /// a rollback with an error toast, mirroring `persistToggleLabel`.
     public func persistAddRelation(
         _ relation: TaskRelation,
         kind: RelationKind,
-        to task: VikunjaTask,
+        updated: VikunjaTask,
+        original: VikunjaTask,
         relationRepository: TaskRelationRepositoryProtocol,
-    ) async {
+    ) async -> VikunjaTask {
         do {
-            try await relationRepository.addRelation(kind: kind, otherTaskID: relation.id, toTask: task.id)
+            try await relationRepository.addRelation(kind: kind, otherTaskID: relation.id, toTask: updated.id)
             toastPresenter.show("Relation added", style: .success)
+            return updated
         } catch {
             toastPresenter.show(errorMessage(error), style: .error)
+            return original
         }
     }
 

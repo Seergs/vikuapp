@@ -318,6 +318,8 @@ struct TodayViewModelTests {
         #expect(relationRepository.addedRelations.map(\.kind) == [.related])
         #expect(relationRepository.addedRelations.map(\.otherTaskID) == [9])
         #expect(relationRepository.addedRelations.map(\.taskID) == [1])
+        #expect(viewModel.tasks[0].otherRelations[.related]?.map(\.id) == [9])
+        #expect(viewModel.tasks[0].hasRelations)
         #expect(toastPresenter.shownMessages.map(\.message) == ["Relation added"])
     }
 
@@ -343,6 +345,7 @@ struct TodayViewModelTests {
             TaskRelation(id: 9, title: "Draft appendix", projectID: 1), kind: .related, to: viewModel.tasks[0],
         )
 
+        #expect(viewModel.tasks[0].hasRelations == false)
         #expect(toastPresenter.shownMessages.map(\.style) == [.error])
     }
 
