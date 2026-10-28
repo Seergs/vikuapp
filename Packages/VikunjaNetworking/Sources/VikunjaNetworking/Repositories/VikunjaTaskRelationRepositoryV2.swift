@@ -14,13 +14,23 @@ public final class VikunjaTaskRelationRepositoryV2: TaskRelationRepositoryProtoc
         self.client = client
     }
 
-    public func addRelation(kind: RelationKind, otherTaskID: Int, toTask taskID: Int) async throws {
-        let endpoint = try VikunjaEndpoints.createTaskRelationV2(taskID: taskID, kind: kind, otherTaskID: otherTaskID)
+    public func addRelation(kind: RelationKind, otherTaskID: EntityID, toTask taskID: EntityID) async throws {
+        guard let resolvedOtherTaskID = otherTaskID.remoteValue, let resolvedTaskID = taskID.remoteValue else {
+            preconditionFailure("VikunjaTaskRelationRepositoryV2.addRelation: both tasks must be synced first")
+        }
+        let endpoint = try VikunjaEndpoints.createTaskRelationV2(
+            taskID: resolvedTaskID, kind: kind, otherTaskID: resolvedOtherTaskID,
+        )
         try await client.send(endpoint)
     }
 
-    public func removeRelation(kind: RelationKind, otherTaskID: Int, fromTask taskID: Int) async throws {
-        let endpoint = VikunjaEndpoints.deleteTaskRelationV2(taskID: taskID, kind: kind, otherTaskID: otherTaskID)
+    public func removeRelation(kind: RelationKind, otherTaskID: EntityID, fromTask taskID: EntityID) async throws {
+        guard let resolvedOtherTaskID = otherTaskID.remoteValue, let resolvedTaskID = taskID.remoteValue else {
+            preconditionFailure("VikunjaTaskRelationRepositoryV2.removeRelation: both tasks must be synced first")
+        }
+        let endpoint = VikunjaEndpoints.deleteTaskRelationV2(
+            taskID: resolvedTaskID, kind: kind, otherTaskID: resolvedOtherTaskID,
+        )
         try await client.send(endpoint)
     }
 }

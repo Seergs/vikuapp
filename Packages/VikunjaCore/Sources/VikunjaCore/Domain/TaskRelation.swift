@@ -6,12 +6,12 @@ import Foundation
 /// (not a full recursive `VikunjaTask`) rather than embedding an entire task
 /// graph.
 public struct TaskRelation: Identifiable, Equatable, Hashable, Sendable {
-    public let id: Int
+    public let id: EntityID
     public var title: String
     public var isDone: Bool
-    public var projectID: Int
+    public var projectID: EntityID
 
-    public init(id: Int, title: String, isDone: Bool = false, projectID: Int) {
+    public init(id: EntityID, title: String, isDone: Bool = false, projectID: EntityID) {
         self.id = id
         self.title = title
         self.isDone = isDone

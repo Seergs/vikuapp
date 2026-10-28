@@ -59,7 +59,8 @@ struct OfflineTaskRepositoryTests {
         let project = try await seedProject(in: store, accountID: accountID)
         let engine = SyncEngine(
             localStore: store, projectRepository: FakeProjectRepository(),
-            labelRepository: FakeLabelRepository(), taskRepository: network, accountID: accountID,
+            labelRepository: FakeLabelRepository(), taskRepository: network,
+            relationRepository: FakeTaskRelationRepository(), accountID: accountID,
         )
         let reachability = FakeReachabilityMonitor(isReachable: online)
         let repository = OfflineTaskRepository(
@@ -199,7 +200,8 @@ struct OfflineTaskRepositoryTests {
             localStore: store, accountID: accountID,
             syncEngine: SyncEngine(
                 localStore: store, projectRepository: FakeProjectRepository(),
-                labelRepository: FakeLabelRepository(), taskRepository: network, accountID: accountID,
+                labelRepository: FakeLabelRepository(), taskRepository: network,
+                relationRepository: FakeTaskRelationRepository(), accountID: accountID,
             ),
             reachability: FakeReachabilityMonitor(isReachable: true),
         )
@@ -212,7 +214,8 @@ struct OfflineTaskRepositoryTests {
             localStore: store, accountID: accountID,
             syncEngine: SyncEngine(
                 localStore: store, projectRepository: FakeProjectRepository(),
-                labelRepository: FakeLabelRepository(), taskRepository: network, accountID: accountID,
+                labelRepository: FakeLabelRepository(), taskRepository: network,
+                relationRepository: FakeTaskRelationRepository(), accountID: accountID,
             ),
             reachability: FakeReachabilityMonitor(isReachable: false),
         )
@@ -254,7 +257,8 @@ struct OfflineTaskRepositoryTests {
             localStore: store, accountID: accountID,
             syncEngine: SyncEngine(
                 localStore: store, projectRepository: FakeProjectRepository(),
-                labelRepository: FakeLabelRepository(), taskRepository: network, accountID: accountID,
+                labelRepository: FakeLabelRepository(), taskRepository: network,
+                relationRepository: FakeTaskRelationRepository(), accountID: accountID,
             ),
             reachability: FakeReachabilityMonitor(isReachable: true),
         )
@@ -266,7 +270,8 @@ struct OfflineTaskRepositoryTests {
             localStore: store, accountID: accountID,
             syncEngine: SyncEngine(
                 localStore: store, projectRepository: FakeProjectRepository(),
-                labelRepository: FakeLabelRepository(), taskRepository: network, accountID: accountID,
+                labelRepository: FakeLabelRepository(), taskRepository: network,
+                relationRepository: FakeTaskRelationRepository(), accountID: accountID,
             ),
             reachability: FakeReachabilityMonitor(isReachable: false),
         )
@@ -323,7 +328,8 @@ struct OfflineTaskRepositoryTests {
             localStore: store, accountID: accountA,
             syncEngine: SyncEngine(
                 localStore: store, projectRepository: FakeProjectRepository(),
-                labelRepository: FakeLabelRepository(), taskRepository: networkA, accountID: accountA,
+                labelRepository: FakeLabelRepository(), taskRepository: networkA,
+                relationRepository: FakeTaskRelationRepository(), accountID: accountA,
             ),
             reachability: FakeReachabilityMonitor(isReachable: false),
         )
@@ -331,7 +337,8 @@ struct OfflineTaskRepositoryTests {
             localStore: store, accountID: accountB,
             syncEngine: SyncEngine(
                 localStore: store, projectRepository: FakeProjectRepository(),
-                labelRepository: FakeLabelRepository(), taskRepository: networkB, accountID: accountB,
+                labelRepository: FakeLabelRepository(), taskRepository: networkB,
+                relationRepository: FakeTaskRelationRepository(), accountID: accountB,
             ),
             reachability: FakeReachabilityMonitor(isReachable: false),
         )
@@ -463,5 +470,132 @@ struct OfflineTaskRepositoryTests {
         let task = try await fixture.repository.fetchTask(id: created.id)
 
         #expect(task.labels.isEmpty)
+    }
+
+    private func queueTaskRelationMutation(
+        operation: MutationOperation,
+        taskLocalID: UUID,
+        kind: RelationKind,
+        otherTaskLocalID: UUID,
+        in fixture: Fixture,
+    ) async throws {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let payload = try String(
+            data: encoder.encode(TaskRelationMutationPayload(kind: kind, otherTaskLocalID: otherTaskLocalID)),
+            encoding: .utf8,
+        )
+        try await fixture.store.write { db in
+            var item = MutationQueueRecord(
+                id: nil, accountID: fixture.accountID, entityType: .task, operation: operation,
+                targetLocalID: taskLocalID, payload: payload, createdAt: Date(), retryCount: 0, lastError: nil,
+                status: .pending, needsConflictResolution: false,
+            )
+            try item.insert(db)
+        }
+    }
+
+    @Test
+    func `fetchTasks shows a relation still only queued, before the attach has synced`() async throws {
+        // Regression test: a relation between two tasks that are still
+        // entirely local (neither has a remote id yet) used to be invisible
+        // everywhere, since the `taskRelation` cache table only gets
+        // patched once `drainTaskRelationMutation` actually succeeds - a
+        // queued-but-not-yet-drained `addRelation` must still show up
+        // immediately.
+        let fixture = try await makeRepository(online: false)
+        let created = try await fixture.repository.create(
+            VikunjaTask(id: .local(UUID()), title: "Write report", projectID: fixture.project),
+        )
+        guard case let .local(taskLocalID) = created.id else {
+            Issue.record("expected a local id while offline, got \(created.id)")
+            return
+        }
+        let otherTask = try await fixture.repository.create(
+            VikunjaTask(id: .local(UUID()), title: "Outline", projectID: fixture.project),
+        )
+        guard case let .local(otherTaskLocalID) = otherTask.id else {
+            Issue.record("expected a local id while offline, got \(otherTask.id)")
+            return
+        }
+        try await queueTaskRelationMutation(
+            operation: .addRelation, taskLocalID: taskLocalID, kind: .subtask, otherTaskLocalID: otherTaskLocalID,
+            in: fixture,
+        )
+
+        let task = try await fixture.repository.fetchTask(id: created.id)
+
+        #expect(task.subtasks == [TaskRelation(id: otherTask.id, title: "Outline", projectID: fixture.project)])
+    }
+
+    @Test
+    func `fetchTask shows the inverse side of a relation queued from the other task, before either has synced`() async throws {
+        // Regression test: `addRelation` is queued from the owner task's
+        // perspective only (`TaskRelationMutationPayload.otherTaskLocalID`
+        // identifies the other side), so the other task's own screen used
+        // to show nothing until a drain actually ran - even though both
+        // sides of the relation are already fully known locally. Opening
+        // the *other* task's screen while both are still local-only must
+        // show the inverse relation (here, `parenttask`, the mirror of
+        // `subtask`) immediately too.
+        let fixture = try await makeRepository(online: false)
+        let owner = try await fixture.repository.create(
+            VikunjaTask(id: .local(UUID()), title: "Write report", projectID: fixture.project),
+        )
+        guard case let .local(ownerLocalID) = owner.id else {
+            Issue.record("expected a local id while offline, got \(owner.id)")
+            return
+        }
+        let otherTask = try await fixture.repository.create(
+            VikunjaTask(id: .local(UUID()), title: "Outline", projectID: fixture.project),
+        )
+        guard case let .local(otherTaskLocalID) = otherTask.id else {
+            Issue.record("expected a local id while offline, got \(otherTask.id)")
+            return
+        }
+        try await queueTaskRelationMutation(
+            operation: .addRelation, taskLocalID: ownerLocalID, kind: .subtask,
+            otherTaskLocalID: otherTaskLocalID, in: fixture,
+        )
+
+        let task = try await fixture.repository.fetchTask(id: otherTask.id)
+
+        let expected = TaskRelation(id: owner.id, title: "Write report", projectID: fixture.project)
+        #expect(task.otherRelations[.parenttask] == [expected])
+    }
+
+    @Test
+    func `fetchTask hides a cached relation once its removal is queued, before the drain confirms it`() async throws {
+        let fixture = try await makeRepository(online: false)
+        let created = try await fixture.repository.create(
+            VikunjaTask(id: .local(UUID()), title: "Write report", projectID: fixture.project),
+        )
+        guard case let .local(taskLocalID) = created.id else {
+            Issue.record("expected a local id while offline, got \(created.id)")
+            return
+        }
+        let projectLocalID = try await fixture.store.read { db in
+            try #require(try ProjectRecord.fetchAll(db).first { $0.accountID == fixture.accountID }).localID
+        }
+        let otherTaskRow = TaskRecord(
+            localID: UUID(), accountID: fixture.accountID, remoteID: 6, title: "Outline", description: nil,
+            isDone: false, dueDate: nil, priority: 0, projectLocalID: projectLocalID, serverUpdatedAt: nil,
+        )
+        let relationRow = TaskRelationRecord(
+            localID: UUID(), accountID: fixture.accountID, taskLocalID: taskLocalID, kind: .subtask,
+            otherTaskRemoteID: 6, otherProjectRemoteID: 1, title: "Outline", isDone: false,
+        )
+        try await fixture.store.write { db in
+            try otherTaskRow.insert(db)
+            try relationRow.insert(db)
+        }
+        try await queueTaskRelationMutation(
+            operation: .removeRelation, taskLocalID: taskLocalID, kind: .subtask,
+            otherTaskLocalID: otherTaskRow.localID, in: fixture,
+        )
+
+        let task = try await fixture.repository.fetchTask(id: created.id)
+
+        #expect(task.subtasks.isEmpty)
     }
 }

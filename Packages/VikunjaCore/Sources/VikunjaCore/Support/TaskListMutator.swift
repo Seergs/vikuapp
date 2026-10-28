@@ -120,12 +120,8 @@ public struct TaskListMutator {
         to task: VikunjaTask,
         relationRepository: TaskRelationRepositoryProtocol,
     ) async {
-        guard let taskID = task.id.remoteValue else {
-            toastPresenter.show(errorMessage(VikunjaError.notFound), style: .error)
-            return
-        }
         do {
-            try await relationRepository.addRelation(kind: kind, otherTaskID: relation.id, toTask: taskID)
+            try await relationRepository.addRelation(kind: kind, otherTaskID: relation.id, toTask: task.id)
             toastPresenter.show("Relation added", style: .success)
         } catch {
             toastPresenter.show(errorMessage(error), style: .error)

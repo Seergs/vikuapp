@@ -30,18 +30,10 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
             }
             let rows = try Self.accountRows(self.accountID, db: db).filter { $0.projectLocalID == projectLocalID }
             let hiddenLocalIDs = try Self.pendingDeleteTargetLocalIDs(accountID: self.accountID, db: db)
-            let projectsByLocalID = Self.projectsByLocalID(projectRows)
-            let labelsByRemoteID = try Self.labelsByRemoteID(self.accountID, db: db)
-            let labelsByLocalID = try Self.labelsByLocalID(self.accountID, db: db)
-            let pendingLabelMutations = try Self.pendingLabelMutations(accountID: self.accountID, db: db)
+            let context = try Self.makeAssemblyContext(accountID: self.accountID, projectRows: projectRows, db: db)
             return rows
                 .filter { !hiddenLocalIDs.contains($0.localID) }
-                .map {
-                    Self.task(
-                        from: $0, projectsByLocalID: projectsByLocalID, labelsByRemoteID: labelsByRemoteID,
-                        labelsByLocalID: labelsByLocalID, pendingLabelMutations: pendingLabelMutations,
-                    )
-                }
+                .map { Self.task(from: $0, context: context) }
         }
     }
 
@@ -61,14 +53,8 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
             guard let row = Self.findRow(matching: id, in: rows) else { throw VikunjaError.notFound }
             let hiddenLocalIDs = try Self.pendingDeleteTargetLocalIDs(accountID: self.accountID, db: db)
             guard !hiddenLocalIDs.contains(row.localID) else { throw VikunjaError.notFound }
-            let projectsByLocalID = try Self.projectsByLocalID(Self.projectRows(self.accountID, db: db))
-            let labelsByRemoteID = try Self.labelsByRemoteID(self.accountID, db: db)
-            let labelsByLocalID = try Self.labelsByLocalID(self.accountID, db: db)
-            let pendingLabelMutations = try Self.pendingLabelMutations(accountID: self.accountID, db: db)
-            return Self.task(
-                from: row, projectsByLocalID: projectsByLocalID, labelsByRemoteID: labelsByRemoteID,
-                labelsByLocalID: labelsByLocalID, pendingLabelMutations: pendingLabelMutations,
-            )
+            let context = try Self.makeAssemblyContext(accountID: self.accountID, db: db)
+            return Self.task(from: row, context: context)
         }
     }
 
@@ -188,18 +174,10 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
         return try await localStore.read { db in
             let rows = try Self.accountRows(self.accountID, db: db)
             let hiddenLocalIDs = try Self.pendingDeleteTargetLocalIDs(accountID: self.accountID, db: db)
-            let projectsByLocalID = try Self.projectsByLocalID(Self.projectRows(self.accountID, db: db))
-            let labelsByRemoteID = try Self.labelsByRemoteID(self.accountID, db: db)
-            let labelsByLocalID = try Self.labelsByLocalID(self.accountID, db: db)
-            let pendingLabelMutations = try Self.pendingLabelMutations(accountID: self.accountID, db: db)
+            let context = try Self.makeAssemblyContext(accountID: self.accountID, db: db)
             return rows
                 .filter { !hiddenLocalIDs.contains($0.localID) && $0.title.localizedCaseInsensitiveContains(query) }
-                .map {
-                    Self.task(
-                        from: $0, projectsByLocalID: projectsByLocalID, labelsByRemoteID: labelsByRemoteID,
-                        labelsByLocalID: labelsByLocalID, pendingLabelMutations: pendingLabelMutations,
-                    )
-                }
+                .map { Self.task(from: $0, context: context) }
         }
     }
 
@@ -231,21 +209,47 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
         Dictionary(uniqueKeysWithValues: projectRows.map { ($0.localID, $0) })
     }
 
-    /// Backs `task(from:projectsByLocalID:labelsByRemoteID:)`'s resolution of
-    /// `TaskRecord.labelRemoteIDs` into real `Label` values - reads the
-    /// already-synced local `label` table (via `OfflineLabelRepository`'s own
-    /// pull), never the network.
-    private static func labelsByRemoteID(_ accountID: UUID, db: Database) throws -> [Int: LabelRecord] {
-        let rows = try LabelRecord.fetchAll(db).filter { $0.accountID == accountID }
-        return Dictionary(uniqueKeysWithValues: rows.compactMap { row in row.remoteID.map { ($0, row) } })
+    /// Everything `task(from:context:)` needs to resolve one task row's
+    /// labels and relations, gathered once per read call (`fetchTasks`/
+    /// `readTask`/`searchTasks`) rather than per row.
+    private struct TaskAssemblyContext {
+        let projectsByLocalID: [UUID: ProjectRecord]
+        let labelsByRemoteID: [Int: LabelRecord]
+        let labelsByLocalID: [UUID: LabelRecord]
+        let pendingLabelMutations: [UUID: [(operation: MutationOperation, labelLocalID: UUID)]]
+        let relationsByTaskLocalID: [UUID: [TaskRelationRecord]]
+        let pendingRelationMutations: [UUID: [PendingRelationMutation]]
+        /// The other side of every entry in `pendingRelationMutations`,
+        /// under the inverse kind, keyed by the *other* task's local id
+        /// instead of the owner's - see `mirrorRelationMutations(_:)`.
+        let pendingMirrorRelationMutations: [UUID: [PendingRelationMutation]]
+        /// Every task row for this account, keyed by local id — needed to
+        /// resolve a pending relation's "other task" display fields
+        /// (title/isDone/project), since that task might itself still be
+        /// local-only.
+        let tasksByLocalID: [UUID: TaskRecord]
     }
 
-    /// Same rows as `labelsByRemoteID`, keyed by local id instead — needed
-    /// to resolve a label referenced by `pendingLabelMutations`, which can
-    /// still be local-only (not yet synced, so no remote id to key by yet).
-    private static func labelsByLocalID(_ accountID: UUID, db: Database) throws -> [UUID: LabelRecord] {
-        let rows = try LabelRecord.fetchAll(db).filter { $0.accountID == accountID }
-        return Dictionary(uniqueKeysWithValues: rows.map { ($0.localID, $0) })
+    private static func makeAssemblyContext(
+        accountID: UUID, projectRows: [ProjectRecord]? = nil, db: Database,
+    ) throws -> TaskAssemblyContext {
+        let projectRows = try projectRows ?? Self.projectRows(accountID, db: db)
+        let labelRows = try LabelRecord.fetchAll(db).filter { $0.accountID == accountID }
+        let taskRows = try Self.accountRows(accountID, db: db)
+        let relationRows = try TaskRelationRecord.fetchAll(db).filter { $0.accountID == accountID }
+        let pendingRelationMutations = try Self.pendingRelationMutations(accountID: accountID, db: db)
+        return try TaskAssemblyContext(
+            projectsByLocalID: Self.projectsByLocalID(projectRows),
+            labelsByRemoteID: Dictionary(uniqueKeysWithValues: labelRows.compactMap { row in
+                row.remoteID.map { ($0, row) }
+            }),
+            labelsByLocalID: Dictionary(uniqueKeysWithValues: labelRows.map { ($0.localID, $0) }),
+            pendingLabelMutations: Self.pendingLabelMutations(accountID: accountID, db: db),
+            relationsByTaskLocalID: Dictionary(grouping: relationRows, by: \.taskLocalID),
+            pendingRelationMutations: pendingRelationMutations,
+            pendingMirrorRelationMutations: Self.mirrorRelationMutations(pendingRelationMutations),
+            tasksByLocalID: Dictionary(uniqueKeysWithValues: taskRows.map { ($0.localID, $0) }),
+        )
     }
 
     /// A task's `addLabel`/`removeLabel` queued but not yet drained -
@@ -273,6 +277,81 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
             result[item.targetLocalID, default: []].append((item.operation, payload.labelLocalID))
         }
         return result
+    }
+
+    private struct PendingRelationMutation {
+        let operation: MutationOperation
+        let kind: RelationKind
+        let otherTaskLocalID: UUID
+    }
+
+    /// Same reasoning as `pendingLabelMutations`, for `addRelation`/
+    /// `removeRelation` - a relation queued but not yet drained isn't
+    /// reflected in the `taskRelation` cache table yet, since
+    /// `drainTaskRelationMutation` only patches it once the push succeeds.
+    private static func pendingRelationMutations(
+        accountID: UUID, db: Database,
+    ) throws -> [UUID: [PendingRelationMutation]] {
+        let items = try MutationQueueRecord.fetchAll(db).filter {
+            $0.accountID == accountID && $0.entityType == .task
+                && ($0.operation == .addRelation || $0.operation == .removeRelation)
+                && ($0.status == .pending || $0.status == .failed)
+        }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        var result: [UUID: [PendingRelationMutation]] = [:]
+        for item in items {
+            guard let data = item.payload?.data(using: .utf8),
+                  let payload = try? decoder.decode(TaskRelationMutationPayload.self, from: data) else { continue }
+            let mutation = PendingRelationMutation(
+                operation: item.operation, kind: payload.kind, otherTaskLocalID: payload.otherTaskLocalID,
+            )
+            result[item.targetLocalID, default: []].append(mutation)
+        }
+        return result
+    }
+
+    /// Builds the other side of every entry in `forward` - a relation is
+    /// bidirectional under paired kinds (same as `SyncEngine`'s own
+    /// `patchRelationCache`), so a pending `addRelation`/`removeRelation`
+    /// queued from task A's perspective must also show up on task B's own
+    /// screen, under the inverse kind, before either side has even synced -
+    /// otherwise B shows nothing until A's mutation drains and a pull or app
+    /// restart catches B up. Keyed by the *other* task's local id.
+    private static func mirrorRelationMutations(
+        _ forward: [UUID: [PendingRelationMutation]],
+    ) -> [UUID: [PendingRelationMutation]] {
+        var result: [UUID: [PendingRelationMutation]] = [:]
+        for (ownerLocalID, mutations) in forward {
+            for mutation in mutations {
+                let mirrored = PendingRelationMutation(
+                    operation: mutation.operation, kind: Self.inverseKind(mutation.kind),
+                    otherTaskLocalID: ownerLocalID,
+                )
+                result[mutation.otherTaskLocalID, default: []].append(mirrored)
+            }
+        }
+        return result
+    }
+
+    /// The relation kind the other side of a pair sees once this one is
+    /// created — mirrors `SyncEngine.inverseKind(_:)` (identical mapping,
+    /// duplicated rather than shared since each lives on its own private
+    /// type).
+    private static func inverseKind(_ kind: RelationKind) -> RelationKind {
+        switch kind {
+        case .subtask: .parenttask
+        case .parenttask: .subtask
+        case .blocking: .blocked
+        case .blocked: .blocking
+        case .duplicateof: .duplicates
+        case .duplicates: .duplicateof
+        case .precedes: .follows
+        case .follows: .precedes
+        case .copiedfrom: .copiedto
+        case .copiedto: .copiedfrom
+        case .related: .related
+        }
     }
 
     /// Target ids to hide from a read — a delete the user asked for stays
@@ -310,24 +389,18 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
         }
     }
 
-    private static func task(
-        from row: TaskRecord,
-        projectsByLocalID: [UUID: ProjectRecord],
-        labelsByRemoteID: [Int: LabelRecord],
-        labelsByLocalID: [UUID: LabelRecord],
-        pendingLabelMutations: [UUID: [(operation: MutationOperation, labelLocalID: UUID)]],
-    ) -> VikunjaTask {
-        let projectID = projectsByLocalID[row.projectLocalID]?.remoteID.map(EntityID.remote)
+    private static func task(from row: TaskRecord, context: TaskAssemblyContext) -> VikunjaTask {
+        let projectID = context.projectsByLocalID[row.projectLocalID]?.remoteID.map(EntityID.remote)
             ?? .local(row.projectLocalID)
         var labels = row.labelRemoteIDs
             .split(separator: ",")
             .compactMap { Int($0) }
             .compactMap { remoteID -> Label? in
-                guard let labelRow = labelsByRemoteID[remoteID] else { return nil }
+                guard let labelRow = context.labelsByRemoteID[remoteID] else { return nil }
                 return Label(id: .remote(remoteID), title: labelRow.title, hexColor: labelRow.hexColor)
             }
-        for mutation in pendingLabelMutations[row.localID] ?? [] {
-            guard let labelRow = labelsByLocalID[mutation.labelLocalID] else { continue }
+        for mutation in context.pendingLabelMutations[row.localID] ?? [] {
+            guard let labelRow = context.labelsByLocalID[mutation.labelLocalID] else { continue }
             let labelID = labelRow.remoteID.map(EntityID.remote) ?? .local(labelRow.localID)
             switch mutation.operation {
             case .addLabel:
@@ -336,10 +409,18 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
                 }
             case .removeLabel:
                 labels.removeAll { $0.id == labelID }
-            case .create, .update, .delete:
+            case .create, .update, .delete, .addRelation, .removeRelation:
                 break
             }
         }
+        var relationsByKind = Self.confirmedRelationsByKind(for: row.localID, context: context)
+        Self.applyPendingRelationMutations(
+            to: &relationsByKind, mutations: context.pendingRelationMutations[row.localID] ?? [], context: context,
+        )
+        Self.applyPendingRelationMutations(
+            to: &relationsByKind, mutations: context.pendingMirrorRelationMutations[row.localID] ?? [],
+            context: context,
+        )
         return VikunjaTask(
             id: row.remoteID.map(EntityID.remote) ?? .local(row.localID),
             title: row.title,
@@ -349,8 +430,66 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
             priority: VikunjaTask.Priority(rawValue: row.priority) ?? .unset,
             projectID: projectID,
             labels: labels,
+            subtasks: relationsByKind[.subtask] ?? [],
+            dependsOn: relationsByKind[.blocked] ?? [],
+            blocks: relationsByKind[.blocking] ?? [],
+            otherRelations: relationsByKind.filter { ![.subtask, .blocked, .blocking].contains($0.key) },
             updated: row.serverUpdatedAt,
         )
+    }
+
+    /// This task's relations as of the last pull or successful drain,
+    /// grouped by kind exactly the way `VikunjaTask.subtasks`/`dependsOn`/
+    /// `blocks`/`otherRelations` split them (mirrors `TaskMapper`'s own
+    /// network-side grouping).
+    private static func confirmedRelationsByKind(
+        for taskLocalID: UUID, context: TaskAssemblyContext,
+    ) -> [RelationKind: [TaskRelation]] {
+        var result: [RelationKind: [TaskRelation]] = [:]
+        for relationRow in context.relationsByTaskLocalID[taskLocalID] ?? [] {
+            let relation = TaskRelation(
+                id: .remote(relationRow.otherTaskRemoteID), title: relationRow.title, isDone: relationRow.isDone,
+                projectID: .remote(relationRow.otherProjectRemoteID),
+            )
+            result[relationRow.kind, default: []].append(relation)
+        }
+        return result
+    }
+
+    /// Overlays `mutations` (either `context.pendingRelationMutations[id]`,
+    /// this task's own queued relation ops, or
+    /// `context.pendingMirrorRelationMutations[id]`, the other side of
+    /// someone else's) onto `relationsByKind` - same reasoning as
+    /// `task(from:context:)`'s label overlay: a relation between two tasks
+    /// that are still entirely local (neither side has a remote id) must
+    /// show up immediately, on *both* tasks' own screens, rather than only
+    /// once both sides have synced and the drain has run.
+    private static func applyPendingRelationMutations(
+        to relationsByKind: inout [RelationKind: [TaskRelation]],
+        mutations: [PendingRelationMutation],
+        context: TaskAssemblyContext,
+    ) {
+        for mutation in mutations {
+            guard let otherTaskRow = context.tasksByLocalID[mutation.otherTaskLocalID] else { continue }
+            let otherID = otherTaskRow.remoteID.map(EntityID.remote) ?? .local(otherTaskRow.localID)
+            let otherProjectID = context.projectsByLocalID[otherTaskRow.projectLocalID]?.remoteID.map(EntityID.remote)
+                ?? .local(otherTaskRow.projectLocalID)
+            let relation = TaskRelation(
+                id: otherID, title: otherTaskRow.title, isDone: otherTaskRow.isDone, projectID: otherProjectID,
+            )
+            switch mutation.operation {
+            case .addRelation:
+                var relations = relationsByKind[mutation.kind] ?? []
+                if !relations.contains(where: { $0.id == otherID }) {
+                    relations.append(relation)
+                }
+                relationsByKind[mutation.kind] = relations
+            case .removeRelation:
+                relationsByKind[mutation.kind]?.removeAll { $0.id == otherID }
+            case .create, .update, .delete, .addLabel, .removeLabel:
+                break
+            }
+        }
     }
 
     /// Replaces an existing pending (or failed and still retryable) mutation

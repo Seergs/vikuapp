@@ -137,21 +137,21 @@ final class FakeLabelRepository: LabelRepositoryProtocol, @unchecked Sendable {
 final class FakeTaskRelationRepository: TaskRelationRepositoryProtocol, @unchecked Sendable {
     struct RecordedRelation: Sendable {
         let kind: RelationKind
-        let otherTaskID: Int
-        let taskID: Int
+        let otherTaskID: EntityID
+        let taskID: EntityID
     }
 
     var addError: VikunjaError?
     private(set) var addedRelations: [RecordedRelation] = []
 
-    func addRelation(kind: RelationKind, otherTaskID: Int, toTask taskID: Int) async throws {
+    func addRelation(kind: RelationKind, otherTaskID: EntityID, toTask taskID: EntityID) async throws {
         if let addError {
             throw addError
         }
         addedRelations.append(RecordedRelation(kind: kind, otherTaskID: otherTaskID, taskID: taskID))
     }
 
-    func removeRelation(kind: RelationKind, otherTaskID: Int, fromTask taskID: Int) async throws {}
+    func removeRelation(kind: RelationKind, otherTaskID: EntityID, fromTask taskID: EntityID) async throws {}
 }
 
 @MainActor

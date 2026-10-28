@@ -340,23 +340,16 @@ public struct TaskDetailView: View {
                     RelationTaskPickerSheet(
                         kind: kind,
                         results: viewModel.relationSearchResults,
-                        projectTitle: { candidate in
-                            candidate.projectID.remoteValue.flatMap { viewModel.projectTitle(forProjectID: $0) }
-                        },
+                        projectTitle: { candidate in viewModel.projectTitle(forProjectID: candidate.projectID) },
                         onAppear: {
                             await viewModel.loadAllProjects()
                             await viewModel.loadRelationSuggestions()
                         },
                         onSearch: { query in await viewModel.searchTasksForRelation(query: query) },
                         onSelect: { candidate in
-                            // Every search/suggestion result is a synced task
-                            // fetched from the network, so both ids are
-                            // always `.remote` here.
-                            guard let candidateID = candidate.id.remoteValue,
-                                  let candidateProjectID = candidate.projectID.remoteValue else { return }
                             let relation = TaskRelation(
-                                id: candidateID, title: candidate.title,
-                                isDone: candidate.isDone, projectID: candidateProjectID,
+                                id: candidate.id, title: candidate.title,
+                                isDone: candidate.isDone, projectID: candidate.projectID,
                             )
                             Task { await viewModel.addRelation(relation, kind: kind) }
                             relationEditStep = nil

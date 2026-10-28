@@ -419,15 +419,11 @@ final class AppContainer {
     }
 
     func makeTodayViewModel(account: InstanceAccount) -> TodayViewModel {
-        let tokenProvider = tokenProvider(for: account)
-        return TodayViewModel(
+        TodayViewModel(
             taskRepository: offlineTaskRepository(for: account),
             projectRepository: offlineProjectRepository(for: account),
             labelRepository: offlineLabelRepository(for: account),
-            relationRepository: clientFactory.makeTaskRelationRepository(
-                baseURL: account.baseURL,
-                tokenProvider: tokenProvider,
-            ),
+            relationRepository: offlineTaskRelationRepository(for: account),
             toastPresenter: toastCenter,
             hapticPresenter: hapticCenter,
             homeSelectionCache: AccountHomeSelectionCache(store: homeSelectionStore, accountID: account.id),
@@ -490,10 +486,7 @@ final class AppContainer {
         let repository = offlineTaskRepository(for: account)
         let projectRepository = offlineProjectRepository(for: account)
         let labelRepository = offlineLabelRepository(for: account)
-        let relationRepository = clientFactory.makeTaskRelationRepository(
-            baseURL: account.baseURL,
-            tokenProvider: tokenProvider,
-        )
+        let relationRepository = offlineTaskRelationRepository(for: account)
         let filterRepository = clientFactory.makeFilterRepository(
             baseURL: account.baseURL,
             tokenProvider: tokenProvider,
@@ -545,10 +538,7 @@ final class AppContainer {
         let tokenProvider = tokenProvider(for: account)
         let repository = offlineTaskRepository(for: account)
         let labelRepository = offlineLabelRepository(for: account)
-        let relationRepository = clientFactory.makeTaskRelationRepository(
-            baseURL: account.baseURL,
-            tokenProvider: tokenProvider,
-        )
+        let relationRepository = offlineTaskRelationRepository(for: account)
         let commentRepository = clientFactory.makeTaskCommentRepository(
             baseURL: account.baseURL,
             tokenProvider: tokenProvider,
@@ -832,6 +822,13 @@ final class AppContainer {
         clientFactory.makeTaskRepository(baseURL: account.baseURL, tokenProvider: tokenProvider(for: account))
     }
 
+    /// Same reasoning as `networkTaskRepository(for:)`, for relations —
+    /// every `SyncEngine` needs one to pull/drain relations alongside tasks,
+    /// and `offlineTaskRelationRepository(for:)` needs it for its own copy.
+    private func networkTaskRelationRepository(for account: InstanceAccount) -> TaskRelationRepositoryProtocol {
+        clientFactory.makeTaskRelationRepository(baseURL: account.baseURL, tokenProvider: tokenProvider(for: account))
+    }
+
     /// The `ProjectRepositoryProtocol` every screen reads/writes through —
     /// local-first, queuing a mutation and opportunistically draining it
     /// right away if the network happens to already be up. `networkRepository`
@@ -847,6 +844,7 @@ final class AppContainer {
             projectRepository: networkRepository,
             labelRepository: networkLabelRepository(for: account),
             taskRepository: networkTaskRepository(for: account),
+            relationRepository: networkTaskRelationRepository(for: account),
             accountID: account.id,
         )
         return OfflineProjectRepository(
@@ -871,6 +869,7 @@ final class AppContainer {
             ),
             labelRepository: networkRepository,
             taskRepository: networkTaskRepository(for: account),
+            relationRepository: networkTaskRelationRepository(for: account),
             accountID: account.id,
         )
         return OfflineLabelRepository(
@@ -883,9 +882,10 @@ final class AppContainer {
 
     /// The `TaskRepositoryProtocol` every screen reads/writes through for a
     /// task's core fields — same shape as `offlineProjectRepository(for:)`.
-    /// Task sub-resources (labels-on-task, relations, comments, attachments
-    /// — Slice 4) still go straight to `VikunjaNetworking` via their own
-    /// dedicated repositories until their own slice lands.
+    /// Task sub-resources now offline too (labels, relations) have their own
+    /// dedicated repository (`offlineLabelRepository(for:)`,
+    /// `offlineTaskRelationRepository(for:)`); comments and attachments
+    /// still go straight to `VikunjaNetworking` until their own slice lands.
     private func offlineTaskRepository(for account: InstanceAccount) -> TaskRepositoryProtocol {
         let syncEngine = SyncEngine(
             localStore: localStore,
@@ -895,9 +895,34 @@ final class AppContainer {
             ),
             labelRepository: networkLabelRepository(for: account),
             taskRepository: networkTaskRepository(for: account),
+            relationRepository: networkTaskRelationRepository(for: account),
             accountID: account.id,
         )
         return OfflineTaskRepository(
+            localStore: localStore,
+            accountID: account.id,
+            syncEngine: syncEngine,
+            reachability: reachabilityMonitor,
+        )
+    }
+
+    /// The `TaskRelationRepositoryProtocol` every screen reads/writes
+    /// through — same shape as `offlineLabelRepository(for:)`:
+    /// `addRelation`/`removeRelation` drain through this same `syncEngine`'s
+    /// task queue, resolved by `drainTaskRelationMutation`.
+    private func offlineTaskRelationRepository(for account: InstanceAccount) -> TaskRelationRepositoryProtocol {
+        let syncEngine = SyncEngine(
+            localStore: localStore,
+            projectRepository: clientFactory.makeProjectRepository(
+                baseURL: account.baseURL,
+                tokenProvider: tokenProvider(for: account),
+            ),
+            labelRepository: networkLabelRepository(for: account),
+            taskRepository: networkTaskRepository(for: account),
+            relationRepository: networkTaskRelationRepository(for: account),
+            accountID: account.id,
+        )
+        return OfflineTaskRelationRepository(
             localStore: localStore,
             accountID: account.id,
             syncEngine: syncEngine,

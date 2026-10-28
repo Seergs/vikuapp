@@ -680,6 +680,29 @@ struct TaskDetailViewModelTests {
     }
 
     @Test
+    func `adding a relation on an unsynced task queues it instead of being blocked`() async {
+        let relationRepository = FakeTaskRelationRepository()
+        let task = VikunjaTask(id: .local(UUID()), title: "Write report", projectID: .local(UUID()))
+        let viewModel = TaskDetailViewModel(
+            task: task,
+            project: Project(id: .local(UUID()), title: "Work"),
+            repository: FakeTaskRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: relationRepository,
+            commentRepository: FakeTaskCommentRepository(),
+            attachmentRepository: FakeTaskAttachmentRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: FakeToastPresenter(),
+        )
+        let subtask = TaskRelation(id: .local(UUID()), title: "Outline", projectID: task.projectID)
+
+        await viewModel.addRelation(subtask, kind: .subtask)
+
+        #expect(viewModel.task.subtasks == [subtask])
+        #expect(relationRepository.addedRelations.map(\.taskID) == [task.id])
+    }
+
+    @Test
     func `add relation reverts when the server rejects it`() async {
         let relationRepository = FakeTaskRelationRepository()
         relationRepository.addError = .network("offline")

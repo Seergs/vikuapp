@@ -256,7 +256,7 @@ public final class TodayViewModel {
         }
         let excludedIDs = relatedTaskIDs(of: task)
         let results = await (try? taskRepository.searchTasks(query: query)) ?? []
-        relationSearchResults = results.filter { !excludedIDs.contains($0.id.remoteValue ?? -1) }
+        relationSearchResults = results.filter { !excludedIDs.contains($0.id) }
     }
 
     /// Populates `relationSearchResults` with `task`'s own project's other
@@ -265,7 +265,7 @@ public final class TodayViewModel {
     public func loadRelationSuggestions(for task: VikunjaTask) async {
         let excludedIDs = relatedTaskIDs(of: task)
         let results = await (try? taskRepository.fetchTasks(projectID: task.projectID)) ?? []
-        relationSearchResults = results.filter { !excludedIDs.contains($0.id.remoteValue ?? -1) }
+        relationSearchResults = results.filter { !excludedIDs.contains($0.id) }
     }
 
     /// `task`'s own id plus every relation it already carries, excluded from
@@ -273,14 +273,12 @@ public final class TodayViewModel {
     /// Best-effort rather than exhaustive: unlike `TaskDetailViewModel`, this
     /// screen's tasks come from a list fetch, which doesn't always carry a
     /// task's relations.
-    private func relatedTaskIDs(of task: VikunjaTask) -> Set<Int> {
+    private func relatedTaskIDs(of task: VikunjaTask) -> Set<EntityID> {
         var ids = Set(task.dependsOn.map(\.id) + task.blocks.map(\.id))
         for relations in task.otherRelations.values {
             ids.formUnion(relations.map(\.id))
         }
-        if let taskID = task.id.remoteValue {
-            ids.insert(taskID)
-        }
+        ids.insert(task.id)
         return ids
     }
 

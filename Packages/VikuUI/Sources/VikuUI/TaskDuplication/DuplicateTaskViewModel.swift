@@ -129,11 +129,8 @@ public final class DuplicateTaskViewModel {
             if copyLabels {
                 await attachLabels(to: created.id)
             }
-            // Relations stay online-only (Slice 4 covers only labels-on-task
-            // so far) - a duplicate created offline simply skips copying them,
-            // same as before.
-            if copyRelations, let createdTaskID = created.id.remoteValue {
-                await attachRelations(to: createdTaskID)
+            if copyRelations {
+                await attachRelations(to: created.id)
             }
             hapticPresenter.play(.success)
             toastPresenter.show("Task duplicated", style: .success)
@@ -167,8 +164,8 @@ public final class DuplicateTaskViewModel {
     /// Replays the source's `dependsOn`/`blocks`/`otherRelations` — the
     /// "Relations" section as `TaskDetailView` shows it — pointing the copy
     /// at the same related tasks. Best-effort, like `attachLabels(to:)`.
-    private func attachRelations(to taskID: Int) async {
-        var work: [(kind: RelationKind, otherTaskID: Int)] = []
+    private func attachRelations(to taskID: EntityID) async {
+        var work: [(kind: RelationKind, otherTaskID: EntityID)] = []
         work += source.dependsOn.map { (.blocked, $0.id) }
         work += source.blocks.map { (.blocking, $0.id) }
         for (kind, relations) in source.otherRelations {
