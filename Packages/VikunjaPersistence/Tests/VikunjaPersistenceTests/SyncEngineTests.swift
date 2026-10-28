@@ -469,6 +469,31 @@ struct SyncEngineTests {
     }
 
     @Test
+    func `pullTasks inserts a task with relations into an empty cache without violating the relation foreign key`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 1, title: "Groceries")]
+        let taskRepository = FakeTaskRepository()
+        taskRepository.tasks = [
+            VikunjaTask(
+                id: 10, title: "Buy milk", projectID: 1,
+                subtasks: [TaskRelation(id: 11, title: "Bring a bag", projectID: 1)],
+            ),
+        ]
+        let engine = SyncEngine(
+            localStore: store, projectRepository: projectRepository, labelRepository: FakeLabelRepository(),
+            taskRepository: taskRepository, relationRepository: FakeTaskRelationRepository(), accountID: UUID(),
+        )
+        try await engine.pullProjects()
+
+        try await engine.pullTasks()
+
+        let relationRows = try await store.read { db in try TaskRelationRecord.fetchAll(db) }
+        #expect(relationRows.count == 1)
+        #expect(relationRows[0].otherTaskRemoteID == 11)
+    }
+
+    @Test
     func `pullTasks caches each tasks label ids for OfflineTaskRepository to resolve later`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let projectRepository = FakeProjectRepository()

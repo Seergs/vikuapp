@@ -483,9 +483,6 @@ public actor SyncEngine {
             guard let projectRemoteID = task.projectID.remoteValue,
                   let projectLocalID = projectLocalIDByRemoteID[projectRemoteID] else { continue }
             let labelRemoteIDs = task.labels.compactMap(\.id.remoteValue).map(String.init).joined(separator: ",")
-            // Relation association isn't part of the local edit being
-            // protected either - same reasoning as `labelRemoteIDs` above.
-            try Self.replaceRelationRows(for: localID, accountID: accountID, task: task, db: db)
             if protectedLocalIDs.contains(localID) {
                 guard var existing = try TaskRecord.fetchOne(db, key: localID) else { continue }
                 existing.serverUpdatedAt = task.updated
@@ -494,6 +491,9 @@ public actor SyncEngine {
                 // refreshes freely - same reasoning as `serverUpdatedAt`.
                 existing.labelRemoteIDs = labelRemoteIDs
                 try existing.save(db)
+                // Relation association isn't part of the local edit being
+                // protected either - same reasoning as `labelRemoteIDs`.
+                try Self.replaceRelationRows(for: localID, accountID: accountID, task: task, db: db)
                 continue
             }
             let row = TaskRecord(
@@ -509,7 +509,11 @@ public actor SyncEngine {
                 serverUpdatedAt: task.updated,
                 labelRemoteIDs: labelRemoteIDs,
             )
+            // The task row has to exist before its relations: `taskRelation`
+            // has a foreign key on `task.localID`, so inserting a relation
+            // for a newly pulled task first used to fail on a cache miss.
             try row.save(db)
+            try Self.replaceRelationRows(for: localID, accountID: accountID, task: task, db: db)
         }
     }
 
