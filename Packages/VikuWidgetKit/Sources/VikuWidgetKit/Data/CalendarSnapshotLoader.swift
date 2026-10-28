@@ -5,15 +5,15 @@ import VikunjaCore
 /// refresh: resolves the active account, pulls every project's tasks
 /// concurrently (dropping a project whose fetch fails, exactly like
 /// `TodaySnapshotLoader` and `CalendarViewModel`), lays them out on the current
-/// month's grid via `CalendarMonth`, caches the result, and falls back to the
-/// cached snapshot when the network fails.
+/// month's grid via `CalendarMonth`, and falls back to the app's shared offline
+/// database when the network or credentials are unavailable.
 ///
 /// Takes its dependencies as `VikunjaCore` protocols so it can be tested with
 /// fakes; `VikuWidgetEnvironment` wires the real ones.
 public struct CalendarSnapshotLoader: Sendable {
     private let accountStore: AccountStoreProtocol
     private let clientFactory: InstanceClientFactoryProtocol
-    private let cache: CalendarSnapshotCache
+    private let localSnapshotProvider: any WidgetLocalTaskSnapshotProviding
     private let taskLimit: Int
     private let now: @Sendable () -> Date
     /// Resolves a currently-valid bearer credential for `account`. Defaults
@@ -25,14 +25,14 @@ public struct CalendarSnapshotLoader: Sendable {
     public init(
         accountStore: AccountStoreProtocol,
         clientFactory: InstanceClientFactoryProtocol,
-        cache: CalendarSnapshotCache,
+        localSnapshotProvider: any WidgetLocalTaskSnapshotProviding,
         taskLimit: Int = VikuWidgetConfig.calendarTaskLimit,
         now: @escaping @Sendable () -> Date = { Date() },
         tokenResolver: (@Sendable (InstanceAccount) async throws -> String?)? = nil,
     ) {
         self.accountStore = accountStore
         self.clientFactory = clientFactory
-        self.cache = cache
+        self.localSnapshotProvider = localSnapshotProvider
         self.taskLimit = taskLimit
         self.now = now
         self.tokenResolver = tokenResolver ?? { try? await accountStore.token(forAccountID: $0.id) }
@@ -43,17 +43,18 @@ public struct CalendarSnapshotLoader: Sendable {
         var token: String?
         if let account {
             // A `.sessionExpired` refresh failure has nothing more useful to
-            // do here than fall back to the cache below — the widget can't
-            // present a "sign in again" prompt of its own.
+            // do here than fall back to the local store below — the widget
+            // can't present a "sign in again" prompt of its own.
             token = try? await tokenResolver(account)
         }
 
         guard let account, let token, !token.isEmpty else {
             // The widget process can't reach the credentials (notably the iOS
-            // Simulator). Render whatever the app last wrote to the shared
-            // cache; only fall through to a bare state when nothing is cached.
-            if let cached = cachedContentState(forceStale: false) {
-                return cached
+            // Simulator). Render whatever the app last synced into the shared
+            // offline database; only fall through to a bare state when there's
+            // nothing stored at all.
+            if let local = await localContentState(account: account, forceStale: false) {
+                return local
             }
             return account == nil ? .notConnected : .needsAuth
         }
@@ -80,23 +81,37 @@ public struct CalendarSnapshotLoader: Sendable {
                 now: now(),
                 taskLimit: taskLimit,
             )
-            cache.write(content)
             return .content(content)
         } catch VikunjaError.unauthorized {
             return .needsAuth
         } catch {
-            return cachedContentState(forceStale: true) ?? .unavailable
+            return await localContentState(account: account, forceStale: true) ?? .unavailable
         }
     }
 
-    /// The last snapshot the widget or the app wrote to the shared cache.
-    /// `forceStale` marks it stale unconditionally (a refresh was just
-    /// attempted and failed); otherwise the badge only shows once the cache
-    /// is meaningfully old — same rule as `TodaySnapshotLoader`.
-    private func cachedContentState(forceStale: Bool) -> CalendarWidgetState? {
-        guard var cached = cache.read() else { return nil }
-        let age = now().timeIntervalSince(cached.generatedAt)
-        cached.isStale = forceStale || age > VikuWidgetConfig.refreshInterval * 2
-        return .content(cached)
+    /// The app's last synced tasks and projects for this account. `forceStale`
+    /// marks the fallback stale unconditionally (a refresh was just attempted
+    /// and failed); otherwise the badge only shows once the local data is
+    /// meaningfully old — same rule as `TodaySnapshotLoader`.
+    private func localContentState(account: InstanceAccount?, forceStale: Bool) async -> CalendarWidgetState? {
+        guard let snapshot = await localSnapshotProvider.loadSnapshot(accountID: account?.id) else {
+            return nil
+        }
+        let projectsByID = Dictionary(
+            uniqueKeysWithValues: snapshot.projects.compactMap { project in
+                project.id.remoteValue.map { ($0, project) }
+            },
+        )
+        let month = CalendarMonth(containing: now(), tasks: snapshot.tasks, now: now())
+        var content = CalendarWidgetContent.make(
+            month: month,
+            projectsByID: projectsByID,
+            accountName: account?.displayName ?? "",
+            now: now(),
+            taskLimit: taskLimit,
+        )
+        let age = now().timeIntervalSince(snapshot.lastPulledAt ?? now())
+        content.isStale = forceStale || age > VikuWidgetConfig.refreshInterval * 2
+        return .content(content)
     }
 }

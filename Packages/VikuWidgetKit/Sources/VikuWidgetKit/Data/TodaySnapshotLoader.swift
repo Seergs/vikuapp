@@ -4,15 +4,15 @@ import VikunjaCore
 /// Produces the Today widget's `TodayWidgetState` for one timeline refresh:
 /// resolves the active account, pulls every project's tasks concurrently
 /// (dropping a project whose fetch fails, exactly like `TodayViewModel`),
-/// buckets them via `TodayDigest`, caches the result, and falls back to the
-/// cached snapshot when the network fails.
+/// buckets them via `TodayDigest`, and falls back to the app's shared offline
+/// database when the network or credentials are unavailable.
 ///
 /// Takes its dependencies as `VikunjaCore` protocols so it can be tested with
 /// fakes; `VikuWidgetEnvironment` wires the real ones.
 public struct TodaySnapshotLoader: Sendable {
     private let accountStore: AccountStoreProtocol
     private let clientFactory: InstanceClientFactoryProtocol
-    private let cache: TodaySnapshotCache
+    private let localSnapshotProvider: any WidgetLocalTaskSnapshotProviding
     private let taskLimit: Int
     private let now: @Sendable () -> Date
     /// Resolves a currently-valid bearer credential for `account`. Defaults
@@ -24,14 +24,14 @@ public struct TodaySnapshotLoader: Sendable {
     public init(
         accountStore: AccountStoreProtocol,
         clientFactory: InstanceClientFactoryProtocol,
-        cache: TodaySnapshotCache,
+        localSnapshotProvider: any WidgetLocalTaskSnapshotProviding,
         taskLimit: Int = VikuWidgetConfig.taskLimit,
         now: @escaping @Sendable () -> Date = { Date() },
         tokenResolver: (@Sendable (InstanceAccount) async throws -> String?)? = nil,
     ) {
         self.accountStore = accountStore
         self.clientFactory = clientFactory
-        self.cache = cache
+        self.localSnapshotProvider = localSnapshotProvider
         self.taskLimit = taskLimit
         self.now = now
         self.tokenResolver = tokenResolver ?? { try? await accountStore.token(forAccountID: $0.id) }
@@ -42,19 +42,19 @@ public struct TodaySnapshotLoader: Sendable {
         var token: String?
         if let account {
             // A `.sessionExpired` refresh failure has nothing more useful to
-            // do here than fall back to the cache below — the widget can't
-            // present a "sign in again" prompt of its own.
+            // do here than fall back to the local store below — the widget
+            // can't present a "sign in again" prompt of its own.
             token = try? await tokenResolver(account)
         }
 
         guard let account, let token, !token.isEmpty else {
             // The widget process can't reach the credentials — keychain
             // sharing isn't in effect on this OS/provisioning (notably the
-            // iOS Simulator). Render whatever the app last wrote to the
-            // shared App Group cache; only fall through to a bare state when
-            // there's nothing cached at all.
-            if let cached = cachedContentState(forceStale: false) {
-                return cached
+            // iOS Simulator). Render whatever the app last synced into the
+            // shared offline database; only fall through to a bare state when
+            // there's nothing stored at all.
+            if let local = await localContentState(account: account, forceStale: false) {
+                return local
             }
             return account == nil ? .notConnected : .needsAuth
         }
@@ -81,23 +81,44 @@ public struct TodaySnapshotLoader: Sendable {
                 now: now(),
                 taskLimit: taskLimit,
             )
-            cache.write(content)
             return .content(content)
         } catch VikunjaError.unauthorized {
             return .needsAuth
         } catch {
-            return cachedContentState(forceStale: true) ?? .unavailable
+            return await localContentState(account: account, forceStale: true) ?? .unavailable
         }
     }
 
-    /// The last snapshot the widget or the app wrote to the shared cache.
-    /// `forceStale` marks it stale unconditionally (a refresh was just
-    /// attempted and failed); otherwise the badge only shows once the cache
-    /// is meaningfully old.
-    private func cachedContentState(forceStale: Bool) -> TodayWidgetState? {
-        guard var cached = cache.read() else { return nil }
-        let age = now().timeIntervalSince(cached.generatedAt)
-        cached.isStale = forceStale || age > VikuWidgetConfig.refreshInterval * 2
-        return .content(cached)
+    /// Reads the local fallback without attempting a network refresh, used by
+    /// the app to seed the icon badge before a background refresh completes.
+    public func loadLocalState() async -> TodayWidgetState? {
+        let account = try? await accountStore.activeAccount()
+        return await localContentState(account: account, forceStale: false)
+    }
+
+    /// The app's last synced tasks and projects for this account. `forceStale`
+    /// marks the fallback stale unconditionally (a refresh was just attempted
+    /// and failed); otherwise the badge only shows once the local data is
+    /// meaningfully old.
+    private func localContentState(account: InstanceAccount?, forceStale: Bool) async -> TodayWidgetState? {
+        guard let snapshot = await localSnapshotProvider.loadSnapshot(accountID: account?.id) else {
+            return nil
+        }
+        let projectsByID = Dictionary(
+            uniqueKeysWithValues: snapshot.projects.compactMap { project in
+                project.id.remoteValue.map { ($0, project) }
+            },
+        )
+        let digest = TodayDigest(tasks: snapshot.tasks, now: now())
+        var content = TodayWidgetContent.make(
+            digest: digest,
+            projectsByID: projectsByID,
+            accountName: account?.displayName ?? "",
+            now: now(),
+            taskLimit: taskLimit,
+        )
+        let age = now().timeIntervalSince(snapshot.lastPulledAt ?? now())
+        content.isStale = forceStale || age > VikuWidgetConfig.refreshInterval * 2
+        return .content(content)
     }
 }

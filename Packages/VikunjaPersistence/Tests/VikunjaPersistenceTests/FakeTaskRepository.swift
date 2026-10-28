@@ -4,6 +4,9 @@ import VikunjaCore
 final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     var tasks: [VikunjaTask] = []
     var fetchError: Error?
+    /// Lets a test fail one project's fetch while another project's still
+    /// succeeds, mirroring one endpoint erroring mid-`pullTasks()`.
+    var fetchErrorsByProjectID: [Int: Error] = [:]
     var createError: Error?
     var updateError: Error?
     var deleteError: Error?
@@ -18,6 +21,9 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
         fetchTasksCallCount += 1
         if let fetchError {
             throw fetchError
+        }
+        if let remoteID = projectID.remoteValue, let error = fetchErrorsByProjectID[remoteID] {
+            throw error
         }
         return tasks.filter { $0.projectID == projectID }
     }

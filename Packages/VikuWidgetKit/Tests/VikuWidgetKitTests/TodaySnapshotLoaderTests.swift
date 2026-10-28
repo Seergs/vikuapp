@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 import VikunjaCore
+import VikunjaPersistence
 @testable import VikuWidgetKit
 
 struct TodaySnapshotLoaderTests {
@@ -23,8 +24,8 @@ struct TodaySnapshotLoaderTests {
         tasks: [VikunjaTask] = [],
         failingProjectIDs: Set<Int> = [],
         projectsError: VikunjaError? = nil,
-        cacheDirectory: URL? = nil,
-    ) -> (TodaySnapshotLoader, TodaySnapshotCache) {
+        localSnapshot: LocalTaskSnapshot? = nil,
+    ) -> (TodaySnapshotLoader, FakeLocalTaskSnapshotProvider) {
         let store = FakeAccountStore(account: account, token: token)
         let projectRepo = FakeProjectRepository()
         projectRepo.projects = projects
@@ -32,14 +33,22 @@ struct TodaySnapshotLoaderTests {
         let taskRepo = FakeTaskRepository()
         taskRepo.tasks = tasks
         taskRepo.failingProjectIDs = failingProjectIDs
-        let cache = TodaySnapshotCache(directory: cacheDirectory ?? TestSupport.tempCacheDirectory())
+        let snapshotProvider = FakeLocalTaskSnapshotProvider(snapshot: localSnapshot)
         let loader = TodaySnapshotLoader(
             accountStore: store,
             clientFactory: FakeClientFactory(projectRepository: projectRepo, taskRepository: taskRepo),
-            cache: cache,
+            localSnapshotProvider: snapshotProvider,
             now: { Self.now },
         )
-        return (loader, cache)
+        return (loader, snapshotProvider)
+    }
+
+    private func localSnapshot(
+        projects: [Project] = [],
+        tasks: [VikunjaTask] = [],
+        lastPulledAt: Date? = TodaySnapshotLoaderTests.now,
+    ) -> LocalTaskSnapshot {
+        LocalTaskSnapshot(tasks: tasks, projects: projects, lastPulledAt: lastPulledAt)
     }
 
     @Test
@@ -109,47 +118,23 @@ struct TodaySnapshotLoaderTests {
     }
 
     @Test
-    func `writes the snapshot to the cache on success`() async {
-        let directory = TestSupport.tempCacheDirectory()
-        let (loader, cache) = makeLoader(
-            projects: [Project(id: 1, title: "Work")],
-            tasks: [VikunjaTask(id: 10, title: "T", dueDate: Self.laterToday, projectID: 1)],
-            cacheDirectory: directory,
-        )
-
-        _ = await loader.loadState()
-
-        #expect(cache.read()?.tasks.map(\.id) == [10])
-    }
-
-    @Test
-    func `falls back to A cached stale snapshot when the refresh fails`() async {
-        let directory = TestSupport.tempCacheDirectory()
-        // Seed the cache with a good snapshot.
-        let (goodLoader, cache) = makeLoader(
+    func `falls back to the local snapshot when the refresh fails`() async {
+        let snapshot = localSnapshot(
             projects: [Project(id: 1, title: "Work")],
             tasks: [VikunjaTask(id: 10, title: "Cached", dueDate: Self.laterToday, projectID: 1)],
-            cacheDirectory: directory,
         )
-        _ = await goodLoader.loadState()
+        let (loader, _) = makeLoader(projectsError: .network("offline"), localSnapshot: snapshot)
 
-        // Now a loader whose project fetch fails, sharing the same cache dir.
-        let (failingLoader, _) = makeLoader(
-            projectsError: .network("offline"),
-            cacheDirectory: directory,
-        )
-
-        guard case let .content(content) = await failingLoader.loadState() else {
+        guard case let .content(content) = await loader.loadState() else {
             Issue.record("expected stale content")
             return
         }
         #expect(content.isStale)
         #expect(content.tasks.map(\.id) == [10])
-        _ = cache
     }
 
     @Test
-    func `reports unavailable when the refresh fails and nothing is cached`() async {
+    func `reports unavailable when the refresh fails and nothing is stored locally`() async {
         let (loader, _) = makeLoader(projectsError: .network("offline"))
 
         #expect(await loader.loadState() == .unavailable)
@@ -163,33 +148,41 @@ struct TodaySnapshotLoaderTests {
     }
 
     @Test
-    func `reports needs auth when there is no token and no cache`() async {
+    func `reports needs auth when there is no token and no local snapshot`() async {
         let (loader, _) = makeLoader(token: nil)
 
         #expect(await loader.loadState() == .needsAuth)
     }
 
     @Test
-    func `renders the app written cache when the widget cannot reach credentials`() async {
-        let directory = TestSupport.tempCacheDirectory()
-        // The app seeds the cache (it has working credentials)...
-        let (appLoader, _) = makeLoader(
+    func `renders the local snapshot when the widget cannot reach credentials`() async {
+        let snapshot = localSnapshot(
             projects: [Project(id: 1, title: "Work")],
             tasks: [VikunjaTask(id: 10, title: "From the app", dueDate: Self.laterToday, projectID: 1)],
-            cacheDirectory: directory,
         )
-        _ = await appLoader.loadState()
+        let (loader, _) = makeLoader(token: nil, localSnapshot: snapshot)
 
-        // ...then the widget runs with no token (keychain sharing off) and
-        // must still show that data rather than "not connected" / "needs auth".
-        let (widgetLoader, _) = makeLoader(token: nil, cacheDirectory: directory)
-
-        guard case let .content(content) = await widgetLoader.loadState() else {
-            Issue.record("expected cached content")
+        guard case let .content(content) = await loader.loadState() else {
+            Issue.record("expected local content")
             return
         }
         #expect(content.tasks.map(\.id) == [10])
         #expect(content.isStale == false)
+    }
+
+    @Test
+    func `renders the local snapshot when there is no active account`() async {
+        let snapshot = localSnapshot(
+            projects: [Project(id: 1, title: "Work")],
+            tasks: [VikunjaTask(id: 10, title: "From the app", dueDate: Self.laterToday, projectID: 1)],
+        )
+        let (loader, _) = makeLoader(account: nil, token: nil, localSnapshot: snapshot)
+
+        guard case let .content(content) = await loader.loadState() else {
+            Issue.record("expected local content")
+            return
+        }
+        #expect(content.tasks.map(\.id) == [10])
     }
 
     @Test

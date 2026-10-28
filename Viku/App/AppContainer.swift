@@ -213,9 +213,9 @@ final class AppContainer {
     }
 
     /// Opens the shared offline database, preferring the App Group
-    /// container (so a widget extension could eventually read it too) and
-    /// falling back to this app's own Application Support directory when
-    /// that container isn't available.
+    /// container (so the widget extensions read the same data as their
+    /// fallback) and falling back to this app's own Application Support
+    /// directory when that container isn't available.
     private static func makeLocalStore() -> LocalStore {
         if let store = try? LocalStore(appGroupIdentifier: VikuWidgetConfig.appGroupIdentifier) {
             return store
@@ -261,36 +261,35 @@ final class AppContainer {
     }
 
     /// Fetches the Today and Calendar data with the app's own (always-working)
-    /// account store and writes them to the shared App Group caches, then
-    /// reloads every widget. This is what makes the widgets work even where
-    /// keychain sharing with the extension doesn't (the iOS Simulator, an
-    /// un-provisioned build): they render these caches when they can't
-    /// authenticate themselves. Call on launch and whenever the app backgrounds.
+    /// account store, then reloads every widget. The widgets read the same
+    /// shared offline database as their fallback, so this only keeps the icon
+    /// badge and timeline reload prompt when the app backgrounds. Call on
+    /// launch and whenever the app backgrounds.
     func refreshWidgetSnapshots() async {
         let sessionRefresher = sessionRefresher
         let resolver: @Sendable (InstanceAccount) async throws -> String? = {
             try await sessionRefresher.validToken(for: $0)
         }
-        let todayCache = TodaySnapshotCache(appGroupIdentifier: VikuWidgetConfig.appGroupIdentifier)
-        // Apply the last known count right away: `read()` is a local disk
-        // read with no network, so the icon reflects *something* current
-        // even if the live fetch below never gets to finish (e.g. the app
-        // gets suspended mid-fetch right after entering the background).
-        if let cachedContent = todayCache.read() {
-            await appIconBadgeCenter.updateBadge(from: .content(cachedContent))
-        }
+        let localSnapshotProvider = LocalStoreWidgetSnapshotProvider(localStore: localStore)
         let todayLoader = TodaySnapshotLoader(
             accountStore: accountStore,
             clientFactory: clientFactory,
-            cache: todayCache,
+            localSnapshotProvider: localSnapshotProvider,
             tokenResolver: resolver,
         )
         let calendarLoader = CalendarSnapshotLoader(
             accountStore: accountStore,
             clientFactory: clientFactory,
-            cache: CalendarSnapshotCache(appGroupIdentifier: VikuWidgetConfig.appGroupIdentifier),
+            localSnapshotProvider: localSnapshotProvider,
             tokenResolver: resolver,
         )
+        // Apply the last synced count right away: the local database read has
+        // no network, so the icon reflects *something* current even if the
+        // live fetch below never gets to finish (e.g. the app gets suspended
+        // mid-fetch right after entering the background).
+        if let localState = await todayLoader.loadLocalState() {
+            await appIconBadgeCenter.updateBadge(from: localState)
+        }
         let todayState = await todayLoader.loadState()
         _ = await calendarLoader.loadState()
         WidgetCenter.shared.reloadAllTimelines()

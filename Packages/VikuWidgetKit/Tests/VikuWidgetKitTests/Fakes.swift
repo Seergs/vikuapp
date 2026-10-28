@@ -1,5 +1,7 @@
 import Foundation
 import VikunjaCore
+import VikunjaPersistence
+@testable import VikuWidgetKit
 
 /// Minimal in-memory `AccountStoreProtocol`. Only the reads the loader/intent
 /// use are meaningful; the mutating calls are enough to set up a test.
@@ -64,6 +66,14 @@ actor FakeAccountStore: AccountStoreProtocol {
 
     func clearToken(for id: UUID) {
         tokens[id] = nil
+    }
+}
+
+struct FakeLocalTaskSnapshotProvider: WidgetLocalTaskSnapshotProviding {
+    var snapshot: LocalTaskSnapshot?
+
+    func loadSnapshot(accountID _: UUID?) async -> LocalTaskSnapshot? {
+        snapshot
     }
 }
 
@@ -211,12 +221,5 @@ struct FakeClientFactory: InstanceClientFactoryProtocol {
 enum TestSupport {
     static func account() -> InstanceAccount {
         InstanceAccount(displayName: "Home", baseURL: URL(string: "https://tasks.example.com")!)
-    }
-
-    static func tempCacheDirectory() -> URL {
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("viku-widget-tests-\(UUID().uuidString)", isDirectory: true)
-        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        return url
     }
 }

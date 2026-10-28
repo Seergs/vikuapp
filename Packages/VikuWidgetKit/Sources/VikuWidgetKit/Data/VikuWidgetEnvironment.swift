@@ -2,12 +2,17 @@ import Foundation
 import VikuAuth
 import VikunjaCore
 import VikunjaNetworking
+import VikunjaPersistence
 
-/// Builds the concrete `VikuAuth`/`VikunjaNetworking` types the widget
-/// runs against — the widget's equivalent of the app target's `AppContainer`.
-/// The extension is not a `Features/*` module, so importing the networking and
-/// auth layers here is allowed.
+/// Builds the concrete `VikuAuth`/`VikunjaNetworking`/`VikunjaPersistence`
+/// types the widget runs against — the widget's equivalent of the app target's
+/// `AppContainer`. The extension is not a `Features/*` module, so importing the
+/// networking, auth, and persistence layers here is allowed.
 public enum VikuWidgetEnvironment {
+    private static let sharedLocalStore = try? LocalStore(
+        appGroupIdentifier: VikuWidgetConfig.appGroupIdentifier,
+    )
+
     public static func makeAccountStore() -> KeychainAccountStore {
         KeychainAccountStore(
             service: VikuWidgetConfig.accountStoreService,
@@ -15,12 +20,13 @@ public enum VikuWidgetEnvironment {
         )
     }
 
-    public static func makeSnapshotCache() -> TodaySnapshotCache {
-        TodaySnapshotCache(appGroupIdentifier: VikuWidgetConfig.appGroupIdentifier)
-    }
-
-    public static func makeCalendarSnapshotCache() -> CalendarSnapshotCache {
-        CalendarSnapshotCache(appGroupIdentifier: VikuWidgetConfig.appGroupIdentifier)
+    /// Reads the app's shared offline database without touching the network.
+    /// Returns a no-op provider when the App Group container is unavailable.
+    public static func makeLocalSnapshotProvider() -> any WidgetLocalTaskSnapshotProviding {
+        guard let sharedLocalStore else {
+            return UnavailableLocalTaskSnapshotProvider()
+        }
+        return LocalStoreWidgetSnapshotProvider(localStore: sharedLocalStore)
     }
 
     /// Refreshes a password account's JWT before it expires — shared by both
@@ -35,7 +41,7 @@ public enum VikuWidgetEnvironment {
         return TodaySnapshotLoader(
             accountStore: makeAccountStore(),
             clientFactory: VikunjaInstanceClientFactory(),
-            cache: makeSnapshotCache(),
+            localSnapshotProvider: makeLocalSnapshotProvider(),
             tokenResolver: { try await sessionRefresher.validToken(for: $0) },
         )
     }
@@ -45,7 +51,7 @@ public enum VikuWidgetEnvironment {
         return CalendarSnapshotLoader(
             accountStore: makeAccountStore(),
             clientFactory: VikunjaInstanceClientFactory(),
-            cache: makeCalendarSnapshotCache(),
+            localSnapshotProvider: makeLocalSnapshotProvider(),
             tokenResolver: { try await sessionRefresher.validToken(for: $0) },
         )
     }
@@ -58,5 +64,11 @@ public enum VikuWidgetEnvironment {
         guard let token, !token.isEmpty else { return nil }
 
         return VikunjaInstanceClientFactory().makeTaskRepository(baseURL: account.baseURL) { token }
+    }
+}
+
+private struct UnavailableLocalTaskSnapshotProvider: WidgetLocalTaskSnapshotProviding {
+    func loadSnapshot(accountID _: UUID?) async -> LocalTaskSnapshot? {
+        nil
     }
 }

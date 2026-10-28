@@ -13,13 +13,20 @@ let package = Package(
         .package(path: "../VikuAuth"),
         .package(path: "../VikuDesignSystem"),
         .package(path: "../VikuNavigation"),
+        .package(path: "../VikunjaPersistence"),
     ],
     targets: [
         .target(
             name: "VikuWidgetKit",
-            dependencies: ["VikunjaCore", "VikunjaNetworking", "VikuAuth", "VikuDesignSystem", "VikuNavigation"],
+            dependencies: [
+                "VikunjaCore", "VikunjaNetworking", "VikuAuth", "VikuDesignSystem", "VikuNavigation",
+                "VikunjaPersistence",
+            ],
             resources: [.process("Resources")],
         ),
-        .testTarget(name: "VikuWidgetKitTests", dependencies: ["VikuWidgetKit"]),
+        .testTarget(
+            name: "VikuWidgetKitTests",
+            dependencies: ["VikuWidgetKit", "VikunjaPersistence"],
+        ),
     ],
 )
