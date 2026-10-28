@@ -11,6 +11,9 @@ public actor SyncEngine {
     private let labelRepository: LabelRepositoryProtocol
     private let taskRepository: TaskRepositoryProtocol
     private let relationRepository: TaskRelationRepositoryProtocol
+    /// `nil` in tests/constructions that never touch comments. Every real
+    /// `SyncEngine` built by the app or `SyncCoordinator` passes one.
+    private let commentRepository: TaskCommentRepositoryProtocol?
     /// `InstanceAccount.id` — every row this engine reads or writes is
     /// scoped to this one account, since `LocalStore`'s tables hold every
     /// saved account's data together rather than one database file each.
@@ -22,6 +25,7 @@ public actor SyncEngine {
         labelRepository: LabelRepositoryProtocol,
         taskRepository: TaskRepositoryProtocol,
         relationRepository: TaskRelationRepositoryProtocol,
+        commentRepository: TaskCommentRepositoryProtocol? = nil,
         accountID: UUID,
     ) {
         self.localStore = localStore
@@ -29,6 +33,7 @@ public actor SyncEngine {
         self.labelRepository = labelRepository
         self.taskRepository = taskRepository
         self.relationRepository = relationRepository
+        self.commentRepository = commentRepository
         self.accountID = accountID
     }
 
@@ -349,6 +354,87 @@ public actor SyncEngine {
         }
     }
 
+    /// Refreshes one task's cached comment thread from the server. Called
+    /// on demand by `OfflineTaskCommentRepository.fetchComments` rather than
+    /// from `SyncCoordinator`'s periodic pass: comments are a per-task
+    /// resource, and pulling every cached task's thread would turn one sync
+    /// into tens or hundreds of requests.
+    ///
+    /// A pending local create (no remote id yet) is never removed by a pull,
+    /// and a comment with a queued update keeps its local text instead of
+    /// being overwritten by the server's older copy. A queued delete already
+    /// removed the local row, so its remote id is skipped on the way in to
+    /// stop the pull resurrecting it before the delete drains.
+    public func pullComments(taskID: EntityID) async throws {
+        guard let commentRepository else { return }
+        let taskRow = try await localStore.read { db in
+            let rows = try TaskRecord.fetchAll(db).filter { $0.accountID == self.accountID }
+            switch taskID {
+            case let .local(localID): return rows.first { $0.localID == localID }
+            case let .remote(remoteID): return rows.first { $0.remoteID == remoteID }
+            }
+        }
+        guard let taskRow, let taskRemoteID = taskRow.remoteID else { return }
+
+        let remoteComments = try await commentRepository.fetchComments(taskID: .remote(taskRemoteID))
+        let fetchedRemoteIDs = Set(remoteComments.compactMap(\.id.remoteValue))
+
+        try await localStore.write { db in
+            let localRows = try TaskCommentRecord.fetchAll(db)
+                .filter { $0.accountID == self.accountID && $0.taskLocalID == taskRow.localID }
+            let pendingItems = try MutationQueueRecord.fetchAll(db).filter {
+                $0.accountID == self.accountID && $0.entityType == .comment
+                    && ($0.status == .pending || $0.status == .failed)
+            }
+            let protectedLocalIDs = Set(pendingItems.map(\.targetLocalID))
+            let hiddenRemoteIDs = Set(
+                pendingItems.compactMap { item -> Int? in
+                    guard item.operation == .delete else { return nil }
+                    return (try? Self.decode(TaskCommentDeletePayload.self, from: item.payload))?.remoteID
+                },
+            )
+            var localIDByRemoteID: [Int: UUID] = Dictionary(
+                uniqueKeysWithValues: localRows.compactMap { row in row.remoteID.map { ($0, row.localID) } },
+            )
+
+            for comment in remoteComments {
+                guard let remoteID = comment.id.remoteValue, !hiddenRemoteIDs.contains(remoteID) else { continue }
+                let localID = localIDByRemoteID[remoteID] ?? UUID()
+                localIDByRemoteID[remoteID] = localID
+                if protectedLocalIDs.contains(localID) {
+                    continue
+                }
+                try Self.saveComment(
+                    comment, localID: localID, accountID: self.accountID, taskLocalID: taskRow.localID, db: db,
+                )
+            }
+
+            for row in localRows {
+                guard let remoteID = row.remoteID, !fetchedRemoteIDs.contains(remoteID) else { continue }
+                guard !protectedLocalIDs.contains(row.localID), !hiddenRemoteIDs.contains(remoteID) else { continue }
+                try row.delete(db)
+            }
+        }
+    }
+
+    private static func saveComment(
+        _ comment: TaskComment, localID: UUID, accountID: UUID, taskLocalID: UUID, db: Database,
+    ) throws {
+        try TaskCommentRecord(
+            localID: localID,
+            accountID: accountID,
+            remoteID: comment.id.remoteValue,
+            taskLocalID: taskLocalID,
+            comment: comment.comment,
+            authorID: comment.author.id,
+            authorUsername: comment.author.username,
+            authorName: comment.author.name,
+            authorEmail: comment.author.email,
+            created: comment.created,
+            updated: comment.updated,
+        ).save(db)
+    }
+
     private static func reserveTaskLocalIDs(for remoteTasks: [VikunjaTask], existing localRows: [TaskRecord]) -> [Int: UUID] {
         var localIDByRemoteID: [Int: UUID] = Dictionary(
             uniqueKeysWithValues: localRows.compactMap { row in row.remoteID.map { ($0, row.localID) } },
@@ -446,6 +532,22 @@ public actor SyncEngine {
         for row in localRows {
             guard let remoteID = row.remoteID, !stillPresentRemoteIDs.contains(remoteID) else { continue }
             guard !protectedLocalIDs.contains(row.localID) else { continue }
+            // The task's comment rows go with it via the FK cascade, so any
+            // comment mutation still queued for one of them can never be
+            // addressed again — drop it here instead of leaving it to defer
+            // forever.
+            let commentLocalIDs = try Set(
+                TaskCommentRecord.fetchAll(db)
+                    .filter { $0.accountID == row.accountID && $0.taskLocalID == row.localID }
+                    .map(\.localID),
+            )
+            try MutationQueueRecord.fetchAll(db)
+                .filter {
+                    $0.accountID == row.accountID && $0.entityType == .comment
+                        && commentLocalIDs.contains($0.targetLocalID)
+                        && ($0.status == .pending || $0.status == .failed)
+                }
+                .forEach { try $0.delete(db) }
             try row.delete(db)
         }
     }
@@ -748,6 +850,130 @@ public actor SyncEngine {
         }
     }
 
+    // MARK: - Draining comment mutations
+
+    /// Replays every queued comment create/update/delete, oldest first. Same
+    /// `.failed`-items-retry and one-failure-doesn't-stop-the-rest behavior
+    /// as every other drain. A create queued against a task that hasn't
+    /// synced yet is deferred until a later pass, exactly like a task
+    /// referencing an unsynced project.
+    public func drainCommentMutations() async throws {
+        guard let commentRepository else { return }
+        let items = try await localStore.read { db in
+            try MutationQueueRecord.fetchAll(db)
+                .filter {
+                    $0.accountID == self.accountID && $0.entityType == .comment
+                        && ($0.status == .pending || $0.status == .failed) && !$0.needsConflictResolution
+                }
+                .sorted { $0.createdAt < $1.createdAt }
+        }
+        for item in items {
+            _ = await drainComment(item, repository: commentRepository)
+        }
+    }
+
+    private func drainComment(
+        _ item: MutationQueueRecord, repository: TaskCommentRepositoryProtocol,
+    ) async -> DrainOutcome {
+        do {
+            switch item.operation {
+            case .create: return try await drainCommentCreate(item, repository: repository)
+            case .update: return try await drainCommentUpdate(item, repository: repository)
+            case .delete: return try await drainCommentDelete(item, repository: repository)
+            case .addLabel, .removeLabel, .addRelation, .removeRelation:
+                // Comment rows only ever queue create/update/delete.
+                return .skipped
+            }
+        } catch {
+            await markFailed(item, error: error)
+            return .skipped
+        }
+    }
+
+    private func drainCommentCreate(
+        _ item: MutationQueueRecord, repository: TaskCommentRepositoryProtocol,
+    ) async throws -> DrainOutcome {
+        guard let payload: TaskCommentCreatePayload = try decodePayload(item.payload) else {
+            throw DrainError.invalidPayload
+        }
+        let taskRemoteID = try await localStore.read { db in
+            try TaskRecord.fetchOne(db, key: payload.taskLocalID)?.remoteID
+        }
+        guard let taskRemoteID else {
+            return .deferred // The task hasn't synced yet — retry this item on a later pass.
+        }
+        let created = try await repository.addComment(payload.text, toTask: .remote(taskRemoteID))
+        try await applyCommentPushResult(created, deleting: item)
+        return .pushed
+    }
+
+    private func drainCommentUpdate(
+        _ item: MutationQueueRecord, repository: TaskCommentRepositoryProtocol,
+    ) async throws -> DrainOutcome {
+        guard let payload: TaskCommentUpdatePayload = try decodePayload(item.payload) else {
+            throw DrainError.invalidPayload
+        }
+        let (taskRemoteID, commentRemoteID) = try await localStore.read { db in
+            let taskRemoteID = try TaskRecord.fetchOne(db, key: payload.taskLocalID)?.remoteID
+            let commentRemoteID = try TaskCommentRecord.fetchOne(db, key: item.targetLocalID)?.remoteID
+            return (taskRemoteID, commentRemoteID)
+        }
+        guard let taskRemoteID, let commentRemoteID else {
+            return .deferred // The task or comment hasn't synced yet.
+        }
+        let updated = try await repository.updateComment(
+            .remote(commentRemoteID), text: payload.text, onTask: .remote(taskRemoteID),
+        )
+        try await applyCommentPushResult(updated, deleting: item)
+        return .pushed
+    }
+
+    private func drainCommentDelete(
+        _ item: MutationQueueRecord, repository: TaskCommentRepositoryProtocol,
+    ) async throws -> DrainOutcome {
+        guard let payload: TaskCommentDeletePayload = try decodePayload(item.payload) else {
+            throw DrainError.invalidPayload
+        }
+        let taskRemoteID = try await localStore.read { db in
+            try TaskRecord.fetchOne(db, key: payload.taskLocalID)?.remoteID
+        }
+        guard let taskRemoteID else {
+            return .deferred // The task hasn't synced yet.
+        }
+        try await repository.deleteComment(.remote(payload.remoteID), fromTask: .remote(taskRemoteID))
+        try await localStore.write { db in
+            if let row = try TaskCommentRecord.fetchOne(db, key: item.targetLocalID) {
+                try row.delete(db)
+            }
+            try item.delete(db)
+        }
+        return .pushed
+    }
+
+    private func applyCommentPushResult(
+        _ comment: TaskComment, deleting item: MutationQueueRecord,
+    ) async throws {
+        guard let remoteID = comment.id.remoteValue else {
+            preconditionFailure("SyncEngine: a pushed comment create/update's response must carry a resolved remote id")
+        }
+        try await localStore.write { db in
+            guard var row = try TaskCommentRecord.fetchOne(db, key: item.targetLocalID) else {
+                try item.delete(db)
+                return
+            }
+            row.remoteID = remoteID
+            row.comment = comment.comment
+            row.authorID = comment.author.id
+            row.authorUsername = comment.author.username
+            row.authorName = comment.author.name
+            row.authorEmail = comment.author.email
+            row.created = comment.created
+            row.updated = comment.updated
+            try row.save(db)
+            try item.delete(db)
+        }
+    }
+
     private func drainTaskCreate(_ item: MutationQueueRecord) async throws -> DrainOutcome {
         guard let payload: TaskCreateOrUpdatePayload = try decodePayload(item.payload) else {
             throw DrainError.invalidPayload
@@ -1032,9 +1258,13 @@ public actor SyncEngine {
     }
 
     private func decodePayload<T: Decodable>(_ payload: String?) throws -> T? {
+        try Self.decode(T.self, from: payload)
+    }
+
+    private static func decode<T: Decodable>(_ type: T.Type, from payload: String?) throws -> T? {
         guard let payload, let data = payload.data(using: .utf8) else { return nil }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        return try decoder.decode(T.self, from: data)
+        return try decoder.decode(type, from: data)
     }
 }

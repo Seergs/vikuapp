@@ -103,18 +103,17 @@ public final class TaskDetailViewModel {
     /// with stale data — the edit looks like it didn't stick until the
     /// screen is reopened, even though the server already has it.
     /// `task.id` as a resolved server id, or `nil` for a task created
-    /// offline that hasn't synced yet. None of the sub-resources below
-    /// (labels, relations, comments, attachments) can exist server-side
-    /// before the task itself does, and all of them stay online-only until
-    /// their own slice ships (Slice 4) regardless, so `nil` here means
-    /// "not possible yet" rather than a bug to crash on.
+    /// offline that hasn't synced yet. Attachments still need a server id
+    /// (they stay online-only), but labels, relations, and comments are
+    /// local-first and take `task.id` (`EntityID`) directly, so they work
+    /// for an unsynced task too.
     private var taskID: Int? {
         task.id.remoteValue
     }
 
-    /// Shared early-exit for every sub-resource write below: surfaces the
-    /// same "not possible yet" toast rather than silently doing nothing or
-    /// crashing on the missing id.
+    /// Early-exit for the attachment writes below, which still need a real
+    /// server id: surfaces the "not possible yet" toast rather than silently
+    /// doing nothing or crashing on the missing id.
     private func requireSyncedTaskID() -> Int? {
         guard let taskID else {
             toastPresenter.show(String(localized: "This task hasn't synced yet", bundle: .module), style: .error)
@@ -512,20 +511,13 @@ public final class TaskDetailViewModel {
     /// lazy load — comments are always-visible content on this screen, not a
     /// picker's suggestions, so a failure here is worth showing.
     public func loadComments() async {
-        // A task that hasn't synced yet genuinely has no comments on the
-        // server - not an error, just nothing to show until it does.
-        guard let taskID else {
-            comments = []
-            commentsLoadState = .loaded
-            return
-        }
         commentsWriteToken += 1
         let token = commentsWriteToken
         if commentsLoadState != .loaded {
             commentsLoadState = .loading
         }
         do {
-            let fetched = try await commentRepository.fetchComments(taskID: taskID)
+            let fetched = try await commentRepository.fetchComments(taskID: task.id)
             guard token == commentsWriteToken else { return }
             comments = fetched
             commentsLoadState = .loaded
@@ -663,16 +655,17 @@ public final class TaskDetailViewModel {
         toastPresenter.show(String(localized: "Couldn't read that file", bundle: .module), style: .error)
     }
 
-    /// Posts a new comment and appends the server's response (its real id,
-    /// author, and timestamps) to `comments`. No optimistic append — unlike
-    /// `toggleDone()`/`toggleLabel(_:)`, there's no local placeholder worth
-    /// showing before the server assigns those fields.
+    /// Posts a new comment and appends it to `comments`. The local-first
+    /// repository returns the already-committed local row immediately (with
+    /// a local id and the cached current user as author), so this appends
+    /// straight away; the queued create later rewrites it with the server's
+    /// id/author/timestamps.
     public func addComment(_ text: String) async {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, let taskID = requireSyncedTaskID() else { return }
+        guard !trimmed.isEmpty else { return }
         commentsWriteToken += 1
         do {
-            let created = try await commentRepository.addComment(trimmed, toTask: taskID)
+            let created = try await commentRepository.addComment(trimmed, toTask: task.id)
             // Bumping the token above means a slower, already in-flight
             // `loadComments()` will drop its (now stale) response instead of
             // overwriting `comments` and erasing this one. Guard the append
@@ -687,18 +680,18 @@ public final class TaskDetailViewModel {
     }
 
     /// Replaces `comment`'s body with `newText`, restoring the whole list if
-    /// the server rejects the update — mirrors `deleteComment(_:)`. Unlike a
-    /// toggle there's no local placeholder worth showing first: the server
-    /// assigns the new `updated` timestamp, so `comments` is only touched once
-    /// its response is back (same reasoning as `addComment(_:)`). No-ops on
+    /// the local write fails — mirrors `deleteComment(_:)`. The local-first
+    /// repository commits the edit immediately (and coalesces it into a
+    /// still-pending create when the comment hasn't synced yet), so the
+    /// returned `TaskComment` replaces the row in `comments`. No-ops on
     /// blank text or an unknown comment id.
     public func editComment(_ comment: TaskComment, newText: String) async {
         let trimmed = newText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        guard comments.contains(where: { $0.id == comment.id }), let taskID = requireSyncedTaskID() else { return }
+        guard comments.contains(where: { $0.id == comment.id }) else { return }
         commentsWriteToken += 1
         do {
-            let updated = try await commentRepository.updateComment(comment.id, text: trimmed, onTask: taskID)
+            let updated = try await commentRepository.updateComment(comment.id, text: trimmed, onTask: task.id)
             // Re-resolve the index instead of reusing the one captured
             // before the `await`: a concurrent `loadComments()` or
             // `deleteComment(_:)` landing in between could have reshuffled
@@ -712,18 +705,19 @@ public final class TaskDetailViewModel {
     }
 
     /// Deletes `comment` from the task, optimistically removing it from
-    /// `comments` and restoring the whole list if the server rejects the
-    /// delete — mirrors `removeRelation(_:kind:)`. No author check: whether
-    /// the current user is allowed to delete this comment is the server's
-    /// call, and a rejection just rolls back with a toast.
+    /// `comments` and restoring the whole list if the local write fails —
+    /// mirrors `removeRelation(_:kind:)`. When online, the queued delete
+    /// drains immediately; a server rejection surfaces through the sync
+    /// engine's retry/failure state rather than rolling this list back. No
+    /// author check: whether the current user may delete this comment is the
+    /// server's call.
     public func deleteComment(_ comment: TaskComment) async {
-        guard let taskID = requireSyncedTaskID() else { return }
         let previous = comments
         commentsWriteToken += 1
         let token = commentsWriteToken
         comments.removeAll { $0.id == comment.id }
         do {
-            try await commentRepository.deleteComment(comment.id, fromTask: taskID)
+            try await commentRepository.deleteComment(comment.id, fromTask: task.id)
         } catch {
             guard token == commentsWriteToken else { return }
             comments = previous

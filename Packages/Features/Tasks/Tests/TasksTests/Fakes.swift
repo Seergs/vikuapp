@@ -249,7 +249,7 @@ final class FakeTaskCommentRepository: TaskCommentRepositoryProtocol, @unchecked
     var fetchCommentsDelay: Duration?
     private var nextID = 100
 
-    func fetchComments(taskID _: Int) async throws -> [TaskComment] {
+    func fetchComments(taskID _: EntityID) async throws -> [TaskComment] {
         // Snapshot before the delay — see `FakeTaskRepository.fetchTask`'s
         // comment for why.
         let snapshotError = fetchError
@@ -263,12 +263,12 @@ final class FakeTaskCommentRepository: TaskCommentRepositoryProtocol, @unchecked
         return snapshot
     }
 
-    func addComment(_ text: String, toTask _: Int) async throws -> TaskComment {
+    func addComment(_ text: String, toTask _: EntityID) async throws -> TaskComment {
         if let addError {
             throw addError
         }
         let created = TaskComment(
-            id: nextID,
+            id: .remote(nextID),
             comment: text,
             author: User(id: 1, username: "me"),
             created: Date(),
@@ -279,7 +279,7 @@ final class FakeTaskCommentRepository: TaskCommentRepositoryProtocol, @unchecked
         return created
     }
 
-    func updateComment(_ commentID: Int, text: String, onTask _: Int) async throws -> TaskComment {
+    func updateComment(_ commentID: EntityID, text: String, onTask _: EntityID) async throws -> TaskComment {
         if let updateError {
             throw updateError
         }
@@ -291,7 +291,7 @@ final class FakeTaskCommentRepository: TaskCommentRepositoryProtocol, @unchecked
         return comments[index]
     }
 
-    func deleteComment(_ commentID: Int, fromTask _: Int) async throws {
+    func deleteComment(_ commentID: EntityID, fromTask _: EntityID) async throws {
         if let deleteError {
             throw deleteError
         }

@@ -17,6 +17,7 @@ enum DatabaseMigrations {
         migrator.registerMigration("createLabel", migrate: createLabel)
         migrator.registerMigration("createTask", migrate: createTask)
         migrator.registerMigration("createTaskRelation", migrate: createTaskRelation)
+        migrator.registerMigration("createTaskComment", migrate: createTaskComment)
     }
 
     private static func createProject(_ db: Database) throws {
@@ -139,6 +140,32 @@ enum DatabaseMigrations {
         try db.create(
             index: "task_on_accountID_remoteID",
             on: "task",
+            columns: ["accountID", "remoteID"],
+            unique: true,
+        )
+    }
+
+    private static func createTaskComment(_ db: Database) throws {
+        try db.create(table: "taskComment") { table in
+            table.primaryKey("localID", .text)
+            // Same per-account scoping as every table above.
+            table.column("accountID", .text).notNull().indexed()
+            table.column("remoteID", .integer)
+            table.column("taskLocalID", .text)
+                .notNull()
+                .indexed()
+                .references("task", column: "localID", onDelete: .cascade)
+            table.column("comment", .text).notNull()
+            table.column("authorID", .integer).notNull()
+            table.column("authorUsername", .text).notNull()
+            table.column("authorName", .text)
+            table.column("authorEmail", .text)
+            table.column("created", .datetime).notNull()
+            table.column("updated", .datetime).notNull()
+        }
+        try db.create(
+            index: "taskComment_on_accountID_remoteID",
+            on: "taskComment",
             columns: ["accountID", "remoteID"],
             unique: true,
         )
