@@ -219,6 +219,10 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
         let pendingLabelMutations: [UUID: [(operation: MutationOperation, labelLocalID: UUID)]]
         let relationsByTaskLocalID: [UUID: [TaskRelationRecord]]
         let pendingRelationMutations: [UUID: [PendingRelationMutation]]
+        /// The other side of every entry in `pendingRelationMutations`,
+        /// under the inverse kind, keyed by the *other* task's local id
+        /// instead of the owner's - see `mirrorRelationMutations(_:)`.
+        let pendingMirrorRelationMutations: [UUID: [PendingRelationMutation]]
         /// Every task row for this account, keyed by local id — needed to
         /// resolve a pending relation's "other task" display fields
         /// (title/isDone/project), since that task might itself still be
@@ -233,6 +237,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
         let labelRows = try LabelRecord.fetchAll(db).filter { $0.accountID == accountID }
         let taskRows = try Self.accountRows(accountID, db: db)
         let relationRows = try TaskRelationRecord.fetchAll(db).filter { $0.accountID == accountID }
+        let pendingRelationMutations = try Self.pendingRelationMutations(accountID: accountID, db: db)
         return try TaskAssemblyContext(
             projectsByLocalID: Self.projectsByLocalID(projectRows),
             labelsByRemoteID: Dictionary(uniqueKeysWithValues: labelRows.compactMap { row in
@@ -241,7 +246,8 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
             labelsByLocalID: Dictionary(uniqueKeysWithValues: labelRows.map { ($0.localID, $0) }),
             pendingLabelMutations: Self.pendingLabelMutations(accountID: accountID, db: db),
             relationsByTaskLocalID: Dictionary(grouping: relationRows, by: \.taskLocalID),
-            pendingRelationMutations: Self.pendingRelationMutations(accountID: accountID, db: db),
+            pendingRelationMutations: pendingRelationMutations,
+            pendingMirrorRelationMutations: Self.mirrorRelationMutations(pendingRelationMutations),
             tasksByLocalID: Dictionary(uniqueKeysWithValues: taskRows.map { ($0.localID, $0) }),
         )
     }
@@ -305,6 +311,49 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
         return result
     }
 
+    /// Builds the other side of every entry in `forward` - a relation is
+    /// bidirectional under paired kinds (same as `SyncEngine`'s own
+    /// `patchRelationCache`), so a pending `addRelation`/`removeRelation`
+    /// queued from task A's perspective must also show up on task B's own
+    /// screen, under the inverse kind, before either side has even synced -
+    /// otherwise B shows nothing until A's mutation drains and a pull or app
+    /// restart catches B up. Keyed by the *other* task's local id.
+    private static func mirrorRelationMutations(
+        _ forward: [UUID: [PendingRelationMutation]],
+    ) -> [UUID: [PendingRelationMutation]] {
+        var result: [UUID: [PendingRelationMutation]] = [:]
+        for (ownerLocalID, mutations) in forward {
+            for mutation in mutations {
+                let mirrored = PendingRelationMutation(
+                    operation: mutation.operation, kind: Self.inverseKind(mutation.kind),
+                    otherTaskLocalID: ownerLocalID,
+                )
+                result[mutation.otherTaskLocalID, default: []].append(mirrored)
+            }
+        }
+        return result
+    }
+
+    /// The relation kind the other side of a pair sees once this one is
+    /// created — mirrors `SyncEngine.inverseKind(_:)` (identical mapping,
+    /// duplicated rather than shared since each lives on its own private
+    /// type).
+    private static func inverseKind(_ kind: RelationKind) -> RelationKind {
+        switch kind {
+        case .subtask: .parenttask
+        case .parenttask: .subtask
+        case .blocking: .blocked
+        case .blocked: .blocking
+        case .duplicateof: .duplicates
+        case .duplicates: .duplicateof
+        case .precedes: .follows
+        case .follows: .precedes
+        case .copiedfrom: .copiedto
+        case .copiedto: .copiedfrom
+        case .related: .related
+        }
+    }
+
     /// Target ids to hide from a read — a delete the user asked for stays
     /// hidden whether it's still pending its first attempt or failed and
     /// waiting to be retried; either way it's not coming back.
@@ -365,7 +414,13 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
             }
         }
         var relationsByKind = Self.confirmedRelationsByKind(for: row.localID, context: context)
-        Self.applyPendingRelationMutations(to: &relationsByKind, for: row.localID, context: context)
+        Self.applyPendingRelationMutations(
+            to: &relationsByKind, mutations: context.pendingRelationMutations[row.localID] ?? [], context: context,
+        )
+        Self.applyPendingRelationMutations(
+            to: &relationsByKind, mutations: context.pendingMirrorRelationMutations[row.localID] ?? [],
+            context: context,
+        )
         return VikunjaTask(
             id: row.remoteID.map(EntityID.remote) ?? .local(row.localID),
             title: row.title,
@@ -401,15 +456,20 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
         return result
     }
 
-    /// Overlays a queued but not-yet-drained `addRelation`/`removeRelation`
-    /// onto `relationsByKind` - same reasoning as `task(from:context:)`'s
-    /// label overlay: a relation between two tasks that are still entirely
-    /// local (neither side has a remote id) must show up immediately rather
-    /// than only once both sides have synced and the drain has run.
+    /// Overlays `mutations` (either `context.pendingRelationMutations[id]`,
+    /// this task's own queued relation ops, or
+    /// `context.pendingMirrorRelationMutations[id]`, the other side of
+    /// someone else's) onto `relationsByKind` - same reasoning as
+    /// `task(from:context:)`'s label overlay: a relation between two tasks
+    /// that are still entirely local (neither side has a remote id) must
+    /// show up immediately, on *both* tasks' own screens, rather than only
+    /// once both sides have synced and the drain has run.
     private static func applyPendingRelationMutations(
-        to relationsByKind: inout [RelationKind: [TaskRelation]], for taskLocalID: UUID, context: TaskAssemblyContext,
+        to relationsByKind: inout [RelationKind: [TaskRelation]],
+        mutations: [PendingRelationMutation],
+        context: TaskAssemblyContext,
     ) {
-        for mutation in context.pendingRelationMutations[taskLocalID] ?? [] {
+        for mutation in mutations {
             guard let otherTaskRow = context.tasksByLocalID[mutation.otherTaskLocalID] else { continue }
             let otherID = otherTaskRow.remoteID.map(EntityID.remote) ?? .local(otherTaskRow.localID)
             let otherProjectID = context.projectsByLocalID[otherTaskRow.projectLocalID]?.remoteID.map(EntityID.remote)

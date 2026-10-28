@@ -529,6 +529,42 @@ struct OfflineTaskRepositoryTests {
     }
 
     @Test
+    func `fetchTask shows the inverse side of a relation queued from the other task, before either has synced`() async throws {
+        // Regression test: `addRelation` is queued from the owner task's
+        // perspective only (`TaskRelationMutationPayload.otherTaskLocalID`
+        // identifies the other side), so the other task's own screen used
+        // to show nothing until a drain actually ran - even though both
+        // sides of the relation are already fully known locally. Opening
+        // the *other* task's screen while both are still local-only must
+        // show the inverse relation (here, `parenttask`, the mirror of
+        // `subtask`) immediately too.
+        let fixture = try await makeRepository(online: false)
+        let owner = try await fixture.repository.create(
+            VikunjaTask(id: .local(UUID()), title: "Write report", projectID: fixture.project),
+        )
+        guard case let .local(ownerLocalID) = owner.id else {
+            Issue.record("expected a local id while offline, got \(owner.id)")
+            return
+        }
+        let otherTask = try await fixture.repository.create(
+            VikunjaTask(id: .local(UUID()), title: "Outline", projectID: fixture.project),
+        )
+        guard case let .local(otherTaskLocalID) = otherTask.id else {
+            Issue.record("expected a local id while offline, got \(otherTask.id)")
+            return
+        }
+        try await queueTaskRelationMutation(
+            operation: .addRelation, taskLocalID: ownerLocalID, kind: .subtask,
+            otherTaskLocalID: otherTaskLocalID, in: fixture,
+        )
+
+        let task = try await fixture.repository.fetchTask(id: otherTask.id)
+
+        let expected = TaskRelation(id: owner.id, title: "Write report", projectID: fixture.project)
+        #expect(task.otherRelations[.parenttask] == [expected])
+    }
+
+    @Test
     func `fetchTask hides a cached relation once its removal is queued, before the drain confirms it`() async throws {
         let fixture = try await makeRepository(online: false)
         let created = try await fixture.repository.create(
