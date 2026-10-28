@@ -8,6 +8,11 @@ enum MutationEntityType: String, Codable, Sendable {
     case project
     case label
     case task
+    /// A comment on a task. Uses the shared `create`/`update`/`delete`
+    /// operations, with the comment's own local id as `targetLocalID` and
+    /// its task carried in the payload — unlike labels/relations, which are
+    /// queued against the `.task` row itself.
+    case comment
 }
 
 /// What a queued mutation does to its target. `create`/`update`/`delete`

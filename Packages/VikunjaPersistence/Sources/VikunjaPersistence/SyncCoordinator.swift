@@ -106,12 +106,17 @@ public actor SyncCoordinator {
             baseURL: account.baseURL,
             tokenProvider: resolvedTokenProvider,
         )
+        let commentRepository = clientFactory.makeTaskCommentRepository(
+            baseURL: account.baseURL,
+            tokenProvider: resolvedTokenProvider,
+        )
         let engine = SyncEngine(
             localStore: localStore,
             projectRepository: projectRepository,
             labelRepository: labelRepository,
             taskRepository: taskRepository,
             relationRepository: relationRepository,
+            commentRepository: commentRepository,
             accountID: account.id,
         )
         try? await engine.pullProjects()
@@ -120,5 +125,6 @@ public actor SyncCoordinator {
         try? await engine.drainLabelMutations()
         try? await engine.pullTasks()
         try? await engine.drainTaskMutations()
+        try? await engine.drainCommentMutations()
     }
 }

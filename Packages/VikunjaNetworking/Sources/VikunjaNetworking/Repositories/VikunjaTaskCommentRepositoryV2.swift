@@ -14,13 +14,21 @@ public final class VikunjaTaskCommentRepositoryV2: TaskCommentRepositoryProtocol
         self.client = client
     }
 
-    public func fetchComments(taskID: Int) async throws -> [TaskComment] {
-        let envelope: APIv2Envelope<CommentDTO> = try await client.send(VikunjaEndpoints.commentsV2(taskID: taskID))
+    public func fetchComments(taskID: EntityID) async throws -> [TaskComment] {
+        guard let resolvedTaskID = taskID.remoteValue else {
+            preconditionFailure("VikunjaTaskCommentRepositoryV2.fetchComments: the task must be synced first")
+        }
+        let envelope: APIv2Envelope<CommentDTO> = try await client.send(
+            VikunjaEndpoints.commentsV2(taskID: resolvedTaskID),
+        )
         return envelope.items.map(CommentMapper.toDomain)
     }
 
-    public func addComment(_ text: String, toTask taskID: Int) async throws -> TaskComment {
-        let endpoint = try VikunjaEndpoints.createCommentV2(taskID: taskID, text: text)
+    public func addComment(_ text: String, toTask taskID: EntityID) async throws -> TaskComment {
+        guard let resolvedTaskID = taskID.remoteValue else {
+            preconditionFailure("VikunjaTaskCommentRepositoryV2.addComment: the task must be synced first")
+        }
+        let endpoint = try VikunjaEndpoints.createCommentV2(taskID: resolvedTaskID, text: text)
         let dto: CommentDTO = try await client.send(endpoint)
         return CommentMapper.toDomain(dto)
     }
@@ -35,14 +43,28 @@ public final class VikunjaTaskCommentRepositoryV2: TaskCommentRepositoryProtocol
     /// body, and re-fetches to get a trustworthy result — same spirit as
     /// `TaskMapper.merge`'s "don't trust an incomplete write response"
     /// workaround, minus the merge since a plain re-fetch is enough here.
-    public func updateComment(_ commentID: Int, text: String, onTask taskID: Int) async throws -> TaskComment {
-        let endpoint = try VikunjaEndpoints.updateCommentV2(taskID: taskID, commentID: commentID, text: text)
+    public func updateComment(_ commentID: EntityID, text: String, onTask taskID: EntityID) async throws -> TaskComment {
+        guard let resolvedCommentID = commentID.remoteValue, let resolvedTaskID = taskID.remoteValue else {
+            preconditionFailure(
+                "VikunjaTaskCommentRepositoryV2.updateComment: the task and comment must be synced first",
+            )
+        }
+        let endpoint = try VikunjaEndpoints.updateCommentV2(
+            taskID: resolvedTaskID, commentID: resolvedCommentID, text: text,
+        )
         try await client.send(endpoint)
-        let dto: CommentDTO = try await client.send(VikunjaEndpoints.commentV2(taskID: taskID, commentID: commentID))
+        let dto: CommentDTO = try await client.send(
+            VikunjaEndpoints.commentV2(taskID: resolvedTaskID, commentID: resolvedCommentID),
+        )
         return CommentMapper.toDomain(dto)
     }
 
-    public func deleteComment(_ commentID: Int, fromTask taskID: Int) async throws {
-        try await client.send(VikunjaEndpoints.deleteCommentV2(taskID: taskID, commentID: commentID))
+    public func deleteComment(_ commentID: EntityID, fromTask taskID: EntityID) async throws {
+        guard let resolvedCommentID = commentID.remoteValue, let resolvedTaskID = taskID.remoteValue else {
+            preconditionFailure(
+                "VikunjaTaskCommentRepositoryV2.deleteComment: the task and comment must be synced first",
+            )
+        }
+        try await client.send(VikunjaEndpoints.deleteCommentV2(taskID: resolvedTaskID, commentID: resolvedCommentID))
     }
 }

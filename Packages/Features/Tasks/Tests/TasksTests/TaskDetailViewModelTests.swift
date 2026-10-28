@@ -1806,7 +1806,10 @@ struct TaskDetailViewModelTests {
     }
 
     @Test
-    func `adding a comment to an unsynced task shows a toast instead of crashing`() async {
+    func `adding a comment to an unsynced task queues it locally instead of being blocked`() async {
+        // Comments now go through `OfflineTaskCommentRepository`, which keys
+        // its rows on the task's local id, so an unsynced task is no longer a
+        // reason to bail out with the old "hasn't synced yet" toast.
         let toastPresenter = FakeToastPresenter()
         let viewModel = TaskDetailViewModel(
             task: VikunjaTask(id: .local(UUID()), title: "Write report", projectID: .local(UUID())),
@@ -1822,8 +1825,8 @@ struct TaskDetailViewModelTests {
 
         await viewModel.addComment("Looks good")
 
-        #expect(viewModel.comments.isEmpty)
-        #expect(toastPresenter.shownMessages.count == 1)
+        #expect(viewModel.comments.map(\.comment) == ["Looks good"])
+        #expect(toastPresenter.shownMessages.isEmpty)
     }
 
     @Test

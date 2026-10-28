@@ -137,10 +137,19 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
             guard let row = Self.findRow(matching: id, in: rows) else { throw VikunjaError.notFound }
 
             // Any other mutation still pending (or failed but retryable)
-            // against this row is moot once it's being deleted.
+            // against this row, or against one of its comments (which the FK
+            // cascade removes with the task), is moot once it's being
+            // deleted. Without the comment ids too, a queued comment create
+            // would defer forever against a task row that no longer exists.
+            let commentLocalIDs = try Set(
+                TaskCommentRecord.fetchAll(db)
+                    .filter { $0.accountID == self.accountID && $0.taskLocalID == row.localID }
+                    .map(\.localID),
+            )
             try MutationQueueRecord.fetchAll(db)
                 .filter {
-                    $0.accountID == self.accountID && $0.targetLocalID == row.localID
+                    $0.accountID == self.accountID
+                        && ($0.targetLocalID == row.localID || commentLocalIDs.contains($0.targetLocalID))
                         && ($0.status == .pending || $0.status == .failed)
                 }
                 .forEach { try $0.delete(db) }

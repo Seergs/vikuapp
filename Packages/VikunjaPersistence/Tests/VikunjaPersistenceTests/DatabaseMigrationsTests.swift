@@ -303,4 +303,100 @@ struct DatabaseMigrationsTests {
         let rows = try dbQueue.read { db in try TaskRecord.fetchAll(db) }
         #expect(rows.isEmpty)
     }
+
+    @Test
+    func `comment table round trips a row with no remote id yet`() throws {
+        let dbQueue = try migratedDatabase()
+        let accountID = UUID()
+        let project = ProjectRecord(
+            localID: UUID(), accountID: accountID, remoteID: 1, title: "Groceries", description: nil,
+            isArchived: false, isFavorite: false, parentProjectLocalID: nil, position: 0, hexColor: "",
+            serverUpdatedAt: nil,
+        )
+        let task = TaskRecord(
+            localID: UUID(), accountID: accountID, remoteID: 1, title: "Buy milk", description: nil,
+            isDone: false, dueDate: nil, priority: 0, projectLocalID: project.localID,
+        )
+        let created = Date(timeIntervalSince1970: 1_700_000_000)
+        let record = TaskCommentRecord(
+            localID: UUID(), accountID: accountID, remoteID: nil, taskLocalID: task.localID,
+            comment: "Looks good", authorID: 7, authorUsername: "me", authorName: "Me", authorEmail: "me@example.com",
+            created: created, updated: created,
+        )
+
+        try dbQueue.write { db in
+            try project.insert(db)
+            try task.insert(db)
+            try record.insert(db)
+        }
+
+        let fetched = try dbQueue.read { db in try TaskCommentRecord.fetchOne(db, key: record.localID) }
+        #expect(fetched == record)
+    }
+
+    @Test
+    func `comment remoteID is unique within an account`() throws {
+        let dbQueue = try migratedDatabase()
+        let accountID = UUID()
+        let project = ProjectRecord(
+            localID: UUID(), accountID: accountID, remoteID: 1, title: "Groceries", description: nil,
+            isArchived: false, isFavorite: false, parentProjectLocalID: nil, position: 0, hexColor: "",
+            serverUpdatedAt: nil,
+        )
+        let task = TaskRecord(
+            localID: UUID(), accountID: accountID, remoteID: 1, title: "Buy milk", description: nil,
+            isDone: false, dueDate: nil, priority: 0, projectLocalID: project.localID,
+        )
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let first = TaskCommentRecord(
+            localID: UUID(), accountID: accountID, remoteID: 42, taskLocalID: task.localID,
+            comment: "A", authorID: 1, authorUsername: "me", authorName: nil, authorEmail: nil,
+            created: now, updated: now,
+        )
+        let second = TaskCommentRecord(
+            localID: UUID(), accountID: accountID, remoteID: 42, taskLocalID: task.localID,
+            comment: "B", authorID: 1, authorUsername: "me", authorName: nil, authorEmail: nil,
+            created: now, updated: now,
+        )
+
+        try dbQueue.write { db in
+            try project.insert(db)
+            try task.insert(db)
+            try first.insert(db)
+        }
+        #expect(throws: DatabaseError.self) {
+            try dbQueue.write { db in try second.insert(db) }
+        }
+    }
+
+    @Test
+    func `deleting a task cascades to its cached comments`() throws {
+        let dbQueue = try migratedDatabase()
+        let accountID = UUID()
+        let project = ProjectRecord(
+            localID: UUID(), accountID: accountID, remoteID: 1, title: "Groceries", description: nil,
+            isArchived: false, isFavorite: false, parentProjectLocalID: nil, position: 0, hexColor: "",
+            serverUpdatedAt: nil,
+        )
+        let task = TaskRecord(
+            localID: UUID(), accountID: accountID, remoteID: nil, title: "Buy milk", description: nil,
+            isDone: false, dueDate: nil, priority: 0, projectLocalID: project.localID,
+        )
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let comment = TaskCommentRecord(
+            localID: UUID(), accountID: accountID, remoteID: nil, taskLocalID: task.localID,
+            comment: "Looks good", authorID: 1, authorUsername: "me", authorName: nil, authorEmail: nil,
+            created: now, updated: now,
+        )
+
+        try dbQueue.write { db in
+            try project.insert(db)
+            try task.insert(db)
+            try comment.insert(db)
+            try task.delete(db)
+        }
+
+        let rows = try dbQueue.read { db in try TaskCommentRecord.fetchAll(db) }
+        #expect(rows.isEmpty)
+    }
 }

@@ -92,6 +92,9 @@ final class AppContainer {
     /// initials shown on the Settings landing screen the same way
     /// `accountTimezoneStore` backs its "Time Zone" row.
     let accountDisplayNameStore = AccountDisplayNameStore()
+    /// On-device cache of each account's signed-in user, so an offline-created
+    /// comment can show its real author without a network round trip.
+    let currentUserStore = CurrentUserStore()
     /// On-device cache of each account's last known per-project
     /// task-completion tallies, shown instantly on the Projects list before
     /// each project's own count request resolves.
@@ -336,6 +339,7 @@ final class AppContainer {
             tokenProvider: tokenProvider(for: account),
         )
         guard let user = try? await userRepository.fetchCurrentUser() else { return }
+        currentUserStore.setUser(user, for: account.id)
         defaultProjectStore.setProjectID(user.defaultProjectID, forAccountID: account.id)
     }
 
@@ -367,6 +371,7 @@ final class AppContainer {
         let tokenProvider = tokenProvider(for: account)
         let userRepository = clientFactory.makeUserRepository(baseURL: account.baseURL, tokenProvider: tokenProvider)
         guard let user = try? await userRepository.fetchCurrentUser() else { return }
+        currentUserStore.setUser(user, for: account.id)
         guard let registration = try? await pushNotificationRegistering.enable(
             vikunjaUserID: user.id,
             accountID: account.id,
@@ -539,10 +544,7 @@ final class AppContainer {
         let repository = offlineTaskRepository(for: account)
         let labelRepository = offlineLabelRepository(for: account)
         let relationRepository = offlineTaskRelationRepository(for: account)
-        let commentRepository = clientFactory.makeTaskCommentRepository(
-            baseURL: account.baseURL,
-            tokenProvider: tokenProvider,
-        )
+        let commentRepository = offlineTaskCommentRepository(for: account)
         let attachmentRepository = clientFactory.makeTaskAttachmentRepository(
             baseURL: account.baseURL,
             tokenProvider: tokenProvider,
@@ -829,6 +831,13 @@ final class AppContainer {
         clientFactory.makeTaskRelationRepository(baseURL: account.baseURL, tokenProvider: tokenProvider(for: account))
     }
 
+    /// Same reasoning as `networkTaskRelationRepository(for:)`, for comments
+    /// — every `SyncEngine` needs one to drain comment mutations, and
+    /// `offlineTaskCommentRepository(for:)` needs it for its own copy.
+    private func networkTaskCommentRepository(for account: InstanceAccount) -> TaskCommentRepositoryProtocol {
+        clientFactory.makeTaskCommentRepository(baseURL: account.baseURL, tokenProvider: tokenProvider(for: account))
+    }
+
     /// The `ProjectRepositoryProtocol` every screen reads/writes through —
     /// local-first, queuing a mutation and opportunistically draining it
     /// right away if the network happens to already be up. `networkRepository`
@@ -845,6 +854,7 @@ final class AppContainer {
             labelRepository: networkLabelRepository(for: account),
             taskRepository: networkTaskRepository(for: account),
             relationRepository: networkTaskRelationRepository(for: account),
+            commentRepository: networkTaskCommentRepository(for: account),
             accountID: account.id,
         )
         return OfflineProjectRepository(
@@ -870,6 +880,7 @@ final class AppContainer {
             labelRepository: networkRepository,
             taskRepository: networkTaskRepository(for: account),
             relationRepository: networkTaskRelationRepository(for: account),
+            commentRepository: networkTaskCommentRepository(for: account),
             accountID: account.id,
         )
         return OfflineLabelRepository(
@@ -882,10 +893,11 @@ final class AppContainer {
 
     /// The `TaskRepositoryProtocol` every screen reads/writes through for a
     /// task's core fields — same shape as `offlineProjectRepository(for:)`.
-    /// Task sub-resources now offline too (labels, relations) have their own
-    /// dedicated repository (`offlineLabelRepository(for:)`,
-    /// `offlineTaskRelationRepository(for:)`); comments and attachments
-    /// still go straight to `VikunjaNetworking` until their own slice lands.
+    /// Task sub-resources now offline too (labels, relations, comments) have
+    /// their own dedicated repository (`offlineLabelRepository(for:)`,
+    /// `offlineTaskRelationRepository(for:)`, `offlineTaskCommentRepository(for:)`);
+    /// attachments still go straight to `VikunjaNetworking` and stay
+    /// online-only by design.
     private func offlineTaskRepository(for account: InstanceAccount) -> TaskRepositoryProtocol {
         let syncEngine = SyncEngine(
             localStore: localStore,
@@ -896,6 +908,7 @@ final class AppContainer {
             labelRepository: networkLabelRepository(for: account),
             taskRepository: networkTaskRepository(for: account),
             relationRepository: networkTaskRelationRepository(for: account),
+            commentRepository: networkTaskCommentRepository(for: account),
             accountID: account.id,
         )
         return OfflineTaskRepository(
@@ -920,6 +933,7 @@ final class AppContainer {
             labelRepository: networkLabelRepository(for: account),
             taskRepository: networkTaskRepository(for: account),
             relationRepository: networkTaskRelationRepository(for: account),
+            commentRepository: networkTaskCommentRepository(for: account),
             accountID: account.id,
         )
         return OfflineTaskRelationRepository(
@@ -927,6 +941,34 @@ final class AppContainer {
             accountID: account.id,
             syncEngine: syncEngine,
             reachability: reachabilityMonitor,
+        )
+    }
+
+    /// The `TaskCommentRepositoryProtocol` every screen reads/writes through
+    /// — same shape as `offlineTaskRelationRepository(for:)`. Comments are
+    /// queued as their own `.comment` mutations (not against the task row),
+    /// because a comment has its own server id even though it can't sync
+    /// before its task does.
+    private func offlineTaskCommentRepository(for account: InstanceAccount) -> TaskCommentRepositoryProtocol {
+        let networkRepository = networkTaskCommentRepository(for: account)
+        let syncEngine = SyncEngine(
+            localStore: localStore,
+            projectRepository: clientFactory.makeProjectRepository(
+                baseURL: account.baseURL,
+                tokenProvider: tokenProvider(for: account),
+            ),
+            labelRepository: networkLabelRepository(for: account),
+            taskRepository: networkTaskRepository(for: account),
+            relationRepository: networkTaskRelationRepository(for: account),
+            commentRepository: networkRepository,
+            accountID: account.id,
+        )
+        return OfflineTaskCommentRepository(
+            localStore: localStore,
+            accountID: account.id,
+            syncEngine: syncEngine,
+            reachability: reachabilityMonitor,
+            currentUser: currentUserStore.user(for: account.id),
         )
     }
 }

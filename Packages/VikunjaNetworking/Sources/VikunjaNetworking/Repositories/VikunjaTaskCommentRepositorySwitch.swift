@@ -19,19 +19,19 @@ final class VikunjaTaskCommentRepositorySwitch: TaskCommentRepositoryProtocol {
         await capabilityProvider.supports(.apiV2) ? v2 : v1
     }
 
-    func fetchComments(taskID: Int) async throws -> [TaskComment] {
+    func fetchComments(taskID: EntityID) async throws -> [TaskComment] {
         try await resolve().fetchComments(taskID: taskID)
     }
 
-    func addComment(_ text: String, toTask taskID: Int) async throws -> TaskComment {
+    func addComment(_ text: String, toTask taskID: EntityID) async throws -> TaskComment {
         try await resolve().addComment(text, toTask: taskID)
     }
 
-    func updateComment(_ commentID: Int, text: String, onTask taskID: Int) async throws -> TaskComment {
+    func updateComment(_ commentID: EntityID, text: String, onTask taskID: EntityID) async throws -> TaskComment {
         try await resolve().updateComment(commentID, text: text, onTask: taskID)
     }
 
-    func deleteComment(_ commentID: Int, fromTask taskID: Int) async throws {
+    func deleteComment(_ commentID: EntityID, fromTask taskID: EntityID) async throws {
         try await resolve().deleteComment(commentID, fromTask: taskID)
     }
 }
