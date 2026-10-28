@@ -579,6 +579,61 @@ struct SyncEngineTests {
     }
 
     @Test
+    func `pullTasks keeps cached rows when a projects fetch fails`() async throws {
+        // Regression test: an offline sync pass used to treat every failed
+        // task fetch as an empty project and then delete all cached rows.
+        let store = try LocalStore(directory: temporaryDirectory())
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 1, title: "Groceries")]
+        let taskRepository = FakeTaskRepository()
+        taskRepository.tasks = [
+            VikunjaTask(id: 10, title: "Buy milk", projectID: 1), VikunjaTask(id: 11, title: "Buy eggs", projectID: 1),
+        ]
+        let engine = SyncEngine(
+            localStore: store, projectRepository: projectRepository, labelRepository: FakeLabelRepository(),
+            taskRepository: taskRepository, relationRepository: FakeTaskRelationRepository(), accountID: UUID(),
+        )
+        try await engine.pullProjects()
+        try await engine.pullTasks()
+
+        taskRepository.fetchError = VikunjaError.network("offline")
+        await #expect(throws: VikunjaError.self) {
+            try await engine.pullTasks()
+        }
+
+        let rows = try await store.read { db in try TaskRecord.fetchAll(db) }
+        #expect(Set(rows.compactMap(\.remoteID)) == [10, 11])
+    }
+
+    @Test
+    func `pullTasks reconciles only projects whose fetch succeeded`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 1, title: "Groceries"), Project(id: 2, title: "Chores")]
+        let taskRepository = FakeTaskRepository()
+        taskRepository.tasks = [
+            VikunjaTask(id: 10, title: "Buy milk", projectID: 1), VikunjaTask(id: 11, title: "Do dishes", projectID: 2),
+        ]
+        let engine = SyncEngine(
+            localStore: store, projectRepository: projectRepository, labelRepository: FakeLabelRepository(),
+            taskRepository: taskRepository, relationRepository: FakeTaskRelationRepository(), accountID: UUID(),
+        )
+        try await engine.pullProjects()
+        try await engine.pullTasks()
+
+        // Project 1 succeeds and replaces its task; project 2 fails and must
+        // keep its cached row untouched.
+        taskRepository.tasks = [VikunjaTask(id: 12, title: "Buy bread", projectID: 1)]
+        taskRepository.fetchErrorsByProjectID[2] = VikunjaError.network("offline")
+        await #expect(throws: VikunjaError.self) {
+            try await engine.pullTasks()
+        }
+
+        let rows = try await store.read { db in try TaskRecord.fetchAll(db) }
+        #expect(Set(rows.compactMap(\.remoteID)) == [11, 12])
+    }
+
+    @Test
     func `pullTasks never overwrites a row that still has a queued edit the server hasnt seen yet`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let projectRepository = FakeProjectRepository()

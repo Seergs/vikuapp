@@ -307,8 +307,11 @@ public actor SyncEngine {
     /// `projectRepository.fetchProjects()` again — `pullProjects()` always
     /// runs first in `SyncCoordinator.sync(_:)`, and reusing its result
     /// avoids a second network round trip for the same data. Mirrors
-    /// `AccountTaskLoader.loadAllTasks()`'s own "skip virtual projects,
-    /// tolerate one project's fetch failing" behavior.
+    /// `AccountTaskLoader.loadAllTasks()`'s own "skip virtual projects"
+    /// behavior, but only reconciles a project whose fetch actually
+    /// succeeded: treating a failed fetch as an empty one used to delete
+    /// every cached task for that project, so a single offline sync pass
+    /// could wipe the local task list.
     public func pullTasks() async throws {
         let now = Date()
         let projectRows = try await localStore.read { db in
@@ -316,6 +319,8 @@ public actor SyncEngine {
         }
 
         var remoteTasks: [VikunjaTask] = []
+        var fetchedProjectLocalIDs: Set<UUID> = []
+        var firstError: (any Error)?
         for projectRow in projectRows {
             // A negative or zero remote id is a virtual project (Favorites,
             // a saved filter) — its "tasks" are just a view over tasks that
@@ -323,13 +328,20 @@ public actor SyncEngine {
             // every such task. A project with no remote id yet (offline-
             // created) can't have any tasks on the server yet either.
             guard let remoteProjectID = projectRow.remoteID, remoteProjectID > 0 else { continue }
-            remoteTasks += await (try? taskRepository.fetchTasks(projectID: .remote(remoteProjectID))) ?? []
+            do {
+                remoteTasks += try await taskRepository.fetchTasks(projectID: .remote(remoteProjectID))
+                fetchedProjectLocalIDs.insert(projectRow.localID)
+            } catch {
+                firstError = firstError ?? error
+            }
         }
 
         let projectLocalIDByRemoteID: [Int: UUID] = Dictionary(
             uniqueKeysWithValues: projectRows.compactMap { row in row.remoteID.map { ($0, row.localID) } },
         )
         let fetchedTasks = remoteTasks
+        let reconciledProjectLocalIDs = fetchedProjectLocalIDs
+        let didCompleteWithoutErrors = firstError == nil
 
         try await localStore.write { db in
             let localRows = try TaskRecord.fetchAll(db).filter { $0.accountID == self.accountID }
@@ -344,13 +356,19 @@ public actor SyncEngine {
                 protectedLocalIDs: queuedTargetLocalIDs, db: db,
             )
             try Self.deleteMissingTaskRows(
-                localRows,
+                localRows.filter { reconciledProjectLocalIDs.contains($0.projectLocalID) },
                 stillPresentRemoteIDs: Set(fetchedTasks.compactMap(\.id.remoteValue)),
                 protectedLocalIDs: queuedTargetLocalIDs,
                 db: db,
             )
 
-            try SyncStateRecord(accountID: self.accountID, entityType: .task, lastPulledAt: now).save(db)
+            if didCompleteWithoutErrors {
+                try SyncStateRecord(accountID: self.accountID, entityType: .task, lastPulledAt: now).save(db)
+            }
+        }
+
+        if let firstError {
+            throw firstError
         }
     }
 
