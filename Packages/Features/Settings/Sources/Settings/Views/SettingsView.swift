@@ -122,6 +122,15 @@ struct SettingsView: View {
                 .listRowBackground(palette.cardBackground)
 
                 SettingsNavigationRow(
+                    icon: "arrow.triangle.2.circlepath",
+                    title: String(localized: "Pending Sync", bundle: .module),
+                    subtitle: String(localized: "Changes waiting to upload", bundle: .module),
+                ) {
+                    router.push(.pendingSync)
+                }
+                .listRowBackground(palette.cardBackground)
+
+                SettingsNavigationRow(
                     icon: "folder",
                     title: String(localized: "Default Project", bundle: .module),
                     subtitle: defaultProjectViewModel.defaultProjectTitle ?? String(localized: "None", bundle: .module),

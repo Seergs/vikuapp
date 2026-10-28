@@ -1890,6 +1890,236 @@
           }
         }
       }
+    },
+    "Added label" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Etiqueta agregada"
+          }
+        }
+      }
+    },
+    "Added relation" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Relación agregada"
+          }
+        }
+      }
+    },
+    "Changes waiting to upload" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambios pendientes de subir"
+          }
+        }
+      }
+    },
+    "Changes you make offline will appear here until they upload." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los cambios que hagas sin conexión aparecerán aquí hasta que se suban."
+          }
+        }
+      }
+    },
+    "Comment" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comentario"
+          }
+        }
+      }
+    },
+    "Conflict" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conflicto"
+          }
+        }
+      }
+    },
+    "Conflict removed" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conflicto quitado"
+          }
+        }
+      }
+    },
+    "Couldn't load pending changes" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudieron cargar los cambios pendientes"
+          }
+        }
+      }
+    },
+    "Created" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Creación"
+          }
+        }
+      }
+    },
+    "Deleted" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminación"
+          }
+        }
+      }
+    },
+    "Failed" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Error"
+          }
+        }
+      }
+    },
+    "Label" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Etiqueta"
+          }
+        }
+      }
+    },
+    "Nothing waiting to sync" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay nada pendiente de sincronizar"
+          }
+        }
+      }
+    },
+    "Pending Sync" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sincronización pendiente"
+          }
+        }
+      }
+    },
+    "Remove Conflict" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitar conflicto"
+          }
+        }
+      }
+    },
+    "Remove this conflict?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Quitar este conflicto?"
+          }
+        }
+      }
+    },
+    "Removed label" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Etiqueta quitada"
+          }
+        }
+      }
+    },
+    "Removed relation" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Relación quitada"
+          }
+        }
+      }
+    },
+    "Task" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tarea"
+          }
+        }
+      }
+    },
+    "This conflict was already discarded. Removing it only clears it from this list." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este conflicto ya se descartó. Quitarlo solo lo elimina de esta lista."
+          }
+        }
+      }
+    },
+    "Updated" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualización"
+          }
+        }
+      }
+    },
+    "Waiting" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En espera"
+          }
+        }
+      }
+    },
+    "Waiting to upload" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pendientes de subir"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

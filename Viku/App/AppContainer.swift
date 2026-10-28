@@ -670,6 +670,10 @@ final class AppContainer {
         ManageLabelsViewModel(repository: offlineLabelRepository(for: account), toastPresenter: toastCenter)
     }
 
+    func makePendingSyncViewModel(account: InstanceAccount) -> PendingSyncViewModel {
+        PendingSyncViewModel(provider: localStore, accountID: account.id, toastPresenter: toastCenter)
+    }
+
     func makeNotificationsViewModel(account: InstanceAccount) -> NotificationsViewModel {
         let tokenProvider = tokenProvider(for: account)
         return NotificationsViewModel(
