@@ -788,6 +788,17 @@ final class AppContainer {
         try? await pushNotificationRegistering.disable(accountID: account.id)
     }
 
+    /// Streams the active account's queued project/task mutations for
+    /// `MainTabView`'s per-row sync indicators. Backed by a GRDB
+    /// `ValueObservation` in `LocalStore`, so it emits again whenever the
+    /// queue changes (enqueue, successful drain, failure, conflict) and needs
+    /// no polling. Cancelled when the consuming `.task` is.
+    func pendingSyncStatusUpdates(
+        account: InstanceAccount,
+    ) async -> AsyncThrowingStream<[SyncItemKey: SyncItemStatus], Error> {
+        await localStore.observePendingSyncStatuses(accountID: account.id)
+    }
+
     func makeSearchViewModel(account: InstanceAccount) -> SearchViewModel {
         let tokenProvider = tokenProvider(for: account)
         return SearchViewModel(

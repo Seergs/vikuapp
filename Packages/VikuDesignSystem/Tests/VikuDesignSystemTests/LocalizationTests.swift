@@ -53,6 +53,16 @@ struct LocalizationTests {
         ("High", "Alta"),
         ("Urgent", "Urgente"),
         ("Overdue", "Vencida"),
+        ("Pending sync", "Sincronización pendiente"),
+        ("Sync failed", "Error de sincronización"),
+        (
+            "Local changes are saved on this device and will upload when the connection is available.",
+            "Los cambios locales están guardados en este dispositivo y se subirán cuando haya conexión.",
+        ),
+        (
+            "The last upload attempt failed. The app will retry automatically.",
+            "El último intento de subida falló. La app volverá a intentarlo automáticamente.",
+        ),
         ("Search projects...", "Buscar proyectos..."),
         ("Cancel", "Cancelar"),
         ("None", "Ninguno"),

@@ -532,9 +532,14 @@ private struct SubprojectCard: View {
     let onSelect: () -> Void
 
     @Environment(\.vikuPalette) private var palette
+    @Environment(\.pendingSyncStatuses) private var pendingSyncStatuses
 
     private var swatchColor: Color {
         Color(vikuHex: node.project.hexColor) ?? palette.brand
+    }
+
+    private var syncStatus: SyncItemStatus? {
+        pendingSyncStatuses[SyncItemKey(kind: .project, id: node.project.id)]
     }
 
     private var summaryText: String {
@@ -569,6 +574,10 @@ private struct SubprojectCard: View {
                 }
 
                 Spacer(minLength: VikuSpacing.xs)
+
+                if let syncStatus {
+                    VikuPendingSyncIndicator(status: syncStatus)
+                }
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))

@@ -24,6 +24,7 @@ public struct TaskDetailView: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.dismiss) private var dismiss
     @Environment(\.vikuPalette) private var palette
+    @Environment(\.pendingSyncStatuses) private var pendingSyncStatuses
     @State private var isShowingDueDatePicker = false
     @State private var reminderEditTarget: ReminderEditTarget?
     @State private var isShowingLabelPicker = false
@@ -116,6 +117,15 @@ public struct TaskDetailView: View {
                             Image(systemName: "checkmark")
                                 .fontWeight(.semibold)
                         }
+                    }
+                }
+                if let status = pendingSyncStatuses[SyncItemKey(kind: .task, id: viewModel.task.id)] {
+                    ToolbarItem(placement: .primaryAction) {
+                        VikuPendingSyncIndicator(
+                            status: status,
+                            font: VikuFont.body,
+                            showsDetailsOnTap: true,
+                        )
                     }
                 }
                 ToolbarItem(placement: .primaryAction) {

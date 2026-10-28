@@ -38,6 +38,14 @@ struct MainTabView: View {
 
     @State private var selection: AppTab = .home
 
+    /// Per-row pending-sync lookups for the whole shell. Kept as plain
+    /// `@State` (not a shared store) because this shell is itself keyed by
+    /// `.id(connectedAccount)`, so switching accounts already rebuilds it and
+    /// restarts the observation against the new account. Injected into the
+    /// environment below; the shared row views read it directly rather than
+    /// every feature view model re-loading a status through its own task list.
+    @State private var pendingSyncStatuses: [SyncItemKey: SyncItemStatus] = [:]
+
     // One `AppRouter` per tab stack: the tab's `NavigationStack` binds to its
     // `path` and it's placed in that stack's environment, so any screen inside
     // - across feature module boundaries - navigates by pushing an `AppRoute`.
@@ -175,6 +183,7 @@ struct MainTabView: View {
                 .environment(searchRouter)
             }
         }
+        .environment(\.pendingSyncStatuses, pendingSyncStatuses)
         .tabBarMinimizeBehavior(.onScrollDown)
         .tint(palette.brand)
         // A light selection tick whenever the active tab changes — including a
@@ -225,6 +234,13 @@ struct MainTabView: View {
         .task {
             await handleTaskDeepLink(container.deepLinkRouter.pending)
         }
+        // Keeps the row indicators live for as long as this shell is up:
+        // a queued edit shows up on enqueue and disappears the moment its
+        // drain succeeds. Cancelled automatically on account switch, since
+        // `RootView` rebuilds this view keyed by the whole account value.
+        .task {
+            await observePendingSyncStatuses()
+        }
         .alert(Text("Session Expired"), isPresented: $isShowingSessionExpiredAlert) {
             Button {
                 selection = .settings
@@ -257,6 +273,23 @@ struct MainTabView: View {
             )
             .padding(.trailing, VikuSpacing.md)
             .padding(.bottom, VikuSpacing.xxl + VikuSpacing.lg)
+        }
+    }
+
+    /// Consumes the account's pending-sync snapshots until this shell goes
+    /// away. Best effort by design: if the observation itself fails there's
+    /// nothing actionable to show for it (the row indicators are a hint, not
+    /// the sync mechanism), so the last good snapshot simply stays in place.
+    private func observePendingSyncStatuses() async {
+        let updates = await container.pendingSyncStatusUpdates(account: account)
+        do {
+            for try await statuses in updates {
+                pendingSyncStatuses = statuses
+            }
+        } catch is CancellationError {
+            // Expected: the tab shell was torn down (e.g. account switch).
+        } catch {
+            // Leave the last snapshot; the next shell rebuild retries.
         }
     }
 
