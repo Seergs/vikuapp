@@ -4,9 +4,9 @@ import VikunjaCore
 /// The compact task row shared by every screen that lists tasks (Today,
 /// a project's overview, Search). A circular completion checkbox, a
 /// strikethrough-on-done title, a one-line metadata row (project dot + name,
-/// due date or an "Overdue" label, a link glyph when the task has relations),
-/// up to two label pills plus a "+N" overflow pill, and a trailing priority
-/// dot.
+/// due date or an "Overdue" label, a link glyph when the task has relations,
+/// and a pending-sync glyph when the task has queued changes), up to two
+/// label pills plus a "+N" overflow pill, and a trailing priority dot.
 ///
 /// The whole row is tappable (`onOpen`); the checkbox handles its own tap so
 /// it never bubbles up. Callers supply the long-press menu via
@@ -28,6 +28,11 @@ public struct VikuTaskRow<Menu: View>: View {
     @ViewBuilder private let contextMenu: () -> Menu
 
     @Environment(\.vikuPalette) private var palette
+    @Environment(\.pendingSyncStatuses) private var pendingSyncStatuses
+
+    private var syncStatus: SyncItemStatus? {
+        pendingSyncStatuses[SyncItemKey(kind: .task, id: task.id)]
+    }
 
     /// - Parameters:
     ///   - task: the task to render.
@@ -75,13 +80,33 @@ public struct VikuTaskRow<Menu: View>: View {
         return (project.title, checkboxColor)
     }
 
-    /// Whether the metadata row has anything to show besides the link glyph.
-    /// When it doesn't (a project overview task with no due date), the glyph
-    /// would sit alone on its own line, so it moves up next to the title.
-    /// `inlineLabels` also counts the task's own labels, since those move
-    /// into this row instead of their own one below.
+    /// Whether the metadata row has anything to show besides the link and
+    /// pending-sync glyphs. When it doesn't (a project overview task with no
+    /// due date), those glyphs move up next to the title. `inlineLabels` also
+    /// counts the task's own labels, since those move into this row instead
+    /// of their own one below.
     private var hasMetadataLine: Bool {
         badge != nil || isOverdue || task.dueDate != nil || (inlineLabels && !task.labels.isEmpty)
+    }
+
+    /// The title, with the pending-sync glyph appended inline when there is no
+    /// metadata row to put it in. Concatenating it into the same `Text`
+    /// instead of adding a sibling view means it flows after the title's last
+    /// line rather than reserving its own column and narrowing the title.
+    private var titleText: Text {
+        let title = Text(task.title)
+            .font(VikuFont.body)
+            .fontWeight(.medium)
+            .strikethrough(task.isDone)
+            .foregroundStyle(task.isDone ? palette.textTertiary : Color.primary)
+
+        guard let syncStatus, !hasMetadataLine else { return title }
+
+        return title
+            + Text(verbatim: " ")
+            + Text(Image(systemName: syncStatus.pendingSyncSymbolName))
+            .font(VikuFont.caption2)
+            .foregroundColor(syncStatus.pendingSyncColor(in: palette))
     }
 
     public var body: some View {
@@ -91,11 +116,7 @@ public struct VikuTaskRow<Menu: View>: View {
 
             VStack(alignment: .leading, spacing: VikuSpacing.xs + VikuSpacing.xxs) {
                 HStack(spacing: VikuSpacing.xs) {
-                    Text(task.title)
-                        .font(VikuFont.body)
-                        .fontWeight(.medium)
-                        .strikethrough(task.isDone)
-                        .foregroundStyle(task.isDone ? palette.textTertiary : Color.primary)
+                    titleText
 
                     if !hasMetadataLine, task.hasRelations {
                         linkGlyph
@@ -178,6 +199,10 @@ public struct VikuTaskRow<Menu: View>: View {
 
                 if task.hasRelations {
                     linkGlyph
+                }
+
+                if let syncStatus {
+                    VikuPendingSyncIndicator(status: syncStatus)
                 }
             }
             .fixedSize(horizontal: true, vertical: false)

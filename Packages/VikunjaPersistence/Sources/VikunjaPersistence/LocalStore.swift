@@ -1,5 +1,6 @@
 import Foundation
 import GRDB
+import VikunjaCore
 
 public enum LocalStoreError: Error, Sendable {
     /// The App Group container isn't available - the App Groups entitlement
@@ -43,5 +44,42 @@ public actor LocalStore {
 
     public func write<T: Sendable>(_ updates: @Sendable (Database) throws -> T) async throws -> T {
         try await dbPool.write(updates)
+    }
+
+    /// The current pending-sync status of every project and task with at
+    /// least one queued mutation, for one account. One-shot read, used by
+    /// tests and any caller that only needs a snapshot.
+    public func pendingSyncStatuses(accountID: UUID) async throws -> [SyncItemKey: SyncItemStatus] {
+        try await read { db in try PendingSyncStatusReader.statuses(accountID: accountID, db: db) }
+    }
+
+    /// Streams `pendingSyncStatuses(accountID:)` on every change to the
+    /// mutation queue or to the project/task rows it resolves ids against.
+    /// Backed by GRDB's `ValueObservation`, so the UI's row indicators appear,
+    /// clear, and turn into failures without any polling. The stream ends
+    /// when the consuming task is cancelled.
+    public func observePendingSyncStatuses(
+        accountID: UUID,
+    ) -> AsyncThrowingStream<[SyncItemKey: SyncItemStatus], Error> {
+        let observation = ValueObservation.tracking(
+            regions: [Table("mutationQueueItem"), Table("project"), Table("task")],
+        ) { db in
+            try PendingSyncStatusReader.statuses(accountID: accountID, db: db)
+        }
+        .removeDuplicates()
+        let values = observation.values(in: dbPool)
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    for try await statuses in values {
+                        continuation.yield(statuses)
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
     }
 }

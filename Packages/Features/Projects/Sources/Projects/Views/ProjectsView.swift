@@ -339,9 +339,14 @@ private struct ProjectRow: View {
     let onAddSubproject: () -> Void
 
     @Environment(\.vikuPalette) private var palette
+    @Environment(\.pendingSyncStatuses) private var pendingSyncStatuses
 
     private var swatchColor: Color {
         Color(vikuHex: project.hexColor) ?? palette.brand
+    }
+
+    private var syncStatus: SyncItemStatus? {
+        pendingSyncStatuses[SyncItemKey(kind: .project, id: project.id)]
     }
 
     var body: some View {
@@ -356,10 +361,16 @@ private struct ProjectRow: View {
                 }
 
             VStack(alignment: .leading, spacing: VikuSpacing.xs) {
-                Text(project.title)
-                    .font(VikuFont.body)
-                    .fontWeight(.semibold)
-                    .lineLimit(1)
+                HStack(spacing: VikuSpacing.xs) {
+                    Text(project.title)
+                        .font(VikuFont.body)
+                        .fontWeight(.semibold)
+                        .lineLimit(1)
+
+                    if let syncStatus {
+                        VikuPendingSyncIndicator(status: syncStatus)
+                    }
+                }
 
                 // The second line always occupies the same height, whether or
                 // not this project's task summary has arrived yet — its own
