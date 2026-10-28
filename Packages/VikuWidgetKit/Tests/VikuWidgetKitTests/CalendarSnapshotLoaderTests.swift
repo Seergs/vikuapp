@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 import VikunjaCore
+import VikunjaPersistence
 @testable import VikuWidgetKit
 
 struct CalendarSnapshotLoaderTests {
@@ -22,8 +23,8 @@ struct CalendarSnapshotLoaderTests {
         tasks: [VikunjaTask] = [],
         failingProjectIDs: Set<Int> = [],
         projectsError: VikunjaError? = nil,
-        cacheDirectory: URL? = nil,
-    ) -> (CalendarSnapshotLoader, CalendarSnapshotCache) {
+        localSnapshot: LocalTaskSnapshot? = nil,
+    ) -> (CalendarSnapshotLoader, FakeLocalTaskSnapshotProvider) {
         let store = FakeAccountStore(account: account, token: token)
         let projectRepo = FakeProjectRepository()
         projectRepo.projects = projects
@@ -31,14 +32,22 @@ struct CalendarSnapshotLoaderTests {
         let taskRepo = FakeTaskRepository()
         taskRepo.tasks = tasks
         taskRepo.failingProjectIDs = failingProjectIDs
-        let cache = CalendarSnapshotCache(directory: cacheDirectory ?? TestSupport.tempCacheDirectory())
+        let snapshotProvider = FakeLocalTaskSnapshotProvider(snapshot: localSnapshot)
         let loader = CalendarSnapshotLoader(
             accountStore: store,
             clientFactory: FakeClientFactory(projectRepository: projectRepo, taskRepository: taskRepo),
-            cache: cache,
+            localSnapshotProvider: snapshotProvider,
             now: { Self.now },
         )
-        return (loader, cache)
+        return (loader, snapshotProvider)
+    }
+
+    private func localSnapshot(
+        projects: [Project] = [],
+        tasks: [VikunjaTask] = [],
+        lastPulledAt: Date? = CalendarSnapshotLoaderTests.now,
+    ) -> LocalTaskSnapshot {
+        LocalTaskSnapshot(tasks: tasks, projects: projects, lastPulledAt: lastPulledAt)
     }
 
     @Test
@@ -106,32 +115,14 @@ struct CalendarSnapshotLoaderTests {
     }
 
     @Test
-    func `writes the snapshot to the cache on success`() async {
-        let directory = TestSupport.tempCacheDirectory()
-        let (loader, cache) = makeLoader(
-            projects: [Project(id: 1, title: "Work")],
-            tasks: [VikunjaTask(id: 10, title: "T", dueDate: Self.laterToday, projectID: 1)],
-            cacheDirectory: directory,
-        )
-
-        _ = await loader.loadState()
-
-        #expect(cache.read()?.todayTasks.map(\.id) == [10])
-    }
-
-    @Test
-    func `falls back to a cached stale snapshot when the refresh fails`() async {
-        let directory = TestSupport.tempCacheDirectory()
-        let (goodLoader, _) = makeLoader(
+    func `falls back to the local snapshot when the refresh fails`() async {
+        let snapshot = localSnapshot(
             projects: [Project(id: 1, title: "Work")],
             tasks: [VikunjaTask(id: 10, title: "Cached", dueDate: Self.laterToday, projectID: 1)],
-            cacheDirectory: directory,
         )
-        _ = await goodLoader.loadState()
+        let (loader, _) = makeLoader(projectsError: .network("offline"), localSnapshot: snapshot)
 
-        let (failingLoader, _) = makeLoader(projectsError: .network("offline"), cacheDirectory: directory)
-
-        guard case let .content(content) = await failingLoader.loadState() else {
+        guard case let .content(content) = await loader.loadState() else {
             Issue.record("expected stale content")
             return
         }
@@ -140,7 +131,7 @@ struct CalendarSnapshotLoaderTests {
     }
 
     @Test
-    func `reports unavailable when the refresh fails and nothing is cached`() async {
+    func `reports unavailable when the refresh fails and nothing is stored locally`() async {
         let (loader, _) = makeLoader(projectsError: .network("offline"))
 
         #expect(await loader.loadState() == .unavailable)
@@ -154,22 +145,33 @@ struct CalendarSnapshotLoaderTests {
     }
 
     @Test
-    func `renders the app written cache when the widget cannot reach credentials`() async {
-        let directory = TestSupport.tempCacheDirectory()
-        let (appLoader, _) = makeLoader(
+    func `renders the local snapshot when the widget cannot reach credentials`() async {
+        let snapshot = localSnapshot(
             projects: [Project(id: 1, title: "Work")],
             tasks: [VikunjaTask(id: 10, title: "From the app", dueDate: Self.laterToday, projectID: 1)],
-            cacheDirectory: directory,
         )
-        _ = await appLoader.loadState()
+        let (loader, _) = makeLoader(token: nil, localSnapshot: snapshot)
 
-        let (widgetLoader, _) = makeLoader(token: nil, cacheDirectory: directory)
-
-        guard case let .content(content) = await widgetLoader.loadState() else {
-            Issue.record("expected cached content")
+        guard case let .content(content) = await loader.loadState() else {
+            Issue.record("expected local content")
             return
         }
         #expect(content.todayTasks.map(\.id) == [10])
         #expect(content.isStale == false)
+    }
+
+    @Test
+    func `renders the local snapshot when there is no active account`() async {
+        let snapshot = localSnapshot(
+            projects: [Project(id: 1, title: "Work")],
+            tasks: [VikunjaTask(id: 10, title: "From the app", dueDate: Self.laterToday, projectID: 1)],
+        )
+        let (loader, _) = makeLoader(account: nil, token: nil, localSnapshot: snapshot)
+
+        guard case let .content(content) = await loader.loadState() else {
+            Issue.record("expected local content")
+            return
+        }
+        #expect(content.todayTasks.map(\.id) == [10])
     }
 }
