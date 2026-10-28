@@ -90,7 +90,7 @@ public final class TaskDetailViewModel {
     /// both — in which case it always reads `nil`.
     private let notificationSettingsStore: NotificationSettingsStore?
     private let accountID: InstanceAccount.ID?
-    private var cachedRelatedTaskIDs: Set<Int> = []
+    private var cachedRelatedTaskIDs: Set<EntityID> = []
 
     /// Bumped at the start of every operation that will eventually write
     /// `task` back — `load()`, `persist(previous:)`, `toggleLabel(_:)`,
@@ -316,13 +316,12 @@ public final class TaskDetailViewModel {
     /// found the other task (e.g. a search/picker), since Vikunja's
     /// create-relation response only echoes ids, not those fields.
     public func addRelation(_ relation: TaskRelation, kind: RelationKind) async {
-        guard let taskID = requireSyncedTaskID() else { return }
         let previous = task
         taskWriteToken += 1
         let token = taskWriteToken
         insertRelation(relation, kind: kind)
         do {
-            try await relationRepository.addRelation(kind: kind, otherTaskID: relation.id, toTask: taskID)
+            try await relationRepository.addRelation(kind: kind, otherTaskID: relation.id, toTask: task.id)
             toastPresenter.show(String(localized: "Relation added", bundle: .module), style: .success)
         } catch {
             guard token == taskWriteToken else { return }
@@ -333,13 +332,12 @@ public final class TaskDetailViewModel {
     /// Removes `relation` under `kind` from the task, optimistically, rolling
     /// back if the server rejects it — mirrors `toggleLabel(_:)`.
     public func removeRelation(_ relation: TaskRelation, kind: RelationKind) async {
-        guard let taskID = requireSyncedTaskID() else { return }
         let previous = task
         taskWriteToken += 1
         let token = taskWriteToken
         deleteRelation(relation, kind: kind)
         do {
-            try await relationRepository.removeRelation(kind: kind, otherTaskID: relation.id, fromTask: taskID)
+            try await relationRepository.removeRelation(kind: kind, otherTaskID: relation.id, fromTask: task.id)
         } catch {
             guard token == taskWriteToken else { return }
             task = previous
@@ -362,7 +360,7 @@ public final class TaskDetailViewModel {
             hapticPresenter.play(.success)
         }
         do {
-            var relatedTask = try await repository.fetchTask(id: .remote(relation.id))
+            var relatedTask = try await repository.fetchTask(id: relation.id)
             relatedTask.isDone = newIsDone
             _ = try await repository.update(relatedTask)
         } catch {
@@ -384,9 +382,9 @@ public final class TaskDetailViewModel {
             await loadRelationSuggestions()
             return
         }
-        let excludedIDs = relatedTaskIDs.union(taskID.map { [$0] } ?? [])
+        let excludedIDs = relatedTaskIDs.union([task.id])
         let results = await (try? repository.searchTasks(query: query)) ?? []
-        relationSearchResults = results.filter { !excludedIDs.contains($0.id.remoteValue ?? -1) }
+        relationSearchResults = results.filter { !excludedIDs.contains($0.id) }
     }
 
     /// Populates `relationSearchResults` with this task's own project's other
@@ -395,9 +393,9 @@ public final class TaskDetailViewModel {
     /// search for the common case. Excludes the task itself and anything
     /// already related to it, the same as `searchTasksForRelation(query:)`.
     public func loadRelationSuggestions() async {
-        let excludedIDs = relatedTaskIDs.union(taskID.map { [$0] } ?? [])
+        let excludedIDs = relatedTaskIDs.union([task.id])
         let results = await (try? repository.fetchTasks(projectID: project.id)) ?? []
-        relationSearchResults = results.filter { !excludedIDs.contains($0.id.remoteValue ?? -1) }
+        relationSearchResults = results.filter { !excludedIDs.contains($0.id) }
     }
 
     /// Loads every project on the instance, for the "add relation" task
@@ -478,14 +476,14 @@ public final class TaskDetailViewModel {
     /// hasn't been already, mirroring the "add relation" picker's lazy load.
     /// Returns `nil` if either fetch fails, or the project can't be resolved.
     public func loadRelatedTask(_ relation: TaskRelation) async -> (VikunjaTask, Project)? {
-        guard let relatedTask = try? await repository.fetchTask(id: .remote(relation.id)) else { return nil }
-        if relation.projectID == project.id.remoteValue {
+        guard let relatedTask = try? await repository.fetchTask(id: relation.id) else { return nil }
+        if relation.projectID == project.id {
             return (relatedTask, project)
         }
         if allProjects.isEmpty {
             await loadAllProjects()
         }
-        guard let relatedProject = allProjects.first(where: { $0.id.remoteValue == relation.projectID }) else {
+        guard let relatedProject = allProjects.first(where: { $0.id == relation.projectID }) else {
             return nil
         }
         return (relatedTask, relatedProject)
@@ -737,18 +735,18 @@ public final class TaskDetailViewModel {
     /// (always known, no network needed) or, once `loadAllProjects()` has
     /// run, any other project on the instance. Returns `nil` if `id` isn't
     /// the current project and hasn't been loaded into `allProjects` yet.
-    public func projectTitle(forProjectID id: Int) -> String? {
-        if id == project.id.remoteValue {
+    public func projectTitle(forProjectID id: EntityID) -> String? {
+        if id == project.id {
             return project.title
         }
-        return allProjects.first { $0.id.remoteValue == id }?.title
+        return allProjects.first { $0.id == id }?.title
     }
 
     /// Every task id already related to this one, across `subtasks`,
     /// `dependsOn`, `blocks`, and every kind in `otherRelations` — used to
     /// exclude already-related tasks from the relation search results. Cached
     /// on demand and updated whenever relations change.
-    private var relatedTaskIDs: Set<Int> {
+    private var relatedTaskIDs: Set<EntityID> {
         cachedRelatedTaskIDs
     }
 
@@ -776,7 +774,7 @@ public final class TaskDetailViewModel {
     /// Flips the matching `TaskRelation`'s `isDone` in whichever of `task`'s
     /// relation properties `kind` corresponds to, mirroring `insertRelation`'s
     /// routing. A no-op if `id` isn't present under `kind` (stale local state).
-    private func setRelationDone(_ isDone: Bool, id: Int, kind: RelationKind) {
+    private func setRelationDone(_ isDone: Bool, id: EntityID, kind: RelationKind) {
         switch kind {
         case .subtask:
             if let index = task.subtasks.firstIndex(where: { $0.id == id }) {

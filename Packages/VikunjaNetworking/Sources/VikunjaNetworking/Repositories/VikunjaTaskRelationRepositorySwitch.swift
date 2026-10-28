@@ -19,11 +19,11 @@ final class VikunjaTaskRelationRepositorySwitch: TaskRelationRepositoryProtocol 
         await capabilityProvider.supports(.apiV2) ? v2 : v1
     }
 
-    func addRelation(kind: RelationKind, otherTaskID: Int, toTask taskID: Int) async throws {
+    func addRelation(kind: RelationKind, otherTaskID: EntityID, toTask taskID: EntityID) async throws {
         try await resolve().addRelation(kind: kind, otherTaskID: otherTaskID, toTask: taskID)
     }
 
-    func removeRelation(kind: RelationKind, otherTaskID: Int, fromTask taskID: Int) async throws {
+    func removeRelation(kind: RelationKind, otherTaskID: EntityID, fromTask taskID: EntityID) async throws {
         try await resolve().removeRelation(kind: kind, otherTaskID: otherTaskID, fromTask: taskID)
     }
 }

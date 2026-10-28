@@ -38,7 +38,8 @@ struct OfflineProjectRepositoryTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let engine = SyncEngine(
             localStore: store, projectRepository: network,
-            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountID,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(),
+            relationRepository: FakeTaskRelationRepository(), accountID: accountID,
         )
         let reachability = FakeReachabilityMonitor(isReachable: online)
         let repository = OfflineProjectRepository(
@@ -169,7 +170,8 @@ struct OfflineProjectRepositoryTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let onlineEngine = SyncEngine(
             localStore: store, projectRepository: network,
-            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountID,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(),
+            relationRepository: FakeTaskRelationRepository(), accountID: accountID,
         )
         let onlineRepository = OfflineProjectRepository(
             localStore: store, accountID: accountID, syncEngine: onlineEngine,
@@ -180,7 +182,8 @@ struct OfflineProjectRepositoryTests {
 
         let offlineEngine = SyncEngine(
             localStore: store, projectRepository: network,
-            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountID,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(),
+            relationRepository: FakeTaskRelationRepository(), accountID: accountID,
         )
         let offlineRepository = OfflineProjectRepository(
             localStore: store, accountID: accountID, syncEngine: offlineEngine,
@@ -218,7 +221,8 @@ struct OfflineProjectRepositoryTests {
             localStore: store, accountID: accountID,
             syncEngine: SyncEngine(
                 localStore: store, projectRepository: network,
-                labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountID,
+                labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(),
+                relationRepository: FakeTaskRelationRepository(), accountID: accountID,
             ),
             reachability: FakeReachabilityMonitor(isReachable: true),
         )
@@ -228,7 +232,8 @@ struct OfflineProjectRepositoryTests {
             localStore: store, accountID: accountID,
             syncEngine: SyncEngine(
                 localStore: store, projectRepository: network,
-                labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountID,
+                labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(),
+                relationRepository: FakeTaskRelationRepository(), accountID: accountID,
             ),
             reachability: FakeReachabilityMonitor(isReachable: false),
         )
@@ -280,7 +285,8 @@ struct OfflineProjectRepositoryTests {
             localStore: store, accountID: accountA,
             syncEngine: SyncEngine(
                 localStore: store, projectRepository: networkA,
-                labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountA,
+                labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(),
+                relationRepository: FakeTaskRelationRepository(), accountID: accountA,
             ),
             reachability: FakeReachabilityMonitor(isReachable: false),
         )
@@ -288,7 +294,8 @@ struct OfflineProjectRepositoryTests {
             localStore: store, accountID: accountB,
             syncEngine: SyncEngine(
                 localStore: store, projectRepository: networkB,
-                labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountB,
+                labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(),
+                relationRepository: FakeTaskRelationRepository(), accountID: accountB,
             ),
             reachability: FakeReachabilityMonitor(isReachable: false),
         )

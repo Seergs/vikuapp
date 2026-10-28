@@ -50,11 +50,11 @@ private final class SpyTaskRelationRepository: TaskRelationRepositoryProtocol, @
     private(set) var addRelationCallCount = 0
     private(set) var removeRelationCallCount = 0
 
-    func addRelation(kind: RelationKind, otherTaskID: Int, toTask taskID: Int) async throws {
+    func addRelation(kind: RelationKind, otherTaskID: EntityID, toTask taskID: EntityID) async throws {
         addRelationCallCount += 1
     }
 
-    func removeRelation(kind: RelationKind, otherTaskID: Int, fromTask taskID: Int) async throws {
+    func removeRelation(kind: RelationKind, otherTaskID: EntityID, fromTask taskID: EntityID) async throws {
         removeRelationCallCount += 1
     }
 }

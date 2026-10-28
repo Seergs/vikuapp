@@ -35,7 +35,7 @@ struct OfflineLabelRepositoryTests {
         let engine = SyncEngine(
             localStore: store, projectRepository: FakeProjectRepository(),
             labelRepository: network, taskRepository: FakeTaskRepository(),
-
+            relationRepository: FakeTaskRelationRepository(),
             accountID: accountID,
         )
         let reachability = FakeReachabilityMonitor(isReachable: online)
@@ -162,7 +162,7 @@ struct OfflineLabelRepositoryTests {
         let onlineEngine = SyncEngine(
             localStore: store, projectRepository: FakeProjectRepository(),
             labelRepository: network, taskRepository: FakeTaskRepository(),
-
+            relationRepository: FakeTaskRelationRepository(),
             accountID: accountID,
         )
         let onlineRepository = OfflineLabelRepository(
@@ -175,7 +175,7 @@ struct OfflineLabelRepositoryTests {
         let offlineEngine = SyncEngine(
             localStore: store, projectRepository: FakeProjectRepository(),
             labelRepository: network, taskRepository: FakeTaskRepository(),
-
+            relationRepository: FakeTaskRelationRepository(),
             accountID: accountID,
         )
         let offlineRepository = OfflineLabelRepository(
@@ -217,7 +217,7 @@ struct OfflineLabelRepositoryTests {
             syncEngine: SyncEngine(
                 localStore: store, projectRepository: FakeProjectRepository(),
                 labelRepository: network, taskRepository: FakeTaskRepository(),
-
+                relationRepository: FakeTaskRelationRepository(),
                 accountID: accountID,
             ),
             reachability: FakeReachabilityMonitor(isReachable: true),
@@ -229,7 +229,7 @@ struct OfflineLabelRepositoryTests {
             syncEngine: SyncEngine(
                 localStore: store, projectRepository: FakeProjectRepository(),
                 labelRepository: network, taskRepository: FakeTaskRepository(),
-
+                relationRepository: FakeTaskRelationRepository(),
                 accountID: accountID,
             ),
             reachability: FakeReachabilityMonitor(isReachable: false),
@@ -271,7 +271,7 @@ struct OfflineLabelRepositoryTests {
             syncEngine: SyncEngine(
                 localStore: store, projectRepository: FakeProjectRepository(),
                 labelRepository: networkA, taskRepository: FakeTaskRepository(),
-
+                relationRepository: FakeTaskRelationRepository(),
                 accountID: accountA,
             ),
             reachability: FakeReachabilityMonitor(isReachable: false),
@@ -281,7 +281,7 @@ struct OfflineLabelRepositoryTests {
             syncEngine: SyncEngine(
                 localStore: store, projectRepository: FakeProjectRepository(),
                 labelRepository: networkB, taskRepository: FakeTaskRepository(),
-
+                relationRepository: FakeTaskRelationRepository(),
                 accountID: accountB,
             ),
             reachability: FakeReachabilityMonitor(isReachable: false),

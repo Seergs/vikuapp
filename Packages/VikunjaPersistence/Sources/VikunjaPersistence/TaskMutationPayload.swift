@@ -1,4 +1,5 @@
 import Foundation
+import VikunjaCore
 
 /// The frozen "what the user wants" snapshot a queued `create`/`update`
 /// replays against the server — see `ProjectCreateOrUpdatePayload`'s doc
@@ -36,4 +37,16 @@ struct TaskDeletePayload: Codable, Equatable, Sendable {
 /// by the queue item's own `targetLocalID`, so it isn't repeated here.
 struct TaskLabelMutationPayload: Codable, Equatable, Sendable {
     var labelLocalID: UUID
+}
+
+/// What a queued `addRelation`/`removeRelation` needs to resolve the other
+/// task at drain time - same dependency-ordering reasoning as
+/// `TaskLabelMutationPayload`, except *both* sides can be only local-so-far
+/// here (a relation can be queued between two tasks created offline in the
+/// same session), not just the referenced side. The task side is addressed
+/// by the queue item's own `targetLocalID`, so only the other task and the
+/// relation kind are carried here.
+struct TaskRelationMutationPayload: Codable, Equatable, Sendable {
+    var kind: RelationKind
+    var otherTaskLocalID: UUID
 }

@@ -10,6 +10,7 @@ public actor SyncEngine {
     private let projectRepository: ProjectRepositoryProtocol
     private let labelRepository: LabelRepositoryProtocol
     private let taskRepository: TaskRepositoryProtocol
+    private let relationRepository: TaskRelationRepositoryProtocol
     /// `InstanceAccount.id` — every row this engine reads or writes is
     /// scoped to this one account, since `LocalStore`'s tables hold every
     /// saved account's data together rather than one database file each.
@@ -20,12 +21,14 @@ public actor SyncEngine {
         projectRepository: ProjectRepositoryProtocol,
         labelRepository: LabelRepositoryProtocol,
         taskRepository: TaskRepositoryProtocol,
+        relationRepository: TaskRelationRepositoryProtocol,
         accountID: UUID,
     ) {
         self.localStore = localStore
         self.projectRepository = projectRepository
         self.labelRepository = labelRepository
         self.taskRepository = taskRepository
+        self.relationRepository = relationRepository
         self.accountID = accountID
     }
 
@@ -376,6 +379,9 @@ public actor SyncEngine {
             guard let projectRemoteID = task.projectID.remoteValue,
                   let projectLocalID = projectLocalIDByRemoteID[projectRemoteID] else { continue }
             let labelRemoteIDs = task.labels.compactMap(\.id.remoteValue).map(String.init).joined(separator: ",")
+            // Relation association isn't part of the local edit being
+            // protected either - same reasoning as `labelRemoteIDs` above.
+            try Self.replaceRelationRows(for: localID, accountID: accountID, task: task, db: db)
             if protectedLocalIDs.contains(localID) {
                 guard var existing = try TaskRecord.fetchOne(db, key: localID) else { continue }
                 existing.serverUpdatedAt = task.updated
@@ -404,6 +410,32 @@ public actor SyncEngine {
     }
 
     // swiftlint:enable function_parameter_count
+
+    /// Fully replaces one task's cached relation set — delete then
+    /// re-insert, rather than diffing - since the server's `related_tasks`
+    /// map returned alongside the task is itself already the full set, same
+    /// "full reconciliation" approach `pullProjects`/`pullLabels` take for
+    /// their own tables.
+    private static func replaceRelationRows(for localID: UUID, accountID: UUID, task: VikunjaTask, db: Database) throws {
+        try TaskRelationRecord.filter(Column("taskLocalID") == localID).deleteAll(db)
+        var relations: [(kind: RelationKind, relation: TaskRelation)] = []
+        relations += task.subtasks.map { (kind: .subtask, relation: $0) }
+        relations += task.dependsOn.map { (kind: .blocked, relation: $0) }
+        relations += task.blocks.map { (kind: .blocking, relation: $0) }
+        for (kind, kindRelations) in task.otherRelations {
+            relations += kindRelations.map { (kind: kind, relation: $0) }
+        }
+        for (kind, relation) in relations {
+            guard let otherTaskRemoteID = relation.id.remoteValue,
+                  let otherProjectRemoteID = relation.projectID.remoteValue else { continue }
+            let row = TaskRelationRecord(
+                localID: UUID(), accountID: accountID, taskLocalID: localID, kind: kind,
+                otherTaskRemoteID: otherTaskRemoteID, otherProjectRemoteID: otherProjectRemoteID,
+                title: relation.title, isDone: relation.isDone,
+            )
+            try row.insert(db)
+        }
+    }
 
     private static func deleteMissingTaskRows(
         _ localRows: [TaskRecord],
@@ -484,7 +516,7 @@ public actor SyncEngine {
             case .create: return try await drainCreate(item)
             case .update: return try await drainUpdate(item)
             case .delete: return try await drainDelete(item)
-            case .addLabel, .removeLabel:
+            case .addLabel, .removeLabel, .addRelation, .removeRelation:
                 // Only ever queued against `entityType: .task` - unreachable
                 // here since `drainProjectMutations()` filters to `.project`.
                 return .skipped
@@ -613,7 +645,7 @@ public actor SyncEngine {
             case .create: try await drainLabelCreate(item)
             case .update: try await drainLabelUpdate(item)
             case .delete: try await drainLabelDelete(item)
-            case .addLabel, .removeLabel:
+            case .addLabel, .removeLabel, .addRelation, .removeRelation:
                 // Only ever queued against `entityType: .task` - unreachable
                 // here since `drainLabelMutations()` filters to `.label`.
                 break
@@ -707,6 +739,8 @@ public actor SyncEngine {
             case .delete: return try await drainTaskDelete(item)
             case .addLabel: return try await drainTaskLabelMutation(item, isAdding: true)
             case .removeLabel: return try await drainTaskLabelMutation(item, isAdding: false)
+            case .addRelation: return try await drainTaskRelationMutation(item, isAdding: true)
+            case .removeRelation: return try await drainTaskRelationMutation(item, isAdding: false)
             }
         } catch {
             await markFailed(item, error: error)
@@ -829,6 +863,135 @@ public actor SyncEngine {
             try item.delete(db)
         }
         return .pushed
+    }
+
+    /// `addRelation`/`removeRelation` queued against `targetLocalID` (the
+    /// task), with `payload.otherTaskLocalID`/`payload.kind` identifying the
+    /// other side - mirrors `drainTaskLabelMutation`'s dependency-ordering,
+    /// except both the task *and* the other task can still be only
+    /// local-so-far (a relation can be queued between two tasks both
+    /// created offline), so both are resolved here, not just one.
+    private func drainTaskRelationMutation(_ item: MutationQueueRecord, isAdding: Bool) async throws -> DrainOutcome {
+        guard let payload: TaskRelationMutationPayload = try decodePayload(item.payload) else {
+            throw DrainError.invalidPayload
+        }
+        guard let resolved = try await localStore.read({ db in
+            try Self.resolveRelationMutationRows(
+                taskLocalID: item.targetLocalID, otherTaskLocalID: payload.otherTaskLocalID, db: db,
+            )
+        }) else {
+            return .deferred // The task, the other task, or either's project hasn't synced yet.
+        }
+        if isAdding {
+            try await relationRepository.addRelation(
+                kind: payload.kind, otherTaskID: .remote(resolved.otherTaskRemoteID),
+                toTask: .remote(resolved.taskRemoteID),
+            )
+        } else {
+            try await relationRepository.removeRelation(
+                kind: payload.kind, otherTaskID: .remote(resolved.otherTaskRemoteID),
+                fromTask: .remote(resolved.taskRemoteID),
+            )
+        }
+        try await localStore.write { db in
+            try Self.patchRelationCache(
+                isAdding: isAdding, kind: payload.kind, taskLocalID: item.targetLocalID,
+                otherTaskLocalID: payload.otherTaskLocalID, resolved: resolved, accountID: self.accountID, db: db,
+            )
+            try item.delete(db)
+        }
+        return .pushed
+    }
+
+    private struct ResolvedRelationMutation {
+        let taskRemoteID: Int
+        let taskProjectRemoteID: Int
+        let taskTitle: String
+        let taskIsDone: Bool
+        let otherTaskRemoteID: Int
+        let otherProjectRemoteID: Int
+        let otherTitle: String
+        let otherIsDone: Bool
+    }
+
+    private static func resolveRelationMutationRows(
+        taskLocalID: UUID, otherTaskLocalID: UUID, db: Database,
+    ) throws -> ResolvedRelationMutation? {
+        guard let taskRow = try TaskRecord.fetchOne(db, key: taskLocalID), let taskRemoteID = taskRow.remoteID,
+              let otherTaskRow = try TaskRecord.fetchOne(db, key: otherTaskLocalID),
+              let otherTaskRemoteID = otherTaskRow.remoteID,
+              let taskProjectRemoteID = try ProjectRecord.fetchOne(db, key: taskRow.projectLocalID)?.remoteID,
+              let otherProjectRemoteID = try ProjectRecord.fetchOne(db, key: otherTaskRow.projectLocalID)?.remoteID
+        else {
+            return nil
+        }
+        return ResolvedRelationMutation(
+            taskRemoteID: taskRemoteID, taskProjectRemoteID: taskProjectRemoteID, taskTitle: taskRow.title,
+            taskIsDone: taskRow.isDone, otherTaskRemoteID: otherTaskRemoteID,
+            otherProjectRemoteID: otherProjectRemoteID, otherTitle: otherTaskRow.title,
+            otherIsDone: otherTaskRow.isDone,
+        )
+    }
+
+    // swiftlint:disable function_parameter_count
+    /// Patches the `taskRelation` cache on both sides of a successful push —
+    /// the push just made this true server-side, but every screen reads a
+    /// task's relations from this cache (see `TaskRelationRecord`'s doc
+    /// comment), which otherwise only catches up on the next `pullTasks()`.
+    /// Both sides because Vikunja's relations are bidirectional under
+    /// paired kinds (`subtask`/`parenttask`, `blocking`/`blocked`, ...) -
+    /// without this, the other task's own relation list would show nothing
+    /// until its own next pull. Deletes any existing match before inserting
+    /// rather than a blind insert, so a retry after a response that
+    /// succeeded server-side but was lost locally can't violate the unique
+    /// index.
+    private static func patchRelationCache(
+        isAdding: Bool, kind: RelationKind, taskLocalID: UUID, otherTaskLocalID: UUID,
+        resolved: ResolvedRelationMutation, accountID: UUID, db: Database,
+    ) throws {
+        let inverseKind = Self.inverseKind(kind)
+        try TaskRelationRecord
+            .filter(Column("taskLocalID") == taskLocalID && Column("kind") == kind.rawValue
+                && Column("otherTaskRemoteID") == resolved.otherTaskRemoteID)
+            .deleteAll(db)
+        try TaskRelationRecord
+            .filter(Column("taskLocalID") == otherTaskLocalID && Column("kind") == inverseKind.rawValue
+                && Column("otherTaskRemoteID") == resolved.taskRemoteID)
+            .deleteAll(db)
+        guard isAdding else { return }
+        let forward = TaskRelationRecord(
+            localID: UUID(), accountID: accountID, taskLocalID: taskLocalID, kind: kind,
+            otherTaskRemoteID: resolved.otherTaskRemoteID, otherProjectRemoteID: resolved.otherProjectRemoteID,
+            title: resolved.otherTitle, isDone: resolved.otherIsDone,
+        )
+        try forward.insert(db)
+        let mirror = TaskRelationRecord(
+            localID: UUID(), accountID: accountID, taskLocalID: otherTaskLocalID, kind: inverseKind,
+            otherTaskRemoteID: resolved.taskRemoteID, otherProjectRemoteID: resolved.taskProjectRemoteID,
+            title: resolved.taskTitle, isDone: resolved.taskIsDone,
+        )
+        try mirror.insert(db)
+    }
+
+    // swiftlint:enable function_parameter_count
+
+    /// The relation kind the other side of a pair sees once this one is
+    /// created — e.g. A's `subtask` B implies B's `parenttask` A. `related`
+    /// is its own inverse (Vikunja doesn't distinguish direction for it).
+    private static func inverseKind(_ kind: RelationKind) -> RelationKind {
+        switch kind {
+        case .subtask: .parenttask
+        case .parenttask: .subtask
+        case .blocking: .blocked
+        case .blocked: .blocking
+        case .duplicateof: .duplicates
+        case .duplicates: .duplicateof
+        case .precedes: .follows
+        case .follows: .precedes
+        case .copiedfrom: .copiedto
+        case .copiedto: .copiedfrom
+        case .related: .related
+        }
     }
 
     private func applyTaskPushResult(_ task: VikunjaTask, deleting item: MutationQueueRecord) async throws {

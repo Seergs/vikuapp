@@ -16,6 +16,7 @@ enum DatabaseMigrations {
         migrator.registerMigration("createSyncState", migrate: createSyncState)
         migrator.registerMigration("createLabel", migrate: createLabel)
         migrator.registerMigration("createTask", migrate: createTask)
+        migrator.registerMigration("createTaskRelation", migrate: createTaskRelation)
     }
 
     private static func createProject(_ db: Database) throws {
@@ -139,6 +140,31 @@ enum DatabaseMigrations {
             index: "task_on_accountID_remoteID",
             on: "task",
             columns: ["accountID", "remoteID"],
+            unique: true,
+        )
+    }
+
+    private static func createTaskRelation(_ db: Database) throws {
+        try db.create(table: "taskRelation") { table in
+            table.primaryKey("localID", .text)
+            table.column("accountID", .text).notNull().indexed()
+            table.column("taskLocalID", .text)
+                .notNull()
+                .indexed()
+                .references("task", column: "localID", onDelete: .cascade)
+            table.column("kind", .text).notNull()
+            table.column("otherTaskRemoteID", .integer).notNull()
+            table.column("otherProjectRemoteID", .integer).notNull()
+            table.column("title", .text).notNull()
+            table.column("isDone", .boolean).notNull().defaults(to: false)
+        }
+        // A pull fully replaces one task's relation set at a time (delete
+        // then re-insert), rather than diffing - this is what makes that
+        // cheap to look up and clear.
+        try db.create(
+            index: "taskRelation_on_taskLocalID_kind_otherTaskRemoteID",
+            on: "taskRelation",
+            columns: ["taskLocalID", "kind", "otherTaskRemoteID"],
             unique: true,
         )
     }

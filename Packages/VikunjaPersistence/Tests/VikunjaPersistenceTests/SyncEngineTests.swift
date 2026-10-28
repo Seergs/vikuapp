@@ -15,7 +15,8 @@ struct SyncEngineTests {
         repository.projects = [Project(id: 1, title: "Groceries", hexColor: "ff0000")]
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: UUID(),
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(),
+            relationRepository: FakeTaskRelationRepository(), accountID: UUID(),
         )
 
         try await engine.pullProjects()
@@ -34,7 +35,8 @@ struct SyncEngineTests {
         repository.projects = [Project(id: 1, title: "Groceries")]
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: UUID(),
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(),
+            relationRepository: FakeTaskRelationRepository(), accountID: UUID(),
         )
         try await engine.pullProjects()
         let localID = try await store.read { db in
@@ -64,7 +66,8 @@ struct SyncEngineTests {
         let accountID = UUID()
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountID,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(),
+            relationRepository: FakeTaskRelationRepository(), accountID: accountID,
         )
         try await engine.pullProjects()
         let localID = try await store.read { db in
@@ -104,7 +107,8 @@ struct SyncEngineTests {
         let accountID = UUID()
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountID,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(),
+            relationRepository: FakeTaskRelationRepository(), accountID: accountID,
         )
         try await engine.pullProjects()
         let localID = try await store.read { db in
@@ -161,7 +165,8 @@ struct SyncEngineTests {
         ]
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountID,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(),
+            relationRepository: FakeTaskRelationRepository(), accountID: accountID,
         )
         try await engine.pullProjects()
 
@@ -180,7 +185,8 @@ struct SyncEngineTests {
         ]
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: UUID(),
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(),
+            relationRepository: FakeTaskRelationRepository(), accountID: UUID(),
         )
 
         try await engine.pullProjects()
@@ -198,7 +204,8 @@ struct SyncEngineTests {
         repository.projects = [Project(id: 1, title: "Groceries"), Project(id: 2, title: "Work")]
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: UUID(),
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(),
+            relationRepository: FakeTaskRelationRepository(), accountID: UUID(),
         )
         try await engine.pullProjects()
 
@@ -217,7 +224,8 @@ struct SyncEngineTests {
         let accountID = UUID()
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountID,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(),
+            relationRepository: FakeTaskRelationRepository(), accountID: accountID,
         )
         try await engine.pullProjects()
         let localID = try await store.read { db in
@@ -248,7 +256,8 @@ struct SyncEngineTests {
         let accountID = UUID()
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountID,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(),
+            relationRepository: FakeTaskRelationRepository(), accountID: accountID,
         )
         try await engine.pullProjects()
         let localID = try await store.read { db in
@@ -277,7 +286,8 @@ struct SyncEngineTests {
         let repository = FakeProjectRepository()
         let engine = SyncEngine(
             localStore: store, projectRepository: repository,
-            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: UUID(),
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(),
+            relationRepository: FakeTaskRelationRepository(), accountID: UUID(),
         )
         let before = Date()
 
@@ -303,11 +313,13 @@ struct SyncEngineTests {
         repositoryB.projects = [Project(id: 1, title: "B's project")]
         let engineA = SyncEngine(
             localStore: store, projectRepository: repositoryA,
-            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountA,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(),
+            relationRepository: FakeTaskRelationRepository(), accountID: accountA,
         )
         let engineB = SyncEngine(
             localStore: store, projectRepository: repositoryB,
-            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(), accountID: accountB,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(),
+            relationRepository: FakeTaskRelationRepository(), accountID: accountB,
         )
 
         try await engineA.pullProjects()
@@ -334,7 +346,7 @@ struct SyncEngineTests {
         let engine = SyncEngine(
             localStore: store, projectRepository: FakeProjectRepository(),
             labelRepository: labelRepository, taskRepository: FakeTaskRepository(),
-
+            relationRepository: FakeTaskRelationRepository(),
             accountID: UUID(),
         )
 
@@ -356,7 +368,7 @@ struct SyncEngineTests {
         let engine = SyncEngine(
             localStore: store, projectRepository: FakeProjectRepository(),
             labelRepository: labelRepository, taskRepository: FakeTaskRepository(),
-
+            relationRepository: FakeTaskRelationRepository(),
             accountID: accountID,
         )
         try await engine.pullLabels()
@@ -383,7 +395,7 @@ struct SyncEngineTests {
         let engine = SyncEngine(
             localStore: store, projectRepository: FakeProjectRepository(),
             labelRepository: labelRepository, taskRepository: FakeTaskRepository(),
-
+            relationRepository: FakeTaskRelationRepository(),
             accountID: UUID(),
         )
         try await engine.pullLabels()
@@ -404,7 +416,7 @@ struct SyncEngineTests {
         let engine = SyncEngine(
             localStore: store, projectRepository: FakeProjectRepository(),
             labelRepository: labelRepository, taskRepository: FakeTaskRepository(),
-
+            relationRepository: FakeTaskRelationRepository(),
             accountID: accountID,
         )
         try await engine.pullLabels()
@@ -440,7 +452,7 @@ struct SyncEngineTests {
         taskRepository.tasks = [VikunjaTask(id: 10, title: "Buy milk", projectID: 1)]
         let engine = SyncEngine(
             localStore: store, projectRepository: projectRepository, labelRepository: FakeLabelRepository(),
-            taskRepository: taskRepository, accountID: UUID(),
+            taskRepository: taskRepository, relationRepository: FakeTaskRelationRepository(), accountID: UUID(),
         )
         try await engine.pullProjects()
         let projectLocalID = try await store.read { db in
@@ -470,7 +482,7 @@ struct SyncEngineTests {
         ]
         let engine = SyncEngine(
             localStore: store, projectRepository: projectRepository, labelRepository: FakeLabelRepository(),
-            taskRepository: taskRepository, accountID: UUID(),
+            taskRepository: taskRepository, relationRepository: FakeTaskRelationRepository(), accountID: UUID(),
         )
         try await engine.pullProjects()
 
@@ -486,7 +498,7 @@ struct SyncEngineTests {
         let taskRepository = FakeTaskRepository()
         let engine = SyncEngine(
             localStore: store, projectRepository: FakeProjectRepository(), labelRepository: FakeLabelRepository(),
-            taskRepository: taskRepository, accountID: UUID(),
+            taskRepository: taskRepository, relationRepository: FakeTaskRelationRepository(), accountID: UUID(),
         )
         // No pullProjects() call - the project table is empty, so there's
         // nothing to resolve this task's `projectLocalID` against.
@@ -508,7 +520,7 @@ struct SyncEngineTests {
         let taskRepository = FakeTaskRepository()
         let engine = SyncEngine(
             localStore: store, projectRepository: projectRepository, labelRepository: FakeLabelRepository(),
-            taskRepository: taskRepository, accountID: UUID(),
+            taskRepository: taskRepository, relationRepository: FakeTaskRelationRepository(), accountID: UUID(),
         )
         try await engine.pullProjects()
 
@@ -526,7 +538,7 @@ struct SyncEngineTests {
         taskRepository.tasks = [VikunjaTask(id: 10, title: "Buy milk", projectID: 1)]
         let engine = SyncEngine(
             localStore: store, projectRepository: projectRepository, labelRepository: FakeLabelRepository(),
-            taskRepository: taskRepository, accountID: UUID(),
+            taskRepository: taskRepository, relationRepository: FakeTaskRelationRepository(), accountID: UUID(),
         )
         try await engine.pullProjects()
         try await engine.pullTasks()
@@ -554,7 +566,7 @@ struct SyncEngineTests {
         ]
         let engine = SyncEngine(
             localStore: store, projectRepository: projectRepository, labelRepository: FakeLabelRepository(),
-            taskRepository: taskRepository, accountID: UUID(),
+            taskRepository: taskRepository, relationRepository: FakeTaskRelationRepository(), accountID: UUID(),
         )
         try await engine.pullProjects()
         try await engine.pullTasks()
@@ -576,7 +588,7 @@ struct SyncEngineTests {
         let accountID = UUID()
         let engine = SyncEngine(
             localStore: store, projectRepository: projectRepository, labelRepository: FakeLabelRepository(),
-            taskRepository: taskRepository, accountID: accountID,
+            taskRepository: taskRepository, relationRepository: FakeTaskRelationRepository(), accountID: accountID,
         )
         try await engine.pullProjects()
         try await engine.pullTasks()
@@ -614,7 +626,7 @@ struct SyncEngineTests {
         let accountID = UUID()
         let engine = SyncEngine(
             localStore: store, projectRepository: projectRepository, labelRepository: FakeLabelRepository(),
-            taskRepository: taskRepository, accountID: accountID,
+            taskRepository: taskRepository, relationRepository: FakeTaskRelationRepository(), accountID: accountID,
         )
         try await engine.pullProjects()
         try await engine.pullTasks()

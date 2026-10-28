@@ -94,7 +94,10 @@ private final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @u
         baseURL: URL,
         tokenProvider: @escaping @Sendable () async throws -> String?,
     ) -> TaskRelationRepositoryProtocol {
-        fatalError("not used by SyncCoordinatorTests")
+        // `sync(_:)` always pulls relations alongside tasks, but nothing in
+        // this file asserts on relation behavior - a fresh, otherwise-unused
+        // fake per call is enough to keep that pull a harmless no-op.
+        FakeTaskRelationRepository()
     }
 
     func makeTaskCommentRepository(

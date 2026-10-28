@@ -102,11 +102,16 @@ public actor SyncCoordinator {
             baseURL: account.baseURL,
             tokenProvider: resolvedTokenProvider,
         )
+        let relationRepository = clientFactory.makeTaskRelationRepository(
+            baseURL: account.baseURL,
+            tokenProvider: resolvedTokenProvider,
+        )
         let engine = SyncEngine(
             localStore: localStore,
             projectRepository: projectRepository,
             labelRepository: labelRepository,
             taskRepository: taskRepository,
+            relationRepository: relationRepository,
             accountID: account.id,
         )
         try? await engine.pullProjects()
