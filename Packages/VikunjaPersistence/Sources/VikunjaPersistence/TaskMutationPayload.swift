@@ -20,6 +20,9 @@ struct TaskCreateOrUpdatePayload: Codable, Equatable, Sendable {
     /// the conflict check's baseline. `nil` for a `create` (nothing on the
     /// server yet to conflict with).
     var baseUpdatedAt: Date?
+    /// Optional so payloads queued before reminders were persisted still
+    /// decode; `nil` means the task had no reminders.
+    var reminders: [TaskReminder]?
 }
 
 /// What a queued `delete` needs to address the row server-side, since the

@@ -518,6 +518,93 @@ struct SyncEngineTests {
     }
 
     @Test
+    func `pullTasks caches each tasks reminders`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 1, title: "Groceries")]
+        let taskRepository = FakeTaskRepository()
+        let reminder = TaskReminder(
+            reminder: Date(timeIntervalSince1970: 2_000_000_000), relativePeriod: -3600, relativeTo: .dueDate,
+        )
+        taskRepository.tasks = [VikunjaTask(id: 10, title: "Buy milk", projectID: 1, reminders: [reminder])]
+        let engine = SyncEngine(
+            localStore: store, projectRepository: projectRepository, labelRepository: FakeLabelRepository(),
+            taskRepository: taskRepository, relationRepository: FakeTaskRelationRepository(), accountID: UUID(),
+        )
+        try await engine.pullProjects()
+
+        try await engine.pullTasks()
+
+        let rows = try await store.read { db in try TaskReminderRecord.fetchAll(db) }
+        #expect(rows.count == 1)
+        #expect(rows[0].reminder == reminder.reminder)
+        #expect(rows[0].relativePeriod == reminder.relativePeriod)
+        #expect(rows[0].relativeTo == .dueDate)
+    }
+
+    @Test
+    func `pullTasks replaces a tasks cached reminders with the servers set`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 1, title: "Groceries")]
+        let taskRepository = FakeTaskRepository()
+        let first = TaskReminder(reminder: Date(timeIntervalSince1970: 2_000_000_000))
+        taskRepository.tasks = [VikunjaTask(id: 10, title: "Buy milk", projectID: 1, reminders: [first])]
+        let engine = SyncEngine(
+            localStore: store, projectRepository: projectRepository, labelRepository: FakeLabelRepository(),
+            taskRepository: taskRepository, relationRepository: FakeTaskRelationRepository(), accountID: UUID(),
+        )
+        try await engine.pullProjects()
+        try await engine.pullTasks()
+
+        let second = TaskReminder(reminder: Date(timeIntervalSince1970: 2_000_100_000))
+        taskRepository.tasks = [VikunjaTask(id: 10, title: "Buy milk", projectID: 1, reminders: [second])]
+        try await engine.pullTasks()
+
+        let rows = try await store.read { db in try TaskReminderRecord.fetchAll(db) }
+        #expect(rows.map(\.reminder) == [second.reminder])
+    }
+
+    @Test
+    func `pullTasks leaves local reminders untouched while an update is queued`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [Project(id: 1, title: "Groceries")]
+        let taskRepository = FakeTaskRepository()
+        let localReminder = TaskReminder(reminder: Date(timeIntervalSince1970: 2_000_000_000))
+        taskRepository.tasks = [
+            VikunjaTask(id: 10, title: "Buy milk", projectID: 1, reminders: [localReminder]),
+        ]
+        let accountID = UUID()
+        let engine = SyncEngine(
+            localStore: store, projectRepository: projectRepository, labelRepository: FakeLabelRepository(),
+            taskRepository: taskRepository, relationRepository: FakeTaskRelationRepository(), accountID: accountID,
+        )
+        try await engine.pullProjects()
+        try await engine.pullTasks()
+        let localID = try await store.read { db in
+            try #require(TaskRecord.fetchAll(db).first { $0.remoteID == 10 }).localID
+        }
+        try await store.write { db in
+            var mutation = MutationQueueRecord(
+                id: nil, accountID: accountID, entityType: .task, operation: .update, targetLocalID: localID,
+                payload: nil, createdAt: Date(), retryCount: 0, lastError: nil, status: .pending,
+                needsConflictResolution: false,
+            )
+            try mutation.insert(db)
+        }
+
+        let serverReminder = TaskReminder(reminder: Date(timeIntervalSince1970: 2_000_100_000))
+        taskRepository.tasks = [
+            VikunjaTask(id: 10, title: "Buy milk", projectID: 1, reminders: [serverReminder]),
+        ]
+        try await engine.pullTasks()
+
+        let rows = try await store.read { db in try TaskReminderRecord.fetchAll(db) }
+        #expect(rows.map(\.reminder) == [localReminder.reminder])
+    }
+
+    @Test
     func `pullTasks skips a task whose project hasnt synced locally yet`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let taskRepository = FakeTaskRepository()

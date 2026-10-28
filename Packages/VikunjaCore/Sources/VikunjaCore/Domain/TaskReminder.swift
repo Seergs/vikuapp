@@ -5,7 +5,7 @@ import Foundation
 /// server (re)computes that timestamp from the task's matching date
 /// whenever it changes, so `reminder` is a snapshot of that computation
 /// rather than a value this client derives itself.
-public struct TaskReminder: Equatable, Hashable, Sendable {
+public struct TaskReminder: Codable, Equatable, Hashable, Sendable {
     public var reminder: Date
     /// Offset in seconds from `relativeTo`'s date; negative fires before it,
     /// positive after. Only meaningful when `relativeTo` is set.

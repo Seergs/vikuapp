@@ -57,6 +57,7 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
             dueDate: task.dueDate,
             priority: task.priority,
             projectID: task.projectID,
+            reminders: task.reminders,
             updated: Date(),
         )
         tasks.append(created)

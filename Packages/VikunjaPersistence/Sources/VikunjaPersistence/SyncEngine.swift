@@ -514,6 +514,9 @@ public actor SyncEngine {
             // for a newly pulled task first used to fail on a cache miss.
             try row.save(db)
             try Self.replaceRelationRows(for: localID, accountID: accountID, task: task, db: db)
+            try TaskReminderRecord.replace(
+                for: localID, accountID: accountID, reminders: task.reminders, db: db,
+            )
         }
     }
 
@@ -1014,6 +1017,7 @@ public actor SyncEngine {
             dueDate: payload.dueDate,
             priority: VikunjaTask.Priority(rawValue: payload.priority) ?? .unset,
             projectID: .remote(resolvedProjectID),
+            reminders: payload.reminders ?? [],
         )
         let created = try await taskRepository.create(task)
         try await applyTaskPushResult(created, deleting: item)
@@ -1048,6 +1052,7 @@ public actor SyncEngine {
             dueDate: payload.dueDate,
             priority: VikunjaTask.Priority(rawValue: payload.priority) ?? .unset,
             projectID: .remote(resolvedProjectID),
+            reminders: payload.reminders ?? [],
         )
         let updated = try await taskRepository.update(task)
         try await applyTaskPushResult(updated, deleting: item)
@@ -1252,6 +1257,9 @@ public actor SyncEngine {
                 row.serverUpdatedAt = task.updated
                 try row.save(db)
             }
+            try TaskReminderRecord.replace(
+                for: item.targetLocalID, accountID: self.accountID, reminders: task.reminders, db: db,
+            )
             try item.delete(db)
         }
     }

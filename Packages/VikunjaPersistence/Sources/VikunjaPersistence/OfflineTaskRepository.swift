@@ -77,6 +77,9 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
                 projectLocalID: projectLocalID,
                 serverUpdatedAt: nil,
             ).insert(db)
+            try TaskReminderRecord.replace(
+                for: localID, accountID: self.accountID, reminders: task.reminders, db: db,
+            )
             let payload = TaskCreateOrUpdatePayload(
                 title: task.title,
                 description: task.description,
@@ -85,6 +88,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
                 priority: task.priority.rawValue,
                 projectLocalID: projectLocalID,
                 baseUpdatedAt: nil,
+                reminders: task.reminders,
             )
             try Self.enqueueOrCoalesce(
                 operation: .create, targetLocalID: localID, accountID: self.accountID, payload: payload, db: db,
@@ -109,6 +113,9 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
             row.priority = task.priority.rawValue
             row.projectLocalID = projectLocalID
             try row.save(db)
+            try TaskReminderRecord.replace(
+                for: row.localID, accountID: self.accountID, reminders: task.reminders, db: db,
+            )
 
             let payload = TaskCreateOrUpdatePayload(
                 title: task.title,
@@ -118,6 +125,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
                 priority: task.priority.rawValue,
                 projectLocalID: projectLocalID,
                 baseUpdatedAt: row.serverUpdatedAt,
+                reminders: task.reminders,
             )
             // A row that's never synced still has its original `create`
             // pending - that's the mutation this edit must update in place,
@@ -227,6 +235,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
         let labelsByLocalID: [UUID: LabelRecord]
         let pendingLabelMutations: [UUID: [(operation: MutationOperation, labelLocalID: UUID)]]
         let relationsByTaskLocalID: [UUID: [TaskRelationRecord]]
+        let remindersByTaskLocalID: [UUID: [TaskReminder]]
         let pendingRelationMutations: [UUID: [PendingRelationMutation]]
         /// The other side of every entry in `pendingRelationMutations`,
         /// under the inverse kind, keyed by the *other* task's local id
@@ -246,6 +255,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
         let labelRows = try LabelRecord.fetchAll(db).filter { $0.accountID == accountID }
         let taskRows = try Self.accountRows(accountID, db: db)
         let relationRows = try TaskRelationRecord.fetchAll(db).filter { $0.accountID == accountID }
+        let remindersByTaskLocalID = try TaskReminderRecord.remindersByTaskLocalID(accountID: accountID, db: db)
         let pendingRelationMutations = try Self.pendingRelationMutations(accountID: accountID, db: db)
         return try TaskAssemblyContext(
             projectsByLocalID: Self.projectsByLocalID(projectRows),
@@ -255,6 +265,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
             labelsByLocalID: Dictionary(uniqueKeysWithValues: labelRows.map { ($0.localID, $0) }),
             pendingLabelMutations: Self.pendingLabelMutations(accountID: accountID, db: db),
             relationsByTaskLocalID: Dictionary(grouping: relationRows, by: \.taskLocalID),
+            remindersByTaskLocalID: remindersByTaskLocalID,
             pendingRelationMutations: pendingRelationMutations,
             pendingMirrorRelationMutations: Self.mirrorRelationMutations(pendingRelationMutations),
             tasksByLocalID: Dictionary(uniqueKeysWithValues: taskRows.map { ($0.localID, $0) }),
@@ -443,6 +454,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
             dependsOn: relationsByKind[.blocked] ?? [],
             blocks: relationsByKind[.blocking] ?? [],
             otherRelations: relationsByKind.filter { ![.subtask, .blocked, .blocking].contains($0.key) },
+            reminders: context.remindersByTaskLocalID[row.localID] ?? [],
             updated: row.serverUpdatedAt,
         )
     }
