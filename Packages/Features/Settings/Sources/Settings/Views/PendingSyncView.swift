@@ -19,6 +19,7 @@ struct PendingSyncView: View {
 
     var body: some View {
         content
+            .scrollContentBackground(.hidden)
             .background(palette.pageBackground)
             .navigationTitle(Text("Pending Sync", bundle: .module))
             #if os(iOS)
