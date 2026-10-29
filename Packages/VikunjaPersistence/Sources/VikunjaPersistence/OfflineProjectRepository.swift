@@ -85,9 +85,13 @@ public actor OfflineProjectRepository: ProjectRepositoryProtocol {
                 hexColor: project.hexColor,
                 baseUpdatedAt: nil,
             )
-            try Self.enqueueOrCoalesce(
-                operation: .create, targetLocalID: localID, accountID: self.accountID, payload: payload, db: db,
-            )
+            try Self.enqueueOrCoalesce(context: EnqueueContext(
+                operation: .create,
+                targetLocalID: localID,
+                accountID: self.accountID,
+                payload: payload,
+                baseUpdatedAt: nil,
+            ), db: db)
         }
         await triggerDrainIfOnline()
         return try await readProject(id: .local(localID))
@@ -121,9 +125,13 @@ public actor OfflineProjectRepository: ProjectRepositoryProtocol {
             // pending - that's the mutation this edit must update in place,
             // since `drainUpdate` bails out on a row with no `remoteID` yet.
             let operation: MutationOperation = row.remoteID == nil ? .create : .update
-            try Self.enqueueOrCoalesce(
-                operation: operation, targetLocalID: row.localID, accountID: self.accountID, payload: payload, db: db,
-            )
+            try Self.enqueueOrCoalesce(context: EnqueueContext(
+                operation: operation,
+                targetLocalID: row.localID,
+                accountID: self.accountID,
+                payload: payload,
+                baseUpdatedAt: row.serverUpdatedAt,
+            ), db: db)
         }
         await triggerDrainIfOnline()
         return try await readProject(id: project.id)
@@ -235,43 +243,49 @@ public actor OfflineProjectRepository: ProjectRepositoryProtocol {
         )
     }
 
-    /// Replaces an existing pending (or failed and still retryable) mutation
-    /// of the same `operation` against `targetLocalID` in place (preserving
-    /// its original `createdAt`, so several quick edits still drain in their
-    /// original queue position) rather than stacking up one queue row per
-    /// edit. Resets a coalesced-into `.failed` item back to `.pending` —
-    /// this is a fresh edit with its own fresh payload, not a retry of the
-    /// one that failed.
-    private static func enqueueOrCoalesce(
-        operation: MutationOperation,
-        targetLocalID: UUID,
-        accountID: UUID,
-        payload: some Encodable,
-        db: Database,
-    ) throws {
-        let encoded = try Self.encode(payload)
+    /**
+     Replaces an existing pending (or failed and still retryable) mutation
+     of the same `operation` against `targetLocalID` in place (preserving
+     its original `createdAt`, so several quick edits still drain in their
+     original queue position) rather than stacking up one queue row per
+     edit. Resets a coalesced-into `.failed` item back to `.pending` —
+     this is a fresh edit with its own fresh payload, not a retry of the
+     one that failed.
+     */
+    private struct EnqueueContext {
+        let operation: MutationOperation
+        let targetLocalID: UUID
+        let accountID: UUID
+        let payload: any Encodable
+        let baseUpdatedAt: Date?
+    }
+
+    private static func enqueueOrCoalesce(context: EnqueueContext, db: Database) throws {
+        let encoded = try Self.encode(context.payload)
         let existing = try MutationQueueRecord.fetchAll(db).first {
-            $0.accountID == accountID && $0.entityType == .project && $0.targetLocalID == targetLocalID
-                && ($0.status == .pending || $0.status == .failed) && $0.operation == operation
+            $0.accountID == context.accountID && $0.entityType == .project && $0.targetLocalID == context.targetLocalID
+                && ($0.status == .pending || $0.status == .failed) && $0.operation == context.operation
         }
         if var existing {
             existing.payload = encoded
             existing.status = .pending
             existing.needsConflictResolution = false
+            existing.baseUpdatedAt = context.baseUpdatedAt
             try existing.update(db)
         } else {
             var item = MutationQueueRecord(
                 id: nil,
-                accountID: accountID,
+                accountID: context.accountID,
                 entityType: .project,
-                operation: operation,
-                targetLocalID: targetLocalID,
+                operation: context.operation,
+                targetLocalID: context.targetLocalID,
                 payload: encoded,
                 createdAt: Date(),
                 retryCount: 0,
                 lastError: nil,
                 status: .pending,
                 needsConflictResolution: false,
+                baseUpdatedAt: context.baseUpdatedAt,
             )
             try item.insert(db)
         }

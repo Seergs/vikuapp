@@ -58,6 +58,10 @@ struct MutationQueueRecord: Codable, Equatable, Sendable {
     /// observed by the most recent pull — draining skips it until a person
     /// resolves it, which isn't built yet.
     var needsConflictResolution: Bool
+    /// Snapshot of the row's `serverUpdatedAt` at the moment this mutation
+    /// was enqueued. Belongs to the mutation (not the mutable row) so pulls
+    /// that refresh a protected row cannot invalidate the conflict baseline.
+    var baseUpdatedAt: Date?
 }
 
 extension MutationQueueRecord: FetchableRecord, MutablePersistableRecord {
