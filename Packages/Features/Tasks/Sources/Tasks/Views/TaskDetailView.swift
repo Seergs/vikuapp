@@ -42,8 +42,8 @@ public struct TaskDetailView: View {
     @State private var isEditingDescription = false
     @State private var descriptionDraft = ""
     @FocusState private var focusedField: EditableField?
-    // The comment composer sits at the very bottom of the scroll content, with
-    // barely any padding below it. SwiftUI's automatic keyboard avoidance only
+    // The comment composer sits at the very bottom of the scroll content.
+    // SwiftUI's automatic keyboard avoidance only
     // shrinks the visible viewport - it doesn't add scrollable room - so once
     // the composer is the last thing on screen there's nowhere left to scroll
     // it above the keyboard. Padding the content by the live keyboard height
@@ -94,7 +94,8 @@ public struct TaskDetailView: View {
                     }
                 }
                 .padding(.horizontal, VikuSpacing.md)
-                .padding(.bottom, VikuSpacing.xl + keyboardHeight)
+                // Keep the comment action above the global quick-add overlay when scrolled to the end.
+                .padding(.bottom, VikuSpacing.xxl * 2 + keyboardHeight)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .background(palette.pageBackground)
