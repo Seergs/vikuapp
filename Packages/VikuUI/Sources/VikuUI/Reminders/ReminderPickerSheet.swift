@@ -15,7 +15,8 @@ public struct ReminderPickerSheet: View {
     }
 
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.vikuPalette) private var palette
+    // This native Form uses system surfaces, so custom controls must match them.
+    private let palette = VikuPalette.standard
     @State private var mode: Mode
     @State private var date: Date
     @State private var quantity: Int
@@ -304,7 +305,8 @@ private struct QuantityStepper: View {
     @Binding var value: Int
     let range: ClosedRange<Int>
 
-    @Environment(\.vikuPalette) private var palette
+    /// This native Form uses system surfaces, so custom controls must match them.
+    private let palette = VikuPalette.standard
 
     var body: some View {
         HStack(spacing: 0) {
@@ -381,7 +383,8 @@ private struct PresetPill: View {
     let isSelected: Bool
     let action: () -> Void
 
-    @Environment(\.vikuPalette) private var palette
+    /// This native Form uses system surfaces, so custom controls must match them.
+    private let palette = VikuPalette.standard
 
     var body: some View {
         Button(action: action) {
