@@ -423,6 +423,57 @@ struct URLSessionAPIClientTests {
     }
 
     @Test
+    func `fetch tasks v2 reads every page in the envelope`() async throws {
+        let firstPage = "{\"items\": [" + Self.taskV2Body
+            + "], \"total\": 2, \"page\": 1, \"per_page\": 1, \"total_pages\": 2}"
+        let secondTask = #"""
+        {"id": 2, "title": "Page two", "description": "", "done": false,
+         "due_date": "2026-08-30T00:00:00Z", "priority": 3, "project_id": 4}
+        """#
+        let secondPage = "{\"items\": [" + secondTask
+            + "], \"total\": 2, \"page\": 2, \"per_page\": 1, \"total_pages\": 2}"
+        let (session, capture) = MockURLProtocol.makeSession(responses: [
+            (200, firstPage),
+            (200, secondPage),
+        ])
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaTaskRepositoryV2(client: client)
+
+        let tasks = try await repository.fetchTasks(projectID: -8)
+
+        #expect(tasks.map(\.title) == ["Buy coffee", "Page two"])
+        let requests = await capture.requests
+        #expect(requests.count == 2)
+        #expect(requests[0].url?.query == nil)
+        #expect(try URLComponents(url: #require(requests[1].url), resolvingAgainstBaseURL: false)?
+            .queryItems?.first(where: { $0.name == "page" })?.value == "2")
+    }
+
+    @Test
+    func `fetch tasks v1 reads every page from pagination headers`() async throws {
+        let responseBody = "[" + Self.taskV2Body + "]"
+        let (session, capture) = MockURLProtocol.makeSession(responses: [
+            MockURLProtocol.ScriptedResponse(
+                statusCode: 200,
+                body: responseBody,
+                headers: ["x-pagination-total-pages": "2"],
+            ),
+            MockURLProtocol.ScriptedResponse(statusCode: 200, body: responseBody),
+        ])
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository = VikunjaTaskRepository(client: client)
+
+        let tasks = try await repository.fetchTasks(projectID: -8)
+
+        #expect(tasks.count == 2)
+        let requests = await capture.requests
+        #expect(requests.count == 2)
+        #expect(requests[0].url?.query == nil)
+        #expect(try URLComponents(url: #require(requests[1].url), resolvingAgainstBaseURL: false)?
+            .queryItems?.first(where: { $0.name == "page" })?.value == "2")
+    }
+
+    @Test
     func `create task v2 PO STs to the project tasks endpoint AND reads back the 201 response`() async throws {
         let (session, capture) = MockURLProtocol.makeSession(statusCode: 201, body: Self.taskV2Body)
         let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)

@@ -114,8 +114,11 @@ extension VikunjaEndpoints {
         try .encoding(path: "/api/v2/user/settings/general", method: .put, body: dto)
     }
 
-    static func tasksV2(projectID: Int) -> Endpoint {
-        Endpoint(path: "/api/v2/projects/\(projectID)/tasks")
+    static func tasksV2(projectID: Int, page: Int? = nil) -> Endpoint {
+        Endpoint(
+            path: "/api/v2/projects/\(projectID)/tasks",
+            queryItems: page.map { [URLQueryItem(name: "page", value: String($0))] } ?? [],
+        )
     }
 
     static func taskV2(id: Int) -> Endpoint {

@@ -49,8 +49,11 @@ enum VikunjaEndpoints {
         )
     }
 
-    static func tasks(projectID: Int) -> Endpoint {
-        Endpoint(path: "/api/v1/projects/\(projectID)/tasks")
+    static func tasks(projectID: Int, page: Int? = nil) -> Endpoint {
+        Endpoint(
+            path: "/api/v1/projects/\(projectID)/tasks",
+            queryItems: page.map { [URLQueryItem(name: "page", value: String($0))] } ?? [],
+        )
     }
 
     static func task(id: Int) -> Endpoint {

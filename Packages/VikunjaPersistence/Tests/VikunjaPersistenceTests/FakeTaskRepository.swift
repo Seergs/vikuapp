@@ -3,6 +3,9 @@ import VikunjaCore
 
 final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     var tasks: [VikunjaTask] = []
+    /// Overrides a project's endpoint response. Useful for virtual projects,
+    /// whose returned tasks still point at their real owning project.
+    var tasksByProjectID: [Int: [VikunjaTask]] = [:]
     var fetchError: Error?
     /// Lets a test fail one project's fetch while another project's still
     /// succeeds, mirroring one endpoint erroring mid-`pullTasks()`.
@@ -24,6 +27,9 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
         }
         if let remoteID = projectID.remoteValue, let error = fetchErrorsByProjectID[remoteID] {
             throw error
+        }
+        if let remoteID = projectID.remoteValue, let response = tasksByProjectID[remoteID] {
+            return response
         }
         return tasks.filter { $0.projectID == projectID }
     }

@@ -21,6 +21,7 @@ enum DatabaseMigrations {
         migrator.registerMigration("createTaskReminder", migrate: createTaskReminder)
         migrator.registerMigration("addBaseUpdatedAtToMutationQueue", migrate: addBaseUpdatedAtToMutationQueue)
         migrator.registerMigration("createSavedFilter", migrate: createSavedFilter)
+        migrator.registerMigration("createVirtualProjectTask", migrate: createVirtualProjectTask)
     }
 
     private static func createProject(_ db: Database) throws {
@@ -251,5 +252,24 @@ enum DatabaseMigrations {
         FROM project
         WHERE remoteID < -1
         """)
+    }
+
+    /// Stores the server snapshot membership for Favorites and saved-filter
+    /// pseudo-projects. A failed fetch leaves the previous membership intact.
+    private static func createVirtualProjectTask(_ db: Database) throws {
+        try db.create(table: "virtualProjectTask") { table in
+            table.column("accountID", .text).notNull().indexed()
+            table.column("projectLocalID", .text).notNull()
+                .references("project", column: "localID", onDelete: .cascade)
+            table.column("taskLocalID", .text).notNull()
+                .references("task", column: "localID", onDelete: .cascade)
+            table.column("position", .integer).notNull().defaults(to: 0)
+            table.primaryKey(["projectLocalID", "taskLocalID"])
+        }
+        try db.create(
+            index: "virtualProjectTask_on_taskLocalID",
+            on: "virtualProjectTask",
+            columns: ["taskLocalID"],
+        )
     }
 }

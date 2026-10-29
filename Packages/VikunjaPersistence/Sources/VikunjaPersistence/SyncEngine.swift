@@ -1,6 +1,9 @@
 import Foundation
 import GRDB
+import os
 import VikunjaCore
+
+private let syncLogger = Logger(subsystem: "dev.sergiosuarez.vikunja", category: "sync")
 
 /// Keeps one account's slice of the local store's cache in step with the
 /// server: pulls the server's state in, and drains that account's locally
@@ -326,81 +329,146 @@ public actor SyncEngine {
 
     // MARK: - Pulling tasks
 
-    /// Fetches every task across every real (non-virtual), already-synced
-    /// project and reconciles it into the local store — same shape as
-    /// `pullProjects()`, including its conflict-detection refresh, but with
-    /// no separate FK-resolution pass: unlike a sub-project's parent (which
-    /// can reference a project appearing later in the same response), each
-    /// task's project is already known the moment its own fetch is issued
-    /// (`fetchTasks(projectID:)` is itself scoped to one project), so
-    /// `projectLocalID` is set directly in `upsertTaskRows`.
-    ///
-    /// Reads the already-pulled local project list rather than calling
-    /// `projectRepository.fetchProjects()` again — `pullProjects()` always
-    /// runs first in `SyncCoordinator.sync(_:)`, and reusing its result
-    /// avoids a second network round trip for the same data. Mirrors
-    /// `AccountTaskLoader.loadAllTasks()`'s own "skip virtual projects"
-    /// behavior, but only reconciles a project whose fetch actually
-    /// succeeded: treating a failed fetch as an empty one used to delete
-    /// every cached task for that project, so a single offline sync pass
-    /// could wipe the local task list.
+    private struct VirtualTaskSnapshot {
+        let projectLocalID: UUID
+        let tasks: [VikunjaTask]
+    }
+
+    private struct TaskPullResult {
+        let tasks: [VikunjaTask]
+        let fetchedProjectLocalIDs: Set<UUID>
+        let virtualSnapshots: [VirtualTaskSnapshot]
+        let firstError: (any Error)?
+    }
+
+    /// Fetches tasks for real and virtual projects after the project pull.
+    /// Real projects own task records; negative-id virtual projects add
+    /// membership snapshots without changing a task's owning project.
+    /// Each snapshot is replaced only after its own fetch succeeds, so a
+    /// partial network failure never wipes the last usable offline copy.
     public func pullTasks() async throws {
         let now = Date()
         let projectRows = try await localStore.read { db in
             try ProjectRecord.fetchAll(db).filter { $0.accountID == self.accountID }
         }
+        let result = await fetchTaskPullResult(projectRows: projectRows)
+        try await applyTaskPullResult(result, projectRows: projectRows, pulledAt: now)
+        if let firstError = result.firstError {
+            throw firstError
+        }
+    }
 
+    private func fetchTaskPullResult(projectRows: [ProjectRecord]) async -> TaskPullResult {
         var remoteTasks: [VikunjaTask] = []
         var fetchedProjectLocalIDs: Set<UUID> = []
+        var virtualSnapshots: [VirtualTaskSnapshot] = []
         var firstError: (any Error)?
         for projectRow in projectRows {
-            // A negative or zero remote id is a virtual project (Favorites,
-            // a saved filter) — its "tasks" are just a view over tasks that
-            // already live in a real project, so fetching them would double
-            // every such task. A project with no remote id yet (offline-
-            // created) can't have any tasks on the server yet either.
-            guard let remoteProjectID = projectRow.remoteID, remoteProjectID > 0 else { continue }
+            guard let remoteProjectID = projectRow.remoteID else { continue }
             do {
-                remoteTasks += try await taskRepository.fetchTasks(projectID: .remote(remoteProjectID))
-                fetchedProjectLocalIDs.insert(projectRow.localID)
+                let tasks = try await taskRepository.fetchTasks(projectID: .remote(remoteProjectID))
+                remoteTasks += tasks
+                if remoteProjectID < 0 {
+                    virtualSnapshots.append(VirtualTaskSnapshot(projectLocalID: projectRow.localID, tasks: tasks))
+                } else if remoteProjectID > 0 {
+                    fetchedProjectLocalIDs.insert(projectRow.localID)
+                }
             } catch {
                 firstError = firstError ?? error
             }
         }
 
-        let projectLocalIDByRemoteID: [Int: UUID] = Dictionary(
+        var tasksByRemoteID: [Int: VikunjaTask] = [:]
+        for task in remoteTasks {
+            guard let remoteID = task.id.remoteValue else { continue }
+            tasksByRemoteID[remoteID] = task
+        }
+        let projectLocalIDByRemoteID = Dictionary(
             uniqueKeysWithValues: projectRows.compactMap { row in row.remoteID.map { ($0, row.localID) } },
         )
-        let fetchedTasks = remoteTasks
-        let reconciledProjectLocalIDs = fetchedProjectLocalIDs
-        let didCompleteWithoutErrors = firstError == nil
+        for snapshot in virtualSnapshots {
+            let unresolvedCount = snapshot.tasks.filter { task in
+                guard let remoteID = task.projectID.remoteValue else { return true }
+                return projectLocalIDByRemoteID[remoteID] == nil
+            }.count
+            if unresolvedCount > 0 {
+                syncLogger.warning(
+                    "Skipping \(unresolvedCount, privacy: .public) virtual task memberships with uncached projects.",
+                )
+            }
+        }
+        return TaskPullResult(
+            tasks: Array(tasksByRemoteID.values),
+            fetchedProjectLocalIDs: fetchedProjectLocalIDs,
+            virtualSnapshots: virtualSnapshots,
+            firstError: firstError,
+        )
+    }
 
+    private func applyTaskPullResult(
+        _ result: TaskPullResult,
+        projectRows: [ProjectRecord],
+        pulledAt: Date,
+    ) async throws {
+        let projectLocalIDByRemoteID = Dictionary(
+            uniqueKeysWithValues: projectRows.compactMap { row in row.remoteID.map { ($0, row.localID) } },
+        )
+        let stillPresentRemoteIDs = Set(result.tasks.compactMap(\.id.remoteValue))
         try await localStore.write { db in
             let localRows = try TaskRecord.fetchAll(db).filter { $0.accountID == self.accountID }
-            let localIDByRemoteID = Self.reserveTaskLocalIDs(for: fetchedTasks, existing: localRows)
+            let localIDByRemoteID = Self.reserveTaskLocalIDs(for: result.tasks, existing: localRows)
             let queuedTargetLocalIDs = try Self.queuedTargetLocalIDs(
                 accountID: self.accountID, entityType: .task, db: db,
             )
-
             try Self.upsertTaskRows(
-                for: fetchedTasks, accountID: self.accountID, localIDByRemoteID: localIDByRemoteID,
+                for: result.tasks, accountID: self.accountID, localIDByRemoteID: localIDByRemoteID,
                 projectLocalIDByRemoteID: projectLocalIDByRemoteID,
                 protectedLocalIDs: queuedTargetLocalIDs, db: db,
             )
+            // Keep tasks returned from any successful endpoint so a task
+            // moved projects isn't deleted by its old project's stale list.
             try Self.deleteMissingTaskRows(
-                localRows.filter { reconciledProjectLocalIDs.contains($0.projectLocalID) },
-                stillPresentRemoteIDs: Set(fetchedTasks.compactMap(\.id.remoteValue)),
+                localRows.filter { result.fetchedProjectLocalIDs.contains($0.projectLocalID) },
+                stillPresentRemoteIDs: stillPresentRemoteIDs,
                 protectedLocalIDs: queuedTargetLocalIDs,
                 db: db,
             )
-
-            if didCompleteWithoutErrors {
-                try SyncStateRecord(accountID: self.accountID, entityType: .task, lastPulledAt: now).save(db)
+            try Self.replaceVirtualTaskMemberships(
+                result.virtualSnapshots,
+                accountID: self.accountID,
+                localIDByRemoteID: localIDByRemoteID,
+                projectLocalIDByRemoteID: projectLocalIDByRemoteID,
+                db: db,
+            )
+            if result.firstError == nil {
+                try SyncStateRecord(accountID: self.accountID, entityType: .task, lastPulledAt: pulledAt).save(db)
             }
         }
+    }
 
-        if let firstError {
-            throw firstError
+    private static func replaceVirtualTaskMemberships(
+        _ snapshots: [VirtualTaskSnapshot],
+        accountID: UUID,
+        localIDByRemoteID: [Int: UUID],
+        projectLocalIDByRemoteID: [Int: UUID],
+        db: Database,
+    ) throws {
+        for snapshot in snapshots {
+            try VirtualProjectTaskRecord
+                .filter(Column("projectLocalID") == snapshot.projectLocalID)
+                .deleteAll(db)
+            for (position, task) in snapshot.tasks.enumerated() {
+                guard let remoteID = task.id.remoteValue,
+                      let taskLocalID = localIDByRemoteID[remoteID],
+                      let projectRemoteID = task.projectID.remoteValue,
+                      projectLocalIDByRemoteID[projectRemoteID] != nil else { continue }
+                try VirtualProjectTaskRecord(
+                    accountID: accountID,
+                    projectLocalID: snapshot.projectLocalID,
+                    taskLocalID: taskLocalID,
+                    position: position,
+                ).save(db)
+            }
         }
     }
 

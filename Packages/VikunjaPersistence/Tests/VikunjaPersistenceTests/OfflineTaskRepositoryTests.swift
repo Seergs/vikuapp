@@ -85,6 +85,61 @@ struct OfflineTaskRepositoryTests {
     }
 
     @Test
+    func `fetchTasks reads virtual membership while keeping the real project on the task`() async throws {
+        let fixture = try await makeRepository(online: false)
+        let favorites = ProjectRecord(
+            localID: UUID(), accountID: fixture.accountID, remoteID: -1, title: "Favorites", description: nil,
+            isArchived: false, isFavorite: false, parentProjectLocalID: nil, position: 0, hexColor: "",
+            serverUpdatedAt: nil,
+        )
+        // Resolve the real project's local id rather than ever assigning the
+        // Favorites id to TaskRecord.projectLocalID.
+        let realProject = try await fixture.store.read { db in
+            try #require(ProjectRecord.fetchAll(db).first { $0.remoteID == 1 })
+        }
+        let realTask = TaskRecord(
+            localID: UUID(), accountID: fixture.accountID, remoteID: 10, title: "Buy milk", description: nil,
+            isDone: false, dueDate: nil, priority: 0, projectLocalID: realProject.localID, serverUpdatedAt: nil,
+        )
+        try await fixture.store.write { db in
+            try favorites.insert(db)
+            try realTask.insert(db)
+            try VirtualProjectTaskRecord(
+                accountID: fixture.accountID,
+                projectLocalID: favorites.localID,
+                taskLocalID: realTask.localID,
+                position: 0,
+            ).insert(db)
+        }
+
+        let fetched = try await fixture.repository.fetchTasks(projectID: -1)
+
+        #expect(fetched.map(\.title) == ["Buy milk"])
+        #expect(fetched.first?.projectID == 1)
+
+        _ = try await fixture.store.write { db in try realTask.delete(db) }
+        let afterTaskDeletion = try await fixture.store.read { db in
+            try VirtualProjectTaskRecord.fetchAll(db)
+        }
+        #expect(afterTaskDeletion.isEmpty)
+
+        try await fixture.store.write { db in
+            try realTask.insert(db)
+            try VirtualProjectTaskRecord(
+                accountID: fixture.accountID,
+                projectLocalID: favorites.localID,
+                taskLocalID: realTask.localID,
+                position: 0,
+            ).insert(db)
+            try favorites.delete(db)
+        }
+        let afterProjectDeletion = try await fixture.store.read { db in
+            try VirtualProjectTaskRecord.fetchAll(db)
+        }
+        #expect(afterProjectDeletion.isEmpty)
+    }
+
+    @Test
     func `create on a cold never-synced account is not undone by its own cold-start pull`() async throws {
         // Regression test: mirrors `OfflineProjectRepositoryTests`'s own -
         // `create` must read back the row it just wrote without routing
