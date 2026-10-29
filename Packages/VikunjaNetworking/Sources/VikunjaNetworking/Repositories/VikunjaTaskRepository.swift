@@ -1,3 +1,4 @@
+import Foundation
 import VikunjaCore
 
 public final class VikunjaTaskRepository: TaskRepositoryProtocol {
@@ -11,7 +12,17 @@ public final class VikunjaTaskRepository: TaskRepositoryProtocol {
         // A project with no remote id yet (offline-created) has no tasks on
         // the server to fetch either.
         guard let remoteID = projectID.remoteValue else { return [] }
-        let dtos: [TaskDTO] = try await client.send(VikunjaEndpoints.tasks(projectID: remoteID))
+        let (firstPage, firstResponse): ([TaskDTO], HTTPURLResponse) = try await client.sendWithResponse(
+            VikunjaEndpoints.tasks(projectID: remoteID),
+        )
+        var dtos = firstPage
+        let totalPages = Int(firstResponse.value(forHTTPHeaderField: "x-pagination-total-pages") ?? "1") ?? 1
+        if totalPages > 1 {
+            for page in 2 ... totalPages {
+                let nextPage: [TaskDTO] = try await client.send(VikunjaEndpoints.tasks(projectID: remoteID, page: page))
+                dtos += nextPage
+            }
+        }
         return dtos.map(TaskMapper.toDomain)
     }
 

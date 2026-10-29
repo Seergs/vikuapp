@@ -28,7 +28,17 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
             guard let projectLocalID = Self.resolveProjectLocalID(matching: projectID, in: projectRows) else {
                 return []
             }
-            let rows = try Self.accountRows(self.accountID, db: db).filter { $0.projectLocalID == projectLocalID }
+            let taskRows = try Self.accountRows(self.accountID, db: db)
+            let rows: [TaskRecord]
+            if let remoteID = projectID.remoteValue, remoteID < 0 {
+                let memberships = try VirtualProjectTaskRecord.fetchAll(db)
+                    .filter { $0.accountID == self.accountID && $0.projectLocalID == projectLocalID }
+                    .sorted { $0.position < $1.position }
+                let rowsByLocalID = Dictionary(uniqueKeysWithValues: taskRows.map { ($0.localID, $0) })
+                rows = memberships.compactMap { rowsByLocalID[$0.taskLocalID] }
+            } else {
+                rows = taskRows.filter { $0.projectLocalID == projectLocalID }
+            }
             let hiddenLocalIDs = try Self.pendingDeleteTargetLocalIDs(accountID: self.accountID, db: db)
             let context = try Self.makeAssemblyContext(accountID: self.accountID, projectRows: projectRows, db: db)
             return rows

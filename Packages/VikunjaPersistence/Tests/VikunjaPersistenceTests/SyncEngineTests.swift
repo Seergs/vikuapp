@@ -643,22 +643,61 @@ struct SyncEngineTests {
     }
 
     @Test
-    func `pullTasks never fetches a virtual projects tasks`() async throws {
+    func `pullTasks fetches and caches virtual project membership`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let projectRepository = FakeProjectRepository()
-        // Favorites, a virtual project the real API also lists alongside
-        // real ones.
-        projectRepository.projects = [Project(id: -1, title: "Favorites")]
+        projectRepository.projects = [
+            Project(id: 1, title: "Groceries"),
+            Project(id: -1, title: "Favorites"),
+            Project(id: -8, title: "Important"),
+        ]
         let taskRepository = FakeTaskRepository()
+        let task = VikunjaTask(id: 10, title: "Buy milk", projectID: 1)
+        taskRepository.tasks = [task]
+        taskRepository.tasksByProjectID[-1] = [task]
+        taskRepository.tasksByProjectID[-8] = [task]
+        let accountID = UUID()
         let engine = SyncEngine(
             localStore: store, projectRepository: projectRepository, labelRepository: FakeLabelRepository(),
-            taskRepository: taskRepository, relationRepository: FakeTaskRelationRepository(), accountID: UUID(),
+            taskRepository: taskRepository, relationRepository: FakeTaskRelationRepository(), accountID: accountID,
         )
         try await engine.pullProjects()
 
         try await engine.pullTasks()
 
-        #expect(taskRepository.fetchTasksCallCount == 0)
+        #expect(taskRepository.fetchTasksCallCount == 3)
+        let result = try await store.read { db in
+            let taskRow = try #require(TaskRecord.fetchAll(db).first { $0.remoteID == 10 })
+            let favorites = try #require(ProjectRecord.fetchAll(db).first { $0.remoteID == -1 })
+            let memberships = try VirtualProjectTaskRecord.fetchAll(db)
+            return (taskRow, favorites, memberships)
+        }
+        #expect(result.0.projectLocalID != result.1.localID)
+        #expect(result.2.count == 2)
+        #expect(result.2.allSatisfy { $0.taskLocalID == result.0.localID })
+
+        // A successful changed-filter response replaces only that filter's
+        // previous snapshot; Favorites keeps its own membership.
+        taskRepository.tasksByProjectID[-8] = []
+        try await engine.pullTasks()
+        let afterRefresh = try await store.read { db in
+            let favorites = try #require(ProjectRecord.fetchAll(db).first { $0.remoteID == -1 })
+            return try VirtualProjectTaskRecord.fetchAll(db)
+                .filter { $0.projectLocalID == favorites.localID }
+        }
+        #expect(afterRefresh.count == 1)
+
+        // A failed fetch leaves that pseudo-project's last good snapshot intact.
+        taskRepository.fetchErrorsByProjectID[-1] = VikunjaError.notFound
+        await #expect(throws: VikunjaError.self) {
+            try await engine.pullTasks()
+        }
+        let afterFailure = try await store.read { db in
+            let favorites = try #require(ProjectRecord.fetchAll(db).first { $0.remoteID == -1 })
+            return try VirtualProjectTaskRecord.fetchAll(db)
+                .filter { $0.projectLocalID == favorites.localID }
+        }
+        #expect(afterFailure.count == 1)
     }
 
     @Test
