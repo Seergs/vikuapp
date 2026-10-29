@@ -8,6 +8,8 @@ public enum VikunjaError: Error, Equatable, Sendable {
     case insecureInstanceURL
     case server(message: String, statusCode: Int)
     case decoding(String)
+    /// The device has no internet connection; cached data remains usable.
+    case offline
     case network(String)
     /// A request was aborted by the transport after exceeding its timeout
     /// (`URLError.timedOut`), distinct from `.network`, which covers every

@@ -871,8 +871,9 @@ public final class TaskDetailViewModel {
     }
 
     public func refresh() async {
-        await synchronization.refresh(scope: .task(task.id), reload: { await load(); await loadComments() })
-        await loadAttachments()
+        if await synchronization.refresh(scope: .task(task.id), reload: { await load(); await loadComments() }) {
+            await loadAttachments()
+        }
     }
 }
 

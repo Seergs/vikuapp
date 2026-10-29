@@ -4,8 +4,43 @@ import Testing
 import VikunjaCore
 import VikuUI
 
+private struct OfflineSync: SyncTriggering {
+    func hasInitialSnapshot() async throws -> Bool {
+        true
+    }
+
+    func prepare() async throws {}
+    func refresh(scope: SyncScope) async throws {
+        throw VikunjaError.offline
+    }
+}
+
 @MainActor
 struct TaskDetailViewModelTests {
+    @Test
+    func `offline refresh keeps the task and avoids a second attachment error`() async {
+        let repository = FakeTaskRepository()
+        let task = VikunjaTask(id: 1, title: "Cached", projectID: 1)
+        repository.tasks = [task]
+        let attachments = FakeTaskAttachmentRepository()
+        attachments.fetchError = .network("Attachment fetch should not run")
+        let toast = FakeToastPresenter()
+        let viewModel = TaskDetailViewModel(
+            syncTrigger: OfflineSync(), localData: TestScreenSync(), task: task,
+            project: Project(id: 1, title: "Work"), repository: repository,
+            labelRepository: FakeLabelRepository(), relationRepository: FakeTaskRelationRepository(),
+            commentRepository: FakeTaskCommentRepository(), attachmentRepository: attachments,
+            projectRepository: FakeProjectRepository(), toastPresenter: toast,
+        )
+        await viewModel.load()
+        await viewModel.refresh()
+        #expect(viewModel.task == task)
+        #expect(viewModel.loadState == .loaded)
+        #expect(viewModel.attachmentsLoadState == .idle)
+        #expect(toast.shownMessages.count == 1)
+        #expect(toast.shownMessages.first?.style == .info)
+    }
+
     @Test
     func `starts with the task passed in at construction`() {
         let repository = FakeTaskRepository()

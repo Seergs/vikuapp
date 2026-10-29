@@ -130,6 +130,8 @@ public actor URLSessionAPIClient: APIClient {
         let response: URLResponse
         do {
             (data, response) = try await session.data(for: request)
+        } catch let urlError as URLError where urlError.code == .notConnectedToInternet {
+            throw VikunjaError.offline
         } catch let urlError as URLError where urlError.code == .timedOut {
             throw VikunjaError.timeout
         } catch {

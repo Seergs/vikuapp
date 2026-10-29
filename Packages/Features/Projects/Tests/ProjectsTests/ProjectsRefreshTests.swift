@@ -80,6 +80,21 @@ struct ProjectsRefreshTests {
     }
 
     @Test
+    func `offline refresh preserves cached content and shows an informational notice`() async {
+        let repository = FakeProjectRepository()
+        repository.projects = [Project(id: 1, title: "Cached")]
+        let sync = ManualSync { throw VikunjaError.offline }
+        let toast = FakeToastPresenter()
+        let model = makeModel(repository: repository, sync: sync, toast: toast)
+        await model.load()
+        await model.refresh()
+        #expect(model.rootNodes.map(\.project.title) == ["Cached"])
+        #expect(model.loadState == .loaded)
+        #expect(toast.shownMessages.last?.style == .info)
+        #expect(toast.shownMessages.last?.message == VikunjaError.offline.displayMessage)
+    }
+
+    @Test
     func `failed refresh preserves the visible tree and reports an error`() async {
         let repository = FakeProjectRepository()
         repository.projects = [Project(id: 1, title: "Cached")]

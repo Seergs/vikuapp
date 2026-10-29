@@ -10,6 +10,8 @@ public extension VikunjaError {
             String(localized: "That doesn't look like a valid instance address.", bundle: .module)
         case .insecureInstanceURL:
             String(localized: "That address uses an insecure http connection.", bundle: .module)
+        case .offline:
+            String(localized: "You're offline. Data will update when you're connected again.", bundle: .module)
         case .network:
             String(localized: "Couldn't reach that server. Check the address and your connection.", bundle: .module)
         case .timeout:

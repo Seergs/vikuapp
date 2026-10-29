@@ -51,7 +51,7 @@ public final class LocalScreenSync {
                 initialFailureMessage = message
                 onInitialFailure(message)
             } else {
-                toastPresenter.show(message, style: .error)
+                toastPresenter.show(message, style: style(for: error))
             }
         }
     }
@@ -65,22 +65,30 @@ public final class LocalScreenSync {
         } catch is CancellationError {
         } catch {
             guard !Task.isCancelled else { return }
-            toastPresenter.show(message(for: error), style: .error)
+            toastPresenter.show(message(for: error), style: style(for: error))
         }
     }
 
-    public func refresh(scope: SyncScope = .account, reload: () async -> Void) async {
+    @discardableResult
+    public func refresh(scope: SyncScope = .account, reload: () async -> Void) async -> Bool {
+        var canLoadOnlineResources = true
         do {
             try await trigger.refresh(scope: scope)
             initialFailureMessage = nil
         } catch is CancellationError {
-            return
+            return false
         } catch {
-            guard !Task.isCancelled else { return }
-            toastPresenter.show(message(for: error), style: .error)
+            guard !Task.isCancelled else { return false }
+            canLoadOnlineResources = (error as? VikunjaError) != .offline
+            toastPresenter.show(message(for: error), style: style(for: error))
         }
-        guard !Task.isCancelled else { return }
+        guard !Task.isCancelled else { return false }
         await reload()
+        return canLoadOnlineResources
+    }
+
+    private func style(for error: any Error) -> ToastStyle {
+        (error as? VikunjaError) == .offline ? .info : .error
     }
 
     private func message(for error: any Error) -> String {

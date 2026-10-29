@@ -1,6 +1,16 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "You're offline. Data will update when you're connected again." : {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estás sin conexión. Los datos se actualizarán cuando vuelvas a conectarte."
+          }
+        }
+      }
+    },
     "Couldn't reach that server. Check the address and your connection." : {
       "localizations" : {
         "es" : {
