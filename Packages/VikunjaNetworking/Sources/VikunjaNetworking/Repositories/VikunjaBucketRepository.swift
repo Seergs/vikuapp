@@ -20,7 +20,26 @@ final class VikunjaBucketRepository: BucketRepositoryProtocol {
         let view = try await kanbanView(projectID: projectID)
         let endpoint = VikunjaEndpoints.bucketsWithTasksV2(projectID: projectID, viewID: view.id)
         let response: BucketsWithTasksResponseDTO = try await client.send(endpoint)
-        return response.items.map { BucketMapper.toDomain($0, isDoneBucket: $0.id == view.doneBucketId) }
+        var buckets = response.items.map { BucketMapper.toDomain($0, isDoneBucket: $0.id == view.doneBucketId) }
+        var lastPage = response.items
+        var page = 1
+        // The envelope lists all columns, but `page` applies to the tasks
+        // inside each column. Never infer a page size from the default.
+        while lastPage.contains(where: { dto in
+            guard let bucket = buckets.first(where: { $0.id == dto.id }) else { return false }
+            return !(dto.tasks ?? []).isEmpty && bucket.tasks.count < (dto.count ?? bucket.tasks.count)
+        }) {
+            page += 1
+            let next: BucketsWithTasksResponseDTO = try await client.send(
+                VikunjaEndpoints.bucketsWithTasksV2(projectID: projectID, viewID: view.id, page: page),
+            )
+            for dto in next.items {
+                guard let index = buckets.firstIndex(where: { $0.id == dto.id }) else { continue }
+                buckets[index].tasks += (dto.tasks ?? []).map(TaskMapper.toDomain)
+            }
+            lastPage = next.items
+        }
+        return buckets
     }
 
     func moveTask(taskID: Int, toBucketID: Int, projectID: Int) async throws -> VikunjaTask {

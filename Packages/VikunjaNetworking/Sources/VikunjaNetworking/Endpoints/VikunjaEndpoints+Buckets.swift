@@ -15,8 +15,11 @@ extension VikunjaEndpoints {
 
     /// Returns every bucket of the given view, each populated with its
     /// tasks. Verified against a real instance's `/api/v2/openapi.json`.
-    static func bucketsWithTasksV2(projectID: Int, viewID: Int) -> Endpoint {
-        Endpoint(path: "/api/v2/projects/\(projectID)/views/\(viewID)/buckets/tasks")
+    static func bucketsWithTasksV2(projectID: Int, viewID: Int, page: Int? = nil) -> Endpoint {
+        Endpoint(
+            path: "/api/v2/projects/\(projectID)/views/\(viewID)/buckets/tasks",
+            queryItems: page.map { [URLQueryItem(name: "page", value: String($0))] } ?? [],
+        )
     }
 
     /// Moves a task into `bucketID` within `viewID`. Moving into (or out of)
