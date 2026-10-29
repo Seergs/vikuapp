@@ -31,6 +31,8 @@ struct ProjectsView: View {
         // and cancelled by a state change mid-refresh.
         content
             .projectsListStyle()
+            // Let the last project's expand button scroll above the global quick-add overlay.
+            .contentMargins(.bottom, VikuSpacing.xxl * 2, for: .scrollContent)
             .scrollContentBackground(.hidden)
             .background(palette.pageBackground)
             .refreshable { await viewModel.refresh() }
