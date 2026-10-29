@@ -29,10 +29,9 @@ public final class ProjectsListViewModel {
 
     private let repository: ProjectRepositoryProtocol
     private let taskRepository: TaskRepositoryProtocol
-    /// Only consulted when a node being deleted is a saved filter -
-    /// `deleteProject(_:)` goes through this, never `repository`, since a
-    /// filter's real id isn't the negative pseudo-project id `/projects`
-    /// hands back. See `FilterRepositoryProtocol`.
+    /// Only consulted for saved-filter rename/delete. Its local-first
+    /// implementation addresses `/filters` with the positive filter id,
+    /// while `repository` sees the negative pseudo-project id.
     private let filterRepository: FilterRepositoryProtocol
     private let taskSummaryCache: ProjectTaskSummaryCaching
     private let toastPresenter: ToastPresenting
@@ -79,14 +78,12 @@ public final class ProjectsListViewModel {
         }
     }
 
-    /// Deletes a project (or, for a saved filter, the filter itself - through
-    /// `filterRepository`, never `repository`, see its doc comment) server-
-    /// side, then drops it from the local list. Vikunja cascades a project
-    /// delete to child projects and their tasks, so the entire node is
-    /// removed here rather than reparenting its children. A saved filter has
-    /// no children to reparent either way - it's a flat entry in
-    /// `pseudoNodes`. On failure the list is left untouched and the error is
-    /// surfaced as a toast.
+    /// Deletes a project through its local-first repository, or queues a
+    /// saved-filter delete through `filterRepository`. A saved filter is
+    /// hidden immediately and stays hidden while its delete is pending or
+    /// retrying; the pseudo-project row is removed from the database after
+    /// the server confirms the delete. A saved filter is a flat entry in
+    /// `pseudoNodes`, so it has no children to reparent.
     public func deleteProject(_ node: ProjectNode) async {
         do {
             if let filterID = node.project.savedFilterID {

@@ -183,6 +183,7 @@ private extension PendingSyncEntity {
     var displayName: LocalizedStringKey {
         switch self {
         case .project: "Project"
+        case .filter: "Saved Filter"
         case .label: "Label"
         case .task: "Task"
         case .comment: "Comment"

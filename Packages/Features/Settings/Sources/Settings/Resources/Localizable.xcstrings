@@ -1581,6 +1581,16 @@
         }
       }
     },
+    "Saved Filter" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Filtro guardado"
+          }
+        }
+      }
+    },
     "Disconnect this project's webhook?" : {
       "localizations" : {
         "es" : {

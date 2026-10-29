@@ -141,7 +141,7 @@ private final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @u
         baseURL: URL,
         tokenProvider: @escaping @Sendable () async throws -> String?,
     ) -> FilterRepositoryProtocol {
-        fatalError("not used by SyncCoordinatorTests")
+        FakeFilterRepository()
     }
 }
 

@@ -14,6 +14,8 @@ public actor SyncEngine {
     /// `nil` in tests/constructions that never touch comments. Every real
     /// `SyncEngine` built by the app or `SyncCoordinator` passes one.
     private let commentRepository: TaskCommentRepositoryProtocol?
+    /// `nil` for engine instances that do not drain saved-filter writes.
+    private let filterRepository: FilterRepositoryProtocol?
     /// `InstanceAccount.id` — every row this engine reads or writes is
     /// scoped to this one account, since `LocalStore`'s tables hold every
     /// saved account's data together rather than one database file each.
@@ -26,6 +28,7 @@ public actor SyncEngine {
         taskRepository: TaskRepositoryProtocol,
         relationRepository: TaskRelationRepositoryProtocol,
         commentRepository: TaskCommentRepositoryProtocol? = nil,
+        filterRepository: FilterRepositoryProtocol? = nil,
         accountID: UUID,
     ) {
         self.localStore = localStore
@@ -34,6 +37,7 @@ public actor SyncEngine {
         self.taskRepository = taskRepository
         self.relationRepository = relationRepository
         self.commentRepository = commentRepository
+        self.filterRepository = filterRepository
         self.accountID = accountID
     }
 
@@ -57,7 +61,7 @@ public actor SyncEngine {
             let localIDByRemoteID = Self.reserveLocalIDs(for: remoteProjects, existing: localRows)
             let queuedTargetLocalIDs = try Self.queuedTargetLocalIDs(
                 accountID: self.accountID, entityType: .project, db: db,
-            )
+            ).union(Self.queuedTargetLocalIDs(accountID: self.accountID, entityType: .filter, db: db))
 
             try Self.upsertRows(
                 for: remoteProjects, accountID: self.accountID, localIDByRemoteID: localIDByRemoteID,
@@ -66,6 +70,9 @@ public actor SyncEngine {
             try Self.resolveParentLinks(
                 for: remoteProjects, localIDByRemoteID: localIDByRemoteID,
                 protectedLocalIDs: queuedTargetLocalIDs, db: db,
+            )
+            try Self.ensureSavedFilterRows(
+                for: remoteProjects, accountID: self.accountID, localIDByRemoteID: localIDByRemoteID, db: db,
             )
             try Self.deleteMissingRows(
                 localRows,
@@ -92,6 +99,31 @@ public actor SyncEngine {
             localIDByRemoteID[remoteID] = UUID()
         }
         return localIDByRemoteID
+    }
+
+    /// The saved-filter table is a query cache keyed by the pseudo-project's
+    /// local id. `/projects` can introduce new filters after the migration's
+    /// one-time backfill, so every project pull ensures their cache rows exist.
+    private static func ensureSavedFilterRows(
+        for remoteProjects: [Project],
+        accountID: UUID,
+        localIDByRemoteID: [Int: UUID],
+        db: Database,
+    ) throws {
+        for project in remoteProjects {
+            guard let remoteID = project.savedFilterID,
+                  let pseudoProjectID = project.id.remoteValue,
+                  let localID = localIDByRemoteID[pseudoProjectID],
+                  try SavedFilterRecord.fetch(projectLocalID: localID, db: db) == nil
+            else { continue }
+            try SavedFilterRecord(
+                projectLocalID: localID,
+                accountID: accountID,
+                remoteID: remoteID,
+                query: "",
+                lastPulledAt: nil,
+            ).insert(db)
+        }
     }
 
     /// Inserts or updates every remote project, with no parent link yet: a
@@ -757,6 +789,83 @@ public actor SyncEngine {
                 try row.save(db)
             }
             try item.delete(db)
+        }
+    }
+
+    // MARK: - Draining saved-filter mutations
+
+    /// Saved filters use `/filters` for writes but share their local
+    /// presentation row with the `/projects` pseudo-project. A delete keeps
+    /// that row (hidden by `OfflineProjectRepository`) until the server has
+    /// confirmed it, so a failed request remains retryable and inspectable.
+    public func drainFilterMutations() async throws {
+        guard let filterRepository else { return }
+        let items = try await localStore.read { db in
+            try MutationQueueRecord.fetchAll(db)
+                .filter {
+                    $0.accountID == self.accountID && $0.entityType == .filter
+                        && ($0.status == .pending || $0.status == .failed)
+                        && !$0.needsConflictResolution
+                }
+                .sorted { $0.createdAt < $1.createdAt }
+        }
+
+        for item in items {
+            do {
+                switch item.operation {
+                case .update:
+                    guard let payload: FilterRenamePayload = try decodePayload(item.payload) else {
+                        throw DrainError.invalidPayload
+                    }
+                    _ = try await filterRepository.renameFilter(id: payload.remoteID, title: payload.title)
+                    try await localStore.write { db in
+                        guard let currentItem = try MutationQueueRecord.fetchOne(db, key: item.id),
+                              currentItem.payload == item.payload
+                        else { return }
+                        if var project = try ProjectRecord.fetchOne(db, key: item.targetLocalID) {
+                            project.title = payload.title
+                            try project.save(db)
+                        }
+                        try item.delete(db)
+                    }
+                case .delete:
+                    guard let payload: FilterDeletePayload = try decodePayload(item.payload) else {
+                        throw DrainError.invalidPayload
+                    }
+                    try await filterRepository.deleteFilter(id: payload.remoteID)
+                    try await localStore.write { db in
+                        guard let currentItem = try MutationQueueRecord.fetchOne(db, key: item.id),
+                              currentItem.payload == item.payload
+                        else { return }
+                        if let project = try ProjectRecord.fetchOne(db, key: item.targetLocalID) {
+                            try project.delete(db)
+                        }
+                        try item.delete(db)
+                    }
+                case .create, .addLabel, .removeLabel, .addRelation, .removeRelation:
+                    throw DrainError.invalidPayload
+                }
+            } catch {
+                await markFilterMutationFailed(item, error: error)
+            }
+        }
+    }
+
+    /// A user can replace an in-flight rename with a newer title or a delete
+    /// while its request is suspended. Only mark the exact queued snapshot
+    /// that failed; otherwise an old response could fail or delete newer work.
+    private func markFilterMutationFailed(_ item: MutationQueueRecord, error: Error) async {
+        try? await localStore.write { db in
+            guard var currentItem = try MutationQueueRecord.fetchOne(db, key: item.id),
+                  currentItem.entityType == .filter,
+                  currentItem.targetLocalID == item.targetLocalID,
+                  currentItem.operation == item.operation,
+                  currentItem.payload == item.payload
+            else { return }
+            currentItem.retryCount += 1
+            currentItem.lastError = String(describing: error)
+            currentItem.status = .failed
+            try currentItem.update(db)
         }
     }
 

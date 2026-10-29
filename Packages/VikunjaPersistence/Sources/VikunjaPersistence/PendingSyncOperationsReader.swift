@@ -35,7 +35,7 @@ enum PendingSyncOperationsReader {
 
     private static func title(for item: MutationQueueRecord, db: Database) throws -> String? {
         switch item.entityType {
-        case .project:
+        case .project, .filter:
             try ProjectRecord.fetchOne(db, key: item.targetLocalID)?.title
         case .label:
             try LabelRecord.fetchOne(db, key: item.targetLocalID)?.title
@@ -58,6 +58,7 @@ private extension MutationEntityType {
     var pendingSyncEntity: PendingSyncEntity {
         switch self {
         case .project: .project
+        case .filter: .filter
         case .label: .label
         case .task: .task
         case .comment: .comment
