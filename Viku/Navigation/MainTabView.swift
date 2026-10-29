@@ -9,6 +9,7 @@ import Tasks
 import VikuDesignSystem
 import VikuNavigation
 import VikunjaCore
+import VikunjaPersistence
 
 /// The app's main navigation shell once a connection exists: a floating,
 /// Liquid Glass tab bar (the default look for `TabView` on iOS 26+) with one
@@ -45,6 +46,9 @@ struct MainTabView: View {
     /// environment below; the shared row views read it directly rather than
     /// every feature view model re-loading a status through its own task list.
     @State private var pendingSyncStatuses: [SyncItemKey: SyncItemStatus] = [:]
+    /// Start hidden until the path monitor reports a real status. This avoids
+    /// briefly showing offline queue markers during the monitor's startup.
+    @State private var isOnline = true
 
     // One `AppRouter` per tab stack: the tab's `NavigationStack` binds to its
     // `path` and it's placed in that stack's environment, so any screen inside
@@ -187,6 +191,7 @@ struct MainTabView: View {
             }
         }
         .environment(\.pendingSyncStatuses, pendingSyncStatuses)
+        .environment(\.vikuIsOnline, isOnline)
         .tabBarMinimizeBehavior(.onScrollDown)
         .tint(palette.brand)
         // A light selection tick whenever the active tab changes — including a
@@ -243,6 +248,12 @@ struct MainTabView: View {
         // `RootView` rebuilds this view keyed by the whole account value.
         .task {
             await observePendingSyncStatuses()
+        }
+        .task {
+            let updates = await container.reachabilityMonitor.reachabilityUpdates()
+            for await reachable in updates {
+                isOnline = reachable
+            }
         }
         .alert(Text("Session Expired"), isPresented: $isShowingSessionExpiredAlert) {
             Button {

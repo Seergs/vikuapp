@@ -15,6 +15,7 @@ public struct VikuPendingSyncIndicator: View {
     private let showsDetailsOnTap: Bool
 
     @Environment(\.vikuPalette) private var palette
+    @Environment(\.vikuIsOnline) private var isOnline
     @State private var isShowingDetails = false
 
     public init(
@@ -28,7 +29,9 @@ public struct VikuPendingSyncIndicator: View {
     }
 
     public var body: some View {
-        if showsDetailsOnTap {
+        if isOnline {
+            EmptyView()
+        } else if showsDetailsOnTap {
             Button {
                 isShowingDetails = true
             } label: {
@@ -111,6 +114,11 @@ extension SyncItemStatus {
 }
 
 public extension EnvironmentValues {
+    /// Pending edits matter to the user while offline. While connected, queued
+    /// mutations are transient implementation state and should not flash in
+    /// list rows as the queue drains.
+    @Entry var vikuIsOnline: Bool = true
+
     /// Per-row pending-sync lookups, keyed by entity kind + id. Injected once
     /// by the app shell and read directly by the shared row views
     /// (`VikuTaskRow`, the projects list, a task's detail header), so no
