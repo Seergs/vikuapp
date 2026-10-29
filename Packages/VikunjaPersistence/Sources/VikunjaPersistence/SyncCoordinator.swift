@@ -110,6 +110,10 @@ public actor SyncCoordinator {
             baseURL: account.baseURL,
             tokenProvider: resolvedTokenProvider,
         )
+        let filterRepository = clientFactory.makeFilterRepository(
+            baseURL: account.baseURL,
+            tokenProvider: resolvedTokenProvider,
+        )
         let engine = SyncEngine(
             localStore: localStore,
             projectRepository: projectRepository,
@@ -117,10 +121,12 @@ public actor SyncCoordinator {
             taskRepository: taskRepository,
             relationRepository: relationRepository,
             commentRepository: commentRepository,
+            filterRepository: filterRepository,
             accountID: account.id,
         )
         try? await engine.pullProjects()
         try? await engine.drainProjectMutations()
+        try? await engine.drainFilterMutations()
         try? await engine.pullLabels()
         try? await engine.drainLabelMutations()
         try? await engine.pullTasks()

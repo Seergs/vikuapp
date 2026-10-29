@@ -29,6 +29,26 @@ struct SyncEngineTests {
     }
 
     @Test
+    func `pullProjects creates query-cache rows for newly discovered saved filters`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let repository = FakeProjectRepository()
+        repository.projects = [Project(id: -8, title: "Important")]
+        let engine = SyncEngine(
+            localStore: store, projectRepository: repository,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(),
+            relationRepository: FakeTaskRelationRepository(), accountID: UUID(),
+        )
+
+        try await engine.pullProjects()
+
+        let rows = try await store.read { db in try SavedFilterRecord.fetchAll(db) }
+        #expect(rows.count == 1)
+        #expect(rows[0].remoteID == 7)
+        #expect(rows[0].query.isEmpty)
+        #expect(rows[0].lastPulledAt == nil)
+    }
+
+    @Test
     func `pullProjects updates an existing row in place rather than duplicating it`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let repository = FakeProjectRepository()

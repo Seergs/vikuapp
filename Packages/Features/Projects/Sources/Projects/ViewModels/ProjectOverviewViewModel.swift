@@ -87,10 +87,9 @@ public final class ProjectOverviewViewModel {
     private let projectRepository: ProjectRepositoryProtocol
     private let labelRepository: LabelRepositoryProtocol
     private let relationRepository: TaskRelationRepositoryProtocol
-    /// Only consulted when `project.kind == .savedFilter` — `deleteProject()`
-    /// goes through this, never `projectRepository`, since a filter's real id
-    /// isn't the negative pseudo-project id `/projects` hands back. See
-    /// `FilterRepositoryProtocol`.
+    /// Only consulted when `project.kind == .savedFilter` — its local-first
+    /// implementation queues filter mutations against the positive `/filters`
+    /// id, while `projectRepository` sees the negative pseudo-project id.
     private let filterRepository: FilterRepositoryProtocol
     private let capabilityProvider: CapabilityProvider
     private let mutator: TaskListMutator
@@ -415,12 +414,10 @@ public final class ProjectOverviewViewModel {
         subprojectTaskSummaries[project.id] = TaskSummary(done: 0, total: 0)
     }
 
-    /// Deletes this screen's own project (or, for a saved filter, the filter
-    /// itself — through `filterRepository`, never `projectRepository`, see
-    /// its doc comment) from the server. Vikunja cascades a project delete to
-    /// subprojects and their tasks, so nothing local needs pruning beyond the
-    /// screen itself - the caller is expected to pop back once this returns
-    /// `true`, mirroring `TaskDetailViewModel.deleteTask()`.
+    /// Queues deletion of this screen's project or saved filter. The local
+    /// repository hides it immediately and removes its cached row after the
+    /// server confirms the request; the caller pops back once the local
+    /// operation is accepted, mirroring `TaskDetailViewModel.deleteTask()`.
     @discardableResult
     public func deleteProject() async -> Bool {
         do {

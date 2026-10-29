@@ -25,14 +25,15 @@ import WidgetKit
 final class AppContainer {
     let accountStore: AccountStoreProtocol
     let clientFactory: InstanceClientFactoryProtocol
-    /// Every saved account's offline cache (projects, their mutation queue,
-    /// sync bookkeeping) in one shared SQLite database — see `LocalStore`.
+    /// Every saved account's offline cache (projects, saved-filter queries,
+    /// their mutation queue and sync bookkeeping) in one shared SQLite
+    /// database — see `LocalStore`.
     /// Falls back to the app's own Application Support directory when the
     /// App Group container isn't available (an unprovisioned Simulator
     /// build), the same way every other on-device cache in this app
     /// degrades rather than crashing.
     let localStore: LocalStore = AppContainer.makeLocalStore()
-    /// Shared by `syncCoordinator` and every `OfflineProjectRepository` this
+    /// Shared by `syncCoordinator` and every local-first repository this
     /// container builds, so they agree on whether the network is up right
     /// now.
     let reachabilityMonitor: ReachabilityMonitoring = NWPathReachabilityMonitor()
@@ -443,13 +444,9 @@ final class AppContainer {
     }
 
     func makeProjectsListViewModel(account: InstanceAccount) -> ProjectsListViewModel {
-        let tokenProvider = tokenProvider(for: account)
         let repository = offlineProjectRepository(for: account)
         let taskRepository = offlineTaskRepository(for: account)
-        let filterRepository = clientFactory.makeFilterRepository(
-            baseURL: account.baseURL,
-            tokenProvider: tokenProvider,
-        )
+        let filterRepository = offlineFilterRepository(for: account)
         return ProjectsListViewModel(
             repository: repository,
             taskRepository: taskRepository,
@@ -477,23 +474,16 @@ final class AppContainer {
     }
 
     func makeRenameFilterViewModel(project: Project, account: InstanceAccount) -> RenameFilterViewModel {
-        let repository = clientFactory.makeFilterRepository(
-            baseURL: account.baseURL,
-            tokenProvider: tokenProvider(for: account),
-        )
+        let repository = offlineFilterRepository(for: account)
         return RenameFilterViewModel(project: project, repository: repository, toastPresenter: toastCenter)
     }
 
     func makeProjectOverviewViewModel(node: ProjectNode, account: InstanceAccount) -> ProjectOverviewViewModel {
-        let tokenProvider = tokenProvider(for: account)
         let repository = offlineTaskRepository(for: account)
         let projectRepository = offlineProjectRepository(for: account)
         let labelRepository = offlineLabelRepository(for: account)
         let relationRepository = offlineTaskRelationRepository(for: account)
-        let filterRepository = clientFactory.makeFilterRepository(
-            baseURL: account.baseURL,
-            tokenProvider: tokenProvider,
-        )
+        let filterRepository = offlineFilterRepository(for: account)
         return ProjectOverviewViewModel(
             project: node.project,
             subprojects: node.children,
@@ -845,6 +835,36 @@ final class AppContainer {
     /// `offlineTaskCommentRepository(for:)` needs it for its own copy.
     private func networkTaskCommentRepository(for account: InstanceAccount) -> TaskCommentRepositoryProtocol {
         clientFactory.makeTaskCommentRepository(baseURL: account.baseURL, tokenProvider: tokenProvider(for: account))
+    }
+
+    private func networkFilterRepository(for account: InstanceAccount) -> FilterRepositoryProtocol {
+        clientFactory.makeFilterRepository(baseURL: account.baseURL, tokenProvider: tokenProvider(for: account))
+    }
+
+    /// Saved-filter reads and writes use the same per-account local-first
+    /// repository; `/filters` remains the transport used by its sync engine.
+    private func offlineFilterRepository(for account: InstanceAccount) -> FilterRepositoryProtocol {
+        let networkRepository = networkFilterRepository(for: account)
+        let syncEngine = SyncEngine(
+            localStore: localStore,
+            projectRepository: clientFactory.makeProjectRepository(
+                baseURL: account.baseURL,
+                tokenProvider: tokenProvider(for: account),
+            ),
+            labelRepository: networkLabelRepository(for: account),
+            taskRepository: networkTaskRepository(for: account),
+            relationRepository: networkTaskRelationRepository(for: account),
+            commentRepository: networkTaskCommentRepository(for: account),
+            filterRepository: networkRepository,
+            accountID: account.id,
+        )
+        return OfflineFilterRepository(
+            localStore: localStore,
+            accountID: account.id,
+            networkRepository: networkRepository,
+            syncEngine: syncEngine,
+            reachability: reachabilityMonitor,
+        )
     }
 
     /// The `ProjectRepositoryProtocol` every screen reads/writes through —

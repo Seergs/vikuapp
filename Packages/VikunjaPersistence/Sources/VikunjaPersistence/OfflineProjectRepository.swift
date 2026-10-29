@@ -206,7 +206,9 @@ public actor OfflineProjectRepository: ProjectRepositoryProtocol {
         try Set(
             MutationQueueRecord.fetchAll(db)
                 .filter {
-                    $0.accountID == accountID && $0.entityType == .project && $0.operation == .delete
+                    $0.accountID == accountID
+                        && ($0.entityType == .project || $0.entityType == .filter)
+                        && $0.operation == .delete
                         && ($0.status == .pending || $0.status == .failed)
                 }
                 .map(\.targetLocalID),

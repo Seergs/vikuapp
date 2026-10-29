@@ -237,16 +237,28 @@ private struct PseudoProjectRow: View {
     let onDelete: () -> Void
 
     @Environment(\.vikuPalette) private var palette
+    @Environment(\.pendingSyncStatuses) private var pendingSyncStatuses
+
+    private var syncStatus: SyncItemStatus? {
+        guard project.kind == .savedFilter else { return nil }
+        return pendingSyncStatuses[SyncItemKey(kind: .project, id: project.id)]
+    }
 
     var body: some View {
         HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
             VikuProjectKindSwatch(kind: project.kind)
 
             VStack(alignment: .leading, spacing: VikuSpacing.xs) {
-                Text(project.title)
-                    .font(VikuFont.body)
-                    .fontWeight(.semibold)
-                    .lineLimit(1)
+                HStack(spacing: VikuSpacing.xs) {
+                    Text(project.title)
+                        .font(VikuFont.body)
+                        .fontWeight(.semibold)
+                        .lineLimit(1)
+
+                    if let syncStatus {
+                        VikuPendingSyncIndicator(status: syncStatus)
+                    }
+                }
 
                 HStack(spacing: VikuSpacing.sm) {
                     PseudoProjectKindBadge(kind: project.kind)

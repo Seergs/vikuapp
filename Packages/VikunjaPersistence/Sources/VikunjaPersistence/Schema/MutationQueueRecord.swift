@@ -6,6 +6,7 @@ import GRDB
 /// ...) - the `mutationQueueItem` table itself needs no schema change.
 enum MutationEntityType: String, Codable, Sendable {
     case project
+    case filter
     case label
     case task
     /// A comment on a task. Uses the shared `create`/`update`/`delete`
