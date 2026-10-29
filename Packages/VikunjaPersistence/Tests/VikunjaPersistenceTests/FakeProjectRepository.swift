@@ -17,6 +17,8 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
     /// overlapping sync against the same account and check it was skipped
     /// rather than racing a second `fetchProjects()` call of its own.
     var fetchDelay: Duration?
+    var beforeCreateResponse: (@Sendable () async throws -> Void)?
+    var beforeUpdateResponse: (@Sendable () async throws -> Void)?
 
     func fetchProjects() async throws -> [Project] {
         fetchProjectsCallCount += 1
@@ -47,10 +49,12 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
         nextRemoteID += 1
         let created = Self.withServerAssigned(project, id: .remote(remoteID))
         projects.append(created)
+        try await beforeCreateResponse?()
         return created
     }
 
     func update(_ project: Project) async throws -> Project {
+        try await beforeUpdateResponse?()
         if let updateError {
             throw updateError
         }

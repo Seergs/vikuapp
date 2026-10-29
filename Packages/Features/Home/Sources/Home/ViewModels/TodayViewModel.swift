@@ -35,7 +35,7 @@ public final class TodayViewModel {
     public private(set) var relationSearchResults: [VikunjaTask] = []
 
     public var isLoading: Bool {
-        loadState == .loading
+        loadState == .loading || (synchronization.isPreparingInitialSnapshot && tasks.isEmpty)
     }
 
     /// The screen title: the pinned selection's name, or the localized
@@ -54,6 +54,18 @@ public final class TodayViewModel {
         return String(localized: "\(pending) tasks pending", bundle: .module)
     }
 
+    /// Keep an initial-sync failure visible even if a subsequent local
+    /// invalidation successfully reads the still-empty cache.
+    public var displayLoadState: ScreenLoadState<Void> {
+        if isLoading {
+            return .loading
+        }
+        if tasks.isEmpty, let message = synchronization.initialFailureMessage {
+            return .failure(message)
+        }
+        return loadState
+    }
+
     private let taskLoader: AccountTaskLoader
     private let mutator: TaskListMutator
     private let taskRepository: TaskRepositoryProtocol
@@ -64,7 +76,12 @@ public final class TodayViewModel {
     private let hapticPresenter: HapticFeedbackPresenting
     private let homeSelectionCache: HomeSelectionCaching
 
+    private let synchronization: LocalScreenSync
+    private var loadVersion = 0
+
     public init(
+        syncTrigger: SyncTriggering,
+        localData: LocalDataObserving,
         taskRepository: TaskRepositoryProtocol,
         projectRepository: ProjectRepositoryProtocol,
         labelRepository: LabelRepositoryProtocol,
@@ -73,6 +90,9 @@ public final class TodayViewModel {
         hapticPresenter: HapticFeedbackPresenting = NoopHapticFeedback(),
         homeSelectionCache: HomeSelectionCaching = NoopHomeSelectionCaching(),
     ) {
+        self.synchronization = LocalScreenSync(
+            trigger: syncTrigger, localData: localData, toastPresenter: toastPresenter,
+        )
         self.taskLoader = AccountTaskLoader(
             taskRepository: taskRepository,
             projectRepository: projectRepository,
@@ -98,26 +118,41 @@ public final class TodayViewModel {
     /// spinner mid-refresh would tear down the `List` that owns the
     /// in-flight `.refreshable` task, cancelling its request underneath it.
     public func load() async {
-        if loadState != .loaded {
+        loadVersion += 1
+        let version = loadVersion
+        let hadContent = loadState == .loaded
+        if !hadContent {
             loadState = .loading
         }
         do {
             if let pinned = homeSelectionCache.cachedHomeSelection() {
-                try await loadPinned(pinned)
+                try await loadPinned(pinned, version: version)
             } else {
                 pinnedSelection = nil
-                try await loadDigest()
+                try await loadDigest(version: version)
             }
+            guard version == loadVersion else { return }
             loadState = .loaded
         } catch let error as VikunjaError {
-            loadState = .failure(error.displayMessage)
+            guard version == loadVersion else { return }
+            if hadContent {
+                toastPresenter.show(error.displayMessage, style: .error)
+            } else {
+                loadState = .failure(error.displayMessage)
+            }
         } catch {
-            loadState = .failure(error.localizedDescription)
+            guard version == loadVersion else { return }
+            if hadContent {
+                toastPresenter.show(error.localizedDescription, style: .error)
+            } else {
+                loadState = .failure(error.localizedDescription)
+            }
         }
     }
 
-    private func loadDigest() async throws {
+    private func loadDigest(version: Int) async throws {
         let result = try await taskLoader.loadAllTasks()
+        guard version == loadVersion else { return }
         projectsByID = result.projectsByID
         tasks = result.tasks
     }
@@ -133,9 +168,13 @@ public final class TodayViewModel {
     /// stuck trying to fetch a project that no longer exists. If it's still
     /// there but renamed/recolored, the cache is refreshed to match so the
     /// Settings row and this screen's title stay current.
-    private func loadPinned(_ pinned: CachedHomeSelection) async throws {
+    private func loadPinned(_ pinned: CachedHomeSelection, version: Int) async throws {
         let projects = try await projectRepository.fetchProjects()
+        guard version == loadVersion else { return }
         guard let current = projects.first(where: { $0.id.remoteValue == pinned.id }) else {
+            // An empty, not-yet-downloaded cache cannot invalidate a saved pin.
+            guard try await synchronization.hasInitialSnapshot() else { return }
+            guard version == loadVersion else { return }
             homeSelectionCache.setCachedHomeSelection(nil)
             pinnedSelection = nil
             toastPresenter.show(
@@ -145,10 +184,12 @@ public final class TodayViewModel {
                 ),
                 style: .error,
             )
-            try await loadDigest()
+            try await loadDigest(version: version)
             return
         }
 
+        let fetchedTasks = try await taskRepository.fetchTasks(projectID: .remote(pinned.id))
+        guard version == loadVersion else { return }
         let refreshed = CachedHomeSelection(
             id: current.id.remoteValue ?? pinned.id, title: current.title, hexColor: current.hexColor,
             kind: current.kind,
@@ -166,28 +207,32 @@ public final class TodayViewModel {
                 project.id.remoteValue.map { ($0, project) }
             },
         )
-        tasks = try await taskRepository.fetchTasks(projectID: .remote(pinned.id))
+        tasks = fetchedTasks
     }
 
     /// Flips a task's completion state, persists the change, and rolls the
     /// local flip back if the server rejects it — so a failed request never
     /// leaves the row showing a state the server doesn't actually have.
     public func toggleDone(_ task: VikunjaTask) async {
+        loadVersion += 1
         guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         var flipped = task
         flipped.isDone.toggle()
         tasks[index] = flipped
-        tasks[index] = await mutator.persistToggleDone(flipped: flipped, original: task)
+        let result = await mutator.persistToggleDone(flipped: flipped, original: task)
+        acceptMutationResult(result, replacing: flipped)
     }
 
     /// Sets a task's priority, persists the change, and rolls the local edit
     /// back if the server rejects it - mirrors `toggleDone(_:)`.
     public func setPriority(_ task: VikunjaTask, to priority: VikunjaTask.Priority) async {
+        loadVersion += 1
         guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         var updated = task
         updated.priority = priority
         tasks[index] = updated
-        tasks[index] = await mutator.persistSetPriority(updated: updated, original: task)
+        let result = await mutator.persistSetPriority(updated: updated, original: task)
+        acceptMutationResult(result, replacing: updated)
     }
 
     /// Sets (or clears, via `nil`) a task's due date, persists the change,
@@ -196,11 +241,13 @@ public final class TodayViewModel {
     /// explicitly: `TodaySection.sections(from:filter:)` already excludes
     /// undated tasks, so the row disappears on the next re-render.
     public func setDueDate(_ task: VikunjaTask, to dueDate: Date?) async {
+        loadVersion += 1
         guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         var updated = task
         updated.dueDate = dueDate
         tasks[index] = updated
-        tasks[index] = await mutator.persistSetDueDate(updated: updated, original: task)
+        let result = await mutator.persistSetDueDate(updated: updated, original: task)
+        acceptMutationResult(result, replacing: updated)
     }
 
     /// Adds or removes `label` from `task`, persists the change, and rolls
@@ -209,6 +256,7 @@ public final class TodayViewModel {
     /// task update endpoint, so this routes through the label repository
     /// rather than `mutator.persistSetPriority`'s `repository.update(_:)`.
     public func toggleLabel(_ task: VikunjaTask, _ label: Label) async {
+        loadVersion += 1
         guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         let original = tasks[index]
         var updated = original
@@ -219,9 +267,10 @@ public final class TodayViewModel {
             updated.labels.removeAll { $0.id == label.id }
         }
         tasks[index] = updated
-        tasks[index] = await mutator.persistToggleLabel(
+        let result = await mutator.persistToggleLabel(
             updated: updated, original: original, label: label, isAdding: isAdding, labelRepository: labelRepository,
         )
+        acceptMutationResult(result, replacing: updated)
     }
 
     /// Loads every label on the instance, for the label picker sheet.
@@ -286,14 +335,16 @@ public final class TodayViewModel {
     /// row (so its link glyph appears immediately) and rolling back if the
     /// server rejects it - mirrors `TaskDetailViewModel.addRelation(_:kind:)`.
     public func addRelation(_ relation: TaskRelation, kind: RelationKind, to task: VikunjaTask) async {
+        loadVersion += 1
         guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         let original = tasks[index]
         var updated = original
         updated.addRelation(relation, kind: kind)
         tasks[index] = updated
-        tasks[index] = await mutator.persistAddRelation(
+        let result = await mutator.persistAddRelation(
             relation, kind: kind, updated: updated, original: original, relationRepository: relationRepository,
         )
+        acceptMutationResult(result, replacing: updated)
     }
 
     /// Deletes a task from the server and drops it from the local list on
@@ -301,6 +352,7 @@ public final class TodayViewModel {
     /// the delete to subtasks/relations, so nothing else in the tree needs
     /// updating here.
     public func delete(_ task: VikunjaTask) async {
+        loadVersion += 1
         if await mutator.delete(task) {
             tasks.removeAll { $0.id == task.id }
         }
@@ -315,6 +367,7 @@ public final class TodayViewModel {
     /// Moves `task` to `destination` and drops it from the local list on
     /// success — it no longer belongs to the Today view after the move.
     public func move(_ task: VikunjaTask, to destination: Project) async {
+        loadVersion += 1
         if await mutator.move(task, to: destination) {
             tasks.removeAll { $0.id == task.id }
         }
@@ -339,5 +392,30 @@ public final class TodayViewModel {
             toastPresenter: toastPresenter,
             hapticPresenter: hapticPresenter,
         )
+    }
+
+    /// Observation can reorder or remove a row while a write is suspended.
+    /// Apply the result only if that same optimistic value is still visible.
+    private func acceptMutationResult(_ result: VikunjaTask, replacing expected: VikunjaTask) {
+        guard let index = tasks.firstIndex(where: { $0.id == expected.id }), tasks[index] == expected else { return }
+        tasks[index] = result
+    }
+
+    public func start() async {
+        await synchronization.start(reload: { await self.load() }, onInitialFailure: { message in
+            if !tasks.isEmpty {
+                toastPresenter.show(message, style: .error)
+            } else {
+                loadState = .failure(message)
+            }
+        })
+    }
+
+    public func observeLocalChanges() async {
+        await synchronization.observe { await self.load() }
+    }
+
+    public func refresh() async {
+        await synchronization.refresh(reload: { await self.load() })
     }
 }

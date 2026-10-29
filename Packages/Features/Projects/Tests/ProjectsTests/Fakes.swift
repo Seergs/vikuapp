@@ -104,6 +104,7 @@ final class FakeFilterRepository: FilterRepositoryProtocol, @unchecked Sendable 
 
 final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     var tasks: [VikunjaTask] = []
+    var beforeUpdate: (@Sendable () async -> Void)?
     var fetchError: VikunjaError?
     var updateError: VikunjaError?
     var deleteError: VikunjaError?
@@ -128,6 +129,7 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     }
 
     func update(_ task: VikunjaTask) async throws -> VikunjaTask {
+        await beforeUpdate?()
         if let updateError {
             throw updateError
         }

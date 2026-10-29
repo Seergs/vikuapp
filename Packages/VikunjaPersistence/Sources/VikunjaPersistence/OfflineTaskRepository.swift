@@ -11,19 +11,16 @@ import VikunjaCore
 public actor OfflineTaskRepository: TaskRepositoryProtocol {
     private let localStore: LocalStore
     private let accountID: UUID
-    private let syncEngine: SyncEngine
-    private let reachability: ReachabilityMonitoring
+    private let syncRequester: SyncRequesting
 
-    public init(localStore: LocalStore, accountID: UUID, syncEngine: SyncEngine, reachability: ReachabilityMonitoring) {
+    public init(localStore: LocalStore, accountID: UUID, syncRequester: SyncRequesting) {
         self.localStore = localStore
         self.accountID = accountID
-        self.syncEngine = syncEngine
-        self.reachability = reachability
+        self.syncRequester = syncRequester
     }
 
     public func fetchTasks(projectID: EntityID) async throws -> [VikunjaTask] {
-        await pullIfNeverSynced()
-        return try await localStore.read { db in
+        try await localStore.read { db in
             let projectRows = try Self.projectRows(self.accountID, db: db)
             guard let projectLocalID = Self.resolveProjectLocalID(matching: projectID, in: projectRows) else {
                 return []
@@ -48,15 +45,9 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
     }
 
     public func fetchTask(id: EntityID) async throws -> VikunjaTask {
-        await pullIfNeverSynced()
-        return try await readTask(id: id)
+        try await readTask(id: id)
     }
 
-    /// The actual local read behind `fetchTask(id:)`, without the cold-pull
-    /// trigger — `create`/`update` call this instead of the public method
-    /// to read back the row they just wrote, since a pull running in
-    /// between could reconcile-delete that same row before the server's own
-    /// response has caught up to it (mirrors `OfflineProjectRepository.readProject`).
     private func readTask(id: EntityID) async throws -> VikunjaTask {
         try await localStore.read { db in
             let rows = try Self.accountRows(self.accountID, db: db)
@@ -205,8 +196,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
     }
 
     public func searchTasks(query: String) async throws -> [VikunjaTask] {
-        await pullIfNeverSynced()
-        return try await localStore.read { db in
+        try await localStore.read { db in
             let rows = try Self.accountRows(self.accountID, db: db)
             let hiddenLocalIDs = try Self.pendingDeleteTargetLocalIDs(accountID: self.accountID, db: db)
             let context = try Self.makeAssemblyContext(accountID: self.accountID, db: db)
@@ -217,19 +207,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
     }
 
     private func triggerDrainIfOnline() async {
-        guard await reachability.isReachable else { return }
-        try? await syncEngine.drainTaskMutations()
-    }
-
-    /// Blocks the very first read against an account's cache on a cold pull
-    /// — see `OfflineProjectRepository.pullIfNeverSynced` for the full
-    /// rationale (identical reasoning, one per entity).
-    private func pullIfNeverSynced() async {
-        let alreadyPulled = await (try? localStore.read { db in
-            try SyncStateRecord.fetchAll(db).contains { $0.accountID == self.accountID && $0.entityType == .task }
-        }) ?? false
-        guard !alreadyPulled, await reachability.isReachable else { return }
-        try? await syncEngine.pullTasks()
+        await syncRequester.requestSync()
     }
 
     private static func accountRows(_ accountID: UUID, db: Database) throws -> [TaskRecord] {

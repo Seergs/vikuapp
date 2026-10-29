@@ -4,16 +4,15 @@ import VikunjaCore
 
 /// Local-first `TaskCommentRepositoryProtocol` — comments are the last task
 /// sub-resource Slice 4 brings offline (attachments stay online-only by
-/// design). Reading is always from the local cache; a reachable network only
-/// refreshes that cache first. Writes are applied locally immediately and
+/// design). Reads only query the local comment cache; the screen explicitly
+/// requests a thread refresh through the account coordinator. Writes are applied locally and
 /// queued as their own `.comment` mutations, which
 /// `SyncEngine.drainCommentMutations()` replays once the task itself has a
 /// remote id.
 public actor OfflineTaskCommentRepository: TaskCommentRepositoryProtocol {
     private let localStore: LocalStore
     private let accountID: UUID
-    private let syncEngine: SyncEngine
-    private let reachability: ReachabilityMonitoring
+    private let syncRequester: SyncRequesting
     /// The signed-in user, used only as the author on a comment created
     /// offline — the server replaces it with the real one when the queued
     /// create drains. Optional because the app may not have cached a current
@@ -23,14 +22,12 @@ public actor OfflineTaskCommentRepository: TaskCommentRepositoryProtocol {
     public init(
         localStore: LocalStore,
         accountID: UUID,
-        syncEngine: SyncEngine,
-        reachability: ReachabilityMonitoring,
+        syncRequester: SyncRequesting,
         currentUser: User? = nil,
     ) {
         self.localStore = localStore
         self.accountID = accountID
-        self.syncEngine = syncEngine
-        self.reachability = reachability
+        self.syncRequester = syncRequester
         self.currentUser = currentUser
     }
 
@@ -40,14 +37,6 @@ public actor OfflineTaskCommentRepository: TaskCommentRepositoryProtocol {
         }
         guard let taskRow else { throw VikunjaError.notFound }
 
-        // A task that hasn't synced yet has no server-side comments to pull,
-        // but it can still have locally queued ones. A reachable network is
-        // a best-effort refresh: a pull failure falls back to the cache
-        // below, so an offline-looking-but-reachable network never turns a
-        // previously loaded thread into an error.
-        if taskRow.remoteID != nil, await reachability.isReachable {
-            try? await syncEngine.pullComments(taskID: .local(taskRow.localID))
-        }
         return try await readComments(taskLocalID: taskRow.localID)
     }
 
@@ -84,7 +73,11 @@ public actor OfflineTaskCommentRepository: TaskCommentRepositoryProtocol {
         return try await readComment(id: .local(localID))
     }
 
-    public func updateComment(_ commentID: EntityID, text: String, onTask taskID: EntityID) async throws -> TaskComment {
+    public func updateComment(
+        _ commentID: EntityID,
+        text: String,
+        onTask taskID: EntityID,
+    ) async throws -> TaskComment {
         try await localStore.write { db in
             let rows = try Self.accountRows(self.accountID, db: db)
             guard var row = Self.findRow(matching: commentID, in: rows) else { throw VikunjaError.notFound }
@@ -150,8 +143,7 @@ public actor OfflineTaskCommentRepository: TaskCommentRepositoryProtocol {
     }
 
     private func triggerDrainIfOnline() async {
-        guard await reachability.isReachable else { return }
-        try? await syncEngine.drainCommentMutations()
+        await syncRequester.requestSync()
     }
 
     private func readComments(taskLocalID: UUID) async throws -> [TaskComment] {

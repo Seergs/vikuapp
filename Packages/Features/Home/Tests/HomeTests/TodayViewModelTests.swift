@@ -18,6 +18,7 @@ struct TodayViewModelTests {
             VikunjaTask(id: 2, title: "Buy groceries", projectID: 2),
         ]
         let viewModel = TodayViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             taskRepository: taskRepository,
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
@@ -47,6 +48,7 @@ struct TodayViewModelTests {
         ]
         taskRepository.failingProjectIDs = [2]
         let viewModel = TodayViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             taskRepository: taskRepository,
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
@@ -65,6 +67,7 @@ struct TodayViewModelTests {
         let projectRepository = FakeProjectRepository()
         projectRepository.fetchError = .network("offline")
         let viewModel = TodayViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             taskRepository: FakeTaskRepository(),
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
@@ -85,6 +88,7 @@ struct TodayViewModelTests {
         let taskRepository = FakeTaskRepository()
         taskRepository.tasks = [VikunjaTask(id: 1, title: "Write report", isDone: false, projectID: 1)]
         let viewModel = TodayViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             taskRepository: taskRepository,
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
@@ -105,6 +109,7 @@ struct TodayViewModelTests {
         let taskRepository = FakeTaskRepository()
         taskRepository.tasks = [VikunjaTask(id: 1, title: "Write report", isDone: false, projectID: 1)]
         let viewModel = TodayViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             taskRepository: taskRepository,
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
@@ -126,6 +131,7 @@ struct TodayViewModelTests {
         let taskRepository = FakeTaskRepository()
         taskRepository.tasks = [VikunjaTask(id: 1, title: "Write report", priority: .low, projectID: 1)]
         let viewModel = TodayViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             taskRepository: taskRepository,
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
@@ -146,6 +152,7 @@ struct TodayViewModelTests {
         let taskRepository = FakeTaskRepository()
         taskRepository.tasks = [VikunjaTask(id: 1, title: "Write report", priority: .low, projectID: 1)]
         let viewModel = TodayViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             taskRepository: taskRepository,
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
@@ -167,6 +174,7 @@ struct TodayViewModelTests {
         let taskRepository = FakeTaskRepository()
         taskRepository.tasks = [VikunjaTask(id: 1, title: "Write report", projectID: 1)]
         let viewModel = TodayViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             taskRepository: taskRepository,
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
@@ -189,6 +197,7 @@ struct TodayViewModelTests {
         let original = VikunjaTask(id: 1, title: "Write report", dueDate: Date(timeIntervalSince1970: 0), projectID: 1)
         taskRepository.tasks = [original]
         let viewModel = TodayViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             taskRepository: taskRepository,
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
@@ -211,6 +220,7 @@ struct TodayViewModelTests {
         taskRepository.tasks = [VikunjaTask(id: 1, title: "Write report", projectID: 1)]
         let labelRepository = FakeLabelRepository()
         let viewModel = TodayViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             taskRepository: taskRepository,
             projectRepository: projectRepository,
             labelRepository: labelRepository,
@@ -235,6 +245,7 @@ struct TodayViewModelTests {
         taskRepository.tasks = [VikunjaTask(id: 1, title: "Write report", projectID: 1, labels: [label])]
         let labelRepository = FakeLabelRepository()
         let viewModel = TodayViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             taskRepository: taskRepository,
             projectRepository: projectRepository,
             labelRepository: labelRepository,
@@ -258,6 +269,7 @@ struct TodayViewModelTests {
         let labelRepository = FakeLabelRepository()
         labelRepository.addError = .network("offline")
         let viewModel = TodayViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             taskRepository: taskRepository,
             projectRepository: projectRepository,
             labelRepository: labelRepository,
@@ -280,6 +292,7 @@ struct TodayViewModelTests {
         taskRepository.tasks = [VikunjaTask(id: 1, title: "Write report", projectID: 1)]
         let labelRepository = FakeLabelRepository()
         let viewModel = TodayViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             taskRepository: taskRepository,
             projectRepository: projectRepository,
             labelRepository: labelRepository,
@@ -304,6 +317,7 @@ struct TodayViewModelTests {
         let relationRepository = FakeTaskRelationRepository()
         let toastPresenter = FakeToastPresenter()
         let viewModel = TodayViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             taskRepository: taskRepository,
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
@@ -333,6 +347,7 @@ struct TodayViewModelTests {
         relationRepository.addError = .network("offline")
         let toastPresenter = FakeToastPresenter()
         let viewModel = TodayViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             taskRepository: taskRepository,
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
@@ -363,6 +378,7 @@ struct TodayViewModelTests {
             VikunjaTask(id: 9, title: "Draft appendix", projectID: 1),
         ]
         let viewModel = TodayViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             taskRepository: taskRepository,
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
@@ -388,6 +404,7 @@ struct TodayViewModelTests {
             VikunjaTask(id: 9, title: "Unrelated", projectID: 2),
         ]
         let viewModel = TodayViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             taskRepository: taskRepository,
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
@@ -410,6 +427,7 @@ struct TodayViewModelTests {
         taskRepository.tasks = [VikunjaTask(id: 1, title: "Write report", isDone: false, projectID: 1)]
         let haptics = FakeHapticPresenter()
         let viewModel = TodayViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             taskRepository: taskRepository,
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
@@ -431,6 +449,7 @@ struct TodayViewModelTests {
     @Test
     func `title is Today when nothing is pinned`() {
         let viewModel = TodayViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             taskRepository: FakeTaskRepository(),
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
@@ -446,6 +465,7 @@ struct TodayViewModelTests {
     func `title reflects the cached pin before load resolves`() {
         let cached = CachedHomeSelection(id: 7, title: "Work", hexColor: "00ff00", kind: .project)
         let viewModel = TodayViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             taskRepository: FakeTaskRepository(),
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
@@ -470,6 +490,7 @@ struct TodayViewModelTests {
             cached: CachedHomeSelection(id: 1, title: "Work", hexColor: "", kind: .project),
         )
         let viewModel = TodayViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             taskRepository: taskRepository,
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
@@ -496,6 +517,7 @@ struct TodayViewModelTests {
             cached: CachedHomeSelection(id: -2, title: "My Open Tasks", hexColor: "", kind: .savedFilter),
         )
         let viewModel = TodayViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             taskRepository: taskRepository,
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
@@ -517,6 +539,7 @@ struct TodayViewModelTests {
             cached: CachedHomeSelection(id: 1, title: "Old Name", hexColor: "ff0000", kind: .project),
         )
         let viewModel = TodayViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             taskRepository: FakeTaskRepository(),
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
@@ -543,6 +566,7 @@ struct TodayViewModelTests {
         )
         let toastPresenter = FakeToastPresenter()
         let viewModel = TodayViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             taskRepository: taskRepository,
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),

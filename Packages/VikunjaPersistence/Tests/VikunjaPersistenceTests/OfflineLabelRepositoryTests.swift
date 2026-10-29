@@ -40,7 +40,8 @@ struct OfflineLabelRepositoryTests {
         )
         let reachability = FakeReachabilityMonitor(isReachable: online)
         let repository = OfflineLabelRepository(
-            localStore: store, accountID: accountID, syncEngine: engine, reachability: reachability,
+            localStore: store, accountID: accountID,
+            syncRequester: TestSyncRequester(engine: engine, reachability: reachability),
         )
         return Fixture(repository: repository, store: store, network: network)
     }
@@ -52,18 +53,18 @@ struct OfflineLabelRepositoryTests {
     }
 
     @Test
-    func `fetchLabels pulls once on a cold, never-synced account instead of racing a background sync`() async throws {
+    func `fetchLabels stays local on an online account that has never synced`() async throws {
         let network = FakeLabelRepository()
         network.labels = [Label(id: 1, title: "Already on the server", hexColor: "")]
         let fixture = try makeRepository(online: true, network: network)
 
         let labels = try await fixture.repository.fetchLabels()
 
-        #expect(labels.map(\.title) == ["Already on the server"])
-        #expect(network.fetchLabelsCallCount == 1)
+        #expect(labels.isEmpty)
+        #expect(network.fetchLabelsCallCount == 0)
 
         _ = try await fixture.repository.fetchLabels()
-        #expect(network.fetchLabelsCallCount == 1)
+        #expect(network.fetchLabelsCallCount == 0)
     }
 
     @Test
@@ -166,8 +167,11 @@ struct OfflineLabelRepositoryTests {
             accountID: accountID,
         )
         let onlineRepository = OfflineLabelRepository(
-            localStore: store, accountID: accountID, syncEngine: onlineEngine,
-            reachability: FakeReachabilityMonitor(isReachable: true),
+            localStore: store, accountID: accountID,
+            syncRequester: TestSyncRequester(
+                engine: onlineEngine,
+                reachability: FakeReachabilityMonitor(isReachable: true),
+            ),
         )
         let created = try await onlineRepository.create(Label(id: .local(UUID()), title: "Urgent", hexColor: "ff0000"))
         #expect(created.id.remoteValue != nil)
@@ -179,8 +183,11 @@ struct OfflineLabelRepositoryTests {
             accountID: accountID,
         )
         let offlineRepository = OfflineLabelRepository(
-            localStore: store, accountID: accountID, syncEngine: offlineEngine,
-            reachability: FakeReachabilityMonitor(isReachable: false),
+            localStore: store, accountID: accountID,
+            syncRequester: TestSyncRequester(
+                engine: offlineEngine,
+                reachability: FakeReachabilityMonitor(isReachable: false),
+            ),
         )
         _ = try await offlineRepository.update(Label(id: created.id, title: "Urgent v2", hexColor: "ff0000"))
         let updated = try await offlineRepository.update(Label(id: created.id, title: "Urgent v3", hexColor: "ff0000"))
@@ -214,25 +221,23 @@ struct OfflineLabelRepositoryTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let onlineRepository = OfflineLabelRepository(
             localStore: store, accountID: accountID,
-            syncEngine: SyncEngine(
+            syncRequester: TestSyncRequester(engine: SyncEngine(
                 localStore: store, projectRepository: FakeProjectRepository(),
                 labelRepository: network, taskRepository: FakeTaskRepository(),
                 relationRepository: FakeTaskRelationRepository(),
                 accountID: accountID,
-            ),
-            reachability: FakeReachabilityMonitor(isReachable: true),
+            ), reachability: FakeReachabilityMonitor(isReachable: true)),
         )
         let created = try await onlineRepository.create(Label(id: .local(UUID()), title: "Urgent", hexColor: "ff0000"))
 
         let offlineRepository = OfflineLabelRepository(
             localStore: store, accountID: accountID,
-            syncEngine: SyncEngine(
+            syncRequester: TestSyncRequester(engine: SyncEngine(
                 localStore: store, projectRepository: FakeProjectRepository(),
                 labelRepository: network, taskRepository: FakeTaskRepository(),
                 relationRepository: FakeTaskRelationRepository(),
                 accountID: accountID,
-            ),
-            reachability: FakeReachabilityMonitor(isReachable: false),
+            ), reachability: FakeReachabilityMonitor(isReachable: false)),
         )
         try await offlineRepository.delete(id: created.id)
 
@@ -268,23 +273,21 @@ struct OfflineLabelRepositoryTests {
         let networkB = FakeLabelRepository()
         let repositoryA = OfflineLabelRepository(
             localStore: store, accountID: accountA,
-            syncEngine: SyncEngine(
+            syncRequester: TestSyncRequester(engine: SyncEngine(
                 localStore: store, projectRepository: FakeProjectRepository(),
                 labelRepository: networkA, taskRepository: FakeTaskRepository(),
                 relationRepository: FakeTaskRelationRepository(),
                 accountID: accountA,
-            ),
-            reachability: FakeReachabilityMonitor(isReachable: false),
+            ), reachability: FakeReachabilityMonitor(isReachable: false)),
         )
         let repositoryB = OfflineLabelRepository(
             localStore: store, accountID: accountB,
-            syncEngine: SyncEngine(
+            syncRequester: TestSyncRequester(engine: SyncEngine(
                 localStore: store, projectRepository: FakeProjectRepository(),
                 labelRepository: networkB, taskRepository: FakeTaskRepository(),
                 relationRepository: FakeTaskRelationRepository(),
                 accountID: accountB,
-            ),
-            reachability: FakeReachabilityMonitor(isReachable: false),
+            ), reachability: FakeReachabilityMonitor(isReachable: false)),
         )
 
         _ = try await repositoryA.create(Label(id: .local(UUID()), title: "A's label", hexColor: ""))

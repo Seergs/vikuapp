@@ -22,6 +22,7 @@ struct OfflineTaskCommentRepositoryTests {
         let network: FakeTaskCommentRepository
         let projectLocalID: UUID
         let accountID: UUID
+        let engine: SyncEngine
     }
 
     private func temporaryDirectory() -> URL {
@@ -54,8 +55,10 @@ struct OfflineTaskCommentRepositoryTests {
         let repository = OfflineTaskCommentRepository(
             localStore: store,
             accountID: accountID,
-            syncEngine: engine,
-            reachability: FakeCommentReachabilityMonitor(isReachable: online),
+            syncRequester: TestSyncRequester(
+                engine: engine,
+                reachability: FakeCommentReachabilityMonitor(isReachable: online),
+            ),
             currentUser: currentUser,
         )
         let projectRow = ProjectRecord(
@@ -66,7 +69,7 @@ struct OfflineTaskCommentRepositoryTests {
         try await store.write { db in try projectRow.insert(db) }
         return Fixture(
             repository: repository, store: store, network: network,
-            projectLocalID: projectRow.localID, accountID: accountID,
+            projectLocalID: projectRow.localID, accountID: accountID, engine: engine,
         )
     }
 
@@ -97,7 +100,7 @@ struct OfflineTaskCommentRepositoryTests {
     }
 
     @Test
-    func `fetch while online pulls from the network and caches the result`() async throws {
+    func `an explicit comment pull populates the local query`() async throws {
         let network = FakeTaskCommentRepository()
         network.comments = [
             TaskComment(
@@ -109,6 +112,9 @@ struct OfflineTaskCommentRepositoryTests {
         let fixture = try await makeRepository(online: true, network: network)
         let task = try await seedTask(in: fixture, remoteID: 5)
 
+        #expect(try await fixture.repository.fetchComments(taskID: .local(task.localID)).isEmpty)
+        #expect(network.fetchedTaskIDs.isEmpty)
+        try await fixture.engine.pullComments(taskID: .local(task.localID))
         let comments = try await fixture.repository.fetchComments(taskID: .local(task.localID))
 
         #expect(comments.map(\.comment) == ["Server comment"])
@@ -313,6 +319,7 @@ struct OfflineTaskCommentRepositoryTests {
             try deleted.delete(db)
         }
 
+        try await fixture.engine.pullComments(taskID: .local(task.localID))
         let comments = try await fixture.repository.fetchComments(taskID: .local(task.localID))
 
         #expect(comments.map(\.id) == [.remote(21), .remote(22)])

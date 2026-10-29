@@ -61,6 +61,27 @@ private final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @u
         return projectRepository(for: baseURL)
     }
 
+    private var tasksByBaseURL: [URL: FakeTaskRepository] = [:]
+    private var commentsByBaseURL: [URL: FakeTaskCommentRepository] = [:]
+
+    func taskRepository(for baseURL: URL) -> FakeTaskRepository {
+        if let existing = tasksByBaseURL[baseURL] {
+            return existing
+        }
+        let repository = FakeTaskRepository()
+        tasksByBaseURL[baseURL] = repository
+        return repository
+    }
+
+    func commentRepository(for baseURL: URL) -> FakeTaskCommentRepository {
+        if let existing = commentsByBaseURL[baseURL] {
+            return existing
+        }
+        let repository = FakeTaskCommentRepository()
+        commentsByBaseURL[baseURL] = repository
+        return repository
+    }
+
     func makeCapabilityProvider(baseURL: URL) -> CapabilityProvider {
         fatalError("not used by SyncCoordinatorTests")
     }
@@ -73,11 +94,7 @@ private final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @u
         baseURL: URL,
         tokenProvider: @escaping @Sendable () async throws -> String?,
     ) -> TaskRepositoryProtocol {
-        // `sync(_:)` always pulls tasks alongside projects/labels, but
-        // nothing in this file asserts on task behavior - a fresh,
-        // otherwise-unused fake per call is enough to keep that pull a
-        // harmless no-op.
-        FakeTaskRepository()
+        taskRepository(for: baseURL)
     }
 
     func makeLabelRepository(
@@ -104,9 +121,7 @@ private final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @u
         baseURL: URL,
         tokenProvider: @escaping @Sendable () async throws -> String?,
     ) -> TaskCommentRepositoryProtocol {
-        // `sync(_:)` always drains comments too - an unused fake keeps that a
-        // harmless no-op.
-        FakeTaskCommentRepository()
+        commentRepository(for: baseURL)
     }
 
     func makeTaskAttachmentRepository(
@@ -141,7 +156,15 @@ private final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @u
         baseURL: URL,
         tokenProvider: @escaping @Sendable () async throws -> String?,
     ) -> FilterRepositoryProtocol {
-        FakeFilterRepository()
+        let repository = FakeFilterRepository()
+        repository.filters[2] = SavedFilterDetail(
+            id: 2,
+            title: "Filter",
+            description: "",
+            isFavorite: false,
+            query: "done = false",
+        )
+        return repository
     }
 }
 
@@ -421,5 +444,152 @@ struct SyncCoordinatorTests {
         let tokenProvider = try #require(factory.tokenProvidersByBaseURL[accountA.baseURL])
         let resolvedToken = try await tokenProvider()
         #expect(resolvedToken == "resolved-token-for-\(accountA.id)")
+    }
+
+    @Test
+    func `manual refresh downloads external renames after the first sync`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let accounts = FakeAccountStore()
+        let account = try makeAccount(host: "refresh.example.com")
+        try await accounts.addAccount(account, token: "token")
+        let factory = FakeInstanceClientFactory()
+        let remote = factory.projectRepository(for: account.baseURL)
+        remote.projects = [Project(id: -3, title: "Original filter")]
+        let coordinator = SyncCoordinator(
+            localStore: store, accountStore: accounts, clientFactory: factory,
+            reachability: FakeReachabilityMonitor(), tokenProvider: { _ in { "token" } },
+        )
+        try await coordinator.refresh(accountID: account.id, scope: .account)
+        remote.projects = [Project(id: -3, title: "Renamed on web")]
+        try await coordinator.refresh(accountID: account.id, scope: .account)
+        let rows = try await store.read { db in try ProjectRecord.fetchAll(db) }
+        #expect(rows.map(\.title) == ["Renamed on web"])
+        #expect(remote.fetchProjectsCallCount == 2)
+    }
+
+    @Test
+    func `manual refresh reports failure and preserves cached projects`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let accounts = FakeAccountStore()
+        let account = try makeAccount(host: "refresh.example.com")
+        try await accounts.addAccount(account, token: "token")
+        let factory = FakeInstanceClientFactory()
+        let remote = factory.projectRepository(for: account.baseURL)
+        remote.projects = [Project(id: 1, title: "Cached")]
+        let coordinator = SyncCoordinator(
+            localStore: store, accountStore: accounts, clientFactory: factory,
+            reachability: FakeReachabilityMonitor(), tokenProvider: { _ in { "token" } },
+        )
+        try await coordinator.refresh(accountID: account.id, scope: .account)
+        remote.fetchError = VikunjaError.network("offline")
+        await #expect(throws: VikunjaError.network("offline")) {
+            try await coordinator.refresh(accountID: account.id, scope: .account)
+        }
+        let rows = try await store.read { db in try ProjectRecord.fetchAll(db) }
+        #expect(rows.map(\.title) == ["Cached"])
+    }
+
+    @Test
+    func `manual refresh waits for an automatic sync instead of returning stale cache`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let accounts = FakeAccountStore()
+        let account = try makeAccount(host: "refresh.example.com")
+        try await accounts.addAccount(account, token: "token")
+        let factory = FakeInstanceClientFactory()
+        let remote = factory.projectRepository(for: account.baseURL)
+        remote.projects = [Project(id: 1, title: "Arrived")]
+        remote.fetchDelay = .milliseconds(150)
+        let coordinator = SyncCoordinator(
+            localStore: store, accountStore: accounts, clientFactory: factory,
+            reachability: FakeReachabilityMonitor(), tokenProvider: { _ in { "token" } },
+        )
+        async let automatic: Void = coordinator.syncAllAccounts()
+        await waitUntil { remote.fetchProjectsCallCount == 1 }
+        try await coordinator.refresh(accountID: account.id, scope: .account)
+        let rows = try await store.read { db in try ProjectRecord.fetchAll(db) }
+        #expect(rows.map(\.title) == ["Arrived"])
+        await automatic
+        #expect(remote.fetchProjectsCallCount == 1)
+    }
+
+    @Test
+    func `a write during a sync schedules another pass without blocking the local save`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let accounts = FakeAccountStore()
+        let account = try makeAccount(host: "refresh.example.com")
+        try await accounts.addAccount(account, token: "token")
+        let factory = FakeInstanceClientFactory()
+        let remote = factory.projectRepository(for: account.baseURL)
+        remote.fetchDelay = .milliseconds(150)
+        let reachability = FakeReachabilityMonitor()
+        await reachability.setReachable(true)
+        let coordinator = SyncCoordinator(
+            localStore: store, accountStore: accounts, clientFactory: factory,
+            reachability: reachability, tokenProvider: { _ in { "token" } },
+        )
+        let sync = AccountSync(accountID: account.id, coordinator: coordinator, localStore: store)
+        let repository = OfflineProjectRepository(localStore: store, accountID: account.id, syncRequester: sync)
+        async let automatic: Void = coordinator.syncAllAccounts()
+        await waitUntil { remote.fetchProjectsCallCount == 1 }
+        let created = try await repository.create(Project(id: .local(UUID()), title: "Saved immediately"))
+        #expect(created.id.remoteValue == nil)
+        #expect(remote.createdProjects.isEmpty)
+        await automatic
+        #expect(remote.fetchProjectsCallCount == 2)
+        #expect(remote.createdProjects.count == 1)
+        #expect(try await repository.fetchProjects().map(\.title) == ["Saved immediately"])
+    }
+
+    @Test
+    func `an upload failure is not reported as a successful refresh`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let accounts = FakeAccountStore()
+        let account = try makeAccount(host: "refresh.example.com")
+        try await accounts.addAccount(account, token: "token")
+        let factory = FakeInstanceClientFactory()
+        let remote = factory.projectRepository(for: account.baseURL)
+        remote.createError = VikunjaError.network("offline")
+        let coordinator = SyncCoordinator(
+            localStore: store, accountStore: accounts, clientFactory: factory,
+            reachability: FakeReachabilityMonitor(), tokenProvider: { _ in { "token" } },
+        )
+        let sync = AccountSync(accountID: account.id, coordinator: coordinator, localStore: store)
+        let repository = OfflineProjectRepository(localStore: store, accountID: account.id, syncRequester: sync)
+        _ = try await repository.create(Project(id: .local(UUID()), title: "Pending"))
+        await #expect(throws: (any Error).self) {
+            try await sync.refresh(scope: .account)
+        }
+        #expect(try await repository.fetchProjects().map(\.title) == ["Pending"])
+        let pending = try await store.pendingSyncOperations(accountID: account.id)
+        #expect(pending.count == 1)
+    }
+
+    @Test
+    func `opening a cached task explicitly refreshes its thread without re-pulling the account`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let accounts = FakeAccountStore()
+        let account = try makeAccount(host: "comments.example.com")
+        try await accounts.addAccount(account, token: "token")
+        let factory = FakeInstanceClientFactory()
+        let projects = factory.projectRepository(for: account.baseURL)
+        projects.projects = [Project(id: 1, title: "Project")]
+        factory.taskRepository(for: account.baseURL).tasks = [VikunjaTask(id: 5, title: "Task", projectID: 1)]
+        let comments = factory.commentRepository(for: account.baseURL)
+        comments.comments = [TaskComment(
+            id: .remote(21), comment: "Thread", author: User(id: 1, username: "me"), created: Date(), updated: Date(),
+        )]
+        let coordinator = SyncCoordinator(
+            localStore: store, accountStore: accounts, clientFactory: factory,
+            reachability: FakeReachabilityMonitor(), tokenProvider: { _ in { "token" } },
+        )
+        try await coordinator.refresh(accountID: account.id, scope: .account)
+        #expect(comments.fetchedTaskIDs.isEmpty)
+        try await coordinator.refresh(accountID: account.id, scope: .comments(.remote(5)))
+        #expect(projects.fetchProjectsCallCount == 1)
+        #expect(comments.fetchedTaskIDs == [.remote(5)])
+        #expect(try await store.read { db in try TaskCommentRecord.fetchAll(db).map(\.comment) } == ["Thread"])
+        try await coordinator.refresh(accountID: account.id, scope: .task(.remote(5)))
+        #expect(projects.fetchProjectsCallCount == 2)
+        #expect(comments.fetchedTaskIDs == [.remote(5), .remote(5)])
     }
 }

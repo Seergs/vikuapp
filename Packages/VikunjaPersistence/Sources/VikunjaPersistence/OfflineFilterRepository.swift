@@ -7,43 +7,24 @@ import VikunjaCore
 public actor OfflineFilterRepository: FilterRepositoryProtocol {
     private let localStore: LocalStore
     private let accountID: UUID
-    private let networkRepository: FilterRepositoryProtocol
-    private let syncEngine: SyncEngine
-    private let reachability: ReachabilityMonitoring
+    private let syncRequester: SyncRequesting
 
     public init(
         localStore: LocalStore,
         accountID: UUID,
-        networkRepository: FilterRepositoryProtocol,
-        syncEngine: SyncEngine,
-        reachability: ReachabilityMonitoring,
+        syncRequester: SyncRequesting,
     ) {
         self.localStore = localStore
         self.accountID = accountID
-        self.networkRepository = networkRepository
-        self.syncEngine = syncEngine
-        self.reachability = reachability
+        self.syncRequester = syncRequester
     }
 
-    /// Reads the local snapshot first. When online, refreshes the query from
-    /// `/filters`; if that request fails, an already-pulled query remains
-    /// usable. A backfilled row with no `lastPulledAt` is not treated as a
-    /// valid offline detail because its query has never been downloaded.
+    /// A query is usable offline only after an explicit sync has downloaded it.
     public func fetchFilter(id: Int) async throws -> SavedFilterDetail {
-        let cached = try await cachedFilter(id: id)
-        if let cached, cached.lastPulledAt != nil {
-            if await reachability.isReachable {
-                // Return the local detail immediately; refresh for the next
-                // read without making a cached screen wait on the network.
-                Task { try? await self.refreshQuery(id: id) }
-            }
-            return cached.detail
+        guard let cached = try await cachedFilter(id: id), cached.lastPulledAt != nil else {
+            throw VikunjaError.notFound
         }
-        if await reachability.isReachable {
-            let remote = try await networkRepository.fetchFilter(id: id)
-            return try await storeQuery(remote.query, for: id)
-        }
-        throw VikunjaError.network("This saved filter's query has not been cached yet.")
+        return cached.detail
     }
 
     public func renameFilter(id: Int, title: String) async throws -> SavedFilterDetail {
@@ -127,25 +108,8 @@ public actor OfflineFilterRepository: FilterRepositoryProtocol {
         }
     }
 
-    private func storeQuery(_ query: String, for id: Int) async throws -> SavedFilterDetail {
-        try await localStore.write { db in
-            guard let (project, savedFilter) = try Self.rows(for: id, accountID: self.accountID, db: db) else {
-                throw VikunjaError.notFound
-            }
-            var updatedCache = savedFilter
-            try updatedCache.storeQuery(query, pulledAt: Date(), db: db)
-            return Self.detail(project: project, savedFilter: updatedCache)
-        }
-    }
-
-    private func refreshQuery(id: Int) async throws {
-        let remote = try await networkRepository.fetchFilter(id: id)
-        _ = try await storeQuery(remote.query, for: id)
-    }
-
     private func drainIfOnline() async {
-        guard await reachability.isReachable else { return }
-        try? await syncEngine.drainFilterMutations()
+        await syncRequester.requestSync()
     }
 
     private struct CachedFilter {
@@ -153,7 +117,11 @@ public actor OfflineFilterRepository: FilterRepositoryProtocol {
         let lastPulledAt: Date?
     }
 
-    private static func rows(for remoteID: Int, accountID: UUID, db: Database) throws -> (ProjectRecord, SavedFilterRecord)? {
+    private static func rows(
+        for remoteID: Int,
+        accountID: UUID,
+        db: Database,
+    ) throws -> (ProjectRecord, SavedFilterRecord)? {
         guard let savedFilter = try SavedFilterRecord
             .filter(Column("accountID") == accountID && Column("remoteID") == remoteID)
             .fetchOne(db),

@@ -130,7 +130,11 @@ public final class TaskDetailViewModel {
     /// Same guard as `taskWriteToken`, scoped to `attachments`/`attachmentsLoadState`.
     private var attachmentsWriteToken = 0
 
+    private let synchronization: LocalScreenSync
+
     public init(
+        syncTrigger: SyncTriggering,
+        localData: LocalDataObserving,
         task: VikunjaTask,
         project: Project,
         repository: TaskRepositoryProtocol,
@@ -145,6 +149,9 @@ public final class TaskDetailViewModel {
         notificationSettingsStore: NotificationSettingsStore? = nil,
         accountID: InstanceAccount.ID? = nil,
     ) {
+        self.synchronization = LocalScreenSync(
+            trigger: syncTrigger, localData: localData, toastPresenter: toastPresenter,
+        )
         self.task = task
         self.project = project
         self.repository = repository
@@ -175,7 +182,8 @@ public final class TaskDetailViewModel {
     public func load() async {
         taskWriteToken += 1
         let token = taskWriteToken
-        if loadState != .loaded {
+        let hadContent = loadState == .loaded
+        if !hadContent {
             loadState = .loading
         }
         do {
@@ -186,10 +194,18 @@ public final class TaskDetailViewModel {
             loadState = .loaded
         } catch let error as VikunjaError {
             guard token == taskWriteToken else { return }
-            loadState = .failure(error.displayMessage)
+            if hadContent {
+                toastPresenter.show(error.displayMessage, style: .error)
+            } else {
+                loadState = .failure(error.displayMessage)
+            }
         } catch {
             guard token == taskWriteToken else { return }
-            loadState = .failure(error.localizedDescription)
+            if hadContent {
+                toastPresenter.show(error.localizedDescription, style: .error)
+            } else {
+                loadState = .failure(error.localizedDescription)
+            }
         }
     }
 
@@ -513,7 +529,8 @@ public final class TaskDetailViewModel {
     public func loadComments() async {
         commentsWriteToken += 1
         let token = commentsWriteToken
-        if commentsLoadState != .loaded {
+        let hadContent = commentsLoadState == .loaded
+        if !hadContent {
             commentsLoadState = .loading
         }
         do {
@@ -523,10 +540,18 @@ public final class TaskDetailViewModel {
             commentsLoadState = .loaded
         } catch let error as VikunjaError {
             guard token == commentsWriteToken else { return }
-            commentsLoadState = .failure(error.displayMessage)
+            if hadContent {
+                toastPresenter.show(error.displayMessage, style: .error)
+            } else {
+                commentsLoadState = .failure(error.displayMessage)
+            }
         } catch {
             guard token == commentsWriteToken else { return }
-            commentsLoadState = .failure(error.localizedDescription)
+            if hadContent {
+                toastPresenter.show(error.localizedDescription, style: .error)
+            } else {
+                commentsLoadState = .failure(error.localizedDescription)
+            }
         }
     }
 
@@ -542,7 +567,8 @@ public final class TaskDetailViewModel {
         }
         attachmentsWriteToken += 1
         let token = attachmentsWriteToken
-        if attachmentsLoadState != .loaded {
+        let hadContent = attachmentsLoadState == .loaded
+        if !hadContent {
             attachmentsLoadState = .loading
         }
         do {
@@ -552,10 +578,18 @@ public final class TaskDetailViewModel {
             attachmentsLoadState = .loaded
         } catch let error as VikunjaError {
             guard token == attachmentsWriteToken else { return }
-            attachmentsLoadState = .failure(error.displayMessage)
+            if hadContent {
+                toastPresenter.show(error.displayMessage, style: .error)
+            } else {
+                attachmentsLoadState = .failure(error.displayMessage)
+            }
         } catch {
             guard token == attachmentsWriteToken else { return }
-            attachmentsLoadState = .failure(error.localizedDescription)
+            if hadContent {
+                toastPresenter.show(error.localizedDescription, style: .error)
+            } else {
+                attachmentsLoadState = .failure(error.localizedDescription)
+            }
         }
     }
 
@@ -821,6 +855,24 @@ public final class TaskDetailViewModel {
         } catch {
             guard token == taskWriteToken else { return }
             task = previous
+        }
+    }
+
+    public func start() async {
+        await synchronization.start(
+            scope: .task(task.id),
+            reload: { await load(); await loadComments() },
+            onInitialFailure: { message in toastPresenter.show(message, style: .error) },
+        )
+    }
+
+    public func observeLocalChanges() async {
+        await synchronization.observe { await load(); await loadComments() }
+    }
+
+    public func refresh() async {
+        if await synchronization.refresh(scope: .task(task.id), reload: { await load(); await loadComments() }) {
+            await loadAttachments()
         }
     }
 }

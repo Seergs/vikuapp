@@ -64,7 +64,8 @@ struct OfflineTaskRepositoryTests {
         )
         let reachability = FakeReachabilityMonitor(isReachable: online)
         let repository = OfflineTaskRepository(
-            localStore: store, accountID: accountID, syncEngine: engine, reachability: reachability,
+            localStore: store, accountID: accountID,
+            syncRequester: TestSyncRequester(engine: engine, reachability: reachability),
         )
         return Fixture(
             repository: repository, store: store, network: network, accountID: accountID,
@@ -319,12 +320,11 @@ struct OfflineTaskRepositoryTests {
         let projectID: EntityID = project.remoteID.map(EntityID.remote) ?? .local(project.localID)
         let onlineRepository = OfflineTaskRepository(
             localStore: store, accountID: accountID,
-            syncEngine: SyncEngine(
+            syncRequester: TestSyncRequester(engine: SyncEngine(
                 localStore: store, projectRepository: FakeProjectRepository(),
                 labelRepository: FakeLabelRepository(), taskRepository: network,
                 relationRepository: FakeTaskRelationRepository(), accountID: accountID,
-            ),
-            reachability: FakeReachabilityMonitor(isReachable: true),
+            ), reachability: FakeReachabilityMonitor(isReachable: true)),
         )
         let created = try await onlineRepository.create(
             VikunjaTask(id: .local(UUID()), title: "Buy milk", projectID: projectID),
@@ -333,12 +333,11 @@ struct OfflineTaskRepositoryTests {
 
         let offlineRepository = OfflineTaskRepository(
             localStore: store, accountID: accountID,
-            syncEngine: SyncEngine(
+            syncRequester: TestSyncRequester(engine: SyncEngine(
                 localStore: store, projectRepository: FakeProjectRepository(),
                 labelRepository: FakeLabelRepository(), taskRepository: network,
                 relationRepository: FakeTaskRelationRepository(), accountID: accountID,
-            ),
-            reachability: FakeReachabilityMonitor(isReachable: false),
+            ), reachability: FakeReachabilityMonitor(isReachable: false)),
         )
         _ = try await offlineRepository.update(VikunjaTask(id: created.id, title: "Buy milk v2", projectID: projectID))
         let updated = try await offlineRepository.update(
@@ -376,12 +375,11 @@ struct OfflineTaskRepositoryTests {
         let projectID: EntityID = project.remoteID.map(EntityID.remote) ?? .local(project.localID)
         let onlineRepository = OfflineTaskRepository(
             localStore: store, accountID: accountID,
-            syncEngine: SyncEngine(
+            syncRequester: TestSyncRequester(engine: SyncEngine(
                 localStore: store, projectRepository: FakeProjectRepository(),
                 labelRepository: FakeLabelRepository(), taskRepository: network,
                 relationRepository: FakeTaskRelationRepository(), accountID: accountID,
-            ),
-            reachability: FakeReachabilityMonitor(isReachable: true),
+            ), reachability: FakeReachabilityMonitor(isReachable: true)),
         )
         let created = try await onlineRepository.create(
             VikunjaTask(id: .local(UUID()), title: "Buy milk", projectID: projectID),
@@ -389,12 +387,11 @@ struct OfflineTaskRepositoryTests {
 
         let offlineRepository = OfflineTaskRepository(
             localStore: store, accountID: accountID,
-            syncEngine: SyncEngine(
+            syncRequester: TestSyncRequester(engine: SyncEngine(
                 localStore: store, projectRepository: FakeProjectRepository(),
                 labelRepository: FakeLabelRepository(), taskRepository: network,
                 relationRepository: FakeTaskRelationRepository(), accountID: accountID,
-            ),
-            reachability: FakeReachabilityMonitor(isReachable: false),
+            ), reachability: FakeReachabilityMonitor(isReachable: false)),
         )
         try await offlineRepository.delete(id: created.id)
 
@@ -447,21 +444,19 @@ struct OfflineTaskRepositoryTests {
         let networkB = FakeTaskRepository()
         let repositoryA = OfflineTaskRepository(
             localStore: store, accountID: accountA,
-            syncEngine: SyncEngine(
+            syncRequester: TestSyncRequester(engine: SyncEngine(
                 localStore: store, projectRepository: FakeProjectRepository(),
                 labelRepository: FakeLabelRepository(), taskRepository: networkA,
                 relationRepository: FakeTaskRelationRepository(), accountID: accountA,
-            ),
-            reachability: FakeReachabilityMonitor(isReachable: false),
+            ), reachability: FakeReachabilityMonitor(isReachable: false)),
         )
         let repositoryB = OfflineTaskRepository(
             localStore: store, accountID: accountB,
-            syncEngine: SyncEngine(
+            syncRequester: TestSyncRequester(engine: SyncEngine(
                 localStore: store, projectRepository: FakeProjectRepository(),
                 labelRepository: FakeLabelRepository(), taskRepository: networkB,
                 relationRepository: FakeTaskRelationRepository(), accountID: accountB,
-            ),
-            reachability: FakeReachabilityMonitor(isReachable: false),
+            ), reachability: FakeReachabilityMonitor(isReachable: false)),
         )
         _ = try await repositoryA.create(
             VikunjaTask(id: .local(UUID()), title: "Account A's task", projectID: .local(projectA.localID)),
@@ -650,7 +645,8 @@ struct OfflineTaskRepositoryTests {
     }
 
     @Test
-    func `fetchTask shows the inverse side of a relation queued from the other task, before either has synced`() async throws {
+    func `fetchTask shows the inverse side of a relation queued from the other task, before either has synced`(
+    ) async throws {
         // Regression test: `addRelation` is queued from the owner task's
         // perspective only (`TaskRelationMutationPayload.otherTaskLocalID`
         // identifies the other side), so the other task's own screen used

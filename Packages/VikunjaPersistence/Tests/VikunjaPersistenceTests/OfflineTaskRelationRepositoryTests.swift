@@ -39,7 +39,8 @@ struct OfflineTaskRelationRepositoryTests {
         )
         let reachability = FakeReachabilityMonitor(isReachable: online)
         let repository = OfflineTaskRelationRepository(
-            localStore: store, accountID: accountID, syncEngine: engine, reachability: reachability,
+            localStore: store, accountID: accountID,
+            syncRequester: TestSyncRequester(engine: engine, reachability: reachability),
         )
         let projectRow = ProjectRecord(
             localID: UUID(), accountID: accountID, remoteID: 1, title: "Groceries", description: nil,
@@ -63,7 +64,8 @@ struct OfflineTaskRelationRepositoryTests {
     }
 
     @Test
-    func `addRelation while online drains immediately, attaches via the network, and patches the cache on both sides`() async throws {
+    func `addRelation while online drains immediately, attaches via the network, and patches the cache on both sides`(
+    ) async throws {
         let accountID = UUID()
         let fixture = try await makeRepository(online: true, accountID: accountID)
         try await seedTask(in: fixture, accountID: accountID, remoteID: 5, title: "Write report")

@@ -109,7 +109,12 @@ public final class ProjectOverviewViewModel {
     private let taskChangeBroadcaster: TaskChangeBroadcasting?
     private let reachabilityUpdates: @Sendable () async -> AsyncStream<Bool>
 
+    private let synchronization: LocalScreenSync
+    private var loadVersion = 0
+
     public init(
+        syncTrigger: SyncTriggering,
+        localData: LocalDataObserving,
         project: Project,
         subprojects: [ProjectNode] = [],
         repository: TaskRepositoryProtocol,
@@ -130,6 +135,9 @@ public final class ProjectOverviewViewModel {
             }
         },
     ) {
+        self.synchronization = LocalScreenSync(
+            trigger: syncTrigger, localData: localData, toastPresenter: toastPresenter,
+        )
         self.project = project
         self.subprojects = subprojects
         self.repository = repository
@@ -207,26 +215,48 @@ public final class ProjectOverviewViewModel {
     /// app relaunches. A failed project re-fetch fails the whole load, same
     /// as a failed `tasks`/`subprojects` fetch already does.
     public func load() async {
-        if loadState != .loaded {
+        loadVersion += 1
+        let version = loadVersion
+        let hadContent = loadState == .loaded
+        if !hadContent {
             loadState = .loading
         }
         async let kanbanSupport = capabilityProvider.supports(.apiV2)
         do {
-            project = try await projectRepository.fetchProject(id: project.id)
-            tasks = try await repository.fetchTasks(projectID: project.id)
-            subprojects = try await Self.fetchSubprojects(parentID: project.id, repository: projectRepository)
-            subprojectTaskSummaries = await Self.fetchSubprojectSummaries(subprojects, repository: repository)
-            if let filterID = project.savedFilterID {
-                let query = try? await filterRepository.fetchFilter(id: filterID).query
-                savedFilterQuery = query?.isEmpty == false ? query : nil
+            let fetchedProject = try await projectRepository.fetchProject(id: project.id)
+            let fetchedTasks = try await repository.fetchTasks(projectID: fetchedProject.id)
+            let fetchedSubprojects = try await Self.fetchSubprojects(
+                parentID: fetchedProject.id, repository: projectRepository,
+            )
+            let summaries = await Self.fetchSubprojectSummaries(fetchedSubprojects, repository: repository)
+            var query: String?
+            if let filterID = fetchedProject.savedFilterID {
+                query = try? await filterRepository.fetchFilter(id: filterID).query
             }
+            guard version == loadVersion else { return }
+            project = fetchedProject
+            tasks = fetchedTasks
+            subprojects = fetchedSubprojects
+            subprojectTaskSummaries = summaries
+            savedFilterQuery = query?.isEmpty == false ? query : nil
             loadState = .loaded
         } catch let error as VikunjaError {
-            loadState = .failure(error.displayMessage)
+            guard version == loadVersion else { return }
+            if hadContent {
+                toastPresenter.show(error.displayMessage, style: .error)
+            } else {
+                loadState = .failure(error.displayMessage)
+            }
         } catch {
-            loadState = .failure(error.localizedDescription)
+            guard version == loadVersion else { return }
+            if hadContent {
+                toastPresenter.show(error.localizedDescription, style: .error)
+            } else {
+                loadState = .failure(error.localizedDescription)
+            }
         }
         let serverSupportsKanban = await kanbanSupport
+        guard version == loadVersion else { return }
         supportsKanban = project.kind != .favorites && serverSupportsKanban
     }
 
@@ -273,32 +303,38 @@ public final class ProjectOverviewViewModel {
     /// local flip back if the server rejects it — so a failed request never
     /// leaves the row showing a state the server doesn't actually have.
     public func toggleDone(_ task: VikunjaTask) async {
+        loadVersion += 1
         guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         var flipped = task
         flipped.isDone.toggle()
         tasks[index] = flipped
-        tasks[index] = await mutator.persistToggleDone(flipped: flipped, original: task)
+        let result = await mutator.persistToggleDone(flipped: flipped, original: task)
+        acceptMutationResult(result, replacing: flipped)
     }
 
     /// Sets a task's priority, persists the change, and rolls the local edit
     /// back if the server rejects it - mirrors `toggleDone(_:)`.
     public func setPriority(_ task: VikunjaTask, to priority: VikunjaTask.Priority) async {
+        loadVersion += 1
         guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         var updated = task
         updated.priority = priority
         tasks[index] = updated
-        tasks[index] = await mutator.persistSetPriority(updated: updated, original: task)
+        let result = await mutator.persistSetPriority(updated: updated, original: task)
+        acceptMutationResult(result, replacing: updated)
     }
 
     /// Sets (or clears, via `nil`) a task's due date, persists the change,
     /// and rolls the local edit back if the server rejects it - mirrors
     /// `setPriority(_:to:)`.
     public func setDueDate(_ task: VikunjaTask, to dueDate: Date?) async {
+        loadVersion += 1
         guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         var updated = task
         updated.dueDate = dueDate
         tasks[index] = updated
-        tasks[index] = await mutator.persistSetDueDate(updated: updated, original: task)
+        let result = await mutator.persistSetDueDate(updated: updated, original: task)
+        acceptMutationResult(result, replacing: updated)
     }
 
     /// Adds or removes `label` from `task`, persists the change, and rolls
@@ -307,6 +343,7 @@ public final class ProjectOverviewViewModel {
     /// task update endpoint, so this routes through the label repository
     /// rather than `mutator.persistSetPriority`'s `repository.update(_:)`.
     public func toggleLabel(_ task: VikunjaTask, _ label: Label) async {
+        loadVersion += 1
         guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         let original = tasks[index]
         var updated = original
@@ -317,9 +354,10 @@ public final class ProjectOverviewViewModel {
             updated.labels.removeAll { $0.id == label.id }
         }
         tasks[index] = updated
-        tasks[index] = await mutator.persistToggleLabel(
+        let result = await mutator.persistToggleLabel(
             updated: updated, original: original, label: label, isAdding: isAdding, labelRepository: labelRepository,
         )
+        acceptMutationResult(result, replacing: updated)
     }
 
     /// Loads every label on the instance, for the label picker sheet.
@@ -384,14 +422,16 @@ public final class ProjectOverviewViewModel {
     /// row (so its link glyph appears immediately) and rolling back if the
     /// server rejects it - mirrors `TaskDetailViewModel.addRelation(_:kind:)`.
     public func addRelation(_ relation: TaskRelation, kind: RelationKind, to task: VikunjaTask) async {
+        loadVersion += 1
         guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         let original = tasks[index]
         var updated = original
         updated.addRelation(relation, kind: kind)
         tasks[index] = updated
-        tasks[index] = await mutator.persistAddRelation(
+        let result = await mutator.persistAddRelation(
             relation, kind: kind, updated: updated, original: original, relationRepository: relationRepository,
         )
+        acceptMutationResult(result, replacing: updated)
     }
 
     /// Deletes a task from the server and drops it from the local list on
@@ -399,6 +439,7 @@ public final class ProjectOverviewViewModel {
     /// the delete to subtasks/relations, so nothing else in the tree needs
     /// updating here.
     public func delete(_ task: VikunjaTask) async {
+        loadVersion += 1
         if await mutator.delete(task) {
             tasks.removeAll { $0.id == task.id }
         }
@@ -416,6 +457,7 @@ public final class ProjectOverviewViewModel {
     /// success — it no longer belongs to this project's screen, mirroring
     /// `delete(_:)`.
     public func move(_ task: VikunjaTask, to destination: Project) async {
+        loadVersion += 1
         if await mutator.move(task, to: destination) {
             tasks.removeAll { $0.id == task.id }
         }
@@ -472,5 +514,26 @@ public final class ProjectOverviewViewModel {
             toastPresenter: toastPresenter,
             hapticPresenter: hapticPresenter,
         )
+    }
+
+    /// Observation can reorder or remove a row while a write is suspended.
+    /// Apply the result only if that same optimistic value is still visible.
+    private func acceptMutationResult(_ result: VikunjaTask, replacing expected: VikunjaTask) {
+        guard let index = tasks.firstIndex(where: { $0.id == expected.id }), tasks[index] == expected else { return }
+        tasks[index] = result
+    }
+
+    public func start() async {
+        await synchronization.start(reload: { await self.load() }, onInitialFailure: { message in
+            toastPresenter.show(message, style: .error)
+        })
+    }
+
+    public func observeLocalChanges() async {
+        await synchronization.observe { await self.load() }
+    }
+
+    public func refresh() async {
+        await synchronization.refresh(reload: { await self.load() })
     }
 }

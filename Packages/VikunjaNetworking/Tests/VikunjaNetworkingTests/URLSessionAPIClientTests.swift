@@ -38,8 +38,20 @@ struct URLSessionAPIClientTests {
     }
 
     @Test
-    func `maps A non timeout url error to domain network error`() async throws {
+    func `maps no internet connection to the distinct offline state`() async throws {
         let (session, _) = MockURLProtocol.makeSession(failingWith: URLError(.notConnectedToInternet))
+        let client = try URLSessionAPIClient(
+            baseURL: #require(URL(string: "https://vikunja.example.com")),
+            session: session,
+        )
+        await #expect(throws: VikunjaError.offline) {
+            let _: ServerInfoDTO = try await client.send(VikunjaEndpoints.info())
+        }
+    }
+
+    @Test
+    func `maps A non timeout url error to domain network error`() async throws {
+        let (session, _) = MockURLProtocol.makeSession(failingWith: URLError(.cannotFindHost))
         let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
 
         do {
