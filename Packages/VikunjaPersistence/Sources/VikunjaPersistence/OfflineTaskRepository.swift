@@ -242,6 +242,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
         /// (title/isDone/project), since that task might itself still be
         /// local-only.
         let tasksByLocalID: [UUID: TaskRecord]
+        let tasksByRemoteID: [Int: TaskRecord]
     }
 
     private static func makeAssemblyContext(
@@ -265,6 +266,9 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
             pendingRelationMutations: pendingRelationMutations,
             pendingMirrorRelationMutations: Self.mirrorRelationMutations(pendingRelationMutations),
             tasksByLocalID: Dictionary(uniqueKeysWithValues: taskRows.map { ($0.localID, $0) }),
+            tasksByRemoteID: Dictionary(uniqueKeysWithValues: taskRows.compactMap { row in
+                row.remoteID.map { ($0, row) }
+            }),
         )
     }
 
@@ -455,8 +459,8 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
         )
     }
 
-    /// This task's relations as of the last pull or successful drain,
-    /// grouped by kind exactly the way `VikunjaTask.subtasks`/`dependsOn`/
+    /// This task's confirmed relations, using current local task fields
+    /// when available, grouped by kind the way `VikunjaTask.subtasks`/`dependsOn`/
     /// `blocks`/`otherRelations` split them (mirrors `TaskMapper`'s own
     /// network-side grouping).
     private static func confirmedRelationsByKind(
@@ -464,9 +468,19 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
     ) -> [RelationKind: [TaskRelation]] {
         var result: [RelationKind: [TaskRelation]] = [:]
         for relationRow in context.relationsByTaskLocalID[taskLocalID] ?? [] {
+            // Relation rows are snapshots from the last sync. Prefer the task's
+            // current local state, including edits still waiting in the queue.
+            // Keep the snapshot as a fallback for tasks not available locally.
+            let otherTask = context.tasksByRemoteID[relationRow.otherTaskRemoteID]
+            let projectID = otherTask.map { task in
+                context.projectsByLocalID[task.projectLocalID]?.remoteID.map(EntityID.remote)
+                    ?? .local(task.projectLocalID)
+            } ?? .remote(relationRow.otherProjectRemoteID)
             let relation = TaskRelation(
-                id: .remote(relationRow.otherTaskRemoteID), title: relationRow.title, isDone: relationRow.isDone,
-                projectID: .remote(relationRow.otherProjectRemoteID),
+                id: .remote(relationRow.otherTaskRemoteID),
+                title: otherTask?.title ?? relationRow.title,
+                isDone: otherTask?.isDone ?? relationRow.isDone,
+                projectID: projectID,
             )
             result[relationRow.kind, default: []].append(relation)
         }
