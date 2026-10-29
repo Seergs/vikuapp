@@ -19,6 +19,7 @@ enum DatabaseMigrations {
         migrator.registerMigration("createTaskRelation", migrate: createTaskRelation)
         migrator.registerMigration("createTaskComment", migrate: createTaskComment)
         migrator.registerMigration("createTaskReminder", migrate: createTaskReminder)
+        migrator.registerMigration("addBaseUpdatedAtToMutationQueue", migrate: addBaseUpdatedAtToMutationQueue)
     }
 
     private static func createProject(_ db: Database) throws {
@@ -216,5 +217,11 @@ enum DatabaseMigrations {
             columns: ["taskLocalID", "position"],
             unique: true,
         )
+    }
+
+    private static func addBaseUpdatedAtToMutationQueue(_ db: Database) throws {
+        try db.alter(table: "mutationQueueItem") { table in
+            table.add(column: "baseUpdatedAt", .datetime)
+        }
     }
 }
