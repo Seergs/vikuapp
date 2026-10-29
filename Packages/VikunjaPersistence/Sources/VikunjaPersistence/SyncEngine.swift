@@ -491,6 +491,20 @@ public actor SyncEngine {
                 // refreshes freely - same reasoning as `serverUpdatedAt`.
                 existing.labelRemoteIDs = labelRemoteIDs
                 try existing.save(db)
+                // Keep the queued mutation's conflict baseline in sync with
+                // the refreshed `serverUpdatedAt`, so a pull between edit and
+                // drain doesn't trip a false conflict.
+                try MutationQueueRecord.fetchAll(db)
+                    .filter {
+                        $0.accountID == accountID && $0.entityType == .task
+                            && $0.targetLocalID == localID
+                            && ($0.status == .pending || $0.status == .failed)
+                    }
+                    .forEach { record in
+                        var updated = record
+                        updated.baseUpdatedAt = task.updated
+                        try updated.update(db)
+                    }
                 // Relation association isn't part of the local edit being
                 // protected either - same reasoning as `labelRemoteIDs`.
                 try Self.replaceRelationRows(for: localID, accountID: accountID, task: task, db: db)
@@ -695,7 +709,7 @@ public actor SyncEngine {
             return .deferred // The new parent hasn't synced yet — retry this item on a later pass.
         }
         if let baseUpdatedAt = payload.baseUpdatedAt, let serverUpdatedAt = currentRow.serverUpdatedAt,
-           serverUpdatedAt > baseUpdatedAt {
+           serverUpdatedAt.timeIntervalSince(baseUpdatedAt) > 1 {
             try await flagConflict(item)
             return .conflicted
         }
@@ -1040,7 +1054,7 @@ public actor SyncEngine {
             return .deferred // The new project hasn't synced yet — retry this item on a later pass.
         }
         if let baseUpdatedAt = payload.baseUpdatedAt, let serverUpdatedAt = currentRow.serverUpdatedAt,
-           serverUpdatedAt > baseUpdatedAt {
+           serverUpdatedAt.timeIntervalSince(baseUpdatedAt) > 1 {
             try await flagConflict(item)
             return .conflicted
         }
