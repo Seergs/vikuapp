@@ -86,7 +86,7 @@ public struct TaskDetailView: View {
                             message: message,
                             fillsHeight: false,
                         ) {
-                            Task { await viewModel.load() }
+                            Task { await viewModel.refresh() }
                         }
                         .padding(.top, VikuSpacing.xxl)
                     default:
@@ -199,9 +199,7 @@ public struct TaskDetailView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
-            .task { await viewModel.load() }
-            .task { await viewModel.loadComments() }
-            .task { await viewModel.loadAttachments() }
+            .modifier(TaskDetailLoading(viewModel: viewModel))
             .onAppear { viewModel.markVisible() }
             .onDisappear { viewModel.markHidden() }
             #if os(iOS)
@@ -224,9 +222,7 @@ public struct TaskDetailView: View {
             }
             #endif
             .refreshable {
-                await viewModel.load()
-                await viewModel.loadComments()
-                await viewModel.loadAttachments()
+                await viewModel.refresh()
             }
             .sheet(isPresented: $isShowingDueDatePicker) {
                 DueDatePickerSheet(initialDate: viewModel.task.dueDate) { newDate in
@@ -560,5 +556,16 @@ public struct TaskDetailView: View {
 
     private func swatchColor(_ project: Project) -> Color {
         Color(vikuHex: project.hexColor) ?? palette.brand
+    }
+}
+
+private struct TaskDetailLoading: ViewModifier {
+    let viewModel: TaskDetailViewModel
+
+    func body(content: Content) -> some View {
+        content
+            .task { await viewModel.start() }
+            .task { await viewModel.observeLocalChanges() }
+            .task { await viewModel.loadAttachments() }
     }
 }

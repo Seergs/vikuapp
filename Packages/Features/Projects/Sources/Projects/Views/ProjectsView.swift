@@ -33,7 +33,7 @@ struct ProjectsView: View {
             .projectsListStyle()
             .scrollContentBackground(.hidden)
             .background(palette.pageBackground)
-            .refreshable { await viewModel.load() }
+            .refreshable { await viewModel.refresh() }
             .navigationTitle(Text("Projects", bundle: .module))
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -92,14 +92,13 @@ struct ProjectsView: View {
                     Text("Cancel", bundle: .module)
                 }
             }
-            .task {
-                await viewModel.load()
-            }
+            .task { await viewModel.start() }
+            .task { await viewModel.observeLocalChanges() }
     }
 
     private var content: some View {
         List {
-            switch viewModel.loadState {
+            switch viewModel.displayLoadState {
             case .idle, .loading:
                 ProgressView()
                     .frame(maxWidth: .infinity)
@@ -112,7 +111,7 @@ struct ProjectsView: View {
                     title: String(localized: "Couldn't load projects", bundle: .module),
                     message: message,
                 ) {
-                    Task { await viewModel.load() }
+                    Task { await viewModel.refresh() }
                 }
                 .padding(.top, VikuSpacing.xxl)
                 .listRowSeparator(.hidden)

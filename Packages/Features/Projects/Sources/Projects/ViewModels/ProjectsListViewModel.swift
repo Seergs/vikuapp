@@ -25,6 +25,19 @@ public final class ProjectsListViewModel {
 
     public var isLoading: Bool {
         loadState == .loading
+            || (synchronization.isPreparingInitialSnapshot && rootNodes.isEmpty && pseudoNodes.isEmpty)
+    }
+
+    /// Keep an initial-sync failure visible even if a subsequent local
+    /// invalidation successfully reads the still-empty cache.
+    public var displayLoadState: ScreenLoadState<Void> {
+        if isLoading {
+            return .loading
+        }
+        if rootNodes.isEmpty, pseudoNodes.isEmpty, let message = synchronization.initialFailureMessage {
+            return .failure(message)
+        }
+        return loadState
     }
 
     private let repository: ProjectRepositoryProtocol
@@ -36,13 +49,21 @@ public final class ProjectsListViewModel {
     private let taskSummaryCache: ProjectTaskSummaryCaching
     private let toastPresenter: ToastPresenting
 
+    private let synchronization: LocalScreenSync
+    private var loadVersion = 0
+
     public init(
+        syncTrigger: SyncTriggering,
+        localData: LocalDataObserving,
         repository: ProjectRepositoryProtocol,
         taskRepository: TaskRepositoryProtocol,
         filterRepository: FilterRepositoryProtocol,
         taskSummaryCache: ProjectTaskSummaryCaching,
         toastPresenter: ToastPresenting,
     ) {
+        self.synchronization = LocalScreenSync(
+            trigger: syncTrigger, localData: localData, toastPresenter: toastPresenter,
+        )
         self.repository = repository
         self.taskRepository = taskRepository
         self.filterRepository = filterRepository
@@ -58,23 +79,38 @@ public final class ProjectsListViewModel {
     /// spinner mid-refresh would tear down the `List` that owns the
     /// in-flight `.refreshable` task, cancelling its request underneath it.
     public func load() async {
-        if loadState != .loaded {
+        loadVersion += 1
+        let version = loadVersion
+        let hadContent = loadState == .loaded
+        if !hadContent {
             loadState = .loading
         }
         do {
             let projects = try await repository.fetchProjects()
+            guard version == loadVersion else { return }
             rootNodes = Self.tree(from: projects.realProjectsOnly())
             pseudoNodes = Self.pseudoNodes(from: projects)
             loadState = .loaded
             let fetched = await Self.fetchTaskSummaries(for: rootNodes + pseudoNodes, repository: taskRepository)
+            guard version == loadVersion else { return }
             taskSummaries = fetched
             taskSummaryCache.setCachedTaskSummaries(
                 fetched.mapValues { CachedProjectTaskSummary(done: $0.done, total: $0.total) },
             )
         } catch let error as VikunjaError {
-            loadState = .failure(error.displayMessage)
+            guard version == loadVersion else { return }
+            if hadContent {
+                toastPresenter.show(error.displayMessage, style: .error)
+            } else {
+                loadState = .failure(error.displayMessage)
+            }
         } catch {
-            loadState = .failure(error.localizedDescription)
+            guard version == loadVersion else { return }
+            if hadContent {
+                toastPresenter.show(error.localizedDescription, style: .error)
+            } else {
+                loadState = .failure(error.localizedDescription)
+            }
         }
     }
 
@@ -183,5 +219,23 @@ public final class ProjectsListViewModel {
         }
 
         return nodes(withParentID: nil, excluding: [])
+    }
+
+    public func start() async {
+        await synchronization.start(reload: { await self.load() }, onInitialFailure: { message in
+            if !rootNodes.isEmpty || !pseudoNodes.isEmpty {
+                toastPresenter.show(message, style: .error)
+            } else {
+                loadState = .failure(message)
+            }
+        })
+    }
+
+    public func observeLocalChanges() async {
+        await synchronization.observe { await self.load() }
+    }
+
+    public func refresh() async {
+        await synchronization.refresh(reload: { await self.load() })
     }
 }

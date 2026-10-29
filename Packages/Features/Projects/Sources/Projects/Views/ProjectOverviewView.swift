@@ -108,7 +108,7 @@ struct ProjectOverviewView: View {
                 content
                     .projectsListStyle()
                     .scrollContentBackground(.hidden)
-                    .refreshable { await viewModel.load() }
+                    .refreshable { await viewModel.refresh() }
             case .kanban:
                 KanbanBoardView(viewModel: kanbanViewModel, searchText: searchText, onSelectTask: onSelectTask)
             }
@@ -122,9 +122,8 @@ struct ProjectOverviewView: View {
 
     var body: some View {
         screenChrome
-            .task {
-                await viewModel.load()
-            }
+            .task { await viewModel.start() }
+            .task { await viewModel.observeLocalChanges() }
             .task {
                 await viewModel.observeReachability()
             }
@@ -281,7 +280,7 @@ struct ProjectOverviewView: View {
                     title: String(localized: "Couldn't load this project", bundle: .module),
                     message: message,
                 ) {
-                    Task { await viewModel.load() }
+                    Task { await viewModel.refresh() }
                 }
                 .padding(.top, VikuSpacing.xxl)
                 .listRowSeparator(.hidden)

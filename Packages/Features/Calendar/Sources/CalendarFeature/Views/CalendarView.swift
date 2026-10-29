@@ -21,13 +21,14 @@ struct CalendarView: View {
         content
             .background(palette.pageBackground)
             .navigationTitle(Text("Calendar", bundle: .module))
-            .refreshable { await viewModel.load() }
-            .task { await viewModel.load() }
+            .refreshable { await viewModel.refresh() }
+            .task { await viewModel.start() }
+            .task { await viewModel.observeLocalChanges() }
     }
 
     @ViewBuilder
     private var content: some View {
-        switch viewModel.loadState {
+        switch viewModel.displayLoadState {
         case .idle, .loading:
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -37,7 +38,7 @@ struct CalendarView: View {
                 title: String(localized: "Couldn't load your tasks", bundle: .module),
                 message: message,
             ) {
-                Task { await viewModel.load() }
+                Task { await viewModel.refresh() }
             }
         case .loaded:
             loadedContent

@@ -21,6 +21,7 @@ struct CalendarViewModelTests {
         taskRepo.failingProjectIDs = failingProjectIDs
         taskRepo.updateError = updateError
         return CalendarViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             taskRepository: taskRepo,
             projectRepository: projectRepo,
             hapticPresenter: haptics,

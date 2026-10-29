@@ -11,6 +11,7 @@ struct TaskDetailViewModelTests {
         let repository = FakeTaskRepository()
         let task = VikunjaTask(id: 1, title: "Write report", projectID: 1)
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: task,
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -30,6 +31,7 @@ struct TaskDetailViewModelTests {
     func `mark visible selects the tasks project for quick add and mark hidden releases it`() {
         let context = FakeQuickAddContext()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 4),
             project: Project(id: 4, title: "Work"),
             repository: FakeTaskRepository(),
@@ -56,6 +58,7 @@ struct TaskDetailViewModelTests {
             VikunjaTask(id: 1, title: "Write report", description: "Add the missing appendix", projectID: 1),
         ]
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -78,6 +81,7 @@ struct TaskDetailViewModelTests {
         let repository = FakeTaskRepository()
         repository.fetchError = .network("offline")
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -104,6 +108,7 @@ struct TaskDetailViewModelTests {
         repository.tasks = [VikunjaTask(id: 1, title: "Write report", priority: .unset, projectID: 1)]
         repository.fetchTaskDelay = .milliseconds(100)
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -131,6 +136,7 @@ struct TaskDetailViewModelTests {
         let labelRepository = FakeLabelRepository()
         let label = Label(id: 1, title: "Design", hexColor: "8B5CF6")
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -154,6 +160,7 @@ struct TaskDetailViewModelTests {
     func `toggle done persists the flipped state through the repository`() async {
         let repository = FakeTaskRepository()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", isDone: false, projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -184,6 +191,7 @@ struct TaskDetailViewModelTests {
             otherRelations: [.related: [TaskRelation(id: 5, title: "Related memo", isDone: false, projectID: 1)]],
         )
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: task,
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -209,6 +217,7 @@ struct TaskDetailViewModelTests {
         let repository = FakeTaskRepository()
         repository.updateError = .network("offline")
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", isDone: false, projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -229,6 +238,7 @@ struct TaskDetailViewModelTests {
     func `completing a task plays a success haptic but un-completing does not`() async {
         let haptics = FakeHapticPresenter()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", isDone: false, projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -252,6 +262,7 @@ struct TaskDetailViewModelTests {
     func `set due date persists the chosen date`() async {
         let repository = FakeTaskRepository()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -274,6 +285,7 @@ struct TaskDetailViewModelTests {
         let repository = FakeTaskRepository()
         repository.updateError = .network("offline")
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -294,6 +306,7 @@ struct TaskDetailViewModelTests {
     func `set priority persists the chosen priority`() async {
         let repository = FakeTaskRepository()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -315,6 +328,7 @@ struct TaskDetailViewModelTests {
         let repository = FakeTaskRepository()
         repository.updateError = .network("offline")
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -335,6 +349,7 @@ struct TaskDetailViewModelTests {
     func `set title persists the new title`() async {
         let repository = FakeTaskRepository()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -356,6 +371,7 @@ struct TaskDetailViewModelTests {
         let repository = FakeTaskRepository()
         repository.updateError = .network("offline")
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -376,6 +392,7 @@ struct TaskDetailViewModelTests {
     func `set description persists the new description`() async {
         let repository = FakeTaskRepository()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -397,6 +414,7 @@ struct TaskDetailViewModelTests {
         let repository = FakeTaskRepository()
         repository.updateError = .network("offline")
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", description: "Original", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -417,6 +435,7 @@ struct TaskDetailViewModelTests {
     func `add reminder appends and persists the new reminder`() async {
         let repository = FakeTaskRepository()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -439,6 +458,7 @@ struct TaskDetailViewModelTests {
         let repository = FakeTaskRepository()
         repository.updateError = .network("offline")
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -460,6 +480,7 @@ struct TaskDetailViewModelTests {
         let repository = FakeTaskRepository()
         let original = TaskReminder(reminder: Date(timeIntervalSince1970: 1_700_000_000))
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1, reminders: [original]),
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -482,6 +503,7 @@ struct TaskDetailViewModelTests {
         let repository = FakeTaskRepository()
         let reminder = TaskReminder(reminder: Date(timeIntervalSince1970: 1_700_000_000))
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1, reminders: [reminder]),
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -503,6 +525,7 @@ struct TaskDetailViewModelTests {
         let labelRepository = FakeLabelRepository()
         labelRepository.labels = [Label(id: 1, title: "Design", hexColor: "8B5CF6")]
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -524,6 +547,7 @@ struct TaskDetailViewModelTests {
         let labelRepository = FakeLabelRepository()
         let label = Label(id: 1, title: "Design", hexColor: "8B5CF6")
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -546,6 +570,7 @@ struct TaskDetailViewModelTests {
         let labelRepository = FakeLabelRepository()
         let label = Label(id: 1, title: "Design", hexColor: "8B5CF6")
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1, labels: [label]),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -569,6 +594,7 @@ struct TaskDetailViewModelTests {
         labelRepository.addError = .network("offline")
         let label = Label(id: 1, title: "Design", hexColor: "8B5CF6")
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -589,6 +615,7 @@ struct TaskDetailViewModelTests {
     func `create and add label creates then attaches the new label`() async {
         let labelRepository = FakeLabelRepository()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -612,6 +639,7 @@ struct TaskDetailViewModelTests {
         let labelRepository = FakeLabelRepository()
         labelRepository.createError = .network("offline")
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -633,6 +661,7 @@ struct TaskDetailViewModelTests {
     func `add relation appends to the named field for subtask depends on and blocks`() async {
         let relationRepository = FakeTaskRelationRepository()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -662,6 +691,7 @@ struct TaskDetailViewModelTests {
     func `add relation appends to other relations for every other kind`() async {
         let relationRepository = FakeTaskRelationRepository()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -684,6 +714,7 @@ struct TaskDetailViewModelTests {
         let relationRepository = FakeTaskRelationRepository()
         let task = VikunjaTask(id: .local(UUID()), title: "Write report", projectID: .local(UUID()))
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: task,
             project: Project(id: .local(UUID()), title: "Work"),
             repository: FakeTaskRepository(),
@@ -707,6 +738,7 @@ struct TaskDetailViewModelTests {
         let relationRepository = FakeTaskRelationRepository()
         relationRepository.addError = .network("offline")
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -727,6 +759,7 @@ struct TaskDetailViewModelTests {
     func `add relation shows A success toast`() async {
         let toastPresenter = FakeToastPresenter()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -749,6 +782,7 @@ struct TaskDetailViewModelTests {
         relationRepository.addError = .network("offline")
         let toastPresenter = FakeToastPresenter()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -770,6 +804,7 @@ struct TaskDetailViewModelTests {
         let relationRepository = FakeTaskRelationRepository()
         let subtask = TaskRelation(id: 2, title: "Outline", projectID: 1)
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1, subtasks: [subtask]),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -793,6 +828,7 @@ struct TaskDetailViewModelTests {
         relationRepository.removeError = .network("offline")
         let subtask = TaskRelation(id: 2, title: "Outline", projectID: 1)
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1, subtasks: [subtask]),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -815,6 +851,7 @@ struct TaskDetailViewModelTests {
         let subtask = TaskRelation(id: 2, title: "Outline", isDone: false, projectID: 1)
         repository.tasks = [VikunjaTask(id: 2, title: "Outline", isDone: false, projectID: 1)]
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1, subtasks: [subtask]),
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -837,6 +874,7 @@ struct TaskDetailViewModelTests {
         repository.fetchError = .network("offline")
         let subtask = TaskRelation(id: 2, title: "Outline", isDone: false, projectID: 1)
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1, subtasks: [subtask]),
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -863,6 +901,7 @@ struct TaskDetailViewModelTests {
             VikunjaTask(id: 9, title: "Draft appendix", projectID: 1),
         ]
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(
                 id: 1,
                 title: "Write report",
@@ -891,6 +930,7 @@ struct TaskDetailViewModelTests {
         repository.searchResults = [VikunjaTask(id: 9, title: "Draft appendix", projectID: 1)]
         repository.tasks = [VikunjaTask(id: 8, title: "Outline appendix", projectID: 1)]
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -908,7 +948,8 @@ struct TaskDetailViewModelTests {
     }
 
     @Test
-    func `load relation suggestions populates from the current project excluding self and already related tasks`() async {
+    func `load relation suggestions populates from the current project excluding self and already related tasks`(
+    ) async {
         let repository = FakeTaskRepository()
         repository.tasks = [
             VikunjaTask(id: 1, title: "Write report", projectID: 1),
@@ -917,6 +958,7 @@ struct TaskDetailViewModelTests {
             VikunjaTask(id: 10, title: "Unrelated in another project", projectID: 2),
         ]
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(
                 id: 1,
                 title: "Write report",
@@ -943,6 +985,7 @@ struct TaskDetailViewModelTests {
         let repository = FakeTaskRepository()
         repository.searchError = .network("offline")
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -964,6 +1007,7 @@ struct TaskDetailViewModelTests {
         let projectRepository = FakeProjectRepository()
         projectRepository.projects = [Project(id: 2, title: "Personal"), Project(id: 3, title: "Health")]
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -983,6 +1027,7 @@ struct TaskDetailViewModelTests {
     @Test
     func `project title resolves the current project without loading all projects`() {
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -1002,6 +1047,7 @@ struct TaskDetailViewModelTests {
         let projectRepository = FakeProjectRepository()
         projectRepository.projects = [Project(id: 2, title: "Personal")]
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -1027,6 +1073,7 @@ struct TaskDetailViewModelTests {
             TaskComment(id: 1, comment: "Looks good", author: author, created: Date(), updated: Date()),
         ]
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -1049,6 +1096,7 @@ struct TaskDetailViewModelTests {
         let commentRepository = FakeTaskCommentRepository()
         commentRepository.fetchError = .network("offline")
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -1083,6 +1131,7 @@ struct TaskDetailViewModelTests {
             ),
         ]
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -1105,6 +1154,7 @@ struct TaskDetailViewModelTests {
         let attachmentRepository = FakeTaskAttachmentRepository()
         attachmentRepository.fetchError = .network("offline")
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -1129,6 +1179,7 @@ struct TaskDetailViewModelTests {
         let attachmentRepository = FakeTaskAttachmentRepository()
         let toastPresenter = FakeToastPresenter()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 7, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -1155,6 +1206,7 @@ struct TaskDetailViewModelTests {
         attachmentRepository.uploadError = .network("offline")
         let toastPresenter = FakeToastPresenter()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 7, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -1178,6 +1230,7 @@ struct TaskDetailViewModelTests {
         let attachmentRepository = FakeTaskAttachmentRepository()
         attachmentRepository.downloadData = [5: Data("PDFBYTES".utf8)]
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -1210,6 +1263,7 @@ struct TaskDetailViewModelTests {
         attachmentRepository.downloadError = .network("offline")
         let toastPresenter = FakeToastPresenter()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -1250,6 +1304,7 @@ struct TaskDetailViewModelTests {
         attachmentRepository.attachments = [first, second]
         let toastPresenter = FakeToastPresenter()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -1279,6 +1334,7 @@ struct TaskDetailViewModelTests {
         attachmentRepository.deleteError = .network("offline")
         let toastPresenter = FakeToastPresenter()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -1306,6 +1362,7 @@ struct TaskDetailViewModelTests {
         let commentRepository = FakeTaskCommentRepository()
         commentRepository.fetchCommentsDelay = .milliseconds(100)
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -1329,6 +1386,7 @@ struct TaskDetailViewModelTests {
     func `add comment appends the created comment`() async {
         let commentRepository = FakeTaskCommentRepository()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -1349,6 +1407,7 @@ struct TaskDetailViewModelTests {
     func `add comment does nothing for blank text`() async {
         let commentRepository = FakeTaskCommentRepository()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -1371,6 +1430,7 @@ struct TaskDetailViewModelTests {
         commentRepository.addError = .network("offline")
         let toastPresenter = FakeToastPresenter()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -1397,6 +1457,7 @@ struct TaskDetailViewModelTests {
             TaskComment(id: 2, comment: "Drop", author: author, created: Date(), updated: Date()),
         ]
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -1426,6 +1487,7 @@ struct TaskDetailViewModelTests {
         ]
         let toastPresenter = FakeToastPresenter()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -1452,6 +1514,7 @@ struct TaskDetailViewModelTests {
             TaskComment(id: 1, comment: "Frist draft", author: author, created: Date(), updated: Date()),
         ]
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -1477,6 +1540,7 @@ struct TaskDetailViewModelTests {
             TaskComment(id: 1, comment: "Original", author: author, created: Date(), updated: Date()),
         ]
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -1504,6 +1568,7 @@ struct TaskDetailViewModelTests {
         ]
         let toastPresenter = FakeToastPresenter()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -1528,6 +1593,7 @@ struct TaskDetailViewModelTests {
         repository.tasks = [VikunjaTask(id: 1, title: "Write report", projectID: 1)]
         let toastPresenter = FakeToastPresenter()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -1553,6 +1619,7 @@ struct TaskDetailViewModelTests {
         repository.updateError = .network("offline")
         let toastPresenter = FakeToastPresenter()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -1580,6 +1647,7 @@ struct TaskDetailViewModelTests {
             Project(id: 3, title: "Client A", parentProjectID: 2),
         ]
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -1602,6 +1670,7 @@ struct TaskDetailViewModelTests {
         repository.tasks = [VikunjaTask(id: 1, title: "Write report", projectID: 1)]
         let toastPresenter = FakeToastPresenter()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -1626,6 +1695,7 @@ struct TaskDetailViewModelTests {
         repository.deleteError = .network("offline")
         let toastPresenter = FakeToastPresenter()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: repository,
@@ -1646,6 +1716,7 @@ struct TaskDetailViewModelTests {
     @Test
     func `reminder delivery warning is nil when the task has no reminders`() {
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
             project: Project(id: 1, title: "Work"),
             repository: FakeTaskRepository(),
@@ -1665,6 +1736,7 @@ struct TaskDetailViewModelTests {
     @Test
     func `reminder delivery warning is nil when notification dependencies are not provided`() {
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(
                 id: 1, title: "Write report", projectID: 1,
                 reminders: [TaskReminder(reminder: Date())],
@@ -1685,6 +1757,7 @@ struct TaskDetailViewModelTests {
     @Test
     func `reminder delivery warning flags push disabled before checking webhook events`() {
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(
                 id: 1, title: "Write report", projectID: 1,
                 reminders: [TaskReminder(reminder: Date())],
@@ -1709,6 +1782,7 @@ struct TaskDetailViewModelTests {
     @Test
     func `reminder delivery warning flags an unsubscribed project when push is on`() {
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(
                 id: 1, title: "Write report", projectID: 1,
                 reminders: [TaskReminder(reminder: Date())],
@@ -1731,6 +1805,7 @@ struct TaskDetailViewModelTests {
     @Test
     func `reminder delivery warning is nil when the project webhook is subscribed`() {
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(
                 id: 1, title: "Write report", projectID: 1,
                 reminders: [TaskReminder(reminder: Date())],
@@ -1755,6 +1830,7 @@ struct TaskDetailViewModelTests {
     @Test
     func `reminder delivery warning is nil when only the user level webhook is subscribed`() {
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(
                 id: 1, title: "Write report", projectID: 1,
                 reminders: [TaskReminder(reminder: Date())],
@@ -1785,6 +1861,7 @@ struct TaskDetailViewModelTests {
     @Test
     func `loading comments or attachments for an unsynced task leaves them empty rather than erroring`() async {
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: .local(UUID()), title: "Write report", projectID: .local(UUID())),
             project: Project(id: .local(UUID()), title: "Work"),
             repository: FakeTaskRepository(),
@@ -1812,6 +1889,7 @@ struct TaskDetailViewModelTests {
         // reason to bail out with the old "hasn't synced yet" toast.
         let toastPresenter = FakeToastPresenter()
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: .local(UUID()), title: "Write report", projectID: .local(UUID())),
             project: Project(id: .local(UUID()), title: "Work"),
             repository: FakeTaskRepository(),
@@ -1837,6 +1915,7 @@ struct TaskDetailViewModelTests {
         let labelRepository = FakeLabelRepository()
         let task = VikunjaTask(id: .local(UUID()), title: "Write report", projectID: .local(UUID()))
         let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: task,
             project: Project(id: .local(UUID()), title: "Work"),
             repository: FakeTaskRepository(),

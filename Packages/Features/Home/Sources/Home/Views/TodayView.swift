@@ -25,10 +25,11 @@ struct TodayView: View {
             .todayListStyle()
             .scrollContentBackground(.hidden)
             .background(palette.pageBackground)
-            .refreshable { await viewModel.load() }
+            .refreshable { await viewModel.refresh() }
             .navigationTitle(Text(verbatim: viewModel.title))
             .searchable(text: $searchText, prompt: Text("Search tasks", bundle: .module))
-            .task { await viewModel.load() }
+            .task { await viewModel.start() }
+            .task { await viewModel.observeLocalChanges() }
             .confirmationDialog(
                 Text("This permanently deletes the task.", bundle: .module),
                 isPresented: Binding(
@@ -121,7 +122,7 @@ struct TodayView: View {
 
     private var content: some View {
         List {
-            switch viewModel.loadState {
+            switch viewModel.displayLoadState {
             case .idle, .loading:
                 ProgressView()
                     .frame(maxWidth: .infinity)
@@ -134,7 +135,7 @@ struct TodayView: View {
                     title: String(localized: "Couldn't load your tasks", bundle: .module),
                     message: message,
                 ) {
-                    Task { await viewModel.load() }
+                    Task { await viewModel.refresh() }
                 }
                 .padding(.top, VikuSpacing.xxl)
                 .listRowSeparator(.hidden)

@@ -426,6 +426,8 @@ final class AppContainer {
 
     func makeTodayViewModel(account: InstanceAccount) -> TodayViewModel {
         TodayViewModel(
+            syncTrigger: accountSync(for: account),
+            localData: accountSync(for: account),
             taskRepository: offlineTaskRepository(for: account),
             projectRepository: offlineProjectRepository(for: account),
             labelRepository: offlineLabelRepository(for: account),
@@ -438,9 +440,12 @@ final class AppContainer {
 
     func makeCalendarViewModel(account: InstanceAccount) -> CalendarViewModel {
         CalendarViewModel(
+            syncTrigger: accountSync(for: account),
+            localData: accountSync(for: account),
             taskRepository: offlineTaskRepository(for: account),
             projectRepository: offlineProjectRepository(for: account),
             hapticPresenter: hapticCenter,
+            toastPresenter: toastCenter,
         )
     }
 
@@ -449,6 +454,8 @@ final class AppContainer {
         let taskRepository = offlineTaskRepository(for: account)
         let filterRepository = offlineFilterRepository(for: account)
         return ProjectsListViewModel(
+            syncTrigger: accountSync(for: account),
+            localData: accountSync(for: account),
             repository: repository,
             taskRepository: taskRepository,
             filterRepository: filterRepository,
@@ -487,6 +494,8 @@ final class AppContainer {
         let filterRepository = offlineFilterRepository(for: account)
         let reachabilityMonitor = reachabilityMonitor
         return ProjectOverviewViewModel(
+            syncTrigger: accountSync(for: account),
+            localData: accountSync(for: account),
             project: node.project,
             subprojects: node.children,
             repository: repository,
@@ -542,6 +551,8 @@ final class AppContainer {
         )
         let projectRepository = offlineProjectRepository(for: account)
         return TaskDetailViewModel(
+            syncTrigger: accountSync(for: account),
+            localData: accountSync(for: account),
             task: task,
             project: project,
             repository: repository,
