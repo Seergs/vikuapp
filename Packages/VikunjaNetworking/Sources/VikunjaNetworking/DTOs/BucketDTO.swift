@@ -6,15 +6,18 @@ struct BucketDTO: Decodable {
     let id: Int
     let title: String
     let limit: Int
+    let count: Int?
     let tasks: [TaskDTO]?
 }
 
 /// `/api/v2/projects/{id}/views/{view}/buckets/tasks`'s response envelope.
-/// Unlike every other v2 list endpoint, this is **not** paginated (the
+/// The buckets themselves are **not** paginated (the
 /// number of buckets follows the view's bucket configuration, not a page
 /// size) so it has no `page`/`per_page`/`total_pages` and can't reuse
-/// `APIv2Envelope` — verified against a real instance's
-/// `/api/v2/openapi.json` (`BucketsWithTasksBodyBody`).
+/// `APIv2Envelope`. Tasks inside each bucket are paginated via `page`,
+/// with each bucket's `count` reporting its total tasks. The envelope shape
+/// matches `/api/v2/openapi.json` (`BucketsWithTasksBodyBody`); task paging
+/// follows the server's `TaskCollection` and `GetTasksInBuckets` implementation.
 struct BucketsWithTasksResponseDTO: Decodable {
     let items: [BucketDTO]
 

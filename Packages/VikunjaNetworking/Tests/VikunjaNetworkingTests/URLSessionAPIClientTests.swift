@@ -1899,6 +1899,77 @@ struct URLSessionAPIClientTests {
     }
 
     @Test
+    func `fetch buckets loads remaining task pages independently of column totals`() async throws {
+        let original = try Self.fixture("buckets-with-tasks")
+        var first = try #require(JSONSerialization.jsonObject(with: Data(original.utf8)) as? [String: Any])
+        var columns = try #require(first["items"] as? [[String: Any]])
+        let task = try #require((columns[0]["tasks"] as? [[String: Any]])?.first)
+        columns[0]["count"] = 51
+        columns[0]["tasks"] = (1 ... 50).map { id in
+            var copy = task
+            copy["id"] = id
+            return copy
+        }
+        first["items"] = columns
+        let firstBody = try #require(String(data: JSONSerialization.data(withJSONObject: first), encoding: .utf8))
+        var finalTask = task
+        finalTask["id"] = 51
+        columns[0]["tasks"] = [finalTask]
+        columns[1]["tasks"] = NSNull()
+        first["items"] = columns
+        let nextBody = try #require(String(data: JSONSerialization.data(withJSONObject: first), encoding: .utf8))
+        let (session, capture) = try MockURLProtocol.makeSession(responses: [
+            (200, Self.fixture("project-views")), (200, firstBody), (200, nextBody),
+        ])
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+
+        let buckets = try await VikunjaBucketRepository(client: client).fetchBuckets(projectID: 6)
+
+        #expect(buckets[0].tasks.map(\.id) == (1 ... 51).map { EntityID.remote($0) })
+        #expect(buckets[1].tasks.count == 1)
+        #expect(buckets[1].isDoneBucket)
+        let requests = await capture.requests
+        #expect(requests.count == 3)
+        #expect(requests[2].url?.query == "page=2")
+    }
+
+    @Test
+    func `fetch buckets stops on empty task pages when counts become stale`() async throws {
+        let body = try Self.fixture("buckets-with-tasks")
+            .replacingOccurrences(of: "\"count\": 1", with: "\"count\": 51")
+        var empty = try #require(JSONSerialization.jsonObject(with: Data(body.utf8)) as? [String: Any])
+        var columns = try #require(empty["items"] as? [[String: Any]])
+        for index in columns.indices {
+            columns[index]["tasks"] = NSNull()
+        }
+        empty["items"] = columns
+        let emptyBody = try #require(String(data: JSONSerialization.data(withJSONObject: empty), encoding: .utf8))
+        let (session, capture) = try MockURLProtocol.makeSession(responses: [
+            (200, Self.fixture("project-views")), (200, body), (200, emptyBody),
+        ])
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+
+        let buckets = try await VikunjaBucketRepository(client: client).fetchBuckets(projectID: 6)
+
+        #expect(buckets.map(\.tasks.count) == [1, 1])
+        #expect(await capture.requests.count == 3)
+    }
+
+    @Test
+    func `fetch buckets propagates failure on A later task page`() async throws {
+        let body = try Self.fixture("buckets-with-tasks")
+            .replacingOccurrences(of: "\"count\": 1", with: "\"count\": 51")
+        let (session, _) = try MockURLProtocol.makeSession(responses: [
+            (200, Self.fixture("project-views")), (200, body), (403, "forbidden"),
+        ])
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+
+        await #expect(throws: VikunjaError.self) {
+            _ = try await VikunjaBucketRepository(client: client).fetchBuckets(projectID: 6)
+        }
+    }
+
+    @Test
     func `fetch buckets throws not found when the project has no kanban view`() async throws {
         let (session, _) = MockURLProtocol.makeSession(statusCode: 200, body: Self.projectViewsWithNoKanbanBody)
         let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
