@@ -25,6 +25,9 @@ public final class ProjectOverviewViewModel {
     public private(set) var subprojects: [ProjectNode]
     public private(set) var tasks: [VikunjaTask] = []
     public private(set) var loadState: ScreenLoadState<Void> = .idle
+    /// Reachability state drives the saved-filter snapshot notice. Regular
+    /// projects and Favorites don't need to expose the filter-query caveat.
+    public private(set) var isOffline = false
     /// Whether this account's server supports the Kanban board (API v2,
     /// server 2.4.0+) and this project can actually have one. Resolved
     /// during `load()`; the List/Kanban toggle in `ProjectOverviewView`
@@ -104,6 +107,7 @@ public final class ProjectOverviewViewModel {
     /// creates a task for it, to refresh live. Optional so tests and any
     /// caller that doesn't care can skip it.
     private let taskChangeBroadcaster: TaskChangeBroadcasting?
+    private let reachabilityUpdates: @Sendable () async -> AsyncStream<Bool>
 
     public init(
         project: Project,
@@ -119,6 +123,12 @@ public final class ProjectOverviewViewModel {
         taskSortStore: TaskSortStore,
         quickAddContext: QuickAddContextTracking? = nil,
         taskChangeBroadcaster: TaskChangeBroadcasting? = nil,
+        reachabilityUpdates: @escaping @Sendable () async -> AsyncStream<Bool> = {
+            AsyncStream { continuation in
+                continuation.yield(true)
+                continuation.finish()
+            }
+        },
     ) {
         self.project = project
         self.subprojects = subprojects
@@ -139,6 +149,7 @@ public final class ProjectOverviewViewModel {
         self.hapticPresenter = hapticPresenter
         self.quickAddContext = quickAddContext
         self.taskChangeBroadcaster = taskChangeBroadcaster
+        self.reachabilityUpdates = reachabilityUpdates
     }
 
     /// Mirrors `taskChangeBroadcaster`'s most recent event, filtered to this
@@ -166,6 +177,15 @@ public final class ProjectOverviewViewModel {
     public func markHidden() {
         guard project.kind == .project else { return }
         quickAddContext?.exitProjectScope(project)
+    }
+
+    /// Keeps the offline notice in step with connectivity while this screen
+    /// is visible. The view owns the task so SwiftUI cancels the stream when
+    /// the screen disappears.
+    public func observeReachability() async {
+        for await isReachable in await reachabilityUpdates() {
+            isOffline = !isReachable
+        }
     }
 
     /// Kept as a nested name for call sites that already spell it
