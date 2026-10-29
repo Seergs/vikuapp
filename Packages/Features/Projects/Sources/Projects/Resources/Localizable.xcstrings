@@ -688,6 +688,16 @@
         }
       }
     },
+    "Offline: tasks might not appear or disappear from this filter until you reconnect." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin conexión: algunas tareas podrían no aparecer o desaparecer de este filtro hasta que vuelvas a conectarte."
+          }
+        }
+      }
+    },
     "%lld pending" : {
       "localizations" : {
         "en" : {

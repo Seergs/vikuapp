@@ -117,12 +117,16 @@ struct ProjectOverviewView: View {
         .navigationTitle(viewModel.project.title)
         .searchable(text: $searchText, prompt: Text("Search tasks", bundle: .module))
         .toolbar { toolbarContent }
+        .animation(.easeInOut(duration: 0.25), value: viewModel.isOffline)
     }
 
     var body: some View {
         screenChrome
             .task {
                 await viewModel.load()
+            }
+            .task {
+                await viewModel.observeReachability()
             }
             .onAppear {
                 viewModel.markVisible()
@@ -306,6 +310,11 @@ struct ProjectOverviewView: View {
                     }
                 }
                 .padding(.horizontal, VikuSpacing.md)
+                if viewModel.isOffline {
+                    SavedFilterOfflineNotice()
+                        .padding(.horizontal, VikuSpacing.md)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
             } else if viewModel.project.kind == .favorites {
                 VikuFavoritesBadge()
                     .padding(.horizontal, VikuSpacing.md)
@@ -1008,5 +1017,31 @@ private extension View {
         listStyle(.plain)
             .environment(\.defaultMinListRowHeight, 0)
         #endif
+    }
+}
+
+private struct SavedFilterOfflineNotice: View {
+    @Environment(\.vikuPalette) private var palette
+
+    var body: some View {
+        HStack(alignment: .top, spacing: VikuSpacing.sm) {
+            Image(systemName: "wifi.slash")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(palette.textSecondary)
+                .padding(.top, 1)
+            Text(
+                "Offline: tasks might not appear or disappear from this filter until you reconnect.",
+                bundle: .module,
+            )
+            .font(VikuFont.footnote)
+            .foregroundStyle(palette.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(VikuSpacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            palette.fieldBackground,
+            in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous),
+        )
     }
 }

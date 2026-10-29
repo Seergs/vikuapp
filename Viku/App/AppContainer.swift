@@ -484,6 +484,7 @@ final class AppContainer {
         let labelRepository = offlineLabelRepository(for: account)
         let relationRepository = offlineTaskRelationRepository(for: account)
         let filterRepository = offlineFilterRepository(for: account)
+        let reachabilityMonitor = reachabilityMonitor
         return ProjectOverviewViewModel(
             project: node.project,
             subprojects: node.children,
@@ -498,6 +499,7 @@ final class AppContainer {
             taskSortStore: taskSortStore,
             quickAddContext: quickAddContext,
             taskChangeBroadcaster: taskChangeCenter,
+            reachabilityUpdates: { await reachabilityMonitor.reachabilityUpdates() },
         )
     }
 
