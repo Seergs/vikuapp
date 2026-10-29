@@ -588,6 +588,46 @@ struct OfflineTaskRepositoryTests {
         #expect(task.labels.isEmpty)
     }
 
+    @Test(arguments: [RelationKind.subtask, .blocked, .blocking, .related], [false, true])
+    func `related task completion survives reload while its update is pending`(
+        kind: RelationKind, initiallyDone: Bool,
+    ) async throws {
+        let fixture = try await makeRepository(online: false)
+        let projectLocalID = try await fixture.store.read { db in
+            try #require(try ProjectRecord.fetchAll(db).first).localID
+        }
+        let owner = TaskRecord(
+            localID: UUID(), accountID: fixture.accountID, remoteID: 10, title: "Report", description: nil,
+            isDone: false, dueDate: nil, priority: 0, projectLocalID: projectLocalID, serverUpdatedAt: nil,
+        )
+        let other = TaskRecord(
+            localID: UUID(), accountID: fixture.accountID, remoteID: 11, title: "Outline", description: nil,
+            isDone: initiallyDone, dueDate: nil, priority: 0, projectLocalID: projectLocalID, serverUpdatedAt: nil,
+        )
+        let relation = TaskRelationRecord(
+            localID: UUID(), accountID: fixture.accountID, taskLocalID: owner.localID, kind: kind,
+            otherTaskRemoteID: 11, otherProjectRemoteID: 1, title: "Outline", isDone: initiallyDone,
+        )
+        try await fixture.store.write { db in
+            try owner.insert(db)
+            try other.insert(db)
+            try relation.insert(db)
+        }
+        var updated = try await fixture.repository.fetchTask(id: 11)
+        updated.isDone.toggle()
+        _ = try await fixture.repository.update(updated)
+
+        let reloaded = try await fixture.repository.fetchTask(id: 10)
+        let listed = try await fixture.repository.fetchTasks(projectID: fixture.project)
+        let searched = try await fixture.repository.searchTasks(query: "Report")
+        for task in try [reloaded, #require(listed.first { $0.id == 10 }), #require(searched.first)] {
+            let relations = task.subtasks + task.dependsOn + task.blocks + (task.otherRelations[kind] ?? [])
+            #expect(relations == [TaskRelation(id: 11, title: "Outline", isDone: !initiallyDone, projectID: 1)])
+        }
+        let pending = try await fixture.store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(pending.contains { $0.targetLocalID == other.localID && $0.status == .pending })
+    }
+
     private func queueTaskRelationMutation(
         operation: MutationOperation,
         taskLocalID: UUID,
