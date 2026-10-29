@@ -1,6 +1,7 @@
 import Foundation
 import GRDB
 import Testing
+import VikunjaCore
 @testable import VikunjaPersistence
 
 struct DatabaseMigrationsTests {
@@ -198,6 +199,101 @@ struct DatabaseMigrationsTests {
 
         let rows = try dbQueue.read { db in try LabelRecord.fetchAll(db) }
         #expect(rows.count == 2)
+    }
+
+    @Test
+    func `saved filter migration backfills filters but not Favorites or real projects`() throws {
+        let dbQueue = try DatabaseQueue()
+        let accountID = UUID()
+        let savedFilterLocalID = UUID()
+        let favoritesLocalID = UUID()
+        let realProjectLocalID = UUID()
+
+        // Model the relevant columns from the existing project table before
+        // the additive saved-filter migration runs.
+        try dbQueue.write { db in
+            try db.create(table: "project") { table in
+                table.primaryKey("localID", .text)
+                table.column("accountID", .text).notNull()
+                table.column("remoteID", .integer)
+            }
+            try db.execute(
+                sql: "INSERT INTO project (localID, accountID, remoteID) VALUES (?, ?, ?), (?, ?, ?), (?, ?, ?)",
+                arguments: [
+                    savedFilterLocalID, accountID, -8,
+                    favoritesLocalID, accountID, -1,
+                    realProjectLocalID, accountID, 23,
+                ],
+            )
+            try DatabaseMigrations.createSavedFilter(db)
+        }
+
+        let rows = try dbQueue.read { db in try SavedFilterRecord.fetchAll(db) }
+        #expect(rows == [SavedFilterRecord(
+            projectLocalID: savedFilterLocalID,
+            accountID: accountID,
+            remoteID: 7,
+            query: "",
+            lastPulledAt: nil,
+        )])
+    }
+
+    @Test
+    func `saved filter detail composes presentation from project and query from cache`() {
+        let record = SavedFilterRecord(
+            projectLocalID: UUID(), accountID: UUID(), remoteID: 7,
+            query: "priority >= 3", lastPulledAt: Date(),
+        )
+        let project = Project(
+            id: .remote(-8), title: "Important", description: "Things to do",
+            isFavorite: true, position: 2,
+        )
+
+        let detail = record.detail(project: project)
+
+        #expect(detail == SavedFilterDetail(
+            id: 7, title: "Important", description: "Things to do",
+            isFavorite: true, query: "priority >= 3",
+        ))
+    }
+
+    @Test
+    func `saved filter detail rejects a project from another filter`() {
+        let record = SavedFilterRecord(
+            projectLocalID: UUID(), accountID: UUID(), remoteID: 7,
+            query: "priority >= 3", lastPulledAt: Date(),
+        )
+        let otherProject = Project(id: .remote(-9), title: "Other")
+
+        #expect(record.detail(project: otherProject) == nil)
+    }
+
+    @Test
+    func `saved filter query can be read and persisted`() throws {
+        let dbQueue = try migratedDatabase()
+        let record = SavedFilterRecord(
+            projectLocalID: UUID(), accountID: UUID(), remoteID: 7,
+            query: "", lastPulledAt: nil,
+        )
+        let pulledAt = Date(timeIntervalSince1970: 1_700_000_000)
+
+        try dbQueue.write { db in
+            let project = ProjectRecord(
+                localID: record.projectLocalID, accountID: record.accountID, remoteID: -8,
+                title: "Important", description: nil, isArchived: false, isFavorite: false,
+                parentProjectLocalID: nil, position: 0, hexColor: "", serverUpdatedAt: nil,
+            )
+            try project.insert(db)
+            try record.insert(db)
+            var cached = try #require(try SavedFilterRecord.fetch(projectLocalID: record.projectLocalID, db: db))
+            try cached.storeQuery("", pulledAt: pulledAt, db: db)
+        }
+
+        let cached = try dbQueue.read { db in
+            try SavedFilterRecord.fetch(projectLocalID: record.projectLocalID, db: db)
+        }
+        #expect(cached?.query.isEmpty == true)
+        #expect(cached?.lastPulledAt == pulledAt)
     }
 
     @Test

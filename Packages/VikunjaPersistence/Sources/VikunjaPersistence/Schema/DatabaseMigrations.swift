@@ -20,6 +20,7 @@ enum DatabaseMigrations {
         migrator.registerMigration("createTaskComment", migrate: createTaskComment)
         migrator.registerMigration("createTaskReminder", migrate: createTaskReminder)
         migrator.registerMigration("addBaseUpdatedAtToMutationQueue", migrate: addBaseUpdatedAtToMutationQueue)
+        migrator.registerMigration("createSavedFilter", migrate: createSavedFilter)
     }
 
     private static func createProject(_ db: Database) throws {
@@ -223,5 +224,32 @@ enum DatabaseMigrations {
         try db.alter(table: "mutationQueueItem") { table in
             table.add(column: "baseUpdatedAt", .datetime)
         }
+    }
+
+    /// `project` already contains one row for every saved-filter pseudo
+    /// project. Its negative remote id is the only filter data available
+    /// there, so backfilled rows deliberately have no pull timestamp: the
+    /// query still needs to be fetched from `/filters`.
+    static func createSavedFilter(_ db: Database) throws {
+        try db.create(table: "savedFilter") { table in
+            table.primaryKey("projectLocalID", .text)
+                .references("project", column: "localID", onDelete: .cascade)
+            table.column("accountID", .text).notNull().indexed()
+            table.column("remoteID", .integer).notNull().check { $0 > 0 }
+            table.column("query", .text).notNull().defaults(to: "")
+            table.column("lastPulledAt", .datetime)
+        }
+        try db.create(
+            index: "savedFilter_on_accountID_remoteID",
+            on: "savedFilter",
+            columns: ["accountID", "remoteID"],
+            unique: true,
+        )
+        try db.execute(sql: """
+        INSERT INTO savedFilter (projectLocalID, accountID, remoteID, query, lastPulledAt)
+        SELECT localID, accountID, -remoteID - 1, '', NULL
+        FROM project
+        WHERE remoteID < -1
+        """)
     }
 }
