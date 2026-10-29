@@ -58,15 +58,12 @@ struct OfflineFilterRepositoryTests {
         let repository = OfflineFilterRepository(
             localStore: localStore,
             accountID: accountID,
-            networkRepository: networkFilters,
-            syncEngine: engine,
-            reachability: reachability,
+            syncRequester: TestSyncRequester(engine: engine, reachability: reachability),
         )
         let projectRepository = OfflineProjectRepository(
             localStore: localStore,
             accountID: accountID,
-            syncEngine: engine,
-            reachability: reachability,
+            syncRequester: TestSyncRequester(engine: engine, reachability: reachability),
         )
         return Fixture(
             repository: repository,
@@ -81,9 +78,10 @@ struct OfflineFilterRepositoryTests {
     }
 
     @Test
-    func `fetchFilter stores query and can serve it offline`() async throws {
+    func `explicit query sync makes a filter available offline`() async throws {
         let fixture = try await makeFixture(online: true)
 
+        try await fixture.engine.pullFilterQueries()
         let first = try await fixture.repository.fetchFilter(id: 7)
         #expect(first.query == "priority >= 3")
         #expect(fixture.networkFilters.fetchedIDs == [7])
@@ -95,29 +93,17 @@ struct OfflineFilterRepositoryTests {
     }
 
     @Test
-    func `fetchFilter returns cache immediately and refreshes it in background`() async throws {
+    func `fetchFilter reads the cache until an explicit sync updates it`() async throws {
         let fixture = try await makeFixture(online: true)
-        _ = try await fixture.repository.fetchFilter(id: 7)
+        try await fixture.engine.pullFilterQueries()
         fixture.networkFilters.filters[7] = SavedFilterDetail(
             id: 7, title: "Original filter", description: "", isFavorite: false, query: "done = false",
         )
-
-        let cached = try await fixture.repository.fetchFilter(id: 7)
-        #expect(cached.query == "priority >= 3")
-
-        for _ in 0 ..< 100 {
-            let storedQuery = try await fixture.localStore.read { db in
-                try SavedFilterRecord.fetchAll(db).first?.query
-            }
-            if storedQuery == "done = false" {
-                break
-            }
-            try await Task.sleep(for: .milliseconds(10))
-        }
-        let refreshedQuery = try await fixture.localStore.read { db in
-            try SavedFilterRecord.fetchAll(db).first?.query
-        }
-        #expect(refreshedQuery == "done = false")
+        #expect(try await fixture.repository.fetchFilter(id: 7).query == "priority >= 3")
+        #expect(fixture.networkFilters.fetchedIDs == [7])
+        try await fixture.engine.pullFilterQueries()
+        #expect(try await fixture.repository.fetchFilter(id: 7).query == "done = false")
+        #expect(fixture.networkFilters.fetchedIDs == [7, 7])
     }
 
     @Test

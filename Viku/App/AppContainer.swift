@@ -236,9 +236,10 @@ final class AppContainer {
     /// `accountStore` isn't the Keychain-backed one (tests). Also starts
     /// `syncCoordinator` observing reachability. Call once on launch.
     func bootstrap() async {
+        if let store = accountStore as? KeychainAccountStore {
+            try? await store.migrateToAccessGroup()
+        }
         await syncCoordinator.start()
-        guard let store = accountStore as? KeychainAccountStore else { return }
-        try? await store.migrateToAccessGroup()
     }
 
     /// `hasCompletedOnboarding: false` only from the exact call site where
@@ -563,9 +564,8 @@ final class AppContainer {
     /// mismatch is handled before this by showing a toast instead (switching
     /// accounts automatically is not built yet).
     func resolveTaskDeepLink(id: Int, account: InstanceAccount) async throws -> (VikunjaTask, Project) {
-        let taskRepository = offlineTaskRepository(for: account)
         let projectRepository = offlineProjectRepository(for: account)
-        let task = try await taskRepository.fetchTask(id: .remote(id))
+        let task = try await resolveTaskForAction(id: id, account: account)
         let project = try await projectRepository.fetchProject(id: task.projectID)
         return (task, project)
     }
@@ -586,7 +586,7 @@ final class AppContainer {
         else { return }
 
         let taskRepository = offlineTaskRepository(for: account)
-        var task = try await taskRepository.fetchTask(id: .remote(taskID))
+        var task = try await resolveTaskForAction(id: taskID, account: account)
 
         switch actionIdentifier {
         case PushNotificationActionIdentifier.snoozeReminderOneHour:
@@ -610,6 +610,18 @@ final class AppContainer {
         }
 
         _ = try await taskRepository.update(task)
+    }
+
+    /// Notification/deep-link actions work with cached tasks offline. A cache
+    /// miss explicitly synchronizes before resolving a newly received task.
+    private func resolveTaskForAction(id: Int, account: InstanceAccount) async throws -> VikunjaTask {
+        let repository = offlineTaskRepository(for: account)
+        do {
+            return try await repository.fetchTask(id: .remote(id))
+        } catch VikunjaError.notFound {
+            try await accountSync(for: account).refresh(scope: .account)
+            return try await repository.fetchTask(id: .remote(id))
+        }
     }
 
     /// Bumps the reminder that just fired (the one at or before now, or the
@@ -843,162 +855,41 @@ final class AppContainer {
         clientFactory.makeFilterRepository(baseURL: account.baseURL, tokenProvider: tokenProvider(for: account))
     }
 
-    /// Saved-filter reads and writes use the same per-account local-first
-    /// repository; `/filters` remains the transport used by its sync engine.
+    private func accountSync(for account: InstanceAccount) -> AccountSync {
+        AccountSync(accountID: account.id, coordinator: syncCoordinator, localStore: localStore)
+    }
+
     private func offlineFilterRepository(for account: InstanceAccount) -> FilterRepositoryProtocol {
-        let networkRepository = networkFilterRepository(for: account)
-        let syncEngine = SyncEngine(
-            localStore: localStore,
-            projectRepository: clientFactory.makeProjectRepository(
-                baseURL: account.baseURL,
-                tokenProvider: tokenProvider(for: account),
-            ),
-            labelRepository: networkLabelRepository(for: account),
-            taskRepository: networkTaskRepository(for: account),
-            relationRepository: networkTaskRelationRepository(for: account),
-            commentRepository: networkTaskCommentRepository(for: account),
-            filterRepository: networkRepository,
-            accountID: account.id,
-        )
-        return OfflineFilterRepository(
-            localStore: localStore,
-            accountID: account.id,
-            networkRepository: networkRepository,
-            syncEngine: syncEngine,
-            reachability: reachabilityMonitor,
-        )
+        OfflineFilterRepository(localStore: localStore, accountID: account.id, syncRequester: accountSync(for: account))
     }
 
-    /// The `ProjectRepositoryProtocol` every screen reads/writes through —
-    /// local-first, queuing a mutation and opportunistically draining it
-    /// right away if the network happens to already be up. `networkRepository`
-    /// below is now only what this and `syncCoordinator` call to actually
-    /// talk to the server; nothing else is handed it directly.
     private func offlineProjectRepository(for account: InstanceAccount) -> ProjectRepositoryProtocol {
-        let networkRepository = clientFactory.makeProjectRepository(
-            baseURL: account.baseURL,
-            tokenProvider: tokenProvider(for: account),
-        )
-        let syncEngine = SyncEngine(
-            localStore: localStore,
-            projectRepository: networkRepository,
-            labelRepository: networkLabelRepository(for: account),
-            taskRepository: networkTaskRepository(for: account),
-            relationRepository: networkTaskRelationRepository(for: account),
-            commentRepository: networkTaskCommentRepository(for: account),
-            accountID: account.id,
-        )
-        return OfflineProjectRepository(
+        OfflineProjectRepository(
             localStore: localStore,
             accountID: account.id,
-            syncEngine: syncEngine,
-            reachability: reachabilityMonitor,
+            syncRequester: accountSync(for: account),
         )
     }
 
-    /// The `LabelRepositoryProtocol` every screen reads/writes through — same
-    /// shape as `offlineProjectRepository(for:)`, now including
-    /// `addLabel`/`removeLabel` (task-label association), which drain
-    /// through this same `syncEngine`'s task queue.
     private func offlineLabelRepository(for account: InstanceAccount) -> LabelRepositoryProtocol {
-        let networkRepository = networkLabelRepository(for: account)
-        let syncEngine = SyncEngine(
-            localStore: localStore,
-            projectRepository: clientFactory.makeProjectRepository(
-                baseURL: account.baseURL,
-                tokenProvider: tokenProvider(for: account),
-            ),
-            labelRepository: networkRepository,
-            taskRepository: networkTaskRepository(for: account),
-            relationRepository: networkTaskRelationRepository(for: account),
-            commentRepository: networkTaskCommentRepository(for: account),
-            accountID: account.id,
-        )
-        return OfflineLabelRepository(
-            localStore: localStore,
-            accountID: account.id,
-            syncEngine: syncEngine,
-            reachability: reachabilityMonitor,
-        )
+        OfflineLabelRepository(localStore: localStore, accountID: account.id, syncRequester: accountSync(for: account))
     }
 
-    /// The `TaskRepositoryProtocol` every screen reads/writes through for a
-    /// task's core fields — same shape as `offlineProjectRepository(for:)`.
-    /// Task sub-resources now offline too (labels, relations, comments) have
-    /// their own dedicated repository (`offlineLabelRepository(for:)`,
-    /// `offlineTaskRelationRepository(for:)`, `offlineTaskCommentRepository(for:)`);
-    /// attachments still go straight to `VikunjaNetworking` and stay
-    /// online-only by design.
     private func offlineTaskRepository(for account: InstanceAccount) -> TaskRepositoryProtocol {
-        let syncEngine = SyncEngine(
-            localStore: localStore,
-            projectRepository: clientFactory.makeProjectRepository(
-                baseURL: account.baseURL,
-                tokenProvider: tokenProvider(for: account),
-            ),
-            labelRepository: networkLabelRepository(for: account),
-            taskRepository: networkTaskRepository(for: account),
-            relationRepository: networkTaskRelationRepository(for: account),
-            commentRepository: networkTaskCommentRepository(for: account),
-            accountID: account.id,
-        )
-        return OfflineTaskRepository(
-            localStore: localStore,
-            accountID: account.id,
-            syncEngine: syncEngine,
-            reachability: reachabilityMonitor,
-        )
+        OfflineTaskRepository(localStore: localStore, accountID: account.id, syncRequester: accountSync(for: account))
     }
 
-    /// The `TaskRelationRepositoryProtocol` every screen reads/writes
-    /// through — same shape as `offlineLabelRepository(for:)`:
-    /// `addRelation`/`removeRelation` drain through this same `syncEngine`'s
-    /// task queue, resolved by `drainTaskRelationMutation`.
     private func offlineTaskRelationRepository(for account: InstanceAccount) -> TaskRelationRepositoryProtocol {
-        let syncEngine = SyncEngine(
-            localStore: localStore,
-            projectRepository: clientFactory.makeProjectRepository(
-                baseURL: account.baseURL,
-                tokenProvider: tokenProvider(for: account),
-            ),
-            labelRepository: networkLabelRepository(for: account),
-            taskRepository: networkTaskRepository(for: account),
-            relationRepository: networkTaskRelationRepository(for: account),
-            commentRepository: networkTaskCommentRepository(for: account),
-            accountID: account.id,
-        )
-        return OfflineTaskRelationRepository(
+        OfflineTaskRelationRepository(
             localStore: localStore,
             accountID: account.id,
-            syncEngine: syncEngine,
-            reachability: reachabilityMonitor,
+            syncRequester: accountSync(for: account),
         )
     }
 
-    /// The `TaskCommentRepositoryProtocol` every screen reads/writes through
-    /// — same shape as `offlineTaskRelationRepository(for:)`. Comments are
-    /// queued as their own `.comment` mutations (not against the task row),
-    /// because a comment has its own server id even though it can't sync
-    /// before its task does.
     private func offlineTaskCommentRepository(for account: InstanceAccount) -> TaskCommentRepositoryProtocol {
-        let networkRepository = networkTaskCommentRepository(for: account)
-        let syncEngine = SyncEngine(
-            localStore: localStore,
-            projectRepository: clientFactory.makeProjectRepository(
-                baseURL: account.baseURL,
-                tokenProvider: tokenProvider(for: account),
-            ),
-            labelRepository: networkLabelRepository(for: account),
-            taskRepository: networkTaskRepository(for: account),
-            relationRepository: networkTaskRelationRepository(for: account),
-            commentRepository: networkRepository,
-            accountID: account.id,
-        )
-        return OfflineTaskCommentRepository(
-            localStore: localStore,
-            accountID: account.id,
-            syncEngine: syncEngine,
-            reachability: reachabilityMonitor,
+        OfflineTaskCommentRepository(
+            localStore: localStore, accountID: account.id, syncRequester: accountSync(for: account),
             currentUser: currentUserStore.user(for: account.id),
         )
     }

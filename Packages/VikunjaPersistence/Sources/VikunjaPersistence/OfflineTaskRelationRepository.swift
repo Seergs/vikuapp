@@ -14,19 +14,16 @@ import VikunjaCore
 public actor OfflineTaskRelationRepository: TaskRelationRepositoryProtocol {
     private let localStore: LocalStore
     private let accountID: UUID
-    private let syncEngine: SyncEngine
-    private let reachability: ReachabilityMonitoring
+    private let syncRequester: SyncRequesting
 
     public init(
         localStore: LocalStore,
         accountID: UUID,
-        syncEngine: SyncEngine,
-        reachability: ReachabilityMonitoring,
+        syncRequester: SyncRequesting,
     ) {
         self.localStore = localStore
         self.accountID = accountID
-        self.syncEngine = syncEngine
-        self.reachability = reachability
+        self.syncRequester = syncRequester
     }
 
     public func addRelation(kind: RelationKind, otherTaskID: EntityID, toTask taskID: EntityID) async throws {
@@ -78,8 +75,7 @@ public actor OfflineTaskRelationRepository: TaskRelationRepositoryProtocol {
     }
 
     private func triggerDrainIfOnline() async {
-        guard await reachability.isReachable else { return }
-        try? await syncEngine.drainTaskMutations()
+        await syncRequester.requestSync()
     }
 
     private static func encode(_ payload: some Encodable) throws -> String {

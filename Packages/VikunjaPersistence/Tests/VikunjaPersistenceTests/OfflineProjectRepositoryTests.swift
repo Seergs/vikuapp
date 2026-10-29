@@ -43,7 +43,8 @@ struct OfflineProjectRepositoryTests {
         )
         let reachability = FakeReachabilityMonitor(isReachable: online)
         let repository = OfflineProjectRepository(
-            localStore: store, accountID: accountID, syncEngine: engine, reachability: reachability,
+            localStore: store, accountID: accountID,
+            syncRequester: TestSyncRequester(engine: engine, reachability: reachability),
         )
         return Fixture(repository: repository, store: store, network: network)
     }
@@ -55,20 +56,13 @@ struct OfflineProjectRepositoryTests {
     }
 
     @Test
-    func `fetchProjects pulls once on a cold, never-synced account instead of racing a background sync`() async throws {
+    func `fetchProjects stays local even for an online account that has never synced`() async throws {
         let network = FakeProjectRepository()
         network.projects = [Project(id: 1, title: "Already on the server")]
         let fixture = try makeRepository(online: true, network: network)
-
-        let projects = try await fixture.repository.fetchProjects()
-
-        #expect(projects.map(\.title) == ["Already on the server"])
-        #expect(network.fetchProjectsCallCount == 1)
-
-        // A second read doesn't pull again - `SyncStateRecord` now says this
-        // account has already synced once.
-        _ = try await fixture.repository.fetchProjects()
-        #expect(network.fetchProjectsCallCount == 1)
+        #expect(try await fixture.repository.fetchProjects().isEmpty)
+        #expect(try await fixture.repository.fetchProjects().isEmpty)
+        #expect(network.fetchProjectsCallCount == 0)
     }
 
     @Test
@@ -174,8 +168,11 @@ struct OfflineProjectRepositoryTests {
             relationRepository: FakeTaskRelationRepository(), accountID: accountID,
         )
         let onlineRepository = OfflineProjectRepository(
-            localStore: store, accountID: accountID, syncEngine: onlineEngine,
-            reachability: FakeReachabilityMonitor(isReachable: true),
+            localStore: store, accountID: accountID,
+            syncRequester: TestSyncRequester(
+                engine: onlineEngine,
+                reachability: FakeReachabilityMonitor(isReachable: true),
+            ),
         )
         let created = try await onlineRepository.create(Project(id: .local(UUID()), title: "Groceries"))
         #expect(created.id.remoteValue != nil)
@@ -186,8 +183,11 @@ struct OfflineProjectRepositoryTests {
             relationRepository: FakeTaskRelationRepository(), accountID: accountID,
         )
         let offlineRepository = OfflineProjectRepository(
-            localStore: store, accountID: accountID, syncEngine: offlineEngine,
-            reachability: FakeReachabilityMonitor(isReachable: false),
+            localStore: store, accountID: accountID,
+            syncRequester: TestSyncRequester(
+                engine: offlineEngine,
+                reachability: FakeReachabilityMonitor(isReachable: false),
+            ),
         )
         _ = try await offlineRepository.update(Project(id: created.id, title: "Groceries v2"))
         let updated = try await offlineRepository.update(Project(id: created.id, title: "Groceries v3"))
@@ -219,23 +219,21 @@ struct OfflineProjectRepositoryTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let onlineRepository = OfflineProjectRepository(
             localStore: store, accountID: accountID,
-            syncEngine: SyncEngine(
+            syncRequester: TestSyncRequester(engine: SyncEngine(
                 localStore: store, projectRepository: network,
                 labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(),
                 relationRepository: FakeTaskRelationRepository(), accountID: accountID,
-            ),
-            reachability: FakeReachabilityMonitor(isReachable: true),
+            ), reachability: FakeReachabilityMonitor(isReachable: true)),
         )
         let created = try await onlineRepository.create(Project(id: .local(UUID()), title: "Groceries"))
 
         let offlineRepository = OfflineProjectRepository(
             localStore: store, accountID: accountID,
-            syncEngine: SyncEngine(
+            syncRequester: TestSyncRequester(engine: SyncEngine(
                 localStore: store, projectRepository: network,
                 labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(),
                 relationRepository: FakeTaskRelationRepository(), accountID: accountID,
-            ),
-            reachability: FakeReachabilityMonitor(isReachable: false),
+            ), reachability: FakeReachabilityMonitor(isReachable: false)),
         )
         try await offlineRepository.delete(id: created.id)
 
@@ -261,7 +259,8 @@ struct OfflineProjectRepositoryTests {
     }
 
     @Test
-    func `a child created offline under an already pushed parent resolves the real parent id once online`() async throws {
+    func `a child created offline under an already pushed parent resolves the real parent id once online`(
+    ) async throws {
         let fixture = try makeRepository(online: true)
         let parent = try await fixture.repository.create(Project(id: .local(UUID()), title: "Work"))
         let parentRemoteID = try #require(parent.id.remoteValue)
@@ -283,21 +282,19 @@ struct OfflineProjectRepositoryTests {
         let networkB = FakeProjectRepository()
         let repositoryA = OfflineProjectRepository(
             localStore: store, accountID: accountA,
-            syncEngine: SyncEngine(
+            syncRequester: TestSyncRequester(engine: SyncEngine(
                 localStore: store, projectRepository: networkA,
                 labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(),
                 relationRepository: FakeTaskRelationRepository(), accountID: accountA,
-            ),
-            reachability: FakeReachabilityMonitor(isReachable: false),
+            ), reachability: FakeReachabilityMonitor(isReachable: false)),
         )
         let repositoryB = OfflineProjectRepository(
             localStore: store, accountID: accountB,
-            syncEngine: SyncEngine(
+            syncRequester: TestSyncRequester(engine: SyncEngine(
                 localStore: store, projectRepository: networkB,
                 labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(),
                 relationRepository: FakeTaskRelationRepository(), accountID: accountB,
-            ),
-            reachability: FakeReachabilityMonitor(isReachable: false),
+            ), reachability: FakeReachabilityMonitor(isReachable: false)),
         )
 
         _ = try await repositoryA.create(Project(id: .local(UUID()), title: "A's project"))

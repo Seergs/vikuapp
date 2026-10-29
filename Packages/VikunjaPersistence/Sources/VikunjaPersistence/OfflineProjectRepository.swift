@@ -2,30 +2,22 @@ import Foundation
 import GRDB
 import VikunjaCore
 
-/// Local-first `ProjectRepositoryProtocol`: every read serves the local
-/// cache, and every write lands locally first (so the caller sees it
-/// immediately, online or not) and queues a mutation to replay against the
-/// server. `syncEngine` is this same account's own engine, reused here
-/// purely to drain that queue right after a write, if the network happens
-/// to be up already - the third of the four sync triggers, the other three
-/// (foreground, reachability regained, background refresh) living outside
-/// this type entirely.
+/// Local-first project repository. Reads only query the account's database;
+/// writes atomically persist local state and durable intent, then request the
+/// shared account scheduler. No repository owns a network engine.
 public actor OfflineProjectRepository: ProjectRepositoryProtocol {
     private let localStore: LocalStore
     private let accountID: UUID
-    private let syncEngine: SyncEngine
-    private let reachability: ReachabilityMonitoring
+    private let syncRequester: SyncRequesting
 
-    public init(localStore: LocalStore, accountID: UUID, syncEngine: SyncEngine, reachability: ReachabilityMonitoring) {
+    public init(localStore: LocalStore, accountID: UUID, syncRequester: SyncRequesting) {
         self.localStore = localStore
         self.accountID = accountID
-        self.syncEngine = syncEngine
-        self.reachability = reachability
+        self.syncRequester = syncRequester
     }
 
     public func fetchProjects() async throws -> [Project] {
-        await pullIfNeverSynced()
-        return try await localStore.read { db in
+        try await localStore.read { db in
             let rows = try Self.accountRows(self.accountID, db: db)
             let hiddenLocalIDs = try Self.pendingDeleteTargetLocalIDs(accountID: self.accountID, db: db)
             let rowsByLocalID = Dictionary(uniqueKeysWithValues: rows.map { ($0.localID, $0) })
@@ -36,16 +28,9 @@ public actor OfflineProjectRepository: ProjectRepositoryProtocol {
     }
 
     public func fetchProject(id: EntityID) async throws -> Project {
-        await pullIfNeverSynced()
-        return try await readProject(id: id)
+        try await readProject(id: id)
     }
 
-    /// The actual local read behind `fetchProject(id:)`, without the
-    /// cold-pull trigger — `create`/`update` call this instead of the public
-    /// method to read back the row they just wrote, since a pull running in
-    /// between could reconcile-delete that same row before the server's own
-    /// response has caught up to it (nothing queued to protect it anymore,
-    /// since the drain that just ran already cleared the queue item).
     private func readProject(id: EntityID) async throws -> Project {
         try await localStore.read { db in
             let rows = try Self.accountRows(self.accountID, db: db)
@@ -176,23 +161,7 @@ public actor OfflineProjectRepository: ProjectRepositoryProtocol {
     }
 
     private func triggerDrainIfOnline() async {
-        guard await reachability.isReachable else { return }
-        try? await syncEngine.drainProjectMutations()
-    }
-
-    /// Blocks the very first read against an account's cache on a cold pull
-    /// — otherwise a screen that reads before `SyncCoordinator`'s own
-    /// background pull has landed would see an empty cache with nothing to
-    /// ever tell it to refresh, since nothing here observes the local store
-    /// for later changes. Every later read, once a pull has happened at
-    /// least once, serves the cache as-is and leaves staleness to the other
-    /// triggers, exactly as intended.
-    private func pullIfNeverSynced() async {
-        let alreadyPulled = await (try? localStore.read { db in
-            try SyncStateRecord.fetchAll(db).contains { $0.accountID == self.accountID && $0.entityType == .project }
-        }) ?? false
-        guard !alreadyPulled, await reachability.isReachable else { return }
-        try? await syncEngine.pullProjects()
+        await syncRequester.requestSync()
     }
 
     private static func accountRows(_ accountID: UUID, db: Database) throws -> [ProjectRecord] {

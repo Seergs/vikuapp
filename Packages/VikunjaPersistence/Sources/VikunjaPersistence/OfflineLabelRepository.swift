@@ -18,24 +18,20 @@ import VikunjaCore
 public actor OfflineLabelRepository: LabelRepositoryProtocol {
     private let localStore: LocalStore
     private let accountID: UUID
-    private let syncEngine: SyncEngine
-    private let reachability: ReachabilityMonitoring
+    private let syncRequester: SyncRequesting
 
     public init(
         localStore: LocalStore,
         accountID: UUID,
-        syncEngine: SyncEngine,
-        reachability: ReachabilityMonitoring,
+        syncRequester: SyncRequesting,
     ) {
         self.localStore = localStore
         self.accountID = accountID
-        self.syncEngine = syncEngine
-        self.reachability = reachability
+        self.syncRequester = syncRequester
     }
 
     public func fetchLabels() async throws -> [Label] {
-        await pullIfNeverSynced()
-        return try await localStore.read { db in
+        try await localStore.read { db in
             let rows = try Self.accountRows(self.accountID, db: db)
             let hiddenLocalIDs = try Self.pendingDeleteTargetLocalIDs(accountID: self.accountID, db: db)
             return rows
@@ -138,7 +134,11 @@ public actor OfflineLabelRepository: LabelRepositoryProtocol {
     /// about, and `TaskRecord.labelRemoteIDs` (the cache every screen reads)
     /// lives there. The label side is just a reference, resolved at drain
     /// time via `payload.labelLocalID`.
-    private func enqueueTaskLabelMutation(_ operation: MutationOperation, labelID: EntityID, taskID: EntityID) async throws {
+    private func enqueueTaskLabelMutation(
+        _ operation: MutationOperation,
+        labelID: EntityID,
+        taskID: EntityID,
+    ) async throws {
         try await localStore.write { db in
             guard let taskRow = try Self.findTaskRow(matching: taskID, accountID: self.accountID, db: db) else {
                 throw VikunjaError.notFound
@@ -174,32 +174,13 @@ public actor OfflineLabelRepository: LabelRepositoryProtocol {
     }
 
     private func triggerDrainIfOnline() async {
-        guard await reachability.isReachable else { return }
-        try? await syncEngine.drainLabelMutations()
+        await syncRequester.requestSync()
     }
 
     private func triggerTaskDrainIfOnline() async {
-        guard await reachability.isReachable else { return }
-        try? await syncEngine.drainTaskMutations()
+        await syncRequester.requestSync()
     }
 
-    /// Blocks the very first read against an account's cache on a cold pull
-    /// — see `OfflineProjectRepository.pullIfNeverSynced` for the full
-    /// rationale (identical reasoning, one per entity).
-    private func pullIfNeverSynced() async {
-        let alreadyPulled = await (try? localStore.read { db in
-            try SyncStateRecord.fetchAll(db).contains { $0.accountID == self.accountID && $0.entityType == .label }
-        }) ?? false
-        guard !alreadyPulled, await reachability.isReachable else { return }
-        try? await syncEngine.pullLabels()
-    }
-
-    /// The actual local read behind a freshly written row — `create`/
-    /// `update` call this instead of going through the public
-    /// `fetchLabels()`/cold-pull path, for the same reason
-    /// `OfflineProjectRepository.readProject` does: a pull running in
-    /// between could reconcile-delete or discard that same row before the
-    /// server's own response has caught up to it.
     private func readLabel(id: EntityID) async throws -> Label {
         try await localStore.read { db in
             let rows = try Self.accountRows(self.accountID, db: db)

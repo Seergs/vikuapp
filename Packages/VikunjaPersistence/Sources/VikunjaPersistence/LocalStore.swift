@@ -46,6 +46,27 @@ public actor LocalStore {
         try await dbPool.write(updates)
     }
 
+    /// Observe account content, including queued optimistic edits. Comparing
+    /// account snapshots suppresses writes belonging only to another account.
+    public func observeChanges(accountID: UUID) -> AsyncThrowingStream<Void, Error> {
+        let values = ValueObservation.tracking { db in
+            try AccountSnapshot(accountID: accountID, db: db)
+        }
+        .removeDuplicates()
+        .values(in: dbPool)
+        return AsyncThrowingStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
+            let task = Task {
+                do {
+                    for try await _ in values {
+                        continuation.yield(())
+                    }
+                    continuation.finish()
+                } catch { continuation.finish(throwing: error) }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
     /// The current pending-sync status of every project and task with at
     /// least one queued mutation, for one account. One-shot read, used by
     /// tests and any caller that only needs a snapshot.
@@ -140,3 +161,27 @@ public actor LocalStore {
 }
 
 extension LocalStore: PendingSyncOperationsProviding {}
+
+private struct AccountSnapshot: Equatable, Sendable {
+    let projects: [ProjectRecord]
+    let tasks: [TaskRecord]
+    let labels: [LabelRecord]
+    let comments: [TaskCommentRecord]
+    let filters: [SavedFilterRecord]
+    let reminders: [TaskReminderRecord]
+    let memberships: [VirtualProjectTaskRecord]
+    let relations: [TaskRelationRecord]
+    let mutations: [MutationQueueRecord]
+
+    init(accountID: UUID, db: Database) throws {
+        self.projects = try ProjectRecord.filter(Column("accountID") == accountID).fetchAll(db)
+        self.tasks = try TaskRecord.filter(Column("accountID") == accountID).fetchAll(db)
+        self.labels = try LabelRecord.filter(Column("accountID") == accountID).fetchAll(db)
+        self.comments = try TaskCommentRecord.filter(Column("accountID") == accountID).fetchAll(db)
+        self.filters = try SavedFilterRecord.filter(Column("accountID") == accountID).fetchAll(db)
+        self.reminders = try TaskReminderRecord.filter(Column("accountID") == accountID).fetchAll(db)
+        self.memberships = try VirtualProjectTaskRecord.filter(Column("accountID") == accountID).fetchAll(db)
+        self.relations = try TaskRelationRecord.filter(Column("accountID") == accountID).fetchAll(db)
+        self.mutations = try MutationQueueRecord.filter(Column("accountID") == accountID).fetchAll(db)
+    }
+}

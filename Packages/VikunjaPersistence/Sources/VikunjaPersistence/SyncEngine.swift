@@ -44,6 +44,58 @@ public actor SyncEngine {
         self.accountID = accountID
     }
 
+    /// Pull before draining to preserve timestamp-based conflict detection.
+    /// Each phase is independent: healthy data is committed even if another
+    /// request fails. Remaining queue entries make partial uploads observable.
+    public func synchronize() async throws {
+        let phases: [@Sendable () async throws -> Void] = [
+            { try await self.pullProjects() },
+            { try await self.drainProjectMutations() },
+            { try await self.drainFilterMutations() },
+            { try await self.pullFilterQueries() },
+            { try await self.pullLabels() },
+            { try await self.drainLabelMutations() },
+            { try await self.pullTasks() },
+            { try await self.drainTaskMutations() },
+            { try await self.drainCommentMutations() },
+        ]
+        var firstError: (any Error)?
+        for phase in phases {
+            do { try await phase() } catch { firstError = firstError ?? error }
+        }
+        if let firstError {
+            throw firstError
+        }
+        let hasPendingWork = try await localStore.read { db in
+            try MutationQueueRecord.fetchAll(db).contains { $0.accountID == self.accountID }
+        }
+        if hasPendingWork {
+            throw SyncIncompleteError()
+        }
+    }
+
+    /// Saved-filter queries are part of the offline snapshot, not a hidden
+    /// network side effect of reading a filter's detail.
+    public func pullFilterQueries() async throws {
+        guard let filterRepository else { return }
+        let filters = try await localStore.read { db in
+            try SavedFilterRecord.fetchAll(db).filter { $0.accountID == self.accountID }
+        }
+        var firstError: (any Error)?
+        for filter in filters {
+            do {
+                let detail = try await filterRepository.fetchFilter(id: filter.remoteID)
+                try await localStore.write { db in
+                    guard var current = try SavedFilterRecord.fetchOne(db, key: filter.projectLocalID) else { return }
+                    try current.storeQuery(detail.query, pulledAt: Date(), db: db)
+                }
+            } catch { firstError = firstError ?? error }
+        }
+        if let firstError {
+            throw firstError
+        }
+    }
+
     /// Fetches every project from the server and reconciles it into the
     /// local store: upserts each one by its remote id, deletes a local row
     /// whose remote id is no longer present in the server's response
@@ -56,10 +108,12 @@ public actor SyncEngine {
     /// incremental fetch to fall back to between full pulls the way there
     /// will be for an entity whose list endpoint does support that.
     public func pullProjects() async throws {
-        let remoteProjects = try await projectRepository.fetchProjects()
+        let pulled = try await projectRepository.fetchProjects()
         let now = Date()
 
         try await localStore.write { db in
+            let deletedIDs = try Self.pendingDeleteRemoteIDs(accountID: self.accountID, entityType: .project, db: db)
+            let remoteProjects = pulled.filter { !deletedIDs.contains($0.id.remoteValue ?? 0) }
             let localRows = try ProjectRecord.fetchAll(db).filter { $0.accountID == self.accountID }
             let localIDByRemoteID = Self.reserveLocalIDs(for: remoteProjects, existing: localRows)
             let queuedTargetLocalIDs = try Self.queuedTargetLocalIDs(
@@ -93,7 +147,10 @@ public actor SyncEngine {
     /// parent link can be looked up below regardless of array order.
     /// `existing` is already scoped to this engine's account, so `remoteID`
     /// only needs to be unique within it, not across every saved account.
-    private static func reserveLocalIDs(for remoteProjects: [Project], existing localRows: [ProjectRecord]) -> [Int: UUID] {
+    private static func reserveLocalIDs(
+        for remoteProjects: [Project],
+        existing localRows: [ProjectRecord],
+    ) -> [Int: UUID] {
         var localIDByRemoteID: [Int: UUID] = Dictionary(
             uniqueKeysWithValues: localRows.compactMap { row in row.remoteID.map { ($0, row.localID) } },
         )
@@ -214,6 +271,23 @@ public actor SyncEngine {
     /// next pull resync it to the truth. The queue item itself still sticks
     /// around with `needsConflictResolution` set, in case a future UI wants
     /// to read it back.
+    private static func pendingDeleteRemoteIDs(
+        accountID: UUID, entityType: MutationEntityType, db: Database,
+    ) throws -> Set<Int> {
+        let items = try MutationQueueRecord.fetchAll(db).filter {
+            $0.accountID == accountID && $0.entityType == entityType && $0.operation == .delete
+        }
+        return try Set(items.compactMap { item in
+            switch entityType {
+            case .project: try decode(ProjectDeletePayload.self, from: item.payload)?.remoteID
+            case .task: try decode(TaskDeletePayload.self, from: item.payload)?.remoteID
+            case .label: try decode(LabelDeletePayload.self, from: item.payload)?.remoteID
+            case .comment: try decode(TaskCommentDeletePayload.self, from: item.payload)?.remoteID
+            case .filter: try decode(FilterDeletePayload.self, from: item.payload)?.remoteID
+            }
+        })
+    }
+
     private static func queuedTargetLocalIDs(
         accountID: UUID,
         entityType: MutationEntityType,
@@ -253,10 +327,12 @@ public actor SyncEngine {
     /// labels have no hierarchy, so nothing depends on draining in a
     /// particular order the way a sub-project does.
     public func pullLabels() async throws {
-        let remoteLabels = try await labelRepository.fetchLabels()
+        let pulled = try await labelRepository.fetchLabels()
         let now = Date()
 
         try await localStore.write { db in
+            let deletedIDs = try Self.pendingDeleteRemoteIDs(accountID: self.accountID, entityType: .label, db: db)
+            let remoteLabels = pulled.filter { !deletedIDs.contains($0.id.remoteValue ?? 0) }
             let localRows = try LabelRecord.fetchAll(db).filter { $0.accountID == self.accountID }
             let localIDByRemoteID = Self.reserveLabelLocalIDs(for: remoteLabels, existing: localRows)
             let queuedTargetLocalIDs = try Self.queuedTargetLocalIDs(
@@ -278,7 +354,10 @@ public actor SyncEngine {
         }
     }
 
-    private static func reserveLabelLocalIDs(for remoteLabels: [Label], existing localRows: [LabelRecord]) -> [Int: UUID] {
+    private static func reserveLabelLocalIDs(
+        for remoteLabels: [Label],
+        existing localRows: [LabelRecord],
+    ) -> [Int: UUID] {
         var localIDByRemoteID: [Int: UUID] = Dictionary(
             uniqueKeysWithValues: localRows.compactMap { row in row.remoteID.map { ($0, row.localID) } },
         )
@@ -415,13 +494,15 @@ public actor SyncEngine {
         )
         let stillPresentRemoteIDs = Set(result.tasks.compactMap(\.id.remoteValue))
         try await localStore.write { db in
+            let deletedIDs = try Self.pendingDeleteRemoteIDs(accountID: self.accountID, entityType: .task, db: db)
+            let remoteTasks = result.tasks.filter { !deletedIDs.contains($0.id.remoteValue ?? 0) }
             let localRows = try TaskRecord.fetchAll(db).filter { $0.accountID == self.accountID }
-            let localIDByRemoteID = Self.reserveTaskLocalIDs(for: result.tasks, existing: localRows)
+            let localIDByRemoteID = Self.reserveTaskLocalIDs(for: remoteTasks, existing: localRows)
             let queuedTargetLocalIDs = try Self.queuedTargetLocalIDs(
                 accountID: self.accountID, entityType: .task, db: db,
             )
             try Self.upsertTaskRows(
-                for: result.tasks, accountID: self.accountID, localIDByRemoteID: localIDByRemoteID,
+                for: remoteTasks, accountID: self.accountID, localIDByRemoteID: localIDByRemoteID,
                 projectLocalIDByRemoteID: projectLocalIDByRemoteID,
                 protectedLocalIDs: queuedTargetLocalIDs, db: db,
             )
@@ -553,7 +634,10 @@ public actor SyncEngine {
         ).save(db)
     }
 
-    private static func reserveTaskLocalIDs(for remoteTasks: [VikunjaTask], existing localRows: [TaskRecord]) -> [Int: UUID] {
+    private static func reserveTaskLocalIDs(
+        for remoteTasks: [VikunjaTask],
+        existing localRows: [TaskRecord],
+    ) -> [Int: UUID] {
         var localIDByRemoteID: [Int: UUID] = Dictionary(
             uniqueKeysWithValues: localRows.compactMap { row in row.remoteID.map { ($0, row.localID) } },
         )
@@ -641,7 +725,12 @@ public actor SyncEngine {
     /// map returned alongside the task is itself already the full set, same
     /// "full reconciliation" approach `pullProjects`/`pullLabels` take for
     /// their own tables.
-    private static func replaceRelationRows(for localID: UUID, accountID: UUID, task: VikunjaTask, db: Database) throws {
+    private static func replaceRelationRows(
+        for localID: UUID,
+        accountID: UUID,
+        task: VikunjaTask,
+        db: Database,
+    ) throws {
         try TaskRelationRecord.filter(Column("taskLocalID") == localID).deleteAll(db)
         var relations: [(kind: RelationKind, relation: TaskRelation)] = []
         relations += task.subtasks.map { (kind: .subtask, relation: $0) }
@@ -855,8 +944,10 @@ public actor SyncEngine {
                 row.remoteID = remoteID
                 row.serverUpdatedAt = project.updated
                 try row.save(db)
+            } else if item.operation == .create {
+                try Self.enqueueCompensatingDelete(item, remoteID: remoteID, db: db)
             }
-            try item.delete(db)
+            try Self.completePush(item, updatedAt: project.updated, db: db)
         }
     }
 
@@ -1016,8 +1107,10 @@ public actor SyncEngine {
             if var row = try LabelRecord.fetchOne(db, key: item.targetLocalID) {
                 row.remoteID = remoteID
                 try row.save(db)
+            } else if item.operation == .create {
+                try Self.enqueueCompensatingDelete(item, remoteID: remoteID, db: db)
             }
-            try item.delete(db)
+            try Self.completePush(item, updatedAt: nil, db: db)
         }
     }
 
@@ -1174,11 +1267,16 @@ public actor SyncEngine {
         }
         try await localStore.write { db in
             guard var row = try TaskCommentRecord.fetchOne(db, key: item.targetLocalID) else {
-                try item.delete(db)
+                if item.operation == .create {
+                    try Self.enqueueCompensatingDelete(item, remoteID: remoteID, db: db)
+                }
+                try Self.completePush(item, updatedAt: comment.updated, db: db)
                 return
             }
             row.remoteID = remoteID
-            row.comment = comment.comment
+            if try MutationQueueRecord.fetchOne(db, key: item.id)?.payload == item.payload {
+                row.comment = comment.comment
+            }
             row.authorID = comment.author.id
             row.authorUsername = comment.author.username
             row.authorName = comment.author.name
@@ -1186,7 +1284,7 @@ public actor SyncEngine {
             row.created = comment.created
             row.updated = comment.updated
             try row.save(db)
-            try item.delete(db)
+            try Self.completePush(item, updatedAt: comment.updated, db: db)
         }
     }
 
@@ -1447,17 +1545,83 @@ public actor SyncEngine {
                 row.remoteID = remoteID
                 row.serverUpdatedAt = task.updated
                 try row.save(db)
+            } else if item.operation == .create {
+                try Self.enqueueCompensatingDelete(item, remoteID: remoteID, db: db)
             }
-            try TaskReminderRecord.replace(
-                for: item.targetLocalID, accountID: self.accountID, reminders: task.reminders, db: db,
-            )
-            try item.delete(db)
+            if try MutationQueueRecord.fetchOne(db, key: item.id)?.payload == item.payload,
+               try TaskRecord.fetchOne(db, key: item.targetLocalID) != nil {
+                try TaskReminderRecord.replace(
+                    for: item.targetLocalID, accountID: self.accountID, reminders: task.reminders, db: db,
+                )
+            }
+            try Self.completePush(item, updatedAt: task.updated, db: db)
         }
+    }
+
+    /// An edit can coalesce into a queue row while its earlier payload is
+    /// awaiting the server. Preserve that newer intent and rebase it on our
+    /// own successful response; a completed create becomes an update.
+    private static func completePush(_ sent: MutationQueueRecord, updatedAt: Date?, db: Database) throws {
+        guard var current = try MutationQueueRecord.fetchOne(db, key: sent.id) else { return }
+        guard current.payload != sent.payload || current.operation != sent.operation else {
+            try current.delete(db)
+            return
+        }
+        if current.operation == .create {
+            current.operation = .update
+        }
+        if current.entityType == .project,
+           var payload = try decode(ProjectCreateOrUpdatePayload.self, from: current.payload) {
+            payload.baseUpdatedAt = updatedAt
+            current.payload = try encodePayload(payload)
+        }
+        if current.entityType == .task,
+           var payload = try decode(TaskCreateOrUpdatePayload.self, from: current.payload) {
+            payload.baseUpdatedAt = updatedAt
+            current.payload = try encodePayload(payload)
+        }
+        current.baseUpdatedAt = updatedAt
+        current.status = .pending
+        current.lastError = nil
+        current.retryCount = 0
+        try current.update(db)
+    }
+
+    /// A local-only row can be deleted while its create is in flight. Keep a
+    /// durable delete for the newly assigned server id, rather than leaving
+    /// a remote object the user already removed locally.
+    private static func enqueueCompensatingDelete(_ sent: MutationQueueRecord, remoteID: Int, db: Database) throws {
+        let payload: String
+        switch sent.entityType {
+        case .project: payload = try encodePayload(ProjectDeletePayload(remoteID: remoteID))
+        case .label: payload = try encodePayload(LabelDeletePayload(remoteID: remoteID))
+        case .task: payload = try encodePayload(TaskDeletePayload(remoteID: remoteID))
+        case .comment:
+            guard let created = try decode(TaskCommentCreatePayload.self, from: sent.payload) else { return }
+            payload = try encodePayload(TaskCommentDeletePayload(taskLocalID: created.taskLocalID, remoteID: remoteID))
+        case .filter: return
+        }
+        var deletion = MutationQueueRecord(
+            id: nil, accountID: sent.accountID, entityType: sent.entityType, operation: .delete,
+            targetLocalID: sent.targetLocalID, payload: payload, createdAt: Date(), retryCount: 0,
+            lastError: nil, status: .pending, needsConflictResolution: false,
+        )
+        try deletion.insert(db)
+    }
+
+    private static func encodePayload(_ payload: some Encodable) throws -> String {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        guard let encoded = try String(bytes: encoder.encode(payload), encoding: .utf8) else {
+            throw DrainError.invalidPayload
+        }
+        return encoded
     }
 
     private func flagConflict(_ item: MutationQueueRecord) async throws {
         try await localStore.write { db in
-            var row = item
+            guard var row = try MutationQueueRecord.fetchOne(db, key: item.id),
+                  row.payload == item.payload else { return }
             row.needsConflictResolution = true
             try row.update(db)
         }
@@ -1465,7 +1629,8 @@ public actor SyncEngine {
 
     private func markFailed(_ item: MutationQueueRecord, error: Error) async {
         try? await localStore.write { db in
-            var row = item
+            guard var row = try MutationQueueRecord.fetchOne(db, key: item.id),
+                  row.payload == item.payload else { return }
             row.retryCount += 1
             row.lastError = String(describing: error)
             row.status = .failed
@@ -1487,5 +1652,13 @@ public actor SyncEngine {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return try decoder.decode(type, from: data)
+    }
+}
+
+/// The remote reads may succeed while queued uploads fail or need conflict
+/// resolution. Never report such a pass as a fully successful refresh.
+private struct SyncIncompleteError: LocalizedError {
+    var errorDescription: String? {
+        String(localized: "Some changes could not be synced. Check Pending Sync in Settings.", bundle: .module)
     }
 }
