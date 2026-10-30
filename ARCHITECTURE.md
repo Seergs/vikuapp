@@ -710,3 +710,25 @@ Open threads:
   account's `baseURL` + a keychain token-provider closure.
 - **Offline / local persistence** remains a later phase — everything is still
   re-fetched from the server.
+
+
+## Online saved-filter Kanban
+
+Project boards use `OfflineKanbanBoardRepository`. Saved-filter boards use
+`OnlineSavedFilterKanbanRepository`, selected only by `AppContainer`; both implement
+`KanbanBoardRepositoryProtocol`. Feature views consume board capabilities for
+writes, creation, and connection requirements instead of choosing a transport.
+Snapshot queries do not perform networking. The online adapter implements
+`SyncTriggering` for explicit downloads and awaits the server for movements.
+
+Saved-filter bucket membership is kept in memory, while task fields are merged
+into the same account-scoped canonical records used by List and detail. Pending
+local changes and deletions remain protected. Creation from a filter column is
+disabled because it requires selecting a real owning project. Automatic bucket
+rules remain read-only. A failed refresh retains the last visible snapshot;
+reopening the app requires downloading the board again.
+
+Future offline support should replace this adapter at composition with durable
+cross-project board storage and queued commands. It must separate the owner of
+the board from each task's owning project, preserve per-view assignments, and
+reconcile server filter membership without duplicating canonical task records.

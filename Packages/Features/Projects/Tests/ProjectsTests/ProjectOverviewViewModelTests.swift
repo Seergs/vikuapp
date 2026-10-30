@@ -101,8 +101,8 @@ struct ProjectOverviewViewModelTests {
     }
 
     @Test
-    func `saved filters use List in the first local Kanban release`() async {
-        // Cross-project filter membership is outside the first local board contract.
+    func `saved filters support Kanban when the server supports api v2`() async {
+        // The composition root selects an online board source for saved filters.
         let capabilityProvider = FakeCapabilityProvider()
         capabilityProvider.supportedFeatures = [.apiV2]
         let viewModel = ProjectOverviewViewModel(
@@ -120,7 +120,7 @@ struct ProjectOverviewViewModelTests {
 
         await viewModel.load()
 
-        #expect(viewModel.supportsKanban == false)
+        #expect(viewModel.supportsKanban)
     }
 
     @Test
@@ -1179,7 +1179,7 @@ private struct CachedKanbanRepository: KanbanBoardRepositoryProtocol {
             viewID: 10,
             buckets: [],
             defaultBucketID: nil,
-            supportsOfflineWrites: true,
+            supportsWrites: true,
             lastPulledAt: Date(timeIntervalSince1970: 1_700_000_000),
         ))
     }

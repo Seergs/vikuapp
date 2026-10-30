@@ -29,7 +29,7 @@ public final class ProjectOverviewViewModel {
     /// projects and Favorites don't need to expose the filter-query caveat.
     public private(set) var isOffline = false
     /// Runtime API-v2 support or an already downloaded board enables Kanban
-    /// for real projects. Virtual projects keep the List view in this release.
+    /// for projects and saved filters. Favorites have no Kanban view.
     public private(set) var supportsKanban = false
     /// This saved filter's raw query (e.g. `priority >= 3 && done = false`),
     /// shown read-only under its badge. `nil` for a real project or
@@ -254,11 +254,11 @@ public final class ProjectOverviewViewModel {
         }
         let serverSupportsKanban = await kanbanSupport
         guard version == loadVersion else { return }
-        supportsKanban = project.kind == .project && serverSupportsKanban
+        supportsKanban = project.kind != .favorites && serverSupportsKanban
     }
 
     private func resolveKanbanSupport() async -> Bool {
-        guard project.kind == .project else { return false }
+        guard project.kind != .favorites else { return false }
         if let kanbanRepository, await (try? kanbanRepository.hasCachedKanbanSupport()) == true {
             return true
         }

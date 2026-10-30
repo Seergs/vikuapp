@@ -11,17 +11,22 @@ public struct KanbanBoard: Equatable, Sendable {
     public let viewID: Int
     public let buckets: [KanbanBucket]
     public let defaultBucketID: Int?
-    public let supportsOfflineWrites: Bool
+    public let supportsWrites: Bool
+    public let supportsTaskCreation: Bool
+    public let requiresConnection: Bool
     public let lastPulledAt: Date
 
     public init(
         viewID: Int, buckets: [KanbanBucket], defaultBucketID: Int?,
-        supportsOfflineWrites: Bool, lastPulledAt: Date,
+        supportsWrites: Bool, lastPulledAt: Date,
+        supportsTaskCreation: Bool = true, requiresConnection: Bool = false,
     ) {
         self.viewID = viewID
         self.buckets = buckets
         self.defaultBucketID = defaultBucketID
-        self.supportsOfflineWrites = supportsOfflineWrites
+        self.supportsWrites = supportsWrites
+        self.supportsTaskCreation = supportsTaskCreation
+        self.requiresConnection = requiresConnection
         self.lastPulledAt = lastPulledAt
     }
 }

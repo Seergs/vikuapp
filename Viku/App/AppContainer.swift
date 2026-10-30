@@ -524,9 +524,23 @@ final class AppContainer {
         makeProjectOverviewViewModel(node: ProjectNode(project: project), account: account)
     }
 
-    /// Kanban reads and commits local data; account synchronization owns all uploads/downloads.
+    /// Projects use durable boards; saved filters use an online source until cross-project storage is supported.
     func makeKanbanBoardViewModel(project: Project, account: InstanceAccount) -> KanbanBoardViewModel {
         let sync = accountSync(for: account)
+        // Board source selection stays here: Features use the same snapshot/command contract.
+        // Replace this adapter with a durable cross-project source when filters gain offline support.
+        if project.kind == .savedFilter {
+            let repository = OnlineSavedFilterKanbanRepository(
+                projectID: project.id, localStore: localStore, accountID: account.id,
+                transport: clientFactory.makeBucketRepository(
+                    baseURL: account.baseURL, tokenProvider: tokenProvider(for: account),
+                ),
+            )
+            return KanbanBoardViewModel(
+                project: project, repository: repository, syncTrigger: repository, localData: sync,
+                toastPresenter: toastCenter, hapticPresenter: hapticCenter,
+            )
+        }
         let repository = OfflineKanbanBoardRepository(
             localStore: localStore, accountID: account.id, syncRequester: sync,
         )

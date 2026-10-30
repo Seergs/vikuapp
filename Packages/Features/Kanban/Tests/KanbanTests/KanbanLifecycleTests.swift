@@ -29,6 +29,26 @@ struct KanbanLifecycleTests {
         #expect(condition())
     }
 
+    @Test func `online board capabilities allow movements while preventing ambiguous task creation`() async {
+        let repository = FakeBucketRepository()
+        repository.supportsTaskCreation = false
+        repository.requiresConnection = true
+        let task = VikunjaTask(id: 11, title: "Work task", projectID: 1)
+        repository.buckets = [
+            KanbanBucket(id: 10, title: "Todo", tasks: [task]),
+            KanbanBucket(id: 20, title: "Done", isDoneBucket: true),
+        ]
+        let viewModel = model(repository, sync: TestScreenSync())
+        await viewModel.load()
+        #expect(viewModel.supportsWrites)
+        #expect(!viewModel.supportsTaskCreation)
+        #expect(viewModel.requiresConnection)
+        await viewModel.createTask(title: "No owning project", in: repository.buckets[0])
+        #expect(repository.createdTasks.isEmpty)
+        await viewModel.toggleDone(task)
+        #expect(repository.movedTaskIDs.first?.bucketID == 20)
+    }
+
     @Test func `cached board is rendered before refresh and survives offline failure`() async {
         let repository = FakeBucketRepository()
         repository.buckets = [KanbanBucket(id: 1, title: "Cached")]

@@ -82,6 +82,26 @@ public actor SyncEngine {
         }
     }
 
+    /// Merge online-only board results into canonical tasks without replacing pending local intent.
+    /// Board membership stays in the adapter until cross-project boards gain durable storage.
+    static func cacheOnlineBoardTasks(_ tasks: [VikunjaTask], accountID: UUID, db: Database) throws {
+        let rows = try TaskRecord.filter(Column("accountID") == accountID).fetchAll(db)
+        let projects = try ProjectRecord.filter(Column("accountID") == accountID).fetchAll(db)
+        let queue = try MutationQueueRecord.filter(Column("accountID") == accountID)
+            .filter(Column("entityType") == MutationEntityType.task.rawValue).fetchAll(db)
+        let protected = Set(queue.map(\.targetLocalID))
+        // A queued delete can have already removed its canonical row. Do not resurrect it.
+        let deleted = try pendingDeleteRemoteIDs(accountID: accountID, entityType: .task, db: db)
+        let incoming = tasks.filter { !deleted.contains($0.id.remoteValue ?? 0) }
+        try upsertTaskRows(
+            for: incoming, accountID: accountID,
+            localIDByRemoteID: reserveTaskLocalIDs(for: incoming, existing: rows),
+            projectLocalIDByRemoteID: Dictionary(uniqueKeysWithValues: projects.compactMap { row in
+                row.remoteID.map { ($0, row.localID) }
+            }), protectedLocalIDs: protected, db: db,
+        )
+    }
+
     /// Explicit demand-load. A failed download never enters the database transaction.
     public func pullKanban(projectID: EntityID) async throws {
         guard let bucketRepository, await capabilityProvider.supports(.apiV2) else { return }
@@ -408,7 +428,7 @@ public actor SyncEngine {
     /// next pull resync it to the truth. The queue item itself still sticks
     /// around with `needsConflictResolution` set, in case a future UI wants
     /// to read it back.
-    private static func pendingDeleteRemoteIDs(
+    static func pendingDeleteRemoteIDs(
         accountID: UUID, entityType: MutationEntityType, db: Database,
     ) throws -> Set<Int> {
         let items = try MutationQueueRecord.fetchAll(db).filter {
@@ -1818,7 +1838,7 @@ public actor SyncEngine {
 
 /// The remote reads may succeed while queued uploads fail or need conflict
 /// resolution. Never report such a pass as a fully successful refresh.
-private struct SyncIncompleteError: LocalizedError {
+struct SyncIncompleteError: LocalizedError {
     var errorDescription: String? {
         String(localized: "Some changes could not be synced. Check Pending Sync in Settings.", bundle: .module)
     }

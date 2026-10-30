@@ -160,6 +160,22 @@
           }
         }
       }
+    },
+    "This saved filter board requires an internet connection.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This saved filter board requires an internet connection."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El tablero de este filtro guardado requiere conexión a internet."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

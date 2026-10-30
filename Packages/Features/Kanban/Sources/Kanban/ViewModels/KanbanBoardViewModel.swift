@@ -3,7 +3,7 @@ import Observation
 import VikunjaCore
 import VikuUI
 
-/// Queries committed local data. Network work belongs to the account synchronization worker.
+/// Reads repository snapshots; explicit refresh owns downloads for the selected board source.
 @MainActor
 @Observable
 public final class KanbanBoardViewModel {
@@ -12,6 +12,8 @@ public final class KanbanBoardViewModel {
     public private(set) var loadState: ScreenLoadState<Void> = .idle
     public private(set) var hasSnapshot = false
     public private(set) var supportsWrites = false
+    public private(set) var supportsTaskCreation = false
+    public private(set) var requiresConnection = false
     public private(set) var isRefreshing = false
     public var isLoading: Bool {
         loadState == .loading
@@ -76,6 +78,7 @@ public final class KanbanBoardViewModel {
                 needsProjectSync = snapshot == .waitingForProject
                 hasSnapshot = false
                 supportsWrites = false
+                supportsTaskCreation = false
                 buckets = []
                 if loadState.failureMessage == nil {
                     loadState = .loaded
@@ -85,7 +88,9 @@ public final class KanbanBoardViewModel {
                 viewID = board.viewID
                 buckets = board.buckets
                 hasSnapshot = true
-                supportsWrites = board.supportsOfflineWrites
+                supportsWrites = board.supportsWrites
+                supportsTaskCreation = board.supportsTaskCreation
+                requiresConnection = board.requiresConnection
                 loadState = .loaded
             }
         } catch {
@@ -157,7 +162,8 @@ public final class KanbanBoardViewModel {
     }
 
     public func createTask(title: String, in bucket: KanbanBucket) async {
-        guard supportsWrites, let viewID, buckets.contains(where: { $0.id == bucket.id }) else { return }
+        guard supportsWrites, supportsTaskCreation, let viewID,
+              buckets.contains(where: { $0.id == bucket.id }) else { return }
         do {
             _ = try await repository.createTask(
                 title: title, projectID: project.id, viewID: viewID, bucketID: bucket.id,

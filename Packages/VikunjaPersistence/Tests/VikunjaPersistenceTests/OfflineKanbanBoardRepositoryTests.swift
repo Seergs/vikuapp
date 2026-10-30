@@ -78,7 +78,7 @@ struct OfflineKanbanBoardRepositoryTests {
         #expect(initial.buckets[0].tasks[0].id == .local(fixture.task.localID))
         #expect(initial.buckets[0].limit == 4)
         #expect(initial.buckets[0].isDoneBucket)
-        #expect(initial.supportsOfflineWrites)
+        #expect(initial.supportsWrites)
         try await store.write { db in
             var row = fixture.task
             row.remoteID = 100
@@ -118,7 +118,7 @@ struct OfflineKanbanBoardRepositoryTests {
             Issue.record("Expected downloaded empty board"); return
         }
         #expect(board.buckets[0].tasks.isEmpty)
-        #expect(!board.supportsOfflineWrites)
+        #expect(!board.supportsWrites)
     }
 
     @Test func `foreign keys reject cross account and cross view assignments and cascade deletion`() async throws {
@@ -175,7 +175,7 @@ struct OfflineKanbanBoardRepositoryTests {
             Issue.record("Missing board"); return
         }
         #expect(board.buckets.map(\.id) == [21, 20])
-        #expect(!board.supportsOfflineWrites)
+        #expect(!board.supportsWrites)
         try await store.write { db in
             var project = fixture.project
             project.localID = UUID()
