@@ -200,6 +200,7 @@ private extension PendingSyncEntity {
 private extension PendingSyncAction {
     var displayName: LocalizedStringKey {
         switch self {
+        case .moveBucket: "Moved column"
         case .create: "Created"
         case .update: "Updated"
         case .delete: "Deleted"

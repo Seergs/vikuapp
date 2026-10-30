@@ -23,6 +23,7 @@ enum MutationEntityType: String, Codable, Sendable {
 /// via `TaskRelationMutationPayload`. Both pairs are queued against a `.task`
 /// item.
 enum MutationOperation: String, Codable, Sendable {
+    case moveBucket
     case create
     case update
     case delete

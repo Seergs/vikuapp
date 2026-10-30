@@ -49,7 +49,7 @@ private actor CreationRemote: BucketRepositoryProtocol {
         []
     }
 
-    func moveTask(taskID: Int, toBucketID: Int, projectID: Int) async throws -> VikunjaTask {
+    func moveTask(taskID: Int, toBucketID: Int, projectID: Int, viewID: Int?) async throws -> VikunjaTask {
         throw VikunjaError.notFound
     }
 }

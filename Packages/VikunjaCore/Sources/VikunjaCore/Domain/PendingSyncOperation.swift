@@ -11,6 +11,7 @@ public enum PendingSyncEntity: String, Hashable, Sendable {
 
 /// What a queued mutation does to its target.
 public enum PendingSyncAction: String, Hashable, Sendable {
+    case moveBucket
     case create
     case update
     case delete

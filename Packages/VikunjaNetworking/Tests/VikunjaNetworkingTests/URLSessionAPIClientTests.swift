@@ -2059,6 +2059,37 @@ struct URLSessionAPIClientTests {
         #expect(await capture.requests.count == 1)
     }
 
+    @Test
+    func `movement pins the requested view instead of selecting another Kanban view`() async throws {
+        let fixture = try Data(Self.fixture("project-views").utf8)
+        var views = try #require(JSONSerialization.jsonObject(with: fixture) as? [String: Any])
+        var items = try #require(views["items"] as? [[String: Any]])
+        items[0]["view_kind"] = "kanban"
+        views["items"] = items
+        let body = try #require(String(data: JSONSerialization.data(withJSONObject: views), encoding: .utf8))
+        let response = try "{\"task\":\(Self.fixture("task"))}"
+        let (session, capture) = try MockURLProtocol.makeSession(responses: [(200, body), (200, response)])
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        _ = try await VikunjaBucketRepository(client: client).moveTask(
+            taskID: 100, toBucketID: 22, projectID: 6, viewID: 11,
+        )
+        #expect(await capture.requests.last?.url?.path == "/api/v2/projects/6/views/11/buckets/22/tasks")
+    }
+
+    @Test
+    func `movement does not replay a possibly completed recurring task after a server failure`() async throws {
+        let (session, capture) = try MockURLProtocol.makeSession(responses: [
+            (200, Self.fixture("project-views")), (503, "Temporary failure"),
+        ])
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        await #expect(throws: VikunjaError.self) {
+            try await VikunjaBucketRepository(client: client).moveTask(
+                taskID: 100, toBucketID: 22, projectID: 6, viewID: 11,
+            )
+        }
+        #expect(await capture.requests.count == 2)
+    }
+
     // MARK: - Retry/backoff
 
     private func makeRetryClient(

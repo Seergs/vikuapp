@@ -80,8 +80,8 @@ final class VikunjaBucketRepository: BucketRepositoryProtocol {
         )
     }
 
-    func moveTask(taskID: Int, toBucketID: Int, projectID: Int) async throws -> VikunjaTask {
-        let view = try await kanbanView(projectID: projectID)
+    func moveTask(taskID: Int, toBucketID: Int, projectID: Int, viewID: Int?) async throws -> VikunjaTask {
+        let view = try await kanbanView(projectID: projectID, viewID: viewID)
         let endpoint = try VikunjaEndpoints.moveTaskToBucketV2(
             projectID: projectID,
             viewID: view.id,

@@ -9,6 +9,7 @@ private let syncLogger = Logger(subsystem: "dev.sergiosuarez.vikunja", category:
 /// server: pulls the server's state in, and drains that account's locally
 /// queued mutations back out.
 public actor SyncEngine {
+    var activeKanbanMoves: Set<Int64> = []
     var activeKanbanCreations: Set<Int64> = []
     let bucketRepository: BucketRepositoryProtocol?
     let capabilityProvider: CapabilityProvider
@@ -95,12 +96,17 @@ public actor SyncEngine {
             try KanbanViewRecord.filter(Column("accountID") == self.accountID)
                 .filter(Column("projectLocalID") == project.localID).order(Column("remoteID")).fetchOne(db)
         }
+        let readState = try await localStore.read { db in
+            try KanbanReadState(accountID: self.accountID, projectID: project.localID, db: db)
+        }
         let download = try await bucketRepository.downloadBoard(projectID: remoteID, viewID: existingView?.remoteID)
         try await localStore.write { db in
             // The project may have disappeared while the network request was running.
             guard let current = try ProjectRecord.fetchOne(db, key: project.localID),
                   current.accountID == self.accountID, current.remoteID == remoteID
             else { throw VikunjaError.notFound }
+            guard try readState == KanbanReadState(accountID: self.accountID, projectID: project.localID, db: db)
+            else { throw VikunjaError.decoding("Kanban changed during download") }
             try self.storeKanban(download, project: current, db: db)
         }
     }
@@ -427,7 +433,8 @@ public actor SyncEngine {
         try Set(
             MutationQueueRecord.fetchAll(db)
                 .filter {
-                    $0.accountID == accountID && $0.entityType == entityType && !$0.needsConflictResolution
+                    $0.accountID == accountID && $0.entityType == entityType
+                        && (!$0.needsConflictResolution || $0.operation == .moveBucket)
                         && ($0.status == .pending || $0.status == .inFlight || $0.status == .failed)
                 }
                 .map(\.targetLocalID),
@@ -977,7 +984,7 @@ public actor SyncEngine {
             case .create: return try await drainCreate(item)
             case .update: return try await drainUpdate(item)
             case .delete: return try await drainDelete(item)
-            case .addLabel, .removeLabel, .addRelation, .removeRelation:
+            case .addLabel, .removeLabel, .addRelation, .removeRelation, .moveBucket:
                 // Only ever queued against `entityType: .task` - unreachable
                 // here since `drainProjectMutations()` filters to `.project`.
                 return .skipped
@@ -1132,7 +1139,7 @@ public actor SyncEngine {
                         }
                         try item.delete(db)
                     }
-                case .create, .addLabel, .removeLabel, .addRelation, .removeRelation:
+                case .create, .addLabel, .removeLabel, .addRelation, .removeRelation, .moveBucket:
                     throw DrainError.invalidPayload
                 }
             } catch {
@@ -1185,7 +1192,7 @@ public actor SyncEngine {
             case .create: try await drainLabelCreate(item)
             case .update: try await drainLabelUpdate(item)
             case .delete: try await drainLabelDelete(item)
-            case .addLabel, .removeLabel, .addRelation, .removeRelation:
+            case .addLabel, .removeLabel, .addRelation, .removeRelation, .moveBucket:
                 // Only ever queued against `entityType: .task` - unreachable
                 // here since `drainLabelMutations()` filters to `.label`.
                 break
@@ -1252,6 +1259,7 @@ public actor SyncEngine {
     /// `drainTaskUpdate`, exactly like a project's.
     public func drainTaskMutations() async throws {
         try await recoverKanbanCreations()
+        try await recoverKanbanMoves()
         let items = try await localStore.read { db in
             try MutationQueueRecord.fetchAll(db)
                 .filter {
@@ -1277,6 +1285,7 @@ public actor SyncEngine {
     private func drainTask(_ item: MutationQueueRecord) async -> DrainOutcome {
         do {
             switch item.operation {
+            case .moveBucket: return try await drainKanbanMove(item)
             case .create: return try await drainTaskCreate(item)
             case .update: return try await drainTaskUpdate(item)
             case .delete: return try await drainTaskDelete(item)
@@ -1321,7 +1330,7 @@ public actor SyncEngine {
             case .create: return try await drainCommentCreate(item, repository: repository)
             case .update: return try await drainCommentUpdate(item, repository: repository)
             case .delete: return try await drainCommentDelete(item, repository: repository)
-            case .addLabel, .removeLabel, .addRelation, .removeRelation:
+            case .addLabel, .removeLabel, .addRelation, .removeRelation, .moveBucket:
                 // Comment rows only ever queue create/update/delete.
                 return .skipped
             }
@@ -1492,6 +1501,9 @@ public actor SyncEngine {
             if let row = try TaskRecord.fetchOne(db, key: item.targetLocalID) {
                 try row.delete(db)
             }
+            try MutationQueueRecord.filter(Column("accountID") == self.accountID)
+                .filter(Column("targetLocalID") == item.targetLocalID)
+                .filter(Column("operation") == MutationOperation.moveBucket.rawValue).deleteAll(db)
             try item.delete(db)
         }
         return .pushed
@@ -1679,7 +1691,20 @@ public actor SyncEngine {
             if var row = try TaskRecord.fetchOne(db, key: item.targetLocalID) {
                 row.remoteID = remoteID
                 row.serverUpdatedAt = task.updated
+                let queued = try MutationQueueRecord.filter(Column("targetLocalID") == row.localID).fetchAll(db)
+                let hasNewerIntent = queued.contains {
+                    $0.id != item.id && [.create, .update, .moveBucket, .delete].contains($0.operation)
+                } || queued.first(where: { $0.id == item.id })?.payload != item.payload
+                if !hasNewerIntent {
+                    let completionChanged = row.isDone != task.isDone
+                    row.isDone = task.isDone
+                    row.dueDate = task.dueDate
+                    if completionChanged {
+                        try KanbanLocalMutations.applyCompletion(row, db: db)
+                    }
+                }
                 try row.save(db)
+                try KanbanLocalMutations.rebaseMoves(task, localID: row.localID, db: db)
             } else if item.operation == .create {
                 try Self.enqueueCompensatingDelete(item, remoteID: remoteID, db: db)
             }

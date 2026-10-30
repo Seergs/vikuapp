@@ -24,7 +24,8 @@ enum PendingSyncOperationsReader {
                     createdAt: item.createdAt,
                     status: item.status == .failed || item.needsConflictResolution ? .failed : .pending,
                     needsConflictResolution: item.needsConflictResolution,
-                    failureMessage: item.lastError.flatMap(KanbanCreationFailure.init(rawValue:))?.message,
+                    failureMessage: item.lastError.flatMap(KanbanCreationFailure.init(rawValue:))?.message
+                        ?? item.lastError.flatMap(KanbanMoveFailure.init(rawValue:))?.message,
                 )
             }
             .sorted {
@@ -70,6 +71,7 @@ private extension MutationEntityType {
 private extension MutationOperation {
     var pendingSyncAction: PendingSyncAction {
         switch self {
+        case .moveBucket: .moveBucket
         case .create: .create
         case .update: .update
         case .delete: .delete
