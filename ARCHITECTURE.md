@@ -725,7 +725,8 @@ Saved-filter bucket membership is kept in memory, while task fields are merged
 into the same account-scoped canonical records used by List and detail. Pending
 local changes and deletions remain protected. Creation from a filter column is
 disabled because it requires selecting a real owning project. Automatic bucket
-rules remain read-only. A failed refresh retains the last visible snapshot;
+rules remain read-only. Saved filters hide the switcher and show List while offline.
+A failed online refresh retains the last visible snapshot;
 reopening the app requires downloading the board again.
 
 Future offline support should replace this adapter at composition with durable

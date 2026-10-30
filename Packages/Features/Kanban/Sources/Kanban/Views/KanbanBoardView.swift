@@ -73,12 +73,6 @@ public struct KanbanBoardView: View {
                 .disabled(viewModel.isRefreshing || viewModel.needsProjectSync)
             }
             .padding(.horizontal, VikuSpacing.md)
-            if viewModel.requiresConnection {
-                Text("This saved filter board requires an internet connection.", bundle: .module)
-                    .font(VikuFont.footnote)
-                    .foregroundStyle(palette.textSecondary)
-                    .padding(.horizontal, VikuSpacing.md)
-            }
             switch viewModel.loadState {
             case .idle, .loading:
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
