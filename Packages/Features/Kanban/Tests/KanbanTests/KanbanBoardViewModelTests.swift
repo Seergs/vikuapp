@@ -14,6 +14,7 @@ struct KanbanBoardViewModelTests {
         let viewModel = KanbanBoardViewModel(
             project: Project(id: 4, title: "Work"),
             repository: repository,
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             toastPresenter: FakeToastPresenter(),
         )
 
@@ -31,6 +32,7 @@ struct KanbanBoardViewModelTests {
         let viewModel = KanbanBoardViewModel(
             project: Project(id: 4, title: "Work"),
             repository: repository,
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             toastPresenter: FakeToastPresenter(),
         )
 
@@ -50,6 +52,7 @@ struct KanbanBoardViewModelTests {
         let viewModel = KanbanBoardViewModel(
             project: Project(id: 4, title: "Work"),
             repository: repository,
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             toastPresenter: FakeToastPresenter(),
         )
         await viewModel.load()
@@ -73,6 +76,7 @@ struct KanbanBoardViewModelTests {
         let viewModel = KanbanBoardViewModel(
             project: Project(id: 4, title: "Work"),
             repository: repository,
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             toastPresenter: FakeToastPresenter(),
             hapticPresenter: haptics,
         )
@@ -84,7 +88,7 @@ struct KanbanBoardViewModelTests {
     }
 
     @Test
-    func `move task rolls back the board and shows a toast when the server rejects it`() async {
+    func `move task rolls back the board and shows a toast when the local persistence fails it`() async {
         let repository = FakeBucketRepository()
         let task = VikunjaTask(id: 1, title: "Write report", projectID: 4)
         repository.buckets = [
@@ -96,6 +100,7 @@ struct KanbanBoardViewModelTests {
         let viewModel = KanbanBoardViewModel(
             project: Project(id: 4, title: "Work"),
             repository: repository,
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             toastPresenter: toastPresenter,
         )
         await viewModel.load()
@@ -115,6 +120,7 @@ struct KanbanBoardViewModelTests {
         let viewModel = KanbanBoardViewModel(
             project: Project(id: 4, title: "Work"),
             repository: repository,
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             toastPresenter: FakeToastPresenter(),
         )
         await viewModel.load()
@@ -125,12 +131,13 @@ struct KanbanBoardViewModelTests {
     }
 
     @Test
-    func `create task in bucket posts through the repository and appends the server copy`() async {
+    func `create task in bucket writes through the repository and renders the committed local copy`() async {
         let repository = FakeBucketRepository()
         repository.buckets = [KanbanBucket(id: 1, title: "To Do")]
         let viewModel = KanbanBoardViewModel(
             project: Project(id: 4, title: "Work"),
             repository: repository,
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             toastPresenter: FakeToastPresenter(),
         )
         await viewModel.load()
@@ -142,7 +149,7 @@ struct KanbanBoardViewModelTests {
     }
 
     @Test
-    func `create task shows a toast and leaves the bucket unchanged when the server rejects it`() async {
+    func `create task shows a toast and leaves the bucket unchanged when the local persistence fails it`() async {
         let repository = FakeBucketRepository()
         repository.buckets = [KanbanBucket(id: 1, title: "To Do")]
         repository.createError = .network("offline")
@@ -150,6 +157,7 @@ struct KanbanBoardViewModelTests {
         let viewModel = KanbanBoardViewModel(
             project: Project(id: 4, title: "Work"),
             repository: repository,
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             toastPresenter: toastPresenter,
         )
         await viewModel.load()
@@ -171,6 +179,7 @@ struct KanbanBoardViewModelTests {
         let viewModel = KanbanBoardViewModel(
             project: Project(id: 4, title: "Work"),
             repository: repository,
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             toastPresenter: FakeToastPresenter(),
         )
         await viewModel.load()
@@ -193,6 +202,7 @@ struct KanbanBoardViewModelTests {
         let viewModel = KanbanBoardViewModel(
             project: Project(id: 4, title: "Work"),
             repository: repository,
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             toastPresenter: FakeToastPresenter(),
         )
         await viewModel.load()
@@ -212,6 +222,7 @@ struct KanbanBoardViewModelTests {
         let viewModel = KanbanBoardViewModel(
             project: Project(id: 4, title: "Work"),
             repository: repository,
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             toastPresenter: FakeToastPresenter(),
         )
         await viewModel.load()

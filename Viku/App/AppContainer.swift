@@ -504,6 +504,9 @@ final class AppContainer {
             relationRepository: relationRepository,
             filterRepository: filterRepository,
             capabilityProvider: clientFactory.makeCapabilityProvider(baseURL: account.baseURL),
+            kanbanRepository: OfflineKanbanBoardRepository(
+                localStore: localStore, accountID: account.id, syncRequester: accountSync(for: account),
+            ),
             toastPresenter: toastCenter,
             hapticPresenter: hapticCenter,
             taskSortStore: taskSortStore,
@@ -521,19 +524,17 @@ final class AppContainer {
         makeProjectOverviewViewModel(node: ProjectNode(project: project), account: account)
     }
 
-    /// No v1/v2 switch to pick a repository from — `BucketRepositoryProtocol`
-    /// is v2-only (see `VikunjaInstanceClientFactory.makeBucketRepository`).
-    /// `ProjectOverviewView` itself gates the Kanban toggle on
-    /// `CapabilityProvider.supports(.apiV2)` before this view model's board
-    /// ever loads.
+    /// Kanban reads and commits local data; account synchronization owns all uploads/downloads.
     func makeKanbanBoardViewModel(project: Project, account: InstanceAccount) -> KanbanBoardViewModel {
-        let repository = clientFactory.makeBucketRepository(
-            baseURL: account.baseURL,
-            tokenProvider: tokenProvider(for: account),
+        let sync = accountSync(for: account)
+        let repository = OfflineKanbanBoardRepository(
+            localStore: localStore, accountID: account.id, syncRequester: sync,
         )
         return KanbanBoardViewModel(
             project: project,
             repository: repository,
+            syncTrigger: sync,
+            localData: sync,
             toastPresenter: toastCenter,
             hapticPresenter: hapticCenter,
         )

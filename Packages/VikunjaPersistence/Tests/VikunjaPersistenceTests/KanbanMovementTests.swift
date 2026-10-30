@@ -300,14 +300,14 @@ struct KanbanMovementTests {
         #expect(try await location(fixture) == 22)
     }
 
-    @Test func `concurrent remote movement requires an explicit new choice`() async throws {
+    @Test func `concurrent remote movement wins and a later local choice is allowed`() async throws {
         let fixture = try await fixture()
         try await move(fixture, to: 22)
         await fixture.remote.setPlacement(21)
         try await fixture.engine.drainTaskMutations()
         #expect(await fixture.remote.moved.isEmpty)
-        #expect(try await queue(fixture).first?.needsConflictResolution == true)
-        #expect(try await location(fixture) == 22)
+        #expect(try await queue(fixture).isEmpty)
+        #expect(try await location(fixture) == 21)
         try await move(fixture, to: 20)
         try await move(fixture, to: 22)
         try await fixture.engine.drainTaskMutations()
@@ -315,11 +315,20 @@ struct KanbanMovementTests {
         #expect(try await queue(fixture).isEmpty)
     }
 
-    @Test(arguments: [VikunjaError.timeout, .server(message: "Full", statusCode: 412)])
-    func `rejected and unconfirmed moves remain visible without replay`(error: VikunjaError) async throws {
+    @Test func `definitively rejected move returns to the server placement`() async throws {
         let fixture = try await fixture()
         try await move(fixture, to: 22)
-        await fixture.remote.setFailure(error)
+        await fixture.remote.setFailure(.server(message: "Full", statusCode: 412))
+        try await fixture.engine.drainTaskMutations()
+        #expect(await fixture.remote.moved == [22])
+        #expect(try await queue(fixture).isEmpty)
+        #expect(try await location(fixture) == 20)
+    }
+
+    @Test func `unconfirmed move remains visible without automatic replay`() async throws {
+        let fixture = try await fixture()
+        try await move(fixture, to: 22)
+        await fixture.remote.setFailure(.timeout)
         try await fixture.engine.drainTaskMutations()
         try await fixture.engine.drainTaskMutations()
         #expect(await fixture.remote.moved == [22])
@@ -415,6 +424,24 @@ struct KanbanMovementTests {
         #expect(try await queue(fixture).map(\.operation) == [.update])
         try await fixture.engine.drainTaskMutations()
         #expect(await fixture.remote.moved.isEmpty)
+    }
+
+    @Test func `quick add list detail and kanban share one local task`() async throws {
+        let fixture = try await fixture()
+        var task = try await fixture.tasks.create(VikunjaTask(id: .local(UUID()), title: "Quick add", projectID: 1))
+        #expect(try await location(fixture, taskID: task.id) == 20)
+        task.title = "Edited in detail"
+        task.isDone = true
+        _ = try await fixture.tasks.update(task)
+        guard case let .available(board) = try await fixture.board.fetchBoard(projectID: .remote(1), viewID: nil) else {
+            Issue.record("Missing selected board"); return
+        }
+        #expect(board.buckets[2].tasks.first?.title == "Edited in detail")
+        try await move(fixture, to: 20, taskID: task.id)
+        #expect(try await fixture.tasks.fetchTask(id: task.id).isDone == false)
+        #expect(try await fixture.tasks.fetchTasks(projectID: .remote(1)).contains { $0.id == task.id })
+        try await fixture.tasks.delete(id: task.id)
+        #expect(try await location(fixture, taskID: task.id) == nil)
     }
 
     @Test func `invalid boundaries and interrupted movement are safe`() async throws {

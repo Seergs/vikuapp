@@ -158,7 +158,7 @@ public actor URLSessionAPIClient: APIClient {
             throw VikunjaError.unauthorized
         case 404:
             throw VikunjaError.notFound
-        case 412:
+        case 412 where ["/api/v1/login", "/api/v2/login"].contains(endpoint.path):
             throw VikunjaError.totpRequired
         default:
             let message = Self.errorMessage(data, response: httpResponse)

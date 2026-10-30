@@ -28,14 +28,8 @@ public final class ProjectOverviewViewModel {
     /// Reachability state drives the saved-filter snapshot notice. Regular
     /// projects and Favorites don't need to expose the filter-query caveat.
     public private(set) var isOffline = false
-    /// Whether this account's server supports the Kanban board (API v2,
-    /// server 2.4.0+) and this project can actually have one. Resolved
-    /// during `load()`; the List/Kanban toggle in `ProjectOverviewView`
-    /// stays hidden until this is `true`. Favorites is a pseudo-project with
-    /// no row in the real `projects` table, so the server has no `/views`
-    /// entries for it and this is always `false` there, regardless of
-    /// server capability. Saved filters are real server-side resources and
-    /// do support Kanban, so they're excluded from this check.
+    /// Runtime API-v2 support or an already downloaded board enables Kanban
+    /// for real projects. Virtual projects keep the List view in this release.
     public private(set) var supportsKanban = false
     /// This saved filter's raw query (e.g. `priority >= 3 && done = false`),
     /// shown read-only under its badge. `nil` for a real project or
@@ -95,6 +89,7 @@ public final class ProjectOverviewViewModel {
     /// id, while `projectRepository` sees the negative pseudo-project id.
     private let filterRepository: FilterRepositoryProtocol
     private let capabilityProvider: CapabilityProvider
+    private let kanbanRepository: KanbanBoardRepositoryProtocol?
     private let mutator: TaskListMutator
     private let taskSortStore: TaskSortStore
     private let toastPresenter: ToastPresenting
@@ -123,6 +118,7 @@ public final class ProjectOverviewViewModel {
         relationRepository: TaskRelationRepositoryProtocol,
         filterRepository: FilterRepositoryProtocol,
         capabilityProvider: CapabilityProvider = NoopCapabilityProvider(),
+        kanbanRepository: KanbanBoardRepositoryProtocol? = nil,
         toastPresenter: ToastPresenting,
         hapticPresenter: HapticFeedbackPresenting = NoopHapticFeedback(),
         taskSortStore: TaskSortStore,
@@ -146,6 +142,7 @@ public final class ProjectOverviewViewModel {
         self.relationRepository = relationRepository
         self.filterRepository = filterRepository
         self.capabilityProvider = capabilityProvider
+        self.kanbanRepository = kanbanRepository
         self.taskSortStore = taskSortStore
         self.mutator = TaskListMutator(
             repository: repository,
@@ -221,7 +218,7 @@ public final class ProjectOverviewViewModel {
         if !hadContent {
             loadState = .loading
         }
-        async let kanbanSupport = capabilityProvider.supports(.apiV2)
+        async let kanbanSupport = resolveKanbanSupport()
         do {
             let fetchedProject = try await projectRepository.fetchProject(id: project.id)
             let fetchedTasks = try await repository.fetchTasks(projectID: fetchedProject.id)
@@ -257,7 +254,15 @@ public final class ProjectOverviewViewModel {
         }
         let serverSupportsKanban = await kanbanSupport
         guard version == loadVersion else { return }
-        supportsKanban = project.kind != .favorites && serverSupportsKanban
+        supportsKanban = project.kind == .project && serverSupportsKanban
+    }
+
+    private func resolveKanbanSupport() async -> Bool {
+        guard project.kind == .project else { return false }
+        if let kanbanRepository, await (try? kanbanRepository.hasCachedKanbanSupport()) == true {
+            return true
+        }
+        return await capabilityProvider.supports(.apiV2)
     }
 
     /// This project's current direct children, straight from the server —

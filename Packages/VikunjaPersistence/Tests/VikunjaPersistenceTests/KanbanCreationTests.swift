@@ -256,6 +256,11 @@ struct KanbanCreationTests {
         #expect(pending.count == 1)
         #expect(pending[0].status == .failed)
         #expect(pending[0].failureMessage != nil)
+        if case .server(_, 412) = error {
+            #expect(pending[0].failureMessage?.contains("capacity") == true)
+            #expect(try await fixture.store.read { try MutationQueueRecord.fetchAll($0).first?.lastError }
+                == KanbanCreationFailure.rejected.rawValue)
+        }
         try await fixture.store.discardConflictedPendingSyncOperation(id: pending[0].id, accountID: fixture.accountID)
         #expect(try await fixture.store.read { try MutationQueueRecord.fetchCount($0) } == 1)
         #expect(try await fixture.tasks.fetchTasks(projectID: .remote(1)).count == 1)

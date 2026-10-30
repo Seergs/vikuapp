@@ -3,134 +3,174 @@ import Observation
 import VikunjaCore
 import VikuUI
 
-/// Drives a single project's Kanban board: loads that project's buckets (each
-/// already populated with its tasks) and handles drag-to-move and
-/// add-task-in-bucket. `project` is fixed at construction, mirroring
-/// `ProjectOverviewViewModel` — a different project gets a new view model
-/// rather than this one being repointed.
+/// Queries committed local data. Network work belongs to the account synchronization worker.
 @MainActor
 @Observable
 public final class KanbanBoardViewModel {
     public let project: Project
     public private(set) var buckets: [KanbanBucket] = []
     public private(set) var loadState: ScreenLoadState<Void> = .idle
-
+    public private(set) var hasSnapshot = false
+    public private(set) var supportsWrites = false
+    public private(set) var isRefreshing = false
     public var isLoading: Bool {
         loadState == .loading
     }
 
-    private let repository: BucketRepositoryProtocol
+    public private(set) var needsProjectSync = false
+
+    private var viewID: Int?
+    private let repository: KanbanBoardRepositoryProtocol
+    private let trigger: SyncTriggering
+    private let synchronization: LocalScreenSync
     private let toastPresenter: ToastPresenting
     private let hapticPresenter: HapticFeedbackPresenting
+    private var loadVersion = 0
+    private var isStarting = false
+    private var isObserving = false
+    private var pendingActions: Set<EntityID> = []
 
     public init(
-        project: Project,
-        repository: BucketRepositoryProtocol,
+        project: Project, repository: KanbanBoardRepositoryProtocol,
+        syncTrigger: SyncTriggering, localData: LocalDataObserving,
         toastPresenter: ToastPresenting,
         hapticPresenter: HapticFeedbackPresenting = NoopHapticFeedback(),
     ) {
         self.project = project
         self.repository = repository
+        self.trigger = syncTrigger
+        self.synchronization = LocalScreenSync(
+            trigger: syncTrigger, localData: localData, toastPresenter: toastPresenter,
+        )
         self.toastPresenter = toastPresenter
         self.hapticPresenter = hapticPresenter
     }
 
-    /// Mirrors `ProjectOverviewViewModel.load()`'s skip-the-spinner-on-refresh
-    /// behavior.
+    public func start() async {
+        guard !isStarting else { return }
+        isStarting = true
+        defer { isStarting = false }
+        await load()
+        guard !Task.isCancelled, !needsProjectSync else { return }
+        await refresh()
+    }
+
+    public func observeLocalChanges() async {
+        guard !isObserving else { return }
+        isObserving = true
+        defer { isObserving = false }
+        await synchronization.observe { await self.load() }
+    }
+
     public func load() async {
-        if loadState != .loaded {
+        loadVersion += 1
+        let version = loadVersion
+        if !hasSnapshot, loadState.failureMessage == nil {
             loadState = .loading
         }
-        // Not reachable until Projects' own offline-create path exists — a
-        // project without a synced id yet has no buckets on the server.
-        guard let projectID = project.id.remoteValue else {
-            loadState = .failure(VikunjaError.notFound.displayMessage)
-            return
-        }
         do {
-            buckets = try await repository.fetchBuckets(projectID: projectID)
-            loadState = .loaded
-        } catch let error as VikunjaError {
-            loadState = .failure(error.displayMessage)
+            let snapshot = try await repository.fetchBoard(projectID: project.id, viewID: viewID)
+            guard version == loadVersion, !Task.isCancelled else { return }
+            switch snapshot {
+            case .waitingForProject, .unavailable:
+                needsProjectSync = snapshot == .waitingForProject
+                hasSnapshot = false
+                supportsWrites = false
+                buckets = []
+                if loadState.failureMessage == nil {
+                    loadState = .loaded
+                }
+            case let .available(board):
+                needsProjectSync = false
+                viewID = board.viewID
+                buckets = board.buckets
+                hasSnapshot = true
+                supportsWrites = board.supportsOfflineWrites
+                loadState = .loaded
+            }
         } catch {
-            loadState = .failure(error.localizedDescription)
+            guard version == loadVersion, !Task.isCancelled else { return }
+            if hasSnapshot {
+                show(error)
+            } else {
+                loadState = .failure(message(error))
+            }
         }
     }
 
-    /// Moves `task` into `bucket`: applies the move locally first, then
-    /// persists it, rolling the whole board back to its prior arrangement if
-    /// the server rejects it — mirrors `ProjectOverviewViewModel.toggleDone`'s
-    /// optimistic-then-rollback pattern. A no-op if `task` is already in
-    /// `bucket` (matches the server's own idempotent handling of a re-sent
-    /// bucket). Plays a success haptic when the move lands in the view's done
-    /// bucket, mirroring `TaskListMutator.persistToggleDone`'s haptic on
-    /// completion.
-    public func moveTask(_ task: VikunjaTask, to bucket: KanbanBucket) async {
-        guard let sourceIndex = buckets.firstIndex(where: { source in source.tasks.contains { $0.id == task.id } }),
-              buckets[sourceIndex].id != bucket.id,
-              let destinationIndex = buckets.firstIndex(where: { $0.id == bucket.id })
-        else { return }
-        // Not reachable until Projects' own offline-create path exists — a
-        // project without a synced id yet can't have tasks moved within it.
-        guard let projectID = project.id.remoteValue, let taskID = task.id.remoteValue else {
-            toastPresenter.show(VikunjaError.notFound.displayMessage, style: .error)
-            return
+    public func refresh() async {
+        guard !isRefreshing, !needsProjectSync else { return }
+        isRefreshing = true
+        if !hasSnapshot {
+            loadState = .loading
         }
-
-        let original = buckets
-        buckets[sourceIndex].tasks.removeAll { $0.id == task.id }
-        buckets[destinationIndex].tasks.append(task)
-
+        defer { isRefreshing = false }
         do {
-            let moved = try await repository.moveTask(taskID: taskID, toBucketID: bucket.id, projectID: projectID)
-            if let index = buckets[destinationIndex].tasks.firstIndex(where: { $0.id == moved.id }) {
-                buckets[destinationIndex].tasks[index] = moved
+            try await trigger.refresh(scope: .kanban(projectID: project.id))
+            guard !Task.isCancelled else { return }
+            // Permit recovery from an initial failure even when the downloaded board is empty.
+            if !hasSnapshot {
+                loadState = .idle
             }
-            if bucket.isDoneBucket {
+            await load()
+        } catch is CancellationError {
+        } catch {
+            guard !Task.isCancelled else { return }
+            await load()
+            if hasSnapshot {
+                show(error)
+            } else {
+                loadState = .failure(message(error))
+            }
+        }
+    }
+
+    public func moveTask(_ task: VikunjaTask, to bucket: KanbanBucket) async {
+        await moveTask(taskID: task.id, to: bucket)
+    }
+
+    func moveTask(taskID: EntityID, to bucket: KanbanBucket) async {
+        let source = buckets.first { $0.tasks.contains { $0.id == taskID } }
+        let previousDone = source?.tasks.first { $0.id == taskID }?.isDone
+        guard supportsWrites, let viewID, source?.id != bucket.id,
+              buckets.contains(where: { $0.id == bucket.id }), pendingActions.insert(taskID).inserted else { return }
+        defer { pendingActions.remove(taskID) }
+        do {
+            let moved = try await repository.moveTask(
+                taskID: taskID,
+                projectID: project.id,
+                viewID: viewID,
+                bucketID: bucket.id,
+            )
+            if previousDone == false, moved.isDone {
                 hapticPresenter.play(.success)
             }
-        } catch {
-            buckets = original
-            toastPresenter.show((error as? VikunjaError)?.displayMessage ?? error.localizedDescription, style: .error)
-        }
+            await load()
+        } catch { show(error) }
     }
 
-    /// Toggles `task`'s completion from its card's checkbox. Kanban's data
-    /// model has no independent "done" flag to flip — a task's completion
-    /// *is* whether it sits in the view's done bucket (dropping it there
-    /// sets `isDone`, and vice versa; see `docs/KANBAN_SUPPORT.md`) — so this
-    /// just moves the task into the done bucket, or into the first
-    /// non-done bucket when un-completing, reusing `moveTask(_:to:)`'s own
-    /// optimistic-with-rollback handling. A no-op if the view has no bucket
-    /// to move into (no done bucket configured, or only a done bucket
-    /// exists).
     public func toggleDone(_ task: VikunjaTask) async {
-        let target = task.isDone
-            ? buckets.first { !$0.isDoneBucket }
-            : buckets.first { $0.isDoneBucket }
+        guard let current = buckets.flatMap(\.tasks).first(where: { $0.id == task.id }) else { return }
+        let target = current.isDone ? buckets.first { !$0.isDoneBucket } : buckets.first { $0.isDoneBucket }
         guard let target else { return }
-        await moveTask(task, to: target)
+        await moveTask(current, to: target)
     }
 
-    /// Creates a task titled `title` directly in `bucket`, appending the
-    /// server's copy to that bucket's tasks on success.
     public func createTask(title: String, in bucket: KanbanBucket) async {
-        guard let index = buckets.firstIndex(where: { $0.id == bucket.id }) else { return }
-        // Not reachable until Projects' own offline-create path exists — a
-        // project without a synced id yet can't have tasks created in it.
-        guard let projectID = project.id.remoteValue else {
-            toastPresenter.show(VikunjaError.notFound.displayMessage, style: .error)
-            return
-        }
+        guard supportsWrites, let viewID, buckets.contains(where: { $0.id == bucket.id }) else { return }
         do {
-            let created = try await repository.createTask(
-                VikunjaTask(id: 0, title: title, projectID: .remote(projectID)),
-                bucketID: bucket.id,
-                projectID: projectID,
+            _ = try await repository.createTask(
+                title: title, projectID: project.id, viewID: viewID, bucketID: bucket.id,
             )
-            buckets[index].tasks.append(created)
-        } catch {
-            toastPresenter.show((error as? VikunjaError)?.displayMessage ?? error.localizedDescription, style: .error)
-        }
+            await load()
+        } catch { show(error) }
+    }
+
+    private func message(_ error: any Error) -> String {
+        (error as? VikunjaError)?.displayMessage ?? error.localizedDescription
+    }
+
+    private func show(_ error: any Error) {
+        toastPresenter.show(message(error), style: (error as? VikunjaError) == .offline ? .info : .error)
     }
 }

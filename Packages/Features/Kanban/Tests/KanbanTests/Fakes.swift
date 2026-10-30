@@ -1,50 +1,109 @@
+import Foundation
 @testable import Kanban
 import VikunjaCore
 
-final class FakeBucketRepository: BucketRepositoryProtocol, @unchecked Sendable {
-    func downloadBoard(projectID: Int, viewID: Int?) async throws -> KanbanDownload {
-        throw VikunjaError.notFound
+@MainActor
+final class FakeBucketRepository: KanbanBoardRepositoryProtocol {
+    func hasCachedKanbanSupport() async throws -> Bool {
+        hasSnapshot
     }
 
     var buckets: [KanbanBucket] = []
     var fetchError: VikunjaError?
     var moveError: VikunjaError?
     var createError: VikunjaError?
-    private(set) var movedTaskIDs: [(taskID: Int, bucketID: Int)] = []
+    var hasSnapshot = true
+    var waitingForProject = false
+    var supportsWrites = true
+    private(set) var movedTaskIDs: [(taskID: EntityID, bucketID: Int)] = []
     private(set) var createdTasks: [(task: VikunjaTask, bucketID: Int)] = []
-    /// What `moveTask`/`createTask` hand back on success — defaults to
-    /// reflecting the requested change, like a real server would.
-    var moveResult: ((Int, Int) -> VikunjaTask)?
-    var createResult: ((VikunjaTask, Int) -> VikunjaTask)?
 
-    func fetchBuckets(projectID: Int) async throws -> [KanbanBucket] {
+    func fetchBoard(projectID: EntityID, viewID: Int?) async throws -> KanbanBoardSnapshot {
         if let fetchError {
             throw fetchError
         }
-        return buckets
+        if waitingForProject {
+            return .waitingForProject
+        }
+        guard hasSnapshot else { return .unavailable }
+        return .available(KanbanBoard(
+            viewID: 7,
+            buckets: buckets,
+            defaultBucketID: buckets.first?.id,
+            supportsOfflineWrites: supportsWrites,
+            lastPulledAt: Date(timeIntervalSince1970: 1_700_000_000),
+        ))
     }
 
-    func moveTask(taskID: Int, toBucketID: Int, projectID: Int, viewID: Int?) async throws -> VikunjaTask {
+    func moveTask(taskID: EntityID, projectID: EntityID, viewID: Int, bucketID: Int) async throws -> VikunjaTask {
         if let moveError {
             throw moveError
         }
-        movedTaskIDs.append((taskID, toBucketID))
-        if let moveResult {
-            return moveResult(taskID, toBucketID)
+        movedTaskIDs.append((taskID, bucketID))
+        guard let source = buckets.firstIndex(where: { $0.tasks.contains { $0.id == taskID } }),
+              let destination = buckets.firstIndex(where: { $0.id == bucketID }),
+              var task = buckets[source].tasks.first(where: { $0.id == taskID }) else { throw VikunjaError.notFound }
+        buckets[source].tasks.removeAll { $0.id == taskID }
+        if buckets[destination].isDoneBucket {
+            task.isDone = true
+        } else if buckets[source].isDoneBucket {
+            task.isDone = false
         }
-        let task = buckets.flatMap(\.tasks).first { $0.id.remoteValue == taskID }
-        return task ?? VikunjaTask(id: .remote(taskID), title: "", projectID: .remote(projectID))
+        buckets[destination].tasks.append(task)
+        return task
     }
 
-    func createTask(_ task: VikunjaTask, bucketID: Int, projectID: Int) async throws -> VikunjaTask {
+    func createTask(title: String, projectID: EntityID, viewID: Int, bucketID: Int) async throws -> VikunjaTask {
         if let createError {
             throw createError
         }
+        guard let destination = buckets.firstIndex(where: { $0.id == bucketID }) else { throw VikunjaError.notFound }
+        let task = VikunjaTask(
+            id: .local(UUID()),
+            title: title,
+            isDone: buckets[destination].isDoneBucket,
+            projectID: projectID,
+        )
         createdTasks.append((task, bucketID))
-        if let createResult {
-            return createResult(task, bucketID)
+        buckets[destination].tasks.append(task)
+        return task
+    }
+}
+
+@MainActor
+final class TestScreenSync: SyncTriggering, LocalDataObserving {
+    var refreshError: VikunjaError?
+    var onRefresh: (() async throws -> Void)?
+    private(set) var scopes: [SyncScope] = []
+    private(set) var subscriptions = 0
+    private(set) var terminations = 0
+    private var continuation: AsyncThrowingStream<Void, Error>.Continuation?
+    func hasInitialSnapshot() async throws -> Bool {
+        true
+    }
+
+    func prepare() async throws {}
+    func refresh(scope: SyncScope) async throws {
+        scopes.append(scope)
+        try await onRefresh?()
+        if let refreshError {
+            throw refreshError
         }
-        return VikunjaTask(id: 99, title: task.title, projectID: .remote(projectID))
+    }
+
+    func localChanges() async -> AsyncThrowingStream<Void, Error> {
+        subscriptions += 1
+        return AsyncThrowingStream { continuation in
+            self.continuation = continuation
+            continuation.yield(())
+            continuation.onTermination = { [weak self] _ in
+                Task { @MainActor in self?.terminations += 1 }
+            }
+        }
+    }
+
+    func invalidate() {
+        continuation?.yield(())
     }
 }
 

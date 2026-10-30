@@ -101,10 +101,8 @@ struct ProjectOverviewViewModelTests {
     }
 
     @Test
-    func `load keeps supports kanban true for A saved filter when the server supports api v2`() async {
-        // Saved filters (negative ids other than -1) are real server-side
-        // resources and do have their own /views, unlike Favorites - only
-        // Favorites should lose the switcher.
+    func `saved filters use List in the first local Kanban release`() async {
+        // Cross-project filter membership is outside the first local board contract.
         let capabilityProvider = FakeCapabilityProvider()
         capabilityProvider.supportedFeatures = [.apiV2]
         let viewModel = ProjectOverviewViewModel(
@@ -122,7 +120,35 @@ struct ProjectOverviewViewModelTests {
 
         await viewModel.load()
 
-        #expect(viewModel.supportsKanban == true)
+        #expect(viewModel.supportsKanban == false)
+    }
+
+    @Test
+    func `cached board keeps Kanban available without a successful capability request`() async {
+        let viewModel = ProjectOverviewViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
+            project: Project(id: 1, title: "Work"), repository: FakeTaskRepository(),
+            projectRepository: FakeProjectRepository(), labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(), filterRepository: FakeFilterRepository(),
+            kanbanRepository: CachedKanbanRepository(), toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
+        )
+        await viewModel.load()
+        #expect(viewModel.supportsKanban)
+    }
+
+    @Test(arguments: [EntityID.remote(2), EntityID.local(UUID())])
+    func `account proof enables the switcher for an unopened or unsynced project`(projectID: EntityID) async {
+        let viewModel = ProjectOverviewViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
+            project: Project(id: projectID, title: "New project"), repository: FakeTaskRepository(),
+            projectRepository: FakeProjectRepository(), labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(), filterRepository: FakeFilterRepository(),
+            kanbanRepository: CachedKanbanRepository(), toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(),
+        )
+        await viewModel.load()
+        #expect(viewModel.supportsKanban)
     }
 
     @Test
@@ -1139,5 +1165,30 @@ struct ProjectOverviewViewModelTests {
 
         #expect(viewModel.savedFilterQuery == nil)
         #expect(viewModel.loadState == .loaded)
+    }
+}
+
+private struct CachedKanbanRepository: KanbanBoardRepositoryProtocol {
+    func hasCachedKanbanSupport() async throws -> Bool {
+        true
+    }
+
+    func fetchBoard(projectID: EntityID, viewID: Int?) async throws -> KanbanBoardSnapshot {
+        guard projectID == .remote(1) else { return .unavailable }
+        return .available(KanbanBoard(
+            viewID: 10,
+            buckets: [],
+            defaultBucketID: nil,
+            supportsOfflineWrites: true,
+            lastPulledAt: Date(timeIntervalSince1970: 1_700_000_000),
+        ))
+    }
+
+    func createTask(title: String, projectID: EntityID, viewID: Int, bucketID: Int) async throws -> VikunjaTask {
+        throw VikunjaError.notFound
+    }
+
+    func moveTask(taskID: EntityID, projectID: EntityID, viewID: Int, bucketID: Int) async throws -> VikunjaTask {
+        throw VikunjaError.notFound
     }
 }
