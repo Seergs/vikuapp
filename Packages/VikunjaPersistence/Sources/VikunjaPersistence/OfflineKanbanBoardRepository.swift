@@ -13,6 +13,21 @@ public struct OfflineKanbanBoardRepository: KanbanBoardRepositoryProtocol {
         self.syncRequester = syncRequester
     }
 
+    public func moveTask(
+        taskID: EntityID, projectID: EntityID, viewID: Int, bucketID: Int,
+    ) async throws -> VikunjaTask {
+        let (task, changed) = try await localStore.write { db in
+            try KanbanLocalMutations.move(
+                .init(taskID: taskID, projectID: projectID, viewID: viewID, bucketID: bucketID),
+                accountID: accountID, db: db,
+            )
+        }
+        if changed {
+            await syncRequester.requestSync()
+        }
+        return task
+    }
+
     public func createTask(
         title: String, projectID: EntityID, viewID: Int, bucketID: Int,
     ) async throws -> VikunjaTask {

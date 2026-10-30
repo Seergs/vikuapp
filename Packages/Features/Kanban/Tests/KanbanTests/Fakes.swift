@@ -24,7 +24,7 @@ final class FakeBucketRepository: BucketRepositoryProtocol, @unchecked Sendable 
         return buckets
     }
 
-    func moveTask(taskID: Int, toBucketID: Int, projectID: Int) async throws -> VikunjaTask {
+    func moveTask(taskID: Int, toBucketID: Int, projectID: Int, viewID: Int?) async throws -> VikunjaTask {
         if let moveError {
             throw moveError
         }

@@ -111,6 +111,12 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
             guard let projectLocalID = Self.resolveProjectLocalID(matching: task.projectID, in: projectRows) else {
                 throw VikunjaError.notFound
             }
+            if row.projectLocalID != projectLocalID {
+                try MutationQueueRecord.filter(Column("targetLocalID") == row.localID)
+                    .filter(Column("operation") == MutationOperation.moveBucket.rawValue)
+                    .filter(Column("status") != MutationStatus.inFlight.rawValue).deleteAll(db)
+            }
+            let completionChanged = row.isDone != task.isDone
             row.title = task.title
             row.description = task.description
             row.isDone = task.isDone
@@ -118,6 +124,9 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
             row.priority = task.priority.rawValue
             row.projectLocalID = projectLocalID
             try row.save(db)
+            if completionChanged {
+                try KanbanLocalMutations.applyCompletion(row, db: db)
+            }
             try TaskReminderRecord.replace(
                 for: row.localID, accountID: self.accountID, reminders: task.reminders, db: db,
             )
@@ -429,7 +438,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
                 }
             case .removeLabel:
                 labels.removeAll { $0.id == labelID }
-            case .create, .update, .delete, .addRelation, .removeRelation:
+            case .create, .update, .delete, .addRelation, .removeRelation, .moveBucket:
                 break
             }
         }
@@ -517,7 +526,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
                 relationsByKind[mutation.kind] = relations
             case .removeRelation:
                 relationsByKind[mutation.kind]?.removeAll { $0.id == otherID }
-            case .create, .update, .delete, .addLabel, .removeLabel:
+            case .create, .update, .delete, .addLabel, .removeLabel, .moveBucket:
                 break
             }
         }

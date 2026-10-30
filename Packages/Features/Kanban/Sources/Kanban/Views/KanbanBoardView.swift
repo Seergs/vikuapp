@@ -163,7 +163,7 @@ private final class PreviewBucketRepository: @unchecked Sendable, BucketReposito
         ]
     }
 
-    func moveTask(taskID: Int, toBucketID _: Int, projectID: Int) async throws -> VikunjaTask {
+    func moveTask(taskID: Int, toBucketID _: Int, projectID: Int, viewID _: Int?) async throws -> VikunjaTask {
         VikunjaTask(id: .remote(taskID), title: "", projectID: .remote(projectID))
     }
 

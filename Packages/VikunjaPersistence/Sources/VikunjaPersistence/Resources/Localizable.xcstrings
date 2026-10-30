@@ -64,6 +64,54 @@
           }
         }
       }
+    },
+    "Move rejected. Check column capacity and access, then choose another column.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move rejected. Check column capacity and access, then choose another column."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Movimiento rechazado. Revisa la capacidad y el acceso de la columna y elige otra."
+          }
+        }
+      }
+    },
+    "The server placement changed. Check the server, then choose another column.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server placement changed. Check the server, then choose another column."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La posición cambió en el servidor. Revisa el servidor y elige otra columna."
+          }
+        }
+      }
+    },
+    "Move unconfirmed. Check the server before choosing another column.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move unconfirmed. Check the server before choosing another column."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Movimiento sin confirmar. Revisa el servidor antes de elegir otra columna."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -12,6 +12,7 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     var fetchErrorsByProjectID: [Int: Error] = [:]
     var createError: Error?
     var updateError: Error?
+    var updateResponse: VikunjaTask?
     var deleteError: Error?
     var searchError: Error?
     private(set) var createdTasks: [VikunjaTask] = []
@@ -75,7 +76,7 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
             throw updateError
         }
         updatedTasks.append(task)
-        var updated = task
+        var updated = updateResponse ?? task
         updated.updated = Date()
         if let index = tasks.firstIndex(where: { $0.id == task.id }) {
             tasks[index] = updated

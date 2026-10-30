@@ -28,11 +28,13 @@ extension VikunjaEndpoints {
     /// moving into a bucket already at its WIP limit is rejected with 412.
     /// Verified against a real instance's `/api/v2/openapi.json`.
     static func moveTaskToBucketV2(projectID: Int, viewID: Int, bucketID: Int, taskID: Int) throws -> Endpoint {
-        try .encoding(
+        var endpoint = try Endpoint.encoding(
             path: "/api/v2/projects/\(projectID)/views/\(viewID)/buckets/\(bucketID)/tasks",
             method: .put,
             body: MoveTaskToBucketRequestDTO(taskId: taskID),
         )
+        endpoint.allowsAutomaticRetry = false
+        return endpoint
     }
 
     /// Creates a task directly in `bucketID` via the regular task-create
