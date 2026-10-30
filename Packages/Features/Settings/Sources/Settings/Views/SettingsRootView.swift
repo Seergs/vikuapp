@@ -26,6 +26,7 @@ public struct SettingsRootView: View {
     private let makeManageLabelsViewModel: () -> ManageLabelsViewModel
     private let makePendingSyncViewModel: () -> PendingSyncViewModel
     private let makeNotificationsViewModel: () -> NotificationsViewModel
+    @State private var pendingSyncViewModel: PendingSyncViewModel
     /// Built once in `init`, not lazily like `notificationsViewModelCache` —
     /// unlike Notifications, the badge toggle lives directly on this
     /// landing screen, so its view model needs to exist from the start.
@@ -89,6 +90,7 @@ public struct SettingsRootView: View {
         self.makeManageLabelsViewModel = makeManageLabelsViewModel
         self.makePendingSyncViewModel = makePendingSyncViewModel
         self.makeNotificationsViewModel = makeNotificationsViewModel
+        self._pendingSyncViewModel = State(initialValue: makePendingSyncViewModel())
         self._badgeViewModel = State(initialValue: makeAppIconBadgeViewModel())
         self._groupOverdueNotificationsViewModel = State(initialValue: makeGroupOverdueNotificationsViewModel())
         self._defaultProjectViewModel = State(initialValue: makeDefaultProjectSettingsViewModel())
@@ -119,6 +121,7 @@ public struct SettingsRootView: View {
                 themeStore: themeStore,
                 quickAddSyntaxStore: quickAddSyntaxStore,
                 badgeViewModel: badgeViewModel,
+                pendingSyncViewModel: pendingSyncViewModel,
                 groupOverdueNotificationsViewModel: groupOverdueNotificationsViewModel,
                 defaultProjectViewModel: defaultProjectViewModel,
                 homeSelectionViewModel: homeSelectionViewModel,

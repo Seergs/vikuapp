@@ -6,6 +6,18 @@ import VikunjaCore
 private final class FakePendingSyncOperationsProvider: PendingSyncOperationsProviding, @unchecked Sendable {
     var snapshots: [[PendingSyncOperation]] = []
     var error: Error?
+    #if DEBUG
+    var clearError: Error?
+    private(set) var clearedAccountIDs: [UUID] = []
+
+    func clearPendingSyncQueue(accountID: UUID) async throws {
+        clearedAccountIDs.append(accountID)
+        if let clearError {
+            throw clearError
+        }
+    }
+    #endif
+
     var discardError: Error?
     private(set) var discardedIDs: [(id: Int64, accountID: UUID)] = []
 
@@ -52,6 +64,39 @@ struct PendingSyncViewModelTests {
             needsConflictResolution: needsConflictResolution,
         )
     }
+
+    #if DEBUG
+    @Test
+    func `clearing the queue targets the active account and reports success`() async {
+        let provider = FakePendingSyncOperationsProvider()
+        let toast = FakeToastPresenter()
+        let accountID = UUID()
+        let viewModel = PendingSyncViewModel(provider: provider, accountID: accountID, toastPresenter: toast)
+
+        await viewModel.clearQueue()
+
+        #expect(provider.clearedAccountIDs == [accountID])
+        #expect(toast.shownMessages.contains { $0.style == .success })
+        #expect(!viewModel.isClearingQueue)
+    }
+
+    @Test
+    func `a queue clear failure reports an error and allows retry`() async {
+        let provider = FakePendingSyncOperationsProvider()
+        provider.clearError = VikunjaError.network("offline")
+        let toast = FakeToastPresenter()
+        let viewModel = PendingSyncViewModel(provider: provider, accountID: UUID(), toastPresenter: toast)
+
+        await viewModel.clearQueue()
+
+        #expect(toast.shownMessages.contains { $0.style == .error })
+        #expect(!viewModel.isClearingQueue)
+        provider.clearError = nil
+        await viewModel.clearQueue()
+        #expect(provider.clearedAccountIDs.count == 2)
+        #expect(toast.shownMessages.last?.style == .success)
+    }
+    #endif
 
     @Test
     func `loads the latest snapshot`() async {

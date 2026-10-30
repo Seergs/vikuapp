@@ -107,6 +107,47 @@ struct PendingSyncOperationsReaderTests {
         )
     }
 
+    #if DEBUG
+    @Test
+    func `clearing removes every queue status only for the requested account and preserves cached data`() async throws {
+        let store = try makeStore()
+        let accountID = UUID()
+        let otherAccountID = UUID()
+        let projectID = UUID()
+        try await store.write { db in
+            try projectRecord(localID: projectID, accountID: accountID).insert(db)
+            for status: MutationStatus in [.pending, .failed, .inFlight] {
+                var item = mutation(
+                    entityType: .project, operation: .update, targetLocalID: projectID,
+                    accountID: accountID, status: status,
+                )
+                try item.insert(db)
+            }
+            var conflict = mutation(
+                entityType: .project, operation: .create, targetLocalID: projectID,
+                accountID: accountID, needsConflictResolution: true,
+            )
+            try conflict.insert(db)
+            var other = mutation(
+                entityType: .task, operation: .delete, targetLocalID: UUID(), accountID: otherAccountID,
+            )
+            try other.insert(db)
+        }
+        let updates = await store.observePendingSyncOperations(accountID: accountID)
+        var iterator = updates.makeAsyncIterator()
+        #expect(try await iterator.next()?.count == 4)
+
+        try await store.clearPendingSyncQueue(accountID: accountID)
+
+        #expect(try await iterator.next()?.isEmpty == true)
+        #expect(try await store.pendingSyncOperations(accountID: accountID).isEmpty)
+        #expect(try await store.pendingSyncOperations(accountID: otherAccountID).count == 1)
+        #expect(try await store.read { db in try ProjectRecord.fetchOne(db, key: projectID) } != nil)
+        // Clearing an already empty queue is harmless.
+        try await store.clearPendingSyncQueue(accountID: accountID)
+    }
+    #endif
+
     @Test
     func `an empty queue yields no operations`() async throws {
         let store = try makeStore()
