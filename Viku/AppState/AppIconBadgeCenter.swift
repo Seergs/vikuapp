@@ -22,7 +22,13 @@ final class AppIconBadgeCenter: AppIconBadgeStoring {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        self.isEnabled = defaults.bool(forKey: Self.defaultsKey)
+        let enabled = defaults.bool(forKey: Self.defaultsKey)
+        self.isEnabled = enabled
+        // iOS persists the last badge independently of our preference. Apply
+        // the disabled state even on launches that never load widget data.
+        if !enabled {
+            Task { await clearBadgeIfDisabled() }
+        }
     }
 
     /// Turning it off clears the icon immediately rather than leaving the
@@ -31,19 +37,32 @@ final class AppIconBadgeCenter: AppIconBadgeStoring {
         isEnabled = enabled
         defaults.set(enabled, forKey: Self.defaultsKey)
         if !enabled {
-            Task { try? await UNUserNotificationCenter.current().setBadgeCount(0) }
+            Task { await clearBadgeIfDisabled() }
         }
     }
 
     /// `state` is whatever `TodaySnapshotLoader.loadState()` just produced —
     /// overdue-plus-due-today (`TodayWidgetContent.pendingCount`) becomes the
-    /// icon's number. A no-op when the preference is off, or when there's no
-    /// fresh content to show (`.notConnected`/`.needsAuth`/`.unavailable`
-    /// leave whatever count was already showing in place, rather than
-    /// clearing it on a merely transient failure).
+    /// icon's number. Clears the badge when the preference is off. Otherwise,
+    /// states without content (`.notConnected`/`.needsAuth`/`.unavailable`)
+    /// preserve the previous count through transient failures.
     func updateBadge(from state: TodayWidgetState) async {
-        guard isEnabled else { return }
+        guard isEnabled else {
+            await clearBadgeIfDisabled()
+            return
+        }
         guard case let .content(content) = state else { return }
-        try? await UNUserNotificationCenter.current().setBadgeCount(content.pendingCount)
+        await writeBadgeCount(content.pendingCount)
+    }
+
+    private func clearBadgeIfDisabled() async {
+        // The preference may have changed since this task was scheduled.
+        guard !isEnabled else { return }
+        await writeBadgeCount(0, expectedEnabled: false)
+    }
+
+    private func writeBadgeCount(_ count: Int, expectedEnabled: Bool = true) async {
+        guard isEnabled == expectedEnabled else { return }
+        try? await UNUserNotificationCenter.current().setBadgeCount(count)
     }
 }
