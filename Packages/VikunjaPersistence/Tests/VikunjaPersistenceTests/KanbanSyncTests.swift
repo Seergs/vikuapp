@@ -116,7 +116,9 @@ struct KanbanSyncTests {
         _ = try await project(store, accountID: accountID)
         let remote = KanbanDownloadFake(board([VikunjaTask(id: 100, title: "Server", projectID: 1)]))
         let sync = engine(store, accountID: accountID, remote: remote)
-        let repository = OfflineKanbanBoardRepository(localStore: store, accountID: accountID)
+        let repository = OfflineKanbanBoardRepository(
+            localStore: store, accountID: accountID, syncRequester: NoopKanbanSyncRequester(),
+        )
         try await sync.pullKanban(projectID: .remote(1))
         let original = try await repository.fetchBoard(projectID: .remote(1), viewID: 10)
         await remote.fail()
@@ -224,7 +226,9 @@ struct KanbanSyncTests {
             try mutation.insert(db)
         }
         try await sync.pullKanban(projectID: .remote(1))
-        let repository = OfflineKanbanBoardRepository(localStore: store, accountID: accountID)
+        let repository = OfflineKanbanBoardRepository(
+            localStore: store, accountID: accountID, syncRequester: NoopKanbanSyncRequester(),
+        )
         guard case let .available(snapshot) = try await repository.fetchBoard(projectID: .remote(1), viewID: 10) else {
             Issue.record("Missing board"); return
         }

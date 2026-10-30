@@ -96,7 +96,7 @@ final class VikunjaBucketRepository: BucketRepositoryProtocol {
         let endpoint = try VikunjaEndpoints.createTaskInBucketV2(
             projectID: projectID,
             bucketID: bucketID,
-            title: task.title,
+            task: task,
         )
         let dto: TaskDTO = try await client.send(endpoint)
         return TaskMapper.toDomain(dto)

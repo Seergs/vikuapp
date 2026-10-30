@@ -52,7 +52,7 @@ public final class PendingSyncViewModel {
     /// Conflict items can never drain, so removing one is only queue cleanup.
     /// The live observation removes the row from the list once it's gone.
     public func discard(_ operation: PendingSyncOperation) async {
-        guard operation.needsConflictResolution else { return }
+        guard operation.needsConflictResolution, operation.failureMessage == nil else { return }
 
         do {
             try await provider.discardConflictedPendingSyncOperation(

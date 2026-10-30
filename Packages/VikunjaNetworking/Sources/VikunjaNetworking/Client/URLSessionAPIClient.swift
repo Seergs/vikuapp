@@ -98,7 +98,9 @@ public actor URLSessionAPIClient: APIClient {
             do {
                 return try await attemptRequest(endpoint)
             } catch let failure as RetryableFailure {
-                guard attempt < retryPolicy.maxAttempts - 1 else { throw failure.underlying }
+                guard endpoint.allowsAutomaticRetry, attempt < retryPolicy.maxAttempts - 1 else {
+                    throw failure.underlying
+                }
                 try await delayer.sleep(for: retryPolicy.delay(forAttempt: attempt, retryAfter: failure.retryAfter))
                 attempt += 1
             }

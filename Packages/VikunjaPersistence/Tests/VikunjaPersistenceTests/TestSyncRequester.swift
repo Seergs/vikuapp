@@ -17,3 +17,7 @@ struct TestSyncRequester: SyncRequesting {
         try? await engine.drainCommentMutations()
     }
 }
+
+struct NoopKanbanSyncRequester: SyncRequesting {
+    func requestSync() async {}
+}

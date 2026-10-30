@@ -536,15 +536,29 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
     }
 
     private static func enqueueOrCoalesce(context: EnqueueContext, db: Database) throws {
-        let encoded = try Self.encode(context.payload)
+        var encoded = try Self.encode(context.payload)
         let existing = try MutationQueueRecord.fetchAll(db).first {
             $0.accountID == context.accountID && $0.entityType == .task && $0.targetLocalID == context.targetLocalID
-                && ($0.status == .pending || $0.status == .failed) && $0.operation == context.operation
+                && ($0.status == .pending || $0.status == .failed
+                    || (context.operation == .create && $0.status == .inFlight)) && $0.operation == context.operation
         }
         if var existing {
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let previous = try existing.payload.map {
+                try decoder.decode(TaskCreateOrUpdatePayload.self, from: Data($0.utf8))
+            }
+            let kanbanCreate = context.operation == .create && previous?.kanbanDestination != nil
+            if kanbanCreate {
+                var updated = try decoder.decode(TaskCreateOrUpdatePayload.self, from: Data(encoded.utf8))
+                updated.kanbanDestination = previous?.kanbanDestination
+                encoded = try Self.encode(updated)
+            }
             existing.payload = encoded
-            existing.status = .pending
-            existing.needsConflictResolution = false
+            if !kanbanCreate || (existing.status != .inFlight && !existing.needsConflictResolution) {
+                existing.status = .pending
+                existing.needsConflictResolution = false
+            }
             existing.baseUpdatedAt = context.baseUpdatedAt
             try existing.update(db)
         } else {

@@ -2021,7 +2021,9 @@ struct URLSessionAPIClientTests {
         let repository = VikunjaBucketRepository(client: client)
 
         let created = try await repository.createTask(
-            VikunjaTask(id: 0, title: "New card", projectID: 6),
+            VikunjaTask(
+                id: 0, title: "New card", description: "Edited offline", isDone: true, priority: .high, projectID: 6,
+            ),
             bucketID: 20,
             projectID: 6,
         )
@@ -2038,6 +2040,23 @@ struct URLSessionAPIClientTests {
         let sentJSON = try #require(JSONSerialization.jsonObject(with: sentBody) as? [String: Any])
         #expect(sentJSON["title"] as? String == "New card")
         #expect(sentJSON["bucket_id"] as? Int == 20)
+        #expect(sentJSON["description"] as? String == "Edited offline")
+        #expect(sentJSON["done"] as? Bool == true)
+        #expect(sentJSON["priority"] as? Int == 3)
+    }
+
+    @Test
+    func `kanban creation does not automatically repeat a potentially accepted POST`() async throws {
+        let (session, capture) = try MockURLProtocol.makeSession(responses: [
+            (503, "Temporary failure"), (201, Self.fixture("task")),
+        ])
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        await #expect(throws: VikunjaError.self) {
+            try await VikunjaBucketRepository(client: client).createTask(
+                VikunjaTask(id: 0, title: "Once", projectID: 6), bucketID: 20, projectID: 6,
+            )
+        }
+        #expect(await capture.requests.count == 1)
     }
 
     // MARK: - Retry/backoff

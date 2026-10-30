@@ -3,11 +3,16 @@
 /// against a real instance's `/api/v2/openapi.json`), so the task lands
 /// directly in the target bucket without a separate move call.
 struct CreateTaskInBucketDTO: Encodable {
-    let title: String
+    let task: TaskDTO
     let bucketId: Int
 
     enum CodingKeys: String, CodingKey {
-        case title
         case bucketId = "bucket_id"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        try task.encode(to: encoder)
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(bucketId, forKey: .bucketId)
     }
 }

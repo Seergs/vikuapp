@@ -36,6 +36,7 @@ public struct PendingSyncOperation: Identifiable, Hashable, Sendable {
     /// distinct "Conflict" label because it needs a person to resolve it
     /// rather than just waiting for a retry.
     public let needsConflictResolution: Bool
+    public let failureMessage: String?
 
     public init(
         id: Int64,
@@ -45,6 +46,7 @@ public struct PendingSyncOperation: Identifiable, Hashable, Sendable {
         createdAt: Date,
         status: SyncItemStatus,
         needsConflictResolution: Bool,
+        failureMessage: String? = nil,
     ) {
         self.id = id
         self.entity = entity
@@ -53,5 +55,6 @@ public struct PendingSyncOperation: Identifiable, Hashable, Sendable {
         self.createdAt = createdAt
         self.status = status
         self.needsConflictResolution = needsConflictResolution
+        self.failureMessage = failureMessage
     }
 }
