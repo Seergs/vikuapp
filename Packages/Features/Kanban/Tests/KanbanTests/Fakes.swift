@@ -2,6 +2,10 @@
 import VikunjaCore
 
 final class FakeBucketRepository: BucketRepositoryProtocol, @unchecked Sendable {
+    func downloadBoard(projectID: Int, viewID: Int?) async throws -> KanbanDownload {
+        throw VikunjaError.notFound
+    }
+
     var buckets: [KanbanBucket] = []
     var fetchError: VikunjaError?
     var moveError: VikunjaError?

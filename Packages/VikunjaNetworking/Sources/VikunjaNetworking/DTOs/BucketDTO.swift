@@ -3,11 +3,22 @@
 /// against a real instance's `/api/v2/openapi.json` (`Bucket`). Has no
 /// `is_done_bucket` field — see `ProjectViewDTO.doneBucketId`.
 struct BucketDTO: Decodable {
+    let projectViewID: Int?
+    let position: Double?
     let id: Int
     let title: String
     let limit: Int
     let count: Int?
     let tasks: [TaskDTO]?
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case limit
+        case count
+        case tasks
+        case position
+        case projectViewID = "project_view_id"
+    }
 }
 
 /// `/api/v2/projects/{id}/views/{view}/buckets/tasks`'s response envelope.
@@ -23,6 +34,11 @@ struct BucketsWithTasksResponseDTO: Decodable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        guard container.contains(.items) else {
+            throw DecodingError.keyNotFound(CodingKeys.items, .init(
+                codingPath: decoder.codingPath, debugDescription: "Missing Kanban items envelope",
+            ))
+        }
         self.items = try container.decodeIfPresent([BucketDTO].self, forKey: .items) ?? []
     }
 

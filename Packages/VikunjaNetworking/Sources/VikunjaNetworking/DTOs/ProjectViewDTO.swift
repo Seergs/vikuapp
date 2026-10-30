@@ -3,6 +3,9 @@
 /// are modeled — verified against a real instance's `/api/v2/openapi.json`
 /// (`ProjectView`).
 struct ProjectViewDTO: Decodable {
+    let bucketConfigurationMode: String?
+    let filter: JSONValue?
+    let defaultBucketId: Int?
     let id: Int
     let viewKind: String
     /// The id of the view's done bucket, if one is configured. Vikunja v2
@@ -11,6 +14,9 @@ struct ProjectViewDTO: Decodable {
     let doneBucketId: Int?
 
     enum CodingKeys: String, CodingKey {
+        case bucketConfigurationMode = "bucket_configuration_mode"
+        case filter
+        case defaultBucketId = "default_bucket_id"
         case id
         case viewKind = "view_kind"
         case doneBucketId = "done_bucket_id"

@@ -38,6 +38,9 @@ private actor FakeAccountStore: AccountStoreProtocol {
 /// what `SyncCoordinator` did with it. Every other `make*Repository` is
 /// unused by these tests.
 private final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @unchecked Sendable {
+    let boardRepository = KanbanDownloadFake(KanbanDownload(
+        viewID: 10, mode: "manual", filterQuery: "", defaultBucketID: nil, doneBucketID: nil, buckets: [],
+    ))
     private var repositoriesByBaseURL: [URL: FakeProjectRepository] = [:]
     /// Captured, not invoked — lets a test check which `tokenProvider`
     /// `SyncCoordinator` actually threaded through for a given account's
@@ -83,7 +86,7 @@ private final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @u
     }
 
     func makeCapabilityProvider(baseURL: URL) -> CapabilityProvider {
-        fatalError("not used by SyncCoordinatorTests")
+        KanbanCapabilities()
     }
 
     func makeAuthService(baseURL: URL) -> AuthServiceProtocol {
@@ -142,7 +145,7 @@ private final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @u
         baseURL: URL,
         tokenProvider: @escaping @Sendable () async throws -> String?,
     ) -> BucketRepositoryProtocol {
-        fatalError("not used by SyncCoordinatorTests")
+        boardRepository
     }
 
     func makeWebhookRepository(
@@ -227,6 +230,43 @@ struct SyncCoordinatorTests {
         await waitUntil { await reachability.hasSubscriber }
         await reachability.finish()
         await coordinator.stop()
+    }
+
+    @Test func `overlapping board refreshes share one download`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let accountStore = FakeAccountStore()
+        let factory = FakeInstanceClientFactory()
+        let account = try makeAccount(host: "kanban.example.com")
+        try await accountStore.addAccount(account, token: "test")
+        try await store.write { db in
+            try ProjectRecord(
+                localID: UUID(),
+                accountID: account.id,
+                remoteID: 1,
+                title: "Work",
+                description: nil,
+                isArchived: false,
+                isFavorite: false,
+                parentProjectLocalID: nil,
+                position: 0,
+                hexColor: "",
+                serverUpdatedAt: nil,
+            ).insert(db)
+        }
+        let coordinator = SyncCoordinator(
+            localStore: store,
+            accountStore: accountStore,
+            clientFactory: factory,
+            reachability: FakeReachabilityMonitor(),
+            tokenProvider: { _ in { nil } },
+        )
+        await factory.boardRepository.slowDown()
+        let first = Task { try await coordinator.refresh(accountID: account.id, scope: .kanban(projectID: .remote(1))) }
+        await waitUntil { await factory.boardRepository.calls == 1 }
+        try await coordinator.refresh(accountID: account.id, scope: .kanban(projectID: .remote(1)))
+        try await first.value
+        #expect(await factory.boardRepository.calls == 1)
+        #expect(factory.projectRepository(for: account.baseURL).fetchProjectsCallCount == 0)
     }
 
     @Test

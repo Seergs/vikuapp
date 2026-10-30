@@ -9,8 +9,8 @@ extension VikunjaEndpoints {
     /// `view_kind`. Verified against a real instance's
     /// `/api/v2/openapi.json`: unlike `buckets/tasks` below, this list *is*
     /// the standard paginated envelope.
-    static func projectViewsV2(projectID: Int) -> Endpoint {
-        Endpoint(path: "/api/v2/projects/\(projectID)/views")
+    static func projectViewsV2(projectID: Int, page: Int = 1) -> Endpoint {
+        Endpoint(path: "/api/v2/projects/\(projectID)/views", queryItems: [URLQueryItem(name: "page", value: String(page))])
     }
 
     /// Returns every bucket of the given view, each populated with its

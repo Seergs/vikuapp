@@ -10,6 +10,7 @@ public protocol SyncTriggering: Sendable {
 }
 
 public enum SyncScope: Hashable, Sendable {
+    case kanban(projectID: EntityID)
     case account
     /// Also refresh the task's comment thread; attachments remain online-only.
     case task(EntityID)
@@ -19,13 +20,20 @@ public enum SyncScope: Hashable, Sendable {
     public var includesAccount: Bool {
         switch self {
         case .account, .task: true
-        case .comments: false
+        case .comments, .kanban: false
         }
+    }
+
+    public var kanbanProjectID: EntityID? {
+        if case let .kanban(id) = self {
+            return id
+        }
+        return nil
     }
 
     public var commentTaskID: EntityID? {
         switch self {
-        case .account: nil
+        case .account, .kanban: nil
         case let .task(id), let .comments(id): id
         }
     }
