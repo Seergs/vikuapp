@@ -99,6 +99,43 @@ struct PendingSyncViewModelTests {
     #endif
 
     @Test
+    func `the real queue drains without waiting for presentation`() async {
+        let provider = FakePendingSyncOperationsProvider()
+        let entries = (1 ... 10).map { operation(id: Int64($0)) }
+        provider.snapshots = [entries, []]
+        let viewModel = PendingSyncViewModel(
+            provider: provider, accountID: UUID(), toastPresenter: FakeToastPresenter(),
+        )
+
+        await viewModel.observe()
+
+        #expect(viewModel.operations.isEmpty)
+        #expect(viewModel.presentation.operations == entries)
+        #expect(viewModel.presentation.nextUpdate != nil)
+        #expect(viewModel.loadState == .loaded)
+    }
+
+    @Test
+    func `cancelling a scheduled animation preserves rows until observation restarts`() async {
+        let provider = FakePendingSyncOperationsProvider()
+        let entry = operation()
+        provider.snapshots = [[entry], []]
+        let viewModel = PendingSyncViewModel(
+            provider: provider, accountID: UUID(), toastPresenter: FakeToastPresenter(),
+        )
+        await viewModel.observe()
+        let animation = Task { await viewModel.advancePresentation() }
+        animation.cancel()
+        await animation.value
+
+        #expect(viewModel.presentation.operations == [entry])
+        provider.snapshots = [[]]
+        await viewModel.observe()
+        #expect(viewModel.presentation.operations.isEmpty)
+        #expect(viewModel.presentation.nextUpdate == nil)
+    }
+
+    @Test
     func `loads the latest snapshot`() async {
         let provider = FakePendingSyncOperationsProvider()
         let entry = operation()

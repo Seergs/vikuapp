@@ -10,8 +10,11 @@ import VikuUI
 struct PendingSyncView: View {
     @State private var viewModel: PendingSyncViewModel
     @State private var reloadID = 0
+    @State private var showsLoadingIndicator = false
+    @State private var loadingIndicatorShownAt: ContinuousClock.Instant?
     @State private var pendingConflictRemoval: PendingSyncOperation?
     @Environment(\.vikuPalette) private var palette
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(makeViewModel: @escaping () -> PendingSyncViewModel) {
         _viewModel = State(initialValue: makeViewModel())
@@ -19,6 +22,8 @@ struct PendingSyncView: View {
 
     var body: some View {
         content
+            .animation(rowAnimation, value: viewModel.presentation.operations)
+            .animation(.easeInOut(duration: 0.3), value: showsLoadingIndicator)
             .scrollContentBackground(.hidden)
             .background(palette.pageBackground)
             .navigationTitle(Text("Pending Sync", bundle: .module))
@@ -27,6 +32,13 @@ struct PendingSyncView: View {
             #endif
             .task(id: reloadID) {
                 await viewModel.observe()
+            }
+            .task(id: nextPresentationUpdate) {
+                guard nextPresentationUpdate != nil else { return }
+                await viewModel.advancePresentation()
+            }
+            .task(id: viewModel.loadState.isLoading) {
+                await updateLoadingIndicator()
             }
             .confirmationDialog(
                 Text("Remove this conflict?", bundle: .module),
@@ -56,11 +68,16 @@ struct PendingSyncView: View {
 
     @ViewBuilder
     private var content: some View {
-        switch viewModel.loadState {
-        case .idle, .loading:
-            ProgressView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        case let .failure(message):
+        if showsLoadingIndicator || viewModel.loadState.isLoading || viewModel.loadState == .idle {
+            ZStack {
+                palette.pageBackground
+                if showsLoadingIndicator {
+                    ProgressView()
+                        .transition(.opacity)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if case let .failure(message) = viewModel.loadState {
             VikuStatusView(
                 systemImage: "exclamationmark.triangle.fill",
                 title: String(localized: "Couldn't load pending changes", bundle: .module),
@@ -69,8 +86,47 @@ struct PendingSyncView: View {
                 reloadID += 1
             }
             .padding(.top, VikuSpacing.xxl)
-        case .loaded:
-            if viewModel.operations.isEmpty {
+        } else {
+            queueList
+        }
+    }
+
+    private var queueList: some View {
+        List {
+            if !viewModel.presentation.operations.isEmpty {
+                Section {
+                    ForEach(viewModel.presentation.operations) { operation in
+                        PendingSyncOperationRow(operation: operation)
+                            .listRowBackground(palette.cardBackground)
+                            .transition(rowTransition)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                if operation.needsConflictResolution, operation.failureMessage == nil {
+                                    Button(
+                                        String(localized: "Remove Conflict", bundle: .module),
+                                        systemImage: "trash",
+                                        role: .destructive,
+                                    ) {
+                                        pendingConflictRemoval = operation
+                                    }
+                                    .tint(palette.semanticDanger)
+                                }
+                            }
+                    }
+                } header: {
+                    HStack {
+                        Text("Waiting to upload", bundle: .module)
+                        Spacer()
+                        Text(viewModel.presentation.operations.count, format: .number)
+                            .monospacedDigit()
+                            .contentTransition(reduceMotion ? .opacity : .numericText())
+                            .accessibilityHidden(true)
+                    }
+                }
+            }
+        }
+        .settingsListStyle()
+        .overlay {
+            if viewModel.presentation.operations.isEmpty {
                 VikuStatusView(
                     systemImage: "checkmark.circle",
                     title: String(localized: "Nothing waiting to sync", bundle: .module),
@@ -80,31 +136,44 @@ struct PendingSyncView: View {
                     ),
                 )
                 .padding(.top, VikuSpacing.xxl)
-            } else {
-                List {
-                    Section {
-                        ForEach(viewModel.operations) { operation in
-                            PendingSyncOperationRow(operation: operation)
-                                .listRowBackground(palette.cardBackground)
-                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                    if operation.needsConflictResolution, operation.failureMessage == nil {
-                                        Button(
-                                            String(localized: "Remove Conflict", bundle: .module),
-                                            systemImage: "trash",
-                                            role: .destructive,
-                                        ) {
-                                            pendingConflictRemoval = operation
-                                        }
-                                        .tint(palette.semanticDanger)
-                                    }
-                                }
-                        }
-                    } header: {
-                        Text("Waiting to upload", bundle: .module)
-                    }
-                }
-                .settingsListStyle()
+                .transition(.opacity)
             }
+        }
+    }
+
+    private var rowAnimation: Animation? {
+        reduceMotion ? nil : .smooth(duration: 0.3)
+    }
+
+    private var nextPresentationUpdate: ContinuousClock.Instant? {
+        guard viewModel.loadState == .loaded, !showsLoadingIndicator else { return nil }
+        return viewModel.presentation.nextUpdate
+    }
+
+    private var rowTransition: AnyTransition {
+        reduceMotion ? .opacity : .asymmetric(
+            insertion: .move(edge: .top).combined(with: .opacity),
+            removal: .opacity.combined(with: .scale(scale: 0.96)),
+        )
+    }
+
+    /// Loading presentation has its own lifetime; the provider never waits for it.
+    @MainActor
+    private func updateLoadingIndicator() async {
+        do {
+            if viewModel.loadState.isLoading {
+                try await Task.sleep(for: .seconds(1))
+                try Task.checkCancellation()
+                loadingIndicatorShownAt = .now
+                showsLoadingIndicator = true
+            } else if let shownAt = loadingIndicatorShownAt {
+                try await ContinuousClock().sleep(until: shownAt.advanced(by: .seconds(1)))
+                try Task.checkCancellation()
+                showsLoadingIndicator = false
+                loadingIndicatorShownAt = nil
+            }
+        } catch {
+            // A fast load or navigation cancels the pending presentation update.
         }
     }
 }
@@ -119,7 +188,9 @@ private struct PendingSyncOperationRow: View {
             Image(systemName: symbolName)
                 .font(VikuFont.body)
                 .foregroundStyle(statusColor)
-                .frame(width: 20)
+                .frame(width: VikuSpacing.xl, height: VikuSpacing.xl)
+                .background(statusColor.opacity(0.1), in: Circle())
+                .contentTransition(.opacity)
 
             VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
                 title
@@ -148,6 +219,10 @@ private struct PendingSyncOperationRow: View {
             Text(statusLabel, bundle: .module)
                 .font(VikuFont.caption)
                 .foregroundStyle(statusColor)
+                .padding(.horizontal, VikuSpacing.sm)
+                .padding(.vertical, VikuSpacing.xs)
+                .background(statusColor.opacity(0.1), in: Capsule())
+                .contentTransition(.opacity)
         }
         .padding(.vertical, VikuSpacing.xxs)
     }
@@ -157,12 +232,12 @@ private struct PendingSyncOperationRow: View {
         if let targetTitle = operation.targetTitle {
             Text(verbatim: targetTitle)
                 .font(VikuFont.body)
-                .foregroundStyle(Color.primary)
+                .foregroundStyle(palette.textPrimary)
                 .lineLimit(2)
         } else {
             Text(operation.entity.displayName, bundle: .module)
                 .font(VikuFont.body)
-                .foregroundStyle(Color.primary)
+                .foregroundStyle(palette.textPrimary)
         }
     }
 
@@ -171,7 +246,7 @@ private struct PendingSyncOperationRow: View {
     }
 
     private var statusColor: Color {
-        operation.status == .failed ? palette.semanticDangerText : palette.textSecondary
+        operation.status == .failed ? palette.semanticDangerText : palette.brand
     }
 
     private var statusLabel: LocalizedStringKey {

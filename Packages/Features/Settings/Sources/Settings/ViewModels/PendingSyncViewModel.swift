@@ -4,13 +4,14 @@ import VikunjaCore
 import VikuUI
 
 /// Drives the "Pending Sync" screen: a live list of the account's queued
-/// mutations. The provider's stream emits an initial snapshot and again on
-/// every queue change, so the list empties itself as the queue drains.
+/// mutations. Live snapshots stay current while a separate presentation keeps
+/// departures readable when the queue drains faster than the animations.
 @MainActor
 @Observable
 public final class PendingSyncViewModel {
     public private(set) var operations: [PendingSyncOperation] = []
     public private(set) var loadState: ScreenLoadState<Void> = .idle
+    private(set) var presentation = PendingSyncPresentation()
 
     private let provider: PendingSyncOperationsProviding
     private let accountID: UUID
@@ -33,12 +34,16 @@ public final class PendingSyncViewModel {
         }
 
         let updates = await provider.observePendingSyncOperations(accountID: accountID)
+        var isInitialSnapshot = true
         do {
             for try await operations in updates {
                 guard !Task.isCancelled else { return }
                 self.operations = operations
+                presentation.receive(operations, reset: isInitialSnapshot)
+                isInitialSnapshot = false
                 loadState = .loaded
             }
+            guard !Task.isCancelled else { return }
             loadState = .loaded
         } catch is CancellationError {
             return
@@ -46,6 +51,19 @@ public final class PendingSyncViewModel {
             loadState = .failure(error.displayMessage)
         } catch {
             loadState = .failure(error.localizedDescription)
+        }
+    }
+
+    /// Called by a view-owned task so leaving the screen cancels the delay.
+    func advancePresentation() async {
+        guard let deadline = presentation.nextUpdate else { return }
+        do {
+            let visibleDeadline = max(deadline, .now.advanced(by: PendingSyncPresentation.departureInterval))
+            try await ContinuousClock().sleep(until: visibleDeadline)
+            try Task.checkCancellation()
+            presentation.advance()
+        } catch {
+            // The view disappeared or a newer snapshot changed the deadline.
         }
     }
 
