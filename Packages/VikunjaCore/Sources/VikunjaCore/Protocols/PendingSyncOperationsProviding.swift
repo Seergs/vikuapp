@@ -9,6 +9,12 @@ public protocol PendingSyncOperationsProviding: Sendable {
         accountID: UUID,
     ) async -> AsyncThrowingStream<[PendingSyncOperation], Error>
 
+    #if DEBUG
+    /// Developer recovery tool: drops only queue entries for this account.
+    /// Leaves cached entities untouched and does not cancel requests already in flight.
+    func clearPendingSyncQueue(accountID: UUID) async throws
+    #endif
+
     /// Removes `id` from the account's queue only when it's a conflict.
     /// Conflicted items are never drained, so this only drops the abandoned
     /// local attempt instead of changing either side. A conflict normally

@@ -49,6 +49,25 @@ public final class PendingSyncViewModel {
         }
     }
 
+    #if DEBUG
+    public private(set) var isClearingQueue = false
+
+    public func clearQueue() async {
+        guard !isClearingQueue else { return }
+        isClearingQueue = true
+        defer { isClearingQueue = false }
+
+        do {
+            try await provider.clearPendingSyncQueue(accountID: accountID)
+            toastPresenter.show(String(localized: "Sync queue cleared", bundle: .module), style: .success)
+        } catch let error as VikunjaError {
+            toastPresenter.show(error.displayMessage, style: .error)
+        } catch {
+            toastPresenter.show(error.localizedDescription, style: .error)
+        }
+    }
+    #endif
+
     /// Conflict items can never drain, so removing one is only queue cleanup.
     /// The live observation removes the row from the list once it's gone.
     public func discard(_ operation: PendingSyncOperation) async {

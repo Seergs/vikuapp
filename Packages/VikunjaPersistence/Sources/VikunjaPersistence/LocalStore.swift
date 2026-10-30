@@ -146,6 +146,14 @@ public actor LocalStore {
         }
     }
 
+    #if DEBUG
+    public func clearPendingSyncQueue(accountID: UUID) async throws {
+        try await write { db in
+            _ = try MutationQueueRecord.filter(Column("accountID") == accountID).deleteAll(db)
+        }
+    }
+    #endif
+
     /// Removes one conflicted queue item. A non-conflict, another account's
     /// item, or an id that already drained is a no-op: this isn't a general
     /// cancel mechanism, only cleanup for conflicts that can never drain.

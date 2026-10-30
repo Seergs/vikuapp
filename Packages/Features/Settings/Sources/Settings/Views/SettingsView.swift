@@ -16,6 +16,7 @@ struct SettingsView: View {
     let themeStore: AppThemeStoring
     let quickAddSyntaxStore: QuickAddSyntaxStore
     let badgeViewModel: AppIconBadgeViewModel
+    let pendingSyncViewModel: PendingSyncViewModel
     let groupOverdueNotificationsViewModel: GroupOverdueNotificationsViewModel
     let defaultProjectViewModel: DefaultProjectSettingsViewModel
     let homeSelectionViewModel: HomeSelectionSettingsViewModel
@@ -233,6 +234,19 @@ struct SettingsView: View {
             // `BuildConfig.isDevBuild`.
             if isDevBuild {
                 Section {
+                    #if DEBUG
+                    Button(role: .destructive) {
+                        Task { await pendingSyncViewModel.clearQueue() }
+                    } label: {
+                        Label {
+                            Text("Clear Pending Sync Queue", bundle: .module)
+                        } icon: {
+                            Image(systemName: "trash")
+                        }
+                    }
+                    .disabled(pendingSyncViewModel.isClearingQueue)
+                    #endif
+
                     Toggle(isOn: devBadgeBinding) {
                         HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
                             SettingsRowIcon(systemName: "ladybug")
