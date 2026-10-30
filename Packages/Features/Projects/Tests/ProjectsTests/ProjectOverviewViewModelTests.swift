@@ -101,8 +101,8 @@ struct ProjectOverviewViewModelTests {
     }
 
     @Test
-    func `saved filters use List in the first local Kanban release`() async {
-        // Cross-project filter membership is outside the first local board contract.
+    func `saved filters support Kanban when the server supports api v2`() async {
+        // The composition root selects an online board source for saved filters.
         let capabilityProvider = FakeCapabilityProvider()
         capabilityProvider.supportedFeatures = [.apiV2]
         let viewModel = ProjectOverviewViewModel(
@@ -119,8 +119,37 @@ struct ProjectOverviewViewModelTests {
         )
 
         await viewModel.load()
+        await viewModel.observeReachability()
 
-        #expect(viewModel.supportsKanban == false)
+        #expect(viewModel.supportsKanban)
+    }
+
+    @Test(arguments: [EntityID.remote(-2), EntityID.remote(1)])
+    func `connectivity gates only saved filter Kanban and recovers without reloading`(projectID: EntityID) async {
+        let connectivity = KanbanConnectivitySequence()
+        let capabilityProvider = FakeCapabilityProvider()
+        capabilityProvider.supportedFeatures = [.apiV2]
+        let viewModel = ProjectOverviewViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
+            project: Project(id: projectID, title: "Board"), repository: FakeTaskRepository(),
+            projectRepository: FakeProjectRepository(), labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(), filterRepository: FakeFilterRepository(),
+            capabilityProvider: capabilityProvider, toastPresenter: FakeToastPresenter(),
+            taskSortStore: FakeTaskSortStore(), reachabilityUpdates: { await connectivity.next() },
+        )
+        await viewModel.load()
+        let isSavedFilter = projectID == .remote(-2)
+        #expect(viewModel.supportsKanban == !isSavedFilter)
+        // First observation is offline, then online, offline and online again.
+        for isReachable in [false, true, false, true] {
+            await viewModel.observeReachability()
+            #expect(viewModel.isOffline == !isReachable)
+            #expect(viewModel.supportsKanban == (!isSavedFilter || isReachable))
+            if !isReachable {
+                await viewModel.load()
+                #expect(viewModel.supportsKanban == !isSavedFilter)
+            }
+        }
     }
 
     @Test
@@ -1179,7 +1208,7 @@ private struct CachedKanbanRepository: KanbanBoardRepositoryProtocol {
             viewID: 10,
             buckets: [],
             defaultBucketID: nil,
-            supportsOfflineWrites: true,
+            supportsWrites: true,
             lastPulledAt: Date(timeIntervalSince1970: 1_700_000_000),
         ))
     }
@@ -1190,5 +1219,17 @@ private struct CachedKanbanRepository: KanbanBoardRepositoryProtocol {
 
     func moveTask(taskID: EntityID, projectID: EntityID, viewID: Int, bucketID: Int) async throws -> VikunjaTask {
         throw VikunjaError.notFound
+    }
+}
+
+private actor KanbanConnectivitySequence {
+    private var values = [false, true, false, true]
+
+    func next() -> AsyncStream<Bool> {
+        let value = values.removeFirst()
+        return AsyncStream { continuation in
+            continuation.yield(value)
+            continuation.finish()
+        }
     }
 }

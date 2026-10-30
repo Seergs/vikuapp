@@ -29,8 +29,14 @@ public final class ProjectOverviewViewModel {
     /// projects and Favorites don't need to expose the filter-query caveat.
     public private(set) var isOffline = false
     /// Runtime API-v2 support or an already downloaded board enables Kanban
-    /// for real projects. Virtual projects keep the List view in this release.
-    public private(set) var supportsKanban = false
+    /// for projects and saved filters. Saved filters also require confirmed connectivity;
+    /// Favorites have no Kanban view.
+    public var supportsKanban: Bool {
+        hasKanbanSupport && (project.kind != .savedFilter || (hasReachability && !isOffline))
+    }
+
+    private var hasKanbanSupport = false
+    private var hasReachability = false
     /// This saved filter's raw query (e.g. `priority >= 3 && done = false`),
     /// shown read-only under its badge. `nil` for a real project or
     /// Favorites, and also `nil` if the fetch fails or the filter has no
@@ -184,12 +190,13 @@ public final class ProjectOverviewViewModel {
         quickAddContext?.exitProjectScope(project)
     }
 
-    /// Keeps the offline notice in step with connectivity while this screen
+    /// Keeps the offline notice and saved-filter Kanban availability in step with connectivity while this screen
     /// is visible. The view owns the task so SwiftUI cancels the stream when
     /// the screen disappears.
     public func observeReachability() async {
         for await isReachable in await reachabilityUpdates() {
             isOffline = !isReachable
+            hasReachability = true
         }
     }
 
@@ -254,11 +261,11 @@ public final class ProjectOverviewViewModel {
         }
         let serverSupportsKanban = await kanbanSupport
         guard version == loadVersion else { return }
-        supportsKanban = project.kind == .project && serverSupportsKanban
+        hasKanbanSupport = project.kind != .favorites && serverSupportsKanban
     }
 
     private func resolveKanbanSupport() async -> Bool {
-        guard project.kind == .project else { return false }
+        guard project.kind != .favorites else { return false }
         if let kanbanRepository, await (try? kanbanRepository.hasCachedKanbanSupport()) == true {
             return true
         }

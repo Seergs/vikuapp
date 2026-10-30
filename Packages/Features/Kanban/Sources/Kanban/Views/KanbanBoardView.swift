@@ -124,6 +124,7 @@ public struct KanbanBoardView: View {
                     KanbanColumnView(
                         bucket: bucket,
                         allowsMutations: viewModel.supportsWrites,
+                        allowsTaskCreation: viewModel.supportsTaskCreation,
                         onRefresh: { await viewModel.refresh() },
                         onSelectTask: onSelectTask,
                         onToggleDone: { task in Task { await viewModel.toggleDone(task) } },
@@ -170,7 +171,7 @@ private actor PreviewBucketRepository: KanbanBoardRepositoryProtocol {
                 id: 1, title: "To Do", tasks: [VikunjaTask(id: 1, title: "Write proposal", projectID: projectID)],
             ),
             KanbanBucket(id: 2, title: "Done", isDoneBucket: true),
-        ], defaultBucketID: 1, supportsOfflineWrites: true, lastPulledAt: Date()))
+        ], defaultBucketID: 1, supportsWrites: true, lastPulledAt: Date()))
     }
 
     func createTask(title: String, projectID: EntityID, viewID: Int, bucketID: Int) async throws -> VikunjaTask {

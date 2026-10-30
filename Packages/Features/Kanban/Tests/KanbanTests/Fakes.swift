@@ -15,6 +15,8 @@ final class FakeBucketRepository: KanbanBoardRepositoryProtocol {
     var hasSnapshot = true
     var waitingForProject = false
     var supportsWrites = true
+    var supportsTaskCreation = true
+    var requiresConnection = false
     private(set) var movedTaskIDs: [(taskID: EntityID, bucketID: Int)] = []
     private(set) var createdTasks: [(task: VikunjaTask, bucketID: Int)] = []
 
@@ -30,8 +32,9 @@ final class FakeBucketRepository: KanbanBoardRepositoryProtocol {
             viewID: 7,
             buckets: buckets,
             defaultBucketID: buckets.first?.id,
-            supportsOfflineWrites: supportsWrites,
+            supportsWrites: supportsWrites,
             lastPulledAt: Date(timeIntervalSince1970: 1_700_000_000),
+            supportsTaskCreation: supportsTaskCreation, requiresConnection: requiresConnection,
         ))
     }
 

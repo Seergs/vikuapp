@@ -15,6 +15,7 @@ struct KanbanColumnView: View {
 
     let bucket: KanbanBucket
     let allowsMutations: Bool
+    let allowsTaskCreation: Bool
     let onRefresh: () async -> Void
     let onSelectTask: (VikunjaTask) -> Void
     let onToggleDone: (VikunjaTask) -> Void
@@ -37,7 +38,7 @@ struct KanbanColumnView: View {
 
             cards
 
-            if isAddingTask, allowsMutations {
+            if isAddingTask, allowsMutations, allowsTaskCreation {
                 addTaskField
             }
         }
@@ -116,7 +117,7 @@ struct KanbanColumnView: View {
                     .foregroundStyle(palette.textSecondary)
             }
             .buttonStyle(.plain)
-            .disabled(!allowsMutations)
+            .disabled(!allowsMutations || !allowsTaskCreation)
         }
         .padding(.horizontal, VikuSpacing.xs)
     }

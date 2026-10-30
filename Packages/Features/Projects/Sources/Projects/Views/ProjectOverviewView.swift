@@ -103,7 +103,7 @@ struct ProjectOverviewView: View {
     /// checker sees two shorter expressions instead of one very long one.
     private var screenChrome: some View {
         VStack(spacing: 0) {
-            switch displayMode {
+            switch viewModel.supportsKanban ? displayMode : .list {
             case .list:
                 content
                     .projectsListStyle()
@@ -131,6 +131,11 @@ struct ProjectOverviewView: View {
                 viewModel.markVisible()
             }
             .onDisappear { viewModel.markHidden() }
+            .onChange(of: viewModel.supportsKanban) { _, supportsKanban in
+                if !supportsKanban {
+                    displayMode = .list
+                }
+            }
             .onChange(of: viewModel.lastCreatedTaskForThisProject) { _, event in
                 guard event != nil else { return }
                 Task { await viewModel.load() }

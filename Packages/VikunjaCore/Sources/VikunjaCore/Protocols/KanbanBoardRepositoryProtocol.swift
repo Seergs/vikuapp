@@ -1,4 +1,6 @@
-/// Local queries and durable commands. Uploads are scheduled after committing local writes.
+/// Snapshot queries never perform network work; downloads use an injected SyncTriggering source.
+/// Commands follow the source's capabilities: project boards commit durable local intent,
+/// while online-only sources await server confirmation and never enqueue offline writes.
 public protocol KanbanBoardRepositoryProtocol: Sendable {
     /// Account-scoped proof of prior Kanban support, including other projects.
     func hasCachedKanbanSupport() async throws -> Bool

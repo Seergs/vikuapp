@@ -147,7 +147,7 @@ public struct OfflineKanbanBoardRepository: KanbanBoardRepositoryProtocol {
             }
             return .available(KanbanBoard(
                 viewID: view.remoteID, buckets: buckets, defaultBucketID: view.defaultBucketID,
-                supportsOfflineWrites: view.mode == "manual"
+                supportsWrites: view.mode == "manual"
                     && view.filterQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                 lastPulledAt: pulledAt,
             ))
