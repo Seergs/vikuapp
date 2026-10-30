@@ -78,6 +78,9 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
                 projectLocalID: projectLocalID,
                 serverUpdatedAt: nil,
             ).insert(db)
+            if let row = try TaskRecord.fetchOne(db, key: localID) {
+                try KanbanLocalMutations.applyCompletion(row, db: db)
+            }
             try TaskReminderRecord.replace(
                 for: localID, accountID: self.accountID, reminders: task.reminders, db: db,
             )
@@ -111,7 +114,8 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
             guard let projectLocalID = Self.resolveProjectLocalID(matching: task.projectID, in: projectRows) else {
                 throw VikunjaError.notFound
             }
-            if row.projectLocalID != projectLocalID {
+            let projectChanged = row.projectLocalID != projectLocalID
+            if projectChanged {
                 try MutationQueueRecord.filter(Column("targetLocalID") == row.localID)
                     .filter(Column("operation") == MutationOperation.moveBucket.rawValue)
                     .filter(Column("status") != MutationStatus.inFlight.rawValue).deleteAll(db)
@@ -124,7 +128,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
             row.priority = task.priority.rawValue
             row.projectLocalID = projectLocalID
             try row.save(db)
-            if completionChanged {
+            if completionChanged || projectChanged {
                 try KanbanLocalMutations.applyCompletion(row, db: db)
             }
             try TaskReminderRecord.replace(

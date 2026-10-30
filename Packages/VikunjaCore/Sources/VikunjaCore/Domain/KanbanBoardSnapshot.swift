@@ -2,6 +2,7 @@ import Foundation
 
 /// A missing snapshot is different from a downloaded board with no cards.
 public enum KanbanBoardSnapshot: Equatable, Sendable {
+    case waitingForProject
     case unavailable
     case available(KanbanBoard)
 }

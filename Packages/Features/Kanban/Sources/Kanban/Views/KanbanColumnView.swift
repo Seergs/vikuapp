@@ -14,12 +14,14 @@ struct KanbanColumnView: View {
     private static let width: CGFloat = 300
 
     let bucket: KanbanBucket
+    let allowsMutations: Bool
+    let onRefresh: () async -> Void
     let onSelectTask: (VikunjaTask) -> Void
     let onToggleDone: (VikunjaTask) -> Void
     /// The dropped card's task id. Resolving it to a full `VikunjaTask`
     /// needs every bucket's tasks, not just this column's own, so the lookup
     /// (and the `moveTask` call) happens in `KanbanBoardView`.
-    let onDropTaskID: (Int) -> Void
+    let onDropTaskID: (EntityID) -> Void
     let onAddTask: (String) -> Void
 
     @State private var isTargeted = false
@@ -33,16 +35,9 @@ struct KanbanColumnView: View {
             header
                 .padding(.top, VikuSpacing.sm)
 
-            ScrollView {
-                LazyVStack(spacing: VikuSpacing.sm) {
-                    ForEach(bucket.tasks) { task in
-                        card(for: task)
-                    }
-                }
-                .padding(.top, VikuSpacing.sm)
-            }
+            cards
 
-            if isAddingTask {
+            if isAddingTask, allowsMutations {
                 addTaskField
             }
         }
@@ -51,10 +46,50 @@ struct KanbanColumnView: View {
         .background(isTargeted ? palette.brand.opacity(0.08) : palette.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: VikuRadius.lg, style: .continuous))
         .dropDestination(for: String.self) { items, _ in
-            guard let idString = items.first, let taskID = Int(idString) else { return false }
-            onDropTaskID(taskID)
-            return true
+            acceptDrop(items)
         } isTargeted: { isTargeted = $0 }
+    }
+
+    @ViewBuilder
+    private var cards: some View {
+        if bucket.tasks.isEmpty {
+            // An empty List has no native insertion target and intercepts the
+            // column's outer drop area. The column-level destination handles
+            // the empty body, so this surface stays visually transparent.
+            Rectangle()
+                .fill(.clear)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(Rectangle())
+        } else {
+            List {
+                ForEach(bucket.tasks) { task in
+                    card(for: task)
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets())
+                }
+                .dropDestination(for: String.self) { (items: [String], _: Int) in
+                    _ = acceptDrop(items)
+                }
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            #if os(iOS)
+            .listRowSpacing(VikuSpacing.sm)
+            #endif
+            .refreshable { await onRefresh() }
+        }
+    }
+
+    private func acceptDrop(_ items: [String]) -> Bool {
+        guard allowsMutations, let value = items.first, let taskID = KanbanDragIdentity.decode(value)
+        else { return false }
+        onDropTaskID(taskID)
+        // SwiftUI can leave a destination's targeted state active after a
+        // successful drop, especially when the source and destination are in
+        // nested Lists. Clear our visual state as part of accepting the drop.
+        isTargeted = false
+        return true
     }
 
     private var header: some View {
@@ -77,15 +112,28 @@ struct KanbanColumnView: View {
                 isNewTaskFieldFocused = true
             } label: {
                 Image(systemName: "plus")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(VikuFont.footnote.weight(.semibold))
                     .foregroundStyle(palette.textSecondary)
             }
             .buttonStyle(.plain)
+            .disabled(!allowsMutations)
         }
         .padding(.horizontal, VikuSpacing.xs)
     }
 
+    @ViewBuilder
     private func card(for task: VikunjaTask) -> some View {
+        if allowsMutations {
+            cardContent(for: task)
+                .draggable(KanbanDragIdentity.encode(task.id)) {
+                    cardContent(for: task)
+                }
+        } else {
+            cardContent(for: task)
+        }
+    }
+
+    private func cardContent(for task: VikunjaTask) -> some View {
         VikuTaskRow(
             task: task,
             project: nil,
@@ -94,23 +142,23 @@ struct KanbanColumnView: View {
             // own line below — the narrow column has no room to spare for a
             // separate label row.
             inlineLabels: true,
+            allowsCompletionChanges: allowsMutations,
             onToggle: { onToggleDone(task) },
             onOpen: { onSelectTask(task) },
             contextMenu: { EmptyView() },
         )
         .padding(VikuSpacing.sm)
         .background(palette.fieldBackground, in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
-        .draggable(String(task.id.remoteValue ?? -1))
     }
 
     private var addTaskField: some View {
         HStack(spacing: VikuSpacing.xs) {
-            TextField("New task", text: $newTaskTitle)
+            TextField(String(localized: "New task", bundle: .module), text: $newTaskTitle)
                 .font(VikuFont.footnote)
                 .focused($isNewTaskFieldFocused)
                 .onSubmit(submitNewTask)
 
-            Button("Add", action: submitNewTask)
+            Button(action: submitNewTask) { Text("Add", bundle: .module) }
                 .font(VikuFont.footnote)
                 .fontWeight(.semibold)
                 .disabled(newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -120,7 +168,7 @@ struct KanbanColumnView: View {
                 newTaskTitle = ""
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(VikuFont.caption.weight(.semibold))
                     .foregroundStyle(palette.textSecondary)
             }
             .buttonStyle(.plain)

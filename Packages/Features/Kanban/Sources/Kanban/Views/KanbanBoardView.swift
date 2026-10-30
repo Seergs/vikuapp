@@ -23,6 +23,7 @@ public struct KanbanBoardView: View {
     let searchText: String
     let onSelectTask: (VikunjaTask) -> Void
 
+    @State private var horizontalScrollPosition: Int?
     @Environment(\.vikuPalette) private var palette
 
     public init(
@@ -45,54 +46,74 @@ public struct KanbanBoardView: View {
     }
 
     public var body: some View {
-        // iOS 26 decides the navigation bar's at-rest background through the
-        // "scroll edge effect": it reads the vertical scroll position of
-        // whatever's directly underneath it, and only recognizes a single
-        // vertical `List`/`ScrollView` as that signal. This board has no
-        // such thing — it scrolls horizontally, and each column scrolls
-        // vertically on its own — so without one, the bar falls back to the
-        // system's own default material instead of matching
-        // `palette.pageBackground`, a mismatch visible only on real-device
-        // compositing. Forcing the bar's own `.toolbarBackground` to match
-        // was tried from the caller's side first; it works, but combined
-        // with a large `.navigationTitle` it hits a documented iOS 26 bug
-        // (e.g. FB19434429/FB24528594) where the title stops rendering
-        // entirely, not just intermittently.
-        //
-        // Giving the heuristic the vertical scroll view it's looking for,
-        // instead of fighting it from outside, sidesteps that bug: a
-        // `ScrollView` sized to exactly fill the available height always
-        // reports a content offset of zero (nothing to scroll past), the
-        // same "at rest, at the top" state a `List` that fits on one screen
-        // reports — `.scrollDisabled(true)` keeps it from intercepting any
-        // gestures, so panning between columns and each column's own
-        // vertical scrolling are unaffected.
+        // Keep a vertical scroll surface for navigation styling. Each column's
+        // List owns its native pull-to-refresh and card scrolling.
         GeometryReader { geometry in
             ScrollView {
                 content
                     .frame(width: geometry.size.width, height: geometry.size.height)
             }
-            .scrollDisabled(true)
+            .refreshable { await viewModel.refresh() }
         }
         .background(palette.pageBackground)
-        .task { await viewModel.load() }
+        .task { await viewModel.start() }
+        .task { await viewModel.observeLocalChanges() }
     }
 
-    @ViewBuilder
     private var content: some View {
-        switch viewModel.loadState {
-        case .idle, .loading:
-            ProgressView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        case let .failure(message):
-            VikuStatusView(
-                systemImage: "exclamationmark.triangle.fill",
-                title: "Couldn't load this board",
-                message: message,
-                retry: { Task { await viewModel.load() } },
-            )
-        case .loaded:
-            board
+        VStack(spacing: VikuSpacing.sm) {
+            HStack {
+                Spacer()
+                if viewModel.isRefreshing, viewModel.hasSnapshot {
+                    ProgressView()
+                }
+                Button { Task { await viewModel.refresh() } } label: {
+                    Label { Text("Refresh", bundle: .module) } icon: { Image(systemName: "arrow.clockwise") }
+                }
+                .disabled(viewModel.isRefreshing || viewModel.needsProjectSync)
+            }
+            .padding(.horizontal, VikuSpacing.md)
+            switch viewModel.loadState {
+            case .idle, .loading:
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            case let .failure(message):
+                VikuStatusView(
+                    systemImage: "exclamationmark.triangle.fill",
+                    title: String(localized: "Couldn't load this board", bundle: .module),
+                    message: message,
+                    retry: { Task { await viewModel.refresh() } },
+                )
+            case .loaded:
+                if !viewModel.hasSnapshot {
+                    VikuStatusView(
+                        systemImage: "icloud.and.arrow.down",
+                        title: String(localized: "Board unavailable", bundle: .module),
+                        message: unavailableMessage,
+                    )
+                } else if viewModel.buckets.isEmpty {
+                    VikuStatusView(
+                        systemImage: "rectangle.split.3x1",
+                        title: String(localized: "This board is empty", bundle: .module),
+                        message: String(localized: "Refresh to check for columns.", bundle: .module),
+                    )
+                } else {
+                    if !viewModel.supportsWrites {
+                        Text("This board uses server rules. Use Vikunja's web app to make changes.", bundle: .module)
+                            .font(VikuFont.footnote)
+                            .foregroundStyle(palette.textSecondary)
+                            .padding(.horizontal, VikuSpacing.md)
+                    }
+                    board
+                }
+            }
+        }
+    }
+
+    private var unavailableMessage: String {
+        if viewModel.needsProjectSync {
+            String(localized: "Sync this project before downloading its board.", bundle: .module)
+        } else {
+            String(localized: "Connect and refresh to download this board for offline use.", bundle: .module)
         }
     }
 
@@ -102,21 +123,24 @@ public struct KanbanBoardView: View {
                 ForEach(filteredBuckets) { bucket in
                     KanbanColumnView(
                         bucket: bucket,
+                        allowsMutations: viewModel.supportsWrites,
+                        onRefresh: { await viewModel.refresh() },
                         onSelectTask: onSelectTask,
                         onToggleDone: { task in Task { await viewModel.toggleDone(task) } },
                         onDropTaskID: { taskID in
-                            let matchingTask = viewModel.buckets.flatMap(\.tasks).first {
-                                $0.id.remoteValue == taskID
-                            }
-                            guard let task = matchingTask else { return }
-                            Task { await viewModel.moveTask(task, to: bucket) }
+                            Task { await viewModel.moveTask(taskID: taskID, to: bucket) }
                         },
                         onAddTask: { title in Task { await viewModel.createTask(title: title, in: bucket) } },
                     )
                 }
             }
             .padding(VikuSpacing.md)
+            .scrollTargetLayout()
         }
+        // Keep the visible bucket anchored while SwiftUI temporarily updates
+        // a List's drag presentation. Without an identity anchor, the nested
+        // horizontal scroll can jump back to its leading edge on drag start.
+        .scrollPosition(id: $horizontalScrollPosition)
         .scrollIndicators(.hidden)
     }
 }
@@ -126,6 +150,7 @@ public struct KanbanBoardView: View {
         viewModel: KanbanBoardViewModel(
             project: Project(id: 1, title: "Work"),
             repository: PreviewBucketRepository(),
+            syncTrigger: PreviewScreenSync(), localData: PreviewScreenSync(),
             toastPresenter: PreviewToastPresenter(),
         ),
         onSelectTask: { _ in },
@@ -134,44 +159,41 @@ public struct KanbanBoardView: View {
 
 // MARK: - Preview Helpers
 
-private final class PreviewBucketRepository: @unchecked Sendable, BucketRepositoryProtocol {
-    func downloadBoard(projectID: Int, viewID: Int?) async throws -> KanbanDownload {
-        throw VikunjaError.notFound
+private actor PreviewBucketRepository: KanbanBoardRepositoryProtocol {
+    func hasCachedKanbanSupport() async throws -> Bool {
+        true
     }
 
-    func fetchBuckets(projectID _: Int) async throws -> [KanbanBucket] {
-        [
+    func fetchBoard(projectID: EntityID, viewID: Int?) async throws -> KanbanBoardSnapshot {
+        .available(KanbanBoard(viewID: 1, buckets: [
             KanbanBucket(
-                id: 1,
-                title: "To Do",
-                tasks: [
-                    VikunjaTask(id: 1, title: "Write proposal", priority: .high, projectID: 1),
-                    VikunjaTask(id: 2, title: "Plan sprint", projectID: 1),
-                ],
+                id: 1, title: "To Do", tasks: [VikunjaTask(id: 1, title: "Write proposal", projectID: projectID)],
             ),
-            KanbanBucket(
-                id: 2,
-                title: "Doing",
-                tasks: [VikunjaTask(id: 3, title: "Fix onboarding bug", priority: .urgent, projectID: 1)],
-            ),
-            KanbanBucket(
-                id: 3,
-                title: "Done",
-                isDoneBucket: true,
-                tasks: [VikunjaTask(id: 4, title: "Ship release", isDone: true, projectID: 1)],
-            ),
-        ]
+            KanbanBucket(id: 2, title: "Done", isDoneBucket: true),
+        ], defaultBucketID: 1, supportsOfflineWrites: true, lastPulledAt: Date()))
     }
 
-    func moveTask(taskID: Int, toBucketID _: Int, projectID: Int, viewID _: Int?) async throws -> VikunjaTask {
-        VikunjaTask(id: .remote(taskID), title: "", projectID: .remote(projectID))
+    func createTask(title: String, projectID: EntityID, viewID: Int, bucketID: Int) async throws -> VikunjaTask {
+        VikunjaTask(id: .local(UUID()), title: title, projectID: projectID)
     }
 
-    func createTask(_ task: VikunjaTask, bucketID _: Int, projectID: Int) async throws -> VikunjaTask {
-        VikunjaTask(id: .remote(Int.random(in: 1000 ... 9999)), title: task.title, projectID: .remote(projectID))
+    func moveTask(taskID: EntityID, projectID: EntityID, viewID: Int, bucketID: Int) async throws -> VikunjaTask {
+        VikunjaTask(id: taskID, title: "Write proposal", isDone: bucketID == 2, projectID: projectID)
     }
 }
 
-private final class PreviewToastPresenter: @unchecked Sendable, ToastPresenting {
+private struct PreviewScreenSync: SyncTriggering, LocalDataObserving {
+    func hasInitialSnapshot() async throws -> Bool {
+        true
+    }
+
+    func prepare() async throws {}
+    func refresh(scope: SyncScope) async throws {}
+    func localChanges() async -> AsyncThrowingStream<Void, Error> {
+        AsyncThrowingStream { $0.finish() }
+    }
+}
+
+private struct PreviewToastPresenter: ToastPresenting {
     func show(_: String, style _: ToastStyle) {}
 }

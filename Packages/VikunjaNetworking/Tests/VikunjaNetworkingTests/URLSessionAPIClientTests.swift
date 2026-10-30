@@ -1550,6 +1550,24 @@ struct URLSessionAPIClientTests {
     }
 
     @Test
+    func `bucket capacity rejection keeps its HTTP status instead of requiring TOTP`() async throws {
+        let (session, _) = MockURLProtocol.makeSession(statusCode: 412, body: "")
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        await #expect(throws: VikunjaError.server(message: "", statusCode: 412)) {
+            try await client.send(Endpoint(path: "/api/v2/projects/6/tasks", method: .post))
+        }
+    }
+
+    @Test
+    func `v2 login retains the 412 TOTP challenge`() async throws {
+        let (session, _) = MockURLProtocol.makeSession(statusCode: 412, body: "")
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        await #expect(throws: VikunjaError.totpRequired) {
+            try await client.send(Endpoint(path: "/api/v2/login", method: .post))
+        }
+    }
+
+    @Test
     func `login with A 412 response surfaces as totpRequired`() async throws {
         let (session, _) = MockURLProtocol.makeSession(statusCode: 412, body: #"{"message":"Invalid totp passcode."}"#)
         let baseURL = try #require(URL(string: "https://vikunja.example.com"))

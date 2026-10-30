@@ -49,6 +49,7 @@ done
 modules=(
     "Packages/Features/Onboarding"
     "Packages/Features/Home"
+    "Packages/Features/Kanban"
     "Packages/Features/Projects"
     "Packages/Features/Tasks"
     "Packages/Features/Settings"

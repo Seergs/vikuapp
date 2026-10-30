@@ -13,6 +13,13 @@ public struct OfflineKanbanBoardRepository: KanbanBoardRepositoryProtocol {
         self.syncRequester = syncRequester
     }
 
+    public func hasCachedKanbanSupport() async throws -> Bool {
+        try await localStore.read { db in
+            try KanbanViewRecord.filter(Column("accountID") == accountID)
+                .filter(Column("lastCompletePullAt") != nil).fetchCount(db) > 0
+        }
+    }
+
     public func moveTask(
         taskID: EntityID, projectID: EntityID, viewID: Int, bucketID: Int,
     ) async throws -> VikunjaTask {
@@ -105,16 +112,17 @@ public struct OfflineKanbanBoardRepository: KanbanBoardRepositoryProtocol {
         try mutation.insert(db)
     }
 
-    public func fetchBoard(projectID: EntityID, viewID: Int) async throws -> KanbanBoardSnapshot {
+    public func fetchBoard(projectID: EntityID, viewID: Int?) async throws -> KanbanBoardSnapshot {
         try await localStore.read { db in
             let project = try ProjectRecord.filter(Column("accountID") == accountID).fetchAll(db).first {
                 projectID == .local($0.localID) || $0.remoteID.map(EntityID.remote) == projectID
             }
-            guard let project,
-                  let view = try KanbanViewRecord.filter(Column("accountID") == accountID)
-                  .filter(Column("projectLocalID") == project.localID)
-                  .filter(Column("remoteID") == viewID).fetchOne(db),
-                  let pulledAt = view.lastCompletePullAt
+            guard let project else { return .unavailable }
+            guard project.remoteID != nil else { return .waitingForProject }
+            guard let view = try KanbanViewRecord.filter(Column("accountID") == accountID)
+                .filter(Column("projectLocalID") == project.localID)
+                .order(Column("remoteID")).fetchAll(db).first(where: { viewID == nil || $0.remoteID == viewID }),
+                let pulledAt = view.lastCompletePullAt
             else { return .unavailable }
 
             let records = try KanbanBucketRecord.filter(Column("viewLocalID") == view.localID)

@@ -46,6 +46,25 @@ struct OfflineKanbanBoardRepositoryTests {
         return Fixture(project: project, task: task, view: view, bucket: bucket, assignment: assignment)
     }
 
+    @Test func `cached API support is scoped to the account rather than one project`() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let store = try LocalStore(directory: directory)
+        let fixture = try await seed(store)
+        let repository = OfflineKanbanBoardRepository(
+            localStore: store,
+            accountID: fixture.project.accountID,
+            syncRequester: NoopKanbanSyncRequester(),
+        )
+        #expect(try await repository.hasCachedKanbanSupport())
+        #expect(try await repository.fetchBoard(projectID: .remote(999), viewID: nil) == .unavailable)
+        let other = OfflineKanbanBoardRepository(
+            localStore: store,
+            accountID: UUID(),
+            syncRequester: NoopKanbanSyncRequester(),
+        )
+        #expect(try await other.hasCachedKanbanSupport() == false)
+    }
+
     @Test func `canonical task and placement survive reopening and remote identity`() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let store = try LocalStore(directory: directory)

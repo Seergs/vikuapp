@@ -24,6 +24,24 @@ enum KanbanMoveFailure: String {
     }
 }
 
+private struct KanbanMoveFailureContext {
+    let item: MutationQueueRecord
+    let payload: KanbanMovePayload
+    let repository: any BucketRepositoryProtocol
+    let projectID: Int
+    let remoteID: Int
+    let fallbackBucketID: Int
+}
+
+private struct KanbanMoveSubmissionContext {
+    let item: MutationQueueRecord
+    let payload: KanbanMovePayload
+    let repository: any BucketRepositoryProtocol
+    let projectID: Int
+    let remoteID: Int
+    let source: KanbanBucket
+}
+
 extension SyncEngine {
     func recoverKanbanMoves() async throws {
         let active = activeKanbanMoves
@@ -67,32 +85,88 @@ extension SyncEngine {
         }
         guard payload.overrideRemotePlacement == true
             || source.id == payload.baselineBucketID || source.id == payload.bucketID else {
-            try await failKanbanMove(item, reason: .conflict)
-            return .conflicted
-        }
-        guard try await claimKanbanMove(item) else { return .skipped }
-        do {
-            let response: VikunjaTask = if source.id == payload.bucketID {
-                try requireTask(source.tasks.first { $0.id == .remote(remoteID) })
-            } else {
-                try await repository.moveTask(
-                    taskID: remoteID,
-                    toBucketID: payload.bucketID,
-                    projectID: projectID,
-                    viewID: payload.viewID,
-                )
-            }
-            try await applyKanbanMove(response, item: item, payload: payload)
-            return .pushed
-        } catch {
-            let reason: KanbanMoveFailure = switch error {
-            case VikunjaError.notFound, VikunjaError.unauthorized: .rejected
-            case let VikunjaError.server(_, code) where (400 ..< 500).contains(code): .rejected
-            default: .ambiguous
-            }
-            try await failKanbanMove(item, reason: reason, baseline: reason == .rejected ? source.id : nil)
+            let serverTask = try requireTask(source.tasks.first { $0.id == .remote(remoteID) })
+            try await acceptServerPlacement(
+                serverTask,
+                bucketID: source.id,
+                item: item,
+                payload: payload,
+            )
             return .skipped
         }
+        return try await submitKanbanMove(KanbanMoveSubmissionContext(
+            item: item,
+            payload: payload,
+            repository: repository,
+            projectID: projectID,
+            remoteID: remoteID,
+            source: source,
+        ))
+    }
+
+    private func submitKanbanMove(_ context: KanbanMoveSubmissionContext) async throws -> DrainOutcome {
+        guard try await claimKanbanMove(context.item) else { return .skipped }
+        do {
+            let response: VikunjaTask = if context.source.id == context.payload.bucketID {
+                try requireTask(context.source.tasks.first { $0.id == .remote(context.remoteID) })
+            } else {
+                try await context.repository.moveTask(
+                    taskID: context.remoteID,
+                    toBucketID: context.payload.bucketID,
+                    projectID: context.projectID,
+                    viewID: context.payload.viewID,
+                )
+            }
+            try await applyKanbanMove(response, item: context.item, payload: context.payload)
+            return .pushed
+        } catch {
+            return try await handleKanbanMoveFailure(
+                error,
+                context: KanbanMoveFailureContext(
+                    item: context.item,
+                    payload: context.payload,
+                    repository: context.repository,
+                    projectID: context.projectID,
+                    remoteID: context.remoteID,
+                    fallbackBucketID: context.source.id,
+                ),
+            )
+        }
+    }
+
+    private func handleKanbanMoveFailure(
+        _ error: Error,
+        context: KanbanMoveFailureContext,
+    ) async throws -> DrainOutcome {
+        let reason: KanbanMoveFailure = switch error {
+        case VikunjaError.notFound, VikunjaError.unauthorized: .rejected
+        case let VikunjaError.server(_, code) where (400 ..< 500).contains(code): .rejected
+        default: .ambiguous
+        }
+        if reason == .rejected,
+           let latest = try? await context.repository.downloadBoard(
+               projectID: context.projectID,
+               viewID: context.payload.viewID,
+           ),
+           let latestBucket = latest.buckets.first(where: {
+               $0.tasks.contains { $0.id == .remote(context.remoteID) }
+           }),
+           let latestTask = latestBucket.tasks.first(where: { $0.id == .remote(context.remoteID) }) {
+            try await acceptServerPlacement(
+                latestTask,
+                bucketID: latestBucket.id,
+                item: context.item,
+                payload: context.payload,
+                allowInFlight: true,
+            )
+            return .skipped
+        }
+        try await failKanbanMove(
+            context.item,
+            reason: reason,
+            baseline: reason == .rejected ? context.fallbackBucketID : nil,
+        )
+        return .skipped
     }
 
     private func claimKanbanMove(_ item: MutationQueueRecord) async throws -> Bool {
@@ -138,6 +212,81 @@ extension SyncEngine {
                     }
                 }
             }
+        }
+    }
+
+    /// A different server placement wins over an offline move. Remove that
+    /// stale intent and make the cached assignment match the snapshot used to
+    /// detect the conflict. If a newer local move was queued while the board
+    /// was downloading, keep it and rebase it on the server's current bucket.
+    private func acceptServerPlacement(
+        _ serverTask: VikunjaTask,
+        bucketID: Int,
+        item: MutationQueueRecord,
+        payload: KanbanMovePayload,
+        allowInFlight: Bool = false,
+    ) async throws {
+        try await localStore.write { db in
+            guard let current = try MutationQueueRecord.fetchOne(db, key: item.id),
+                  current.accountID == self.accountID,
+                  current.targetLocalID == item.targetLocalID,
+                  current.operation == .moveBucket,
+                  current.payload == item.payload,
+                  allowInFlight || current.status != .inFlight
+            else { return }
+
+            guard let view = try KanbanViewRecord.filter(Column("accountID") == self.accountID)
+                .filter(Column("projectLocalID") == payload.projectLocalID)
+                .filter(Column("remoteID") == payload.viewID).fetchOne(db),
+                let destination = try KanbanBucketRecord.filter(Column("viewLocalID") == view.localID)
+                .filter(Column("remoteID") == bucketID).fetchOne(db),
+                var task = try TaskRecord.fetchOne(db, key: item.targetLocalID),
+                task.accountID == self.accountID,
+                task.projectLocalID == payload.projectLocalID
+            else {
+                try current.delete(db)
+                return
+            }
+
+            let related = try MutationQueueRecord.filter(Column("accountID") == self.accountID)
+                .filter(Column("targetLocalID") == item.targetLocalID).fetchAll(db)
+            var newerMoves = [MutationQueueRecord]()
+            for var next in related where next.id != current.id && next.operation == .moveBucket
+                && next.status != .inFlight {
+                var nextPayload = try KanbanLocalMutations.decode(KanbanMovePayload.self, item: next)
+                guard nextPayload.viewID == payload.viewID else { continue }
+                if (next.id ?? 0) > (current.id ?? 0) {
+                    nextPayload.baselineBucketID = bucketID
+                    next.payload = try KanbanLocalMutations.encode(nextPayload)
+                    try next.update(db)
+                    newerMoves.append(next)
+                }
+            }
+
+            if newerMoves.isEmpty {
+                if var assignment = try KanbanAssignmentRecord.filter(Column("viewLocalID") == view.localID)
+                    .filter(Column("taskLocalID") == task.localID).fetchOne(db) {
+                    assignment.bucketLocalID = destination.localID
+                    assignment.position = try KanbanLocalMutations.nextPosition(destination.localID, db: db)
+                    try assignment.update(db)
+                }
+                let hasQueuedUpdate = related.contains { $0.operation == .update && $0.status != .inFlight }
+                if !hasQueuedUpdate {
+                    task.isDone = serverTask.isDone
+                    task.dueDate = serverTask.dueDate
+                }
+            }
+            task.serverUpdatedAt = serverTask.updated
+            try task.update(db)
+
+            for var edit in related where edit.operation == .update && edit.status != .inFlight {
+                var body = try KanbanLocalMutations.decode(TaskCreateOrUpdatePayload.self, item: edit)
+                body.baseUpdatedAt = serverTask.updated
+                edit.baseUpdatedAt = serverTask.updated
+                edit.payload = try KanbanLocalMutations.encode(body)
+                try edit.update(db)
+            }
+            try current.delete(db)
         }
     }
 

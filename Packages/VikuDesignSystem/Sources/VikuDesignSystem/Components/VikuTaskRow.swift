@@ -23,6 +23,7 @@ public struct VikuTaskRow<Menu: View>: View {
     private let project: Project?
     private let showsProjectBadge: Bool
     private let inlineLabels: Bool
+    private let allowsCompletionChanges: Bool
     private let onToggle: () -> Void
     private let onOpen: () -> Void
     @ViewBuilder private let contextMenu: () -> Menu
@@ -53,6 +54,7 @@ public struct VikuTaskRow<Menu: View>: View {
         project: Project?,
         showsProjectBadge: Bool = true,
         inlineLabels: Bool = false,
+        allowsCompletionChanges: Bool = true,
         onToggle: @escaping () -> Void,
         onOpen: @escaping () -> Void,
         @ViewBuilder contextMenu: @escaping () -> Menu,
@@ -61,6 +63,7 @@ public struct VikuTaskRow<Menu: View>: View {
         self.project = project
         self.showsProjectBadge = showsProjectBadge
         self.inlineLabels = inlineLabels
+        self.allowsCompletionChanges = allowsCompletionChanges
         self.onToggle = onToggle
         self.onOpen = onOpen
         self.contextMenu = contextMenu
@@ -161,6 +164,7 @@ public struct VikuTaskRow<Menu: View>: View {
                 }
         }
         .buttonStyle(.plain)
+        .disabled(!allowsCompletionChanges)
     }
 
     private var metadataRow: some View {
