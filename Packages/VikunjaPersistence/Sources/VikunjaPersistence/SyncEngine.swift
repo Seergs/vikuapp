@@ -27,6 +27,7 @@ public actor SyncEngine {
     /// scoped to this one account, since `LocalStore`'s tables hold every
     /// saved account's data together rather than one database file each.
     let accountID: UUID
+    let onKanbanCreationRejected: @Sendable (UUID) async -> Void
 
     public init(
         localStore: LocalStore,
@@ -39,6 +40,7 @@ public actor SyncEngine {
         accountID: UUID,
         bucketRepository: BucketRepositoryProtocol? = nil,
         capabilityProvider: CapabilityProvider = NoopCapabilityProvider(),
+        onKanbanCreationRejected: @escaping @Sendable (UUID) async -> Void = { _ in },
     ) {
         self.bucketRepository = bucketRepository
         self.capabilityProvider = capabilityProvider
@@ -50,6 +52,7 @@ public actor SyncEngine {
         self.commentRepository = commentRepository
         self.filterRepository = filterRepository
         self.accountID = accountID
+        self.onKanbanCreationRejected = onKanbanCreationRejected
     }
 
     /// Pull before draining to preserve timestamp-based conflict detection.

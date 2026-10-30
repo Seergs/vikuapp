@@ -106,6 +106,33 @@ struct URLSessionAPIClientTests {
         }
     }
 
+    @Test(arguments: ["application/problem+json", "application/json"])
+    func `bucket capacity uses its structured code instead of matching error text`(contentType: String) async throws {
+        let (session, _) = try MockURLProtocol.makeSession(
+            statusCode: 412, body: Self.fixture("bucket-limit-exceeded"),
+            headers: ["Content-Type": contentType],
+        )
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        await #expect(throws: VikunjaError.bucketFull) {
+            let _: TaskDTO = try await client.send(VikunjaEndpoints.info())
+        }
+    }
+
+    @Test func `another precondition code retains the generic server failure`() async throws {
+        let body = try Self.fixture("bucket-limit-exceeded").replacingOccurrences(of: "10004", with: "10003")
+        let (session, _) = MockURLProtocol.makeSession(
+            statusCode: 412, body: body, headers: ["Content-Type": "application/problem+json"],
+        )
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        do {
+            let _: TaskDTO = try await client.send(VikunjaEndpoints.info())
+            Issue.record("Expected precondition failure")
+        } catch let VikunjaError.server(message, statusCode) {
+            #expect(statusCode == 412)
+            #expect(message.hasSuffix("(10003)"))
+        }
+    }
+
     @Test
     func `attaches bearer token from provider`() async throws {
         let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: #"{"version":"0.24.6"}"#)

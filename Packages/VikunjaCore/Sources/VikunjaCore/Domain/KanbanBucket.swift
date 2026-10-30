@@ -7,6 +7,11 @@ public struct KanbanBucket: Identifiable, Equatable, Hashable, Sendable {
     public var limit: Int
     public var tasks: [VikunjaTask]
 
+    /// Includes optimistic local creations, so consecutive adds reserve capacity.
+    public var isFull: Bool {
+        limit > 0 && tasks.count >= limit
+    }
+
     public init(
         id: Int,
         title: String,

@@ -26,6 +26,9 @@ enum PendingSyncOperationsReader {
                     needsConflictResolution: item.needsConflictResolution,
                     failureMessage: item.lastError.flatMap(KanbanCreationFailure.init(rawValue:))?.message
                         ?? item.lastError.flatMap(KanbanMoveFailure.init(rawValue:))?.message,
+                    canRecoverKanbanCreation: item.entityType == .task && item.operation == .create
+                        && item.status == .failed && item.needsConflictResolution
+                        && item.lastError.flatMap(KanbanCreationFailure.init(rawValue:))?.allowsRecovery == true,
                 )
             }
             .sorted {

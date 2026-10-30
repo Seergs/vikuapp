@@ -1,0 +1,6 @@
+{
+  "title": "Precondition Failed",
+  "status": 412,
+  "detail": "You cannot add the task to this bucket as it already exceeded the limit of tasks it can hold.",
+  "code": 10004
+}

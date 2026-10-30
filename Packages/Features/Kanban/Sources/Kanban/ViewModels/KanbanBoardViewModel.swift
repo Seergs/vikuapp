@@ -163,7 +163,8 @@ public final class KanbanBoardViewModel {
 
     public func createTask(title: String, in bucket: KanbanBucket) async {
         guard supportsWrites, supportsTaskCreation, let viewID,
-              buckets.contains(where: { $0.id == bucket.id }) else { return }
+              let current = buckets.first(where: { $0.id == bucket.id }) else { return }
+        guard !current.isFull else { show(VikunjaError.bucketFull); return }
         do {
             _ = try await repository.createTask(
                 title: title, projectID: project.id, viewID: viewID, bucketID: bucket.id,

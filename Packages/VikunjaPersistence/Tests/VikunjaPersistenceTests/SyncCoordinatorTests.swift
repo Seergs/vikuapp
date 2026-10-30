@@ -172,10 +172,22 @@ private final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @u
 }
 
 private actor FakeReachabilityMonitor: ReachabilityMonitoring {
-    var isReachable: Bool
+    private var reachable: Bool
+    private var hasInitialReport: Bool
+    private var hasReadStatus = false
+    private var hasStatusSubscriber = false
+    var isReachable: Bool {
+        hasReadStatus = true
+        return reachable
+    }
 
-    init(isReachable: Bool = true) {
-        self.isReachable = isReachable
+    var readyForFirstReport: Bool {
+        hasReadStatus || hasStatusSubscriber
+    }
+
+    init(isReachable: Bool = true, hasInitialReport: Bool = true) {
+        self.reachable = isReachable
+        self.hasInitialReport = hasInitialReport
     }
 
     /// Set once `SyncCoordinator`'s observation loop has actually
@@ -183,6 +195,7 @@ private actor FakeReachabilityMonitor: ReachabilityMonitoring {
     /// against a background task that hasn't started yet.
     private(set) var hasSubscriber = false
     private var continuation: AsyncStream<Void>.Continuation?
+    private var statusContinuation: AsyncStream<Bool>.Continuation?
 
     func reachabilityRegained() async -> AsyncStream<Void> {
         AsyncStream { continuation in
@@ -191,13 +204,29 @@ private actor FakeReachabilityMonitor: ReachabilityMonitoring {
         }
     }
 
+    func reachabilityUpdates() async -> AsyncStream<Bool> {
+        AsyncStream { continuation in
+            statusContinuation = continuation
+            hasSubscriber = true
+            hasStatusSubscriber = true
+            if hasInitialReport {
+                continuation.yield(reachable)
+            }
+        }
+    }
+
     func setReachable(_ value: Bool) {
-        isReachable = value
+        reachable = value
+        hasInitialReport = true
+        statusContinuation?.yield(value)
     }
 
     func signalRegained() {
-        isReachable = true
+        reachable = true
+        hasInitialReport = true
         continuation?.yield()
+        statusContinuation?.yield(false)
+        statusContinuation?.yield(true)
     }
 
     /// Ends the stream, so a test's `coordinator.start()` loop can exit on
@@ -206,6 +235,7 @@ private actor FakeReachabilityMonitor: ReachabilityMonitoring {
     /// alone doesn't unblock an in-flight `for await` on this stream.
     func finish() {
         continuation?.finish()
+        statusContinuation?.finish()
     }
 }
 
@@ -281,6 +311,7 @@ struct SyncCoordinatorTests {
         let factory = FakeInstanceClientFactory()
         let account = try makeAccount(host: "kanban.example.com")
         try await accountStore.addAccount(account, token: "test")
+        factory.projectRepository(for: account.baseURL).projects = [Project(id: 1, title: "Work")]
         try await store.write { db in
             try ProjectRecord(
                 localID: UUID(),
@@ -309,7 +340,7 @@ struct SyncCoordinatorTests {
         try await coordinator.refresh(accountID: account.id, scope: .kanban(projectID: .remote(1)))
         try await first.value
         #expect(await factory.boardRepository.calls == 1)
-        #expect(factory.projectRepository(for: account.baseURL).fetchProjectsCallCount == 0)
+        #expect(factory.projectRepository(for: account.baseURL).fetchProjectsCallCount == 1)
     }
 
     @Test(.timeLimit(.minutes(1)))
@@ -337,11 +368,11 @@ struct SyncCoordinatorTests {
 
         await coordinator.start()
 
-        // Await the actual second-account request, not a wall-clock guess about
-        // how long all synchronization phases of the first account take in CI.
+        // Account workers may start in either order; await both requests.
         var fetches = secondAccountFetch.makeAsyncIterator()
         let received = await fetches.next()
         #expect(received != nil)
+        await waitUntil { repositoryA.fetchProjectsCallCount == 1 }
         #expect(repositoryA.fetchProjectsCallCount == 1)
         #expect(repositoryB.fetchProjectsCallCount == 1)
         await stopObserving(coordinator, reachability)
@@ -675,5 +706,136 @@ struct SyncCoordinatorTests {
         try await coordinator.refresh(accountID: account.id, scope: .task(.remote(5)))
         #expect(projects.fetchProjectsCallCount == 2)
         #expect(comments.fetchedTaskIDs == [.remote(5), .remote(5)])
+    }
+
+    @Test(arguments: [false, true])
+    func `manual board refresh uploads offline creations before showing success or capacity recovery`(full: Bool) async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let accountStore = FakeAccountStore()
+        let factory = FakeInstanceClientFactory()
+        let reachability = FakeReachabilityMonitor()
+        let account = try makeAccount(host: "offline-board.example.com")
+        try await accountStore.addAccount(account, token: "token")
+        factory.projectRepository(for: account.baseURL).projects = [Project(id: 1, title: "Work")]
+        await factory.boardRepository.set(KanbanDownload(
+            viewID: 10, mode: "manual", filterQuery: "", defaultBucketID: 20, doneBucketID: nil,
+            buckets: [KanbanBucket(id: 20, title: "Limited", limit: 2)],
+        ))
+        await factory.boardRepository.acceptCreations(failure: full ? .bucketFull : nil)
+        let coordinator = SyncCoordinator(
+            localStore: store, accountStore: accountStore, clientFactory: factory, reachability: reachability,
+            tokenProvider: { _ in { "token" } },
+        )
+        try await coordinator.refresh(accountID: account.id, scope: .account)
+        try await coordinator.refresh(accountID: account.id, scope: .kanban(projectID: .remote(1)))
+        await reachability.setReachable(false)
+        let board = OfflineKanbanBoardRepository(
+            localStore: store, accountID: account.id, syncRequester: NoopKanbanSyncRequester(),
+            reachability: reachability,
+        )
+        let task = try await board.createTask(title: "Offline", projectID: .remote(1), viewID: 10, bucketID: 20)
+        if !full {
+            _ = try await board.createTask(title: "Second offline", projectID: .remote(1), viewID: 10, bucketID: 20)
+        }
+        await reachability.setReachable(true)
+        if full {
+            await #expect(throws: SyncIncompleteError.self) {
+                try await coordinator.refresh(accountID: account.id, scope: .kanban(projectID: .remote(1)))
+            }
+        } else {
+            try await coordinator.refresh(accountID: account.id, scope: .kanban(projectID: .remote(1)))
+        }
+        #expect(await factory.boardRepository.creationCalls == (full ? 1 : 2))
+        let pending = try await store.pendingSyncOperations(accountID: account.id)
+        if full {
+            #expect(pending.count == 1)
+            #expect(pending.first?.canRecoverKanbanCreation == true)
+        } else {
+            #expect(pending.isEmpty)
+            let tasks = OfflineTaskRepository(
+                localStore: store, accountID: account.id, syncRequester: NoopKanbanSyncRequester(),
+            )
+            #expect(try await tasks.fetchTask(id: task.id).id == .remote(500))
+            let identities = try await Set(tasks.fetchTasks(projectID: .remote(1)).map(\.id))
+            #expect(identities == [.remote(500), .remote(501)])
+        }
+    }
+
+    @Test func `a stalled account cannot prevent another account from synchronizing`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let accountStore = FakeAccountStore()
+        let factory = FakeInstanceClientFactory()
+        let first = try makeAccount(host: "stalled.example.com")
+        let second = try makeAccount(host: "healthy.example.com")
+        try await accountStore.addAccount(first, token: "token")
+        try await accountStore.addAccount(second, token: "token")
+        let (release, continuation) = AsyncStream<Void>.makeStream()
+        defer { continuation.finish() }
+        factory.projectRepository(for: first.baseURL).beforeFetchResponse = { for await _ in release {} }
+        let healthy = factory.projectRepository(for: second.baseURL)
+        let coordinator = SyncCoordinator(
+            localStore: store, accountStore: accountStore, clientFactory: factory,
+            reachability: FakeReachabilityMonitor(), tokenProvider: { _ in { "token" } },
+        )
+        let pass = Task { await coordinator.syncAllAccounts() }
+        await waitUntil { healthy.fetchProjectsCallCount == 1 }
+        #expect(healthy.fetchProjectsCallCount == 1)
+        continuation.finish()
+        await pass.value
+    }
+
+    @Test func `reconnection is processed while another account still has an unfinished request`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let accountStore = FakeAccountStore()
+        let factory = FakeInstanceClientFactory()
+        let reachability = FakeReachabilityMonitor(isReachable: false)
+        let first = try makeAccount(host: "stalled.example.com")
+        let second = try makeAccount(host: "healthy.example.com")
+        try await accountStore.addAccount(first, token: "token")
+        try await accountStore.addAccount(second, token: "token")
+        let (release, continuation) = AsyncStream<Void>.makeStream()
+        defer { continuation.finish() }
+        factory.projectRepository(for: first.baseURL).beforeFetchResponse = { for await _ in release {} }
+        let healthy = factory.projectRepository(for: second.baseURL)
+        let coordinator = SyncCoordinator(
+            localStore: store, accountStore: accountStore, clientFactory: factory,
+            reachability: reachability, tokenProvider: { _ in { "token" } },
+        )
+        await coordinator.start()
+        await waitUntil { await reachability.hasSubscriber }
+        await reachability.signalRegained()
+        await waitUntil { healthy.fetchProjectsCallCount == 1 }
+        await reachability.setReachable(false)
+        let projects = OfflineProjectRepository(
+            localStore: store, accountID: second.id, syncRequester: NoopKanbanSyncRequester(),
+        )
+        _ = try await projects.create(Project(id: .local(UUID()), title: "Offline"))
+        await reachability.signalRegained()
+        await waitUntil { healthy.createdProjects.count == 1 }
+        #expect(healthy.createdProjects.count == 1)
+        continuation.finish()
+        await coordinator.syncAllAccounts()
+        await stopObserving(coordinator, reachability)
+    }
+
+    @Test func `the initial online report starts synchronization even when startup had no path yet`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let accountStore = FakeAccountStore()
+        let factory = FakeInstanceClientFactory()
+        let reachability = FakeReachabilityMonitor(isReachable: false, hasInitialReport: false)
+        let account = try makeAccount(host: "first-path.example.com")
+        try await accountStore.addAccount(account, token: "token")
+        let remote = factory.projectRepository(for: account.baseURL)
+        let coordinator = SyncCoordinator(
+            localStore: store, accountStore: accountStore, clientFactory: factory,
+            reachability: reachability, tokenProvider: { _ in { "token" } },
+        )
+        await coordinator.start()
+        await waitUntil { await reachability.readyForFirstReport }
+        // This is an initial status, not a transition from a previously known offline path.
+        await reachability.setReachable(true)
+        await waitUntil { remote.fetchProjectsCallCount == 1 }
+        #expect(remote.fetchProjectsCallCount == 1)
+        await stopObserving(coordinator, reachability)
     }
 }

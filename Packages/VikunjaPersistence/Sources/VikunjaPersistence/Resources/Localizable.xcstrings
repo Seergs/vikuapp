@@ -1,6 +1,54 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "This column is full. Retry, choose another column, or delete this local task.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This column is full. Retry, choose another column, or delete this local task."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta columna está llena. Reintenta, elige otra columna o elimina esta tarea local."
+          }
+        }
+      }
+    },
+    "Column unavailable. Choose another column or delete this local task.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Column unavailable. Choose another column or delete this local task."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Columna no disponible. Elige otra columna o elimina esta tarea local."
+          }
+        }
+      }
+    },
+    "Creation rejected. Check capacity or permissions, retry, or choose another column.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Creation rejected. Check capacity or permissions, retry, or choose another column."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Creación rechazada. Revisa la capacidad o los permisos, reintenta o elige otra columna."
+          }
+        }
+      }
+    },
     "Some changes could not be synced. Check Pending Sync in Settings.": {
       "localizations": {
         "en": {

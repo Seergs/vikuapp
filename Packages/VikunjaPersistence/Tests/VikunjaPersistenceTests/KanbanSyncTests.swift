@@ -8,6 +8,15 @@ actor KanbanDownloadFake: BucketRepositoryProtocol {
     var failure: VikunjaError?
     private(set) var calls = 0
     var delay = false
+    private(set) var creationCalls = 0
+    private var acceptsCreations = false
+    private var creationFailure: VikunjaError?
+
+    func acceptCreations(failure: VikunjaError? = nil) {
+        acceptsCreations = true
+        creationFailure = failure
+    }
+
     func slowDown() {
         delay = true
     }
@@ -44,7 +53,21 @@ actor KanbanDownloadFake: BucketRepositoryProtocol {
     }
 
     func createTask(_ task: VikunjaTask, bucketID: Int, projectID: Int) async throws -> VikunjaTask {
-        throw VikunjaError.notFound
+        guard acceptsCreations else { throw VikunjaError.notFound }
+        creationCalls += 1
+        if let creationFailure {
+            throw creationFailure
+        }
+        let created = VikunjaTask(id: .remote(499 + creationCalls), title: task.title, projectID: task.projectID)
+        var buckets = result.buckets
+        if let index = buckets.firstIndex(where: { $0.id == bucketID }) {
+            buckets[index].tasks.append(created)
+        }
+        result = KanbanDownload(
+            viewID: result.viewID, mode: result.mode, filterQuery: result.filterQuery,
+            defaultBucketID: result.defaultBucketID, doneBucketID: result.doneBucketID, buckets: buckets,
+        )
+        return created
     }
 }
 

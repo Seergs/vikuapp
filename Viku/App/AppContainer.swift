@@ -206,6 +206,12 @@ final class AppContainer {
             clientFactory: clientFactory,
             reachability: reachabilityMonitor,
             tokenProvider: { account in { try await sessionRefresher.validToken(for: account) } },
+            onKanbanCreationRejected: { [toastCenter] accountID in
+                guard await (try? accountStore.activeAccount())?.id == accountID else { return }
+                await toastCenter.show(
+                    String(localized: "Couldn't create the task because the column is full."), style: .error,
+                )
+            },
         )
         self.whatsNewPresentationResolver = WhatsNewPresentationResolver(
             contentProvider: BundledWhatsNewContentProvider(),
@@ -506,6 +512,7 @@ final class AppContainer {
             capabilityProvider: clientFactory.makeCapabilityProvider(baseURL: account.baseURL),
             kanbanRepository: OfflineKanbanBoardRepository(
                 localStore: localStore, accountID: account.id, syncRequester: accountSync(for: account),
+                reachability: reachabilityMonitor,
             ),
             toastPresenter: toastCenter,
             hapticPresenter: hapticCenter,
@@ -542,7 +549,7 @@ final class AppContainer {
             )
         }
         let repository = OfflineKanbanBoardRepository(
-            localStore: localStore, accountID: account.id, syncRequester: sync,
+            localStore: localStore, accountID: account.id, syncRequester: sync, reachability: reachabilityMonitor,
         )
         return KanbanBoardViewModel(
             project: project,
@@ -697,7 +704,12 @@ final class AppContainer {
     }
 
     func makePendingSyncViewModel(account: InstanceAccount) -> PendingSyncViewModel {
-        PendingSyncViewModel(provider: localStore, accountID: account.id, toastPresenter: toastCenter)
+        PendingSyncViewModel(
+            provider: localStore, accountID: account.id, toastPresenter: toastCenter,
+            creationRecovery: OfflineKanbanCreationRecovery(
+                localStore: localStore, accountID: account.id, syncRequester: accountSync(for: account),
+            ),
+        )
     }
 
     func makeNotificationsViewModel(account: InstanceAccount) -> NotificationsViewModel {

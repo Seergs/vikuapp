@@ -100,9 +100,9 @@ struct KanbanColumnView: View {
                 .fontWeight(.semibold)
                 .lineLimit(1)
 
-            Text(verbatim: "\(bucket.tasks.count)")
+            Text(verbatim: bucket.limit > 0 ? "\(bucket.tasks.count)/\(bucket.limit)" : "\(bucket.tasks.count)")
                 .font(VikuFont.caption)
-                .foregroundStyle(palette.textSecondary)
+                .foregroundStyle(bucket.isFull ? palette.semanticDangerText : palette.textSecondary)
                 .padding(.horizontal, VikuSpacing.xs + VikuSpacing.xxs)
                 .background(palette.fieldBackground, in: Capsule())
 
@@ -114,10 +114,14 @@ struct KanbanColumnView: View {
             } label: {
                 Image(systemName: "plus")
                     .font(VikuFont.footnote.weight(.semibold))
-                    .foregroundStyle(palette.textSecondary)
+                    .foregroundStyle(bucket.isFull ? palette.textTertiary : palette.textSecondary)
             }
             .buttonStyle(.plain)
-            .disabled(!allowsMutations || !allowsTaskCreation)
+            .disabled(!allowsMutations || !allowsTaskCreation || bucket.isFull)
+            .accessibilityLabel(Text("Add task", bundle: .module))
+            .accessibilityHint(bucket.isFull
+                ? Text("This column is full", bundle: .module)
+                : Text("Create a task in this column", bundle: .module))
         }
         .padding(.horizontal, VikuSpacing.xs)
     }
@@ -162,7 +166,7 @@ struct KanbanColumnView: View {
             Button(action: submitNewTask) { Text("Add", bundle: .module) }
                 .font(VikuFont.footnote)
                 .fontWeight(.semibold)
-                .disabled(newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(bucket.isFull || newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
             Button {
                 isAddingTask = false
@@ -180,7 +184,7 @@ struct KanbanColumnView: View {
 
     private func submitNewTask() {
         let title = newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !title.isEmpty else { return }
+        guard !title.isEmpty, !bucket.isFull else { return }
         onAddTask(title)
         newTaskTitle = ""
         isNewTaskFieldFocused = true

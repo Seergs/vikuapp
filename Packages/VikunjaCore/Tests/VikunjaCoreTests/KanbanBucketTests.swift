@@ -32,4 +32,12 @@ struct KanbanBucketTests {
 
         #expect(bucket.tasks.map(\.id) == [1, 2])
     }
+
+    @Test func `zero is unlimited and reaching or exceeding the limit blocks creation`() {
+        let tasks = [VikunjaTask(id: 1, title: "First", projectID: 4)]
+        #expect(!KanbanBucket(id: 1, title: "Unlimited", tasks: tasks).isFull)
+        #expect(!KanbanBucket(id: 1, title: "Space", limit: 2, tasks: tasks).isFull)
+        #expect(KanbanBucket(id: 1, title: "Full", limit: 1, tasks: tasks).isFull)
+        #expect(KanbanBucket(id: 1, title: "Overfull", limit: 1, tasks: tasks + tasks).isFull)
+    }
 }

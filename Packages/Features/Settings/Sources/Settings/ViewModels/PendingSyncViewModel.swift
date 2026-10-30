@@ -16,15 +16,21 @@ public final class PendingSyncViewModel {
     private let provider: PendingSyncOperationsProviding
     private let accountID: UUID
     private let toastPresenter: ToastPresenting
+    private let creationRecovery: KanbanCreationRecovering?
+    public private(set) var busyOperationIDs: Set<Int64> = []
+    public private(set) var recoveryBuckets: [KanbanCreationBucket] = []
+    var recoveryOperation: PendingSyncOperation?
 
     public init(
         provider: PendingSyncOperationsProviding,
         accountID: UUID,
         toastPresenter: ToastPresenting,
+        creationRecovery: KanbanCreationRecovering? = nil,
     ) {
         self.provider = provider
         self.accountID = accountID
         self.toastPresenter = toastPresenter
+        self.creationRecovery = creationRecovery
     }
 
     /// Consumes the live stream until the calling `.task` is cancelled.
@@ -85,6 +91,46 @@ public final class PendingSyncViewModel {
         }
     }
     #endif
+
+    public func canRecover(_ operation: PendingSyncOperation) -> Bool {
+        creationRecovery != nil && operations.contains {
+            $0.id == operation.id && $0.canRecoverKanbanCreation
+        }
+    }
+
+    public func chooseRecoveryBucket(for operation: PendingSyncOperation) async {
+        guard canRecover(operation), let creationRecovery,
+              busyOperationIDs.insert(operation.id).inserted else { return }
+        defer { busyOperationIDs.remove(operation.id) }
+        do {
+            recoveryBuckets = try await creationRecovery.recoveryBuckets(operationID: operation.id)
+            guard !Task.isCancelled, canRecover(operation) else { return }
+            recoveryOperation = operation
+        } catch { showRecoveryError(error) }
+    }
+
+    public func retryCreation(_ operation: PendingSyncOperation, bucketID: Int? = nil) async {
+        guard canRecover(operation), let creationRecovery,
+              busyOperationIDs.insert(operation.id).inserted else { return }
+        defer { busyOperationIDs.remove(operation.id) }
+        do {
+            try await creationRecovery.retryCreation(operationID: operation.id, bucketID: bucketID)
+        } catch { showRecoveryError(error) }
+    }
+
+    public func deleteRejectedCreation(_ operation: PendingSyncOperation) async {
+        guard canRecover(operation), let creationRecovery,
+              busyOperationIDs.insert(operation.id).inserted else { return }
+        defer { busyOperationIDs.remove(operation.id) }
+        do {
+            try await creationRecovery.deleteRejectedCreation(operationID: operation.id)
+        } catch { showRecoveryError(error) }
+    }
+
+    private func showRecoveryError(_ error: any Error) {
+        guard !Task.isCancelled, !(error is CancellationError) else { return }
+        toastPresenter.show((error as? VikunjaError)?.displayMessage ?? error.localizedDescription, style: .error)
+    }
 
     /// Conflict items can never drain, so removing one is only queue cleanup.
     /// The live observation removes the row from the list once it's gone.
