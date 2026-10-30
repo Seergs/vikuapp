@@ -29,7 +29,7 @@ public struct VikuTaskRow<Menu: View>: View {
     @ViewBuilder private let contextMenu: () -> Menu
 
     @Environment(\.vikuPalette) private var palette
-    @Environment(\.pendingSyncStatuses) private var pendingSyncStatuses
+    @Environment(\.visiblePendingSyncStatuses) private var pendingSyncStatuses
 
     private var syncStatus: SyncItemStatus? {
         pendingSyncStatuses[SyncItemKey(kind: .task, id: task.id)]

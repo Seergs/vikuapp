@@ -127,3 +127,10 @@ public extension EnvironmentValues {
     /// tests) simply show no indicator.
     @Entry var pendingSyncStatuses: [SyncItemKey: SyncItemStatus] = [:]
 }
+
+extension EnvironmentValues {
+    /// Also used by inline text glyphs, which cannot embed the indicator view.
+    var visiblePendingSyncStatuses: [SyncItemKey: SyncItemStatus] {
+        vikuIsOnline ? [:] : pendingSyncStatuses
+    }
+}
