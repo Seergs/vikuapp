@@ -269,7 +269,7 @@ struct SyncCoordinatorTests {
         #expect(factory.projectRepository(for: account.baseURL).fetchProjectsCallCount == 0)
     }
 
-    @Test
+    @Test(.timeLimit(.minutes(1)))
     func `start syncs every saved account once reachability is already up`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let accountStore = FakeAccountStore()
@@ -282,6 +282,11 @@ struct SyncCoordinatorTests {
         try await accountStore.addAccount(accountB, token: "token-b")
         let repositoryA = factory.projectRepository(for: accountA.baseURL)
         let repositoryB = factory.projectRepository(for: accountB.baseURL)
+        let (secondAccountFetch, continuation) = AsyncStream<Void>.makeStream()
+        repositoryB.onFetchProjects = {
+            continuation.yield(())
+            continuation.finish()
+        }
         let coordinator = SyncCoordinator(
             localStore: store, accountStore: accountStore, clientFactory: factory, reachability: reachability,
             tokenProvider: { account in { try await accountStore.token(forAccountID: account.id) } },
@@ -289,7 +294,11 @@ struct SyncCoordinatorTests {
 
         await coordinator.start()
 
-        await waitUntil { repositoryA.fetchProjectsCallCount > 0 && repositoryB.fetchProjectsCallCount > 0 }
+        // Await the actual second-account request, not a wall-clock guess about
+        // how long all synchronization phases of the first account take in CI.
+        var fetches = secondAccountFetch.makeAsyncIterator()
+        let received = await fetches.next()
+        #expect(received != nil)
         #expect(repositoryA.fetchProjectsCallCount == 1)
         #expect(repositoryB.fetchProjectsCallCount == 1)
         await stopObserving(coordinator, reachability)
@@ -342,19 +351,13 @@ struct SyncCoordinatorTests {
             tokenProvider: { account in { try await accountStore.token(forAccountID: account.id) } },
         )
 
-        await coordinator.start()
+        // This verifies the completed multi-account result. Await the command
+        // directly; the start test separately verifies background scheduling.
+        await coordinator.syncAllAccounts()
 
-        // `fetchProjectsCallCount` increments the instant `fetchProjects()`
-        // is entered, before `pullProjects()` finishes writing the result —
-        // waiting on the row actually landing avoids a race against that
-        // still-in-flight write.
-        await waitUntil {
-            await (try? store.read { db in try ProjectRecord.fetchAll(db) })?.count == 1
-        }
         #expect(healthyRepository.fetchProjectsCallCount == 1)
         let rows = try await store.read { db in try ProjectRecord.fetchAll(db) }
         #expect(rows.map(\.accountID) == [healthyAccount.id])
-        await stopObserving(coordinator, reachability)
     }
 
     @Test
@@ -375,17 +378,15 @@ struct SyncCoordinatorTests {
             tokenProvider: { account in { try await accountStore.token(forAccountID: account.id) } },
         )
 
-        await coordinator.start()
+        // This verifies the completed multi-account result. Await the command
+        // directly; the start test separately verifies background scheduling.
+        await coordinator.syncAllAccounts()
 
-        await waitUntil {
-            await (try? store.read { db in try ProjectRecord.fetchAll(db) })?.count == 2
-        }
         let rows = try await store.read { db in try ProjectRecord.fetchAll(db) }
         let rowA = try #require(rows.first { $0.accountID == accountA.id })
         let rowB = try #require(rows.first { $0.accountID == accountB.id })
         #expect(rowA.title == "A's project")
         #expect(rowB.title == "B's project")
-        await stopObserving(coordinator, reachability)
     }
 
     @Test
