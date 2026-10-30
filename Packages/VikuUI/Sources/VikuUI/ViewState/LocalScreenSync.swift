@@ -50,7 +50,7 @@ public final class LocalScreenSync {
             if isPreparingInitialSnapshot {
                 initialFailureMessage = message
                 onInitialFailure(message)
-            } else {
+            } else if (error as? VikunjaError) != .offline {
                 toastPresenter.show(message, style: style(for: error))
             }
         }

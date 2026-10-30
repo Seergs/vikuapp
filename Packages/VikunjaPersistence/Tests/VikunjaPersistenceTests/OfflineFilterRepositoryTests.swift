@@ -78,6 +78,32 @@ struct OfflineFilterRepositoryTests {
     }
 
     @Test
+    func `connection loss during filter rename keeps it pending until reconnect`() async throws {
+        let fixture = try await makeFixture(online: false)
+        try await fixture.engine.pullFilterQueries()
+        _ = try await fixture.repository.renameFilter(id: 7, title: "Offline rename")
+        fixture.networkFilters.renameError = VikunjaError.offline
+
+        await #expect(throws: VikunjaError.offline) {
+            try await fixture.engine.drainFilterMutations()
+        }
+
+        let queued = try await fixture.localStore.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(queued.count == 1)
+        #expect(queued.first?.status == .pending)
+        #expect(queued.first?.retryCount == 0)
+        #expect(queued.first?.lastError == nil)
+        let local = try await fixture.repository.fetchFilter(id: 7)
+        #expect(local.title == "Offline rename")
+
+        fixture.networkFilters.renameError = nil
+        try await fixture.engine.drainFilterMutations()
+        let remaining = try await fixture.localStore.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(remaining.isEmpty)
+        #expect(fixture.networkFilters.filters[7]?.title == "Offline rename")
+    }
+
+    @Test
     func `explicit query sync makes a filter available offline`() async throws {
         let fixture = try await makeFixture(online: true)
 

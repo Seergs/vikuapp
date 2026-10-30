@@ -172,7 +172,12 @@ private final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @u
 }
 
 private actor FakeReachabilityMonitor: ReachabilityMonitoring {
-    var isReachable = false
+    var isReachable: Bool
+
+    init(isReachable: Bool = true) {
+        self.isReachable = isReachable
+    }
+
     /// Set once `SyncCoordinator`'s observation loop has actually
     /// subscribed, so a test can wait for that instead of racing a signal
     /// against a background task that hasn't started yet.
@@ -191,6 +196,7 @@ private actor FakeReachabilityMonitor: ReachabilityMonitoring {
     }
 
     func signalRegained() {
+        isReachable = true
         continuation?.yield()
     }
 
@@ -230,6 +236,43 @@ struct SyncCoordinatorTests {
         await waitUntil { await reachability.hasSubscriber }
         await reachability.finish()
         await coordinator.stop()
+    }
+
+    @Test(arguments: [SyncScope.account, .task(.remote(5)), .comments(.remote(5))])
+    func `offline refresh leaves local changes pending and reconnect sends them`(scope: SyncScope) async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let accountStore = FakeAccountStore()
+        let factory = FakeInstanceClientFactory()
+        let reachability = FakeReachabilityMonitor(isReachable: false)
+        let account = try makeAccount(host: "offline.example.com")
+        try await accountStore.addAccount(account, token: "token")
+        let coordinator = SyncCoordinator(
+            localStore: store, accountStore: accountStore, clientFactory: factory, reachability: reachability,
+            tokenProvider: { _ in { "token" } },
+        )
+        let repository = OfflineProjectRepository(
+            localStore: store, accountID: account.id, syncRequester: NoopKanbanSyncRequester(),
+        )
+        let project = try await repository.create(Project(id: .local(UUID()), title: "Offline project"))
+
+        await #expect(throws: VikunjaError.offline) {
+            try await coordinator.refresh(accountID: account.id, scope: scope)
+        }
+
+        let queued = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(queued.count == 1)
+        #expect(queued.first?.status == .pending)
+        #expect(queued.first?.retryCount == 0)
+        #expect(queued.first?.lastError == nil)
+        let statuses = try await store.pendingSyncStatuses(accountID: account.id)
+        #expect(statuses[SyncItemKey(kind: .project, id: project.id)] == .pending)
+        #expect(factory.projectRepository(for: account.baseURL).fetchProjectsCallCount == 0)
+
+        await reachability.setReachable(true)
+        try await coordinator.refresh(accountID: account.id, scope: .account)
+        let remaining = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(remaining.isEmpty)
+        #expect(factory.projectRepository(for: account.baseURL).createdProjects.count == 1)
     }
 
     @Test func `overlapping board refreshes share one download`() async throws {
@@ -309,7 +352,7 @@ struct SyncCoordinatorTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let accountStore = FakeAccountStore()
         let factory = FakeInstanceClientFactory()
-        let reachability = FakeReachabilityMonitor()
+        let reachability = FakeReachabilityMonitor(isReachable: false)
         let account = try makeAccount(host: "a.example.com")
         try await accountStore.addAccount(account, token: "token-a")
         let repository = factory.projectRepository(for: account.baseURL)
@@ -394,7 +437,7 @@ struct SyncCoordinatorTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let accountStore = FakeAccountStore()
         let factory = FakeInstanceClientFactory()
-        let reachability = FakeReachabilityMonitor()
+        let reachability = FakeReachabilityMonitor(isReachable: false)
         let account = try makeAccount(host: "a.example.com")
         try await accountStore.addAccount(account, token: "token-a")
         let repository = factory.projectRepository(for: account.baseURL)
