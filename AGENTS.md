@@ -19,6 +19,12 @@ Shared instructions for coding agents working in this repository.
 - Report what changed, why, what was validated, and any remaining limitations. Explicitly state when a check could not be run; never claim an unverified result.
 - Work on a branch; repository hooks prohibit direct commits to `main`. Stage only files belonging to the requested change and keep hooks enabled.
 
+## UI/UX quality and polish
+
+- UI/UX polish is a core requirement. Keep animations, transitions, loading states, and layouts fluid and consistent with the design system. Avoid jank, abrupt jumps, and visual flashes; respect Reduce Motion.
+- Prevent spinner flicker: show it only after 1 second of loading, then keep it visible for at least 1 full second and until completion. An operation finishing at 1.5 seconds therefore shows the spinner from 1 to 2 seconds. Apply this to presentation without delaying the underlying operation or blocking the main thread.
+- Check fast, slow, failed, and cancelled interactions. Functional correctness alone is not enough: the app must feel responsive and carefully designed.
+
 ## Project
 
 Native iOS SwiftUI client for [Vikunja](https://vikunja.io), the open-source
