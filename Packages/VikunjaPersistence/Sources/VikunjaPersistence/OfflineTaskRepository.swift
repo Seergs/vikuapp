@@ -225,7 +225,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
     /// Everything `task(from:context:)` needs to resolve one task row's
     /// labels and relations, gathered once per read call (`fetchTasks`/
     /// `readTask`/`searchTasks`) rather than per row.
-    private struct TaskAssemblyContext {
+    struct TaskAssemblyContext {
         let projectsByLocalID: [UUID: ProjectRecord]
         let labelsByRemoteID: [Int: LabelRecord]
         let labelsByLocalID: [UUID: LabelRecord]
@@ -245,7 +245,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
         let tasksByRemoteID: [Int: TaskRecord]
     }
 
-    private static func makeAssemblyContext(
+    static func makeAssemblyContext(
         accountID: UUID, projectRows: [ProjectRecord]? = nil, db: Database,
     ) throws -> TaskAssemblyContext {
         let projectRows = try projectRows ?? Self.projectRows(accountID, db: db)
@@ -299,7 +299,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
         return result
     }
 
-    private struct PendingRelationMutation {
+    struct PendingRelationMutation {
         let operation: MutationOperation
         let kind: RelationKind
         let otherTaskLocalID: UUID
@@ -409,7 +409,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
         }
     }
 
-    private static func task(from row: TaskRecord, context: TaskAssemblyContext) -> VikunjaTask {
+    static func task(from row: TaskRecord, context: TaskAssemblyContext) -> VikunjaTask {
         let projectID = context.projectsByLocalID[row.projectLocalID]?.remoteID.map(EntityID.remote)
             ?? .local(row.projectLocalID)
         var labels = row.labelRemoteIDs
