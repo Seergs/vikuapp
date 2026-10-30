@@ -87,6 +87,7 @@ public actor SyncCoordinator {
 
     public func refresh(accountID: UUID, scope: SyncScope) async throws {
         try Task.checkCancellation()
+        guard await reachability.isReachable else { throw VikunjaError.offline }
         let task = enqueue(accountID: accountID, scope: scope, afterWrite: false)
         // A disappearing screen must not cancel work shared with other triggers.
         try await task.value

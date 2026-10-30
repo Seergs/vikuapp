@@ -953,7 +953,8 @@ public actor SyncEngine {
     /// before any child that references it) has already run earlier in
     /// this same pass if it's going to succeed at all, so this only
     /// actually defers anything when the parent's own create is still
-    /// failing. One item's failure doesn't stop the rest from draining.
+    /// failing. One item's rejection doesn't stop the rest from draining;
+    /// an offline response suspends the phase without failing queued work.
     ///
     /// Includes `.failed` items alongside `.pending` ones — a drain that
     /// failed once (a dead token, a momentary 500, ...) still deserves
@@ -979,10 +980,10 @@ public actor SyncEngine {
         }
         var flaggedNewConflict = false
         for item in items {
-            // Every item must still be drained regardless of outcome, so
-            // this can't be a `where` filter.
+            // Evaluate each drain before checking its outcome; a `where` filter
+            // would skip the work that determines whether there is a conflict.
             // swiftlint:disable:next for_where
-            if await drain(item) == .conflicted {
+            if try await drain(item) == .conflicted {
                 flaggedNewConflict = true
             }
         }
@@ -998,7 +999,7 @@ public actor SyncEngine {
         case skipped
     }
 
-    private func drain(_ item: MutationQueueRecord) async -> DrainOutcome {
+    private func drain(_ item: MutationQueueRecord) async throws -> DrainOutcome {
         do {
             switch item.operation {
             case .create: return try await drainCreate(item)
@@ -1010,7 +1011,7 @@ public actor SyncEngine {
                 return .skipped
             }
         } catch {
-            await markFailed(item, error: error)
+            try await markFailed(item, error: error)
             return .skipped
         }
     }
@@ -1163,7 +1164,7 @@ public actor SyncEngine {
                     throw DrainError.invalidPayload
                 }
             } catch {
-                await markFilterMutationFailed(item, error: error)
+                try await markFilterMutationFailed(item, error: error)
             }
         }
     }
@@ -1171,7 +1172,9 @@ public actor SyncEngine {
     /// A user can replace an in-flight rename with a newer title or a delete
     /// while its request is suspended. Only mark the exact queued snapshot
     /// that failed; otherwise an old response could fail or delete newer work.
-    private func markFilterMutationFailed(_ item: MutationQueueRecord, error: Error) async {
+    private func markFilterMutationFailed(_ item: MutationQueueRecord, error: Error) async throws {
+        // Losing connectivity does not invalidate queued intent or erase a prior server failure.
+        guard (error as? VikunjaError) != .offline else { throw error }
         try? await localStore.write { db in
             guard var currentItem = try MutationQueueRecord.fetchOne(db, key: item.id),
                   currentItem.entityType == .filter,
@@ -1202,11 +1205,11 @@ public actor SyncEngine {
                 .sorted { $0.createdAt < $1.createdAt }
         }
         for item in items {
-            await drainLabel(item)
+            try await drainLabel(item)
         }
     }
 
-    private func drainLabel(_ item: MutationQueueRecord) async {
+    private func drainLabel(_ item: MutationQueueRecord) async throws {
         do {
             switch item.operation {
             case .create: try await drainLabelCreate(item)
@@ -1218,7 +1221,7 @@ public actor SyncEngine {
                 break
             }
         } catch {
-            await markFailed(item, error: error)
+            try await markFailed(item, error: error)
         }
     }
 
@@ -1290,10 +1293,10 @@ public actor SyncEngine {
         }
         var flaggedNewConflict = false
         for item in items {
-            // Every item must still be drained regardless of outcome, so
-            // this can't be a `where` filter.
+            // Evaluate each drain before checking its outcome; a `where` filter
+            // would skip the work that determines whether there is a conflict.
             // swiftlint:disable:next for_where
-            if await drainTask(item) == .conflicted {
+            if try await drainTask(item) == .conflicted {
                 flaggedNewConflict = true
             }
         }
@@ -1302,7 +1305,7 @@ public actor SyncEngine {
         }
     }
 
-    private func drainTask(_ item: MutationQueueRecord) async -> DrainOutcome {
+    private func drainTask(_ item: MutationQueueRecord) async throws -> DrainOutcome {
         do {
             switch item.operation {
             case .moveBucket: return try await drainKanbanMove(item)
@@ -1315,7 +1318,7 @@ public actor SyncEngine {
             case .removeRelation: return try await drainTaskRelationMutation(item, isAdding: false)
             }
         } catch {
-            await markFailed(item, error: error)
+            try await markFailed(item, error: error)
             return .skipped
         }
     }
@@ -1338,13 +1341,13 @@ public actor SyncEngine {
                 .sorted { $0.createdAt < $1.createdAt }
         }
         for item in items {
-            _ = await drainComment(item, repository: commentRepository)
+            _ = try await drainComment(item, repository: commentRepository)
         }
     }
 
     private func drainComment(
         _ item: MutationQueueRecord, repository: TaskCommentRepositoryProtocol,
-    ) async -> DrainOutcome {
+    ) async throws -> DrainOutcome {
         do {
             switch item.operation {
             case .create: return try await drainCommentCreate(item, repository: repository)
@@ -1355,7 +1358,7 @@ public actor SyncEngine {
                 return .skipped
             }
         } catch {
-            await markFailed(item, error: error)
+            try await markFailed(item, error: error)
             return .skipped
         }
     }
@@ -1808,7 +1811,11 @@ public actor SyncEngine {
         }
     }
 
-    private func markFailed(_ item: MutationQueueRecord, error: Error) async {
+    private func markFailed(_ item: MutationQueueRecord, error: Error) async throws {
+        // Connectivity can disappear after the coordinator's reachability check.
+        // Leave pending work pending, preserve earlier failures, and report offline
+        // to the refresh caller rather than turning it into SyncIncompleteError.
+        guard (error as? VikunjaError) != .offline else { throw error }
         try? await localStore.write { db in
             guard var row = try MutationQueueRecord.fetchOne(db, key: item.id),
                   row.payload == item.payload else { return }

@@ -80,6 +80,85 @@ struct SyncEngineDrainTests {
         }
     }
 
+    @Test(arguments: [MutationOperation.create, .update])
+    func `connection loss during task upload keeps intent pending and retries later`(
+        operation: MutationOperation,
+    ) async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let repository = FakeTaskRepository()
+        repository.createError = VikunjaError.offline
+        repository.fetchError = VikunjaError.offline
+        repository.updateError = VikunjaError.offline
+        let engine = SyncEngine(
+            localStore: store, projectRepository: FakeProjectRepository(), labelRepository: FakeLabelRepository(),
+            taskRepository: repository, relationRepository: FakeTaskRelationRepository(), accountID: accountID,
+        )
+        let project = try await insertProject(in: store, remoteID: 1)
+        let task = try await insertTask(
+            in: store, remoteID: operation == .create ? nil : 10, projectLocalID: project.localID,
+        )
+        repository.tasks = [VikunjaTask(id: 10, title: "Buy milk", projectID: 1)]
+        try await queueMutation(
+            in: store, entityType: .task, operation: operation, targetLocalID: task.localID,
+            payload: TaskCreateOrUpdatePayload(
+                title: "Buy milk", description: nil, isDone: false, dueDate: nil, priority: 0,
+                projectLocalID: project.localID, baseUpdatedAt: nil,
+            ),
+        )
+
+        await #expect(throws: VikunjaError.offline) {
+            try await engine.drainTaskMutations()
+        }
+
+        let queued = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(queued.count == 1)
+        #expect(queued.first?.status == .pending)
+        #expect(queued.first?.lastError == nil)
+        #expect(queued.first?.retryCount == 0)
+        let statuses = try await store.pendingSyncStatuses(accountID: accountID)
+        #expect(statuses[SyncItemKey(kind: .task, id: .local(task.localID))] == .pending)
+        let operations = try await store.pendingSyncOperations(accountID: accountID)
+        #expect(operations.first?.status == .pending)
+
+        repository.createError = nil
+        repository.fetchError = nil
+        repository.updateError = nil
+        try await engine.drainTaskMutations()
+        let remaining = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(remaining.isEmpty)
+    }
+
+    @Test
+    func `refresh reports offline when reads succeed but uploading loses connectivity`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let projects = FakeProjectRepository()
+        projects.projects = [Project(id: 1, title: "Work")]
+        let tasks = FakeTaskRepository()
+        tasks.createError = VikunjaError.offline
+        let engine = SyncEngine(
+            localStore: store, projectRepository: projects, labelRepository: FakeLabelRepository(),
+            taskRepository: tasks, relationRepository: FakeTaskRelationRepository(), accountID: accountID,
+        )
+        let project = try await insertProject(in: store, remoteID: 1)
+        let task = try await insertTask(in: store, remoteID: nil, projectLocalID: project.localID)
+        try await queueMutation(
+            in: store, entityType: .task, operation: .create, targetLocalID: task.localID,
+            payload: TaskCreateOrUpdatePayload(
+                title: "Buy milk", description: nil, isDone: false, dueDate: nil, priority: 0,
+                projectLocalID: project.localID, baseUpdatedAt: nil,
+            ),
+        )
+
+        await #expect(throws: VikunjaError.offline) {
+            try await engine.synchronize()
+        }
+
+        let queued = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(queued.count == 1)
+        #expect(queued.first?.status == .pending)
+        #expect(queued.first?.retryCount == 0)
+    }
+
     @Test
     func `drain creates a project queued while offline and resolves its remote id locally`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
@@ -377,6 +456,15 @@ struct SyncEngineDrainTests {
         let afterFirstDrain = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
         #expect(afterFirstDrain[0].status == .failed)
         #expect(repository.createdProjects.isEmpty)
+
+        repository.createError = VikunjaError.offline
+        await #expect(throws: VikunjaError.offline) {
+            try await engine.drainProjectMutations()
+        }
+        let afterOfflineDrain = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(afterOfflineDrain[0].status == .failed)
+        #expect(afterOfflineDrain[0].lastError == afterFirstDrain[0].lastError)
+        #expect(afterOfflineDrain[0].retryCount == afterFirstDrain[0].retryCount)
 
         repository.createError = nil // credential fixed, same as reconnecting with a valid token
         try await engine.drainProjectMutations()
