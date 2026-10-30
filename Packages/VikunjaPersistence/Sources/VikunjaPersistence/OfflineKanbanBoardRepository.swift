@@ -6,11 +6,16 @@ public struct OfflineKanbanBoardRepository: KanbanBoardRepositoryProtocol {
     private let localStore: LocalStore
     private let accountID: UUID
     private let syncRequester: SyncRequesting
+    private let reachability: ReachabilityMonitoring?
 
-    public init(localStore: LocalStore, accountID: UUID, syncRequester: SyncRequesting) {
+    public init(
+        localStore: LocalStore, accountID: UUID, syncRequester: SyncRequesting,
+        reachability: ReachabilityMonitoring? = nil,
+    ) {
         self.localStore = localStore
         self.accountID = accountID
         self.syncRequester = syncRequester
+        self.reachability = reachability
     }
 
     public func hasCachedKanbanSupport() async throws -> Bool {
@@ -38,6 +43,7 @@ public struct OfflineKanbanBoardRepository: KanbanBoardRepositoryProtocol {
     public func createTask(
         title: String, projectID: EntityID, viewID: Int, bucketID: Int,
     ) async throws -> VikunjaTask {
+        let createdOnline = await reachability?.isReachable ?? false
         let created = try await localStore.write { db in
             let project = try ProjectRecord.filter(Column("accountID") == accountID).fetchAll(db).first {
                 projectID == .local($0.localID) || $0.remoteID.map(EntityID.remote) == projectID
@@ -51,6 +57,7 @@ public struct OfflineKanbanBoardRepository: KanbanBoardRepositoryProtocol {
                   let bucket = try KanbanBucketRecord.filter(Column("viewLocalID") == view.localID)
                   .filter(Column("remoteID") == bucketID).fetchOne(db)
             else { throw VikunjaError.notFound }
+            try KanbanCapacity.check(bucket, db: db)
             let localID = UUID()
             let done = view.doneBucketID == bucketID
             try TaskRecord(
@@ -85,6 +92,7 @@ public struct OfflineKanbanBoardRepository: KanbanBoardRepositoryProtocol {
                 baseUpdatedAt: nil,
                 reminders: [],
                 kanbanDestination: KanbanCreationDestination(viewID: viewID, bucketID: bucketID),
+                kanbanCreatedOnline: createdOnline,
             )
             try Self.enqueueCreation(payload, localID: localID, accountID: accountID, db: db)
             return VikunjaTask(id: .local(localID), title: title, isDone: done, projectID: .remote(remoteID))

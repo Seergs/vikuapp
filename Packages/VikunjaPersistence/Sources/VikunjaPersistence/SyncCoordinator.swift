@@ -9,6 +9,7 @@ public actor SyncCoordinator {
     private let accountStore: AccountStoreProtocol
     private let clientFactory: InstanceClientFactoryProtocol
     private let reachability: ReachabilityMonitoring
+    private let onKanbanCreationRejected: @Sendable (UUID) async -> Void
     private let tokenProvider: @Sendable (InstanceAccount) -> @Sendable () async throws -> String?
     private var observationTask: Task<Void, Never>?
 
@@ -30,12 +31,14 @@ public actor SyncCoordinator {
         clientFactory: InstanceClientFactoryProtocol,
         reachability: ReachabilityMonitoring,
         tokenProvider: @escaping @Sendable (InstanceAccount) -> @Sendable () async throws -> String?,
+        onKanbanCreationRejected: @escaping @Sendable (UUID) async -> Void = { _ in },
     ) {
         self.localStore = localStore
         self.accountStore = accountStore
         self.clientFactory = clientFactory
         self.reachability = reachability
         self.tokenProvider = tokenProvider
+        self.onKanbanCreationRejected = onKanbanCreationRejected
     }
 
     deinit { observationTask?.cancel() }
@@ -44,14 +47,20 @@ public actor SyncCoordinator {
         guard observationTask == nil else { return }
         observationTask = Task { [weak self] in
             guard let self else { return }
-            // Subscribe before the initial check so a transition cannot be lost.
-            let events = await reachability.reachabilityRegained()
-            if await reachability.isReachable {
-                await syncAllAccounts()
-            }
-            for await _ in events {
+            // The first path report may arrive after startup. The status stream
+            // includes it, while a regained-only stream would silently miss it.
+            let events = await reachability.reachabilityUpdates()
+            var previous: Bool?
+            for await isReachable in events {
                 guard !Task.isCancelled else { break }
-                await syncAllAccounts()
+                let shouldSync = isReachable && previous != true
+                let regained = previous == false && isReachable
+                previous = isReachable
+                if shouldSync {
+                    // Scheduling must not stop consuming connectivity changes while
+                    // a slow account or a request from the old path is still running.
+                    _ = await scheduleAllAccounts(retryInFlight: regained)
+                }
             }
         }
     }
@@ -64,11 +73,23 @@ public actor SyncCoordinator {
     /// Opportunistic triggers isolate failures between accounts. Manual refresh
     /// uses `refresh(accountID:scope:)` and receives the actual failure instead.
     public func syncAllAccounts() async {
-        guard let accounts = try? await accountStore.fetchAccounts() else { return }
-        for account in accounts {
-            guard !Task.isCancelled else { return }
-            try? await refresh(accountID: account.id, scope: .account)
+        let tasks = await scheduleAllAccounts()
+        // All account workers are already running; one stalled instance cannot
+        // prevent another account's uploads. Callers still await completion.
+        for task in tasks {
+            _ = try? await task.value
         }
+    }
+
+    private func scheduleAllAccounts(retryInFlight: Bool = false) async -> [Task<Void, Error>] {
+        guard await reachability.isReachable,
+              let accounts = try? await accountStore.fetchAccounts() else { return [] }
+        var tasks: [Task<Void, Error>] = []
+        for account in accounts {
+            guard !Task.isCancelled else { break }
+            tasks.append(enqueue(accountID: account.id, scope: .account, afterWrite: retryInFlight))
+        }
+        return tasks
     }
 
     public func hasInitialSnapshot(accountID: UUID) async throws -> Bool {
@@ -232,6 +253,7 @@ public actor SyncCoordinator {
                 baseURL: account.baseURL, tokenProvider: resolvedTokenProvider,
             ),
             capabilityProvider: clientFactory.makeCapabilityProvider(baseURL: account.baseURL),
+            onKanbanCreationRejected: onKanbanCreationRejected,
         )
     }
 }

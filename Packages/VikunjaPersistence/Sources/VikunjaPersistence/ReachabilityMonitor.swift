@@ -1,12 +1,8 @@
 import Foundation
 import Network
 
-/// The two things a future sync engine needs from the network: "we just
-/// came back online" (a stream to drain a mutation queue on), and a plain
-/// current-status read for deciding whether to attempt a sync immediately
-/// after a local change. Multiple subscribers can each hold their own
-/// `reachabilityRegained()` stream. Nothing consumes this yet, so it's
-/// unused/dead code until the sync engine that needs it exists.
+/// Connectivity snapshots for screens and synchronization. The status stream
+/// includes the initial path report; regained events describe later transitions.
 public protocol ReachabilityMonitoring: Sendable {
     /// Whether the network is reachable right now.
     var isReachable: Bool { get async }
@@ -25,9 +21,13 @@ public extension ReachabilityMonitoring {
     func reachabilityUpdates() async -> AsyncStream<Bool> {
         AsyncStream { continuation in
             let task = Task {
-                await continuation.yield(isReachable)
+                defer { continuation.finish() }
                 let regained = await reachabilityRegained()
+                await continuation.yield(isReachable)
                 for await _ in regained {
+                    // Legacy monitors only report regains. Include the intervening
+                    // offline state so consumers can recognize successive transitions.
+                    continuation.yield(false)
                     continuation.yield(true)
                 }
             }

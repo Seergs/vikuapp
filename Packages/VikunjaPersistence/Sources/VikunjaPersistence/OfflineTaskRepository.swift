@@ -565,6 +565,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
             if kanbanCreate {
                 var updated = try decoder.decode(TaskCreateOrUpdatePayload.self, from: Data(encoded.utf8))
                 updated.kanbanDestination = previous?.kanbanDestination
+                updated.kanbanCreatedOnline = previous?.kanbanCreatedOnline
                 encoded = try Self.encode(updated)
             }
             existing.payload = encoded

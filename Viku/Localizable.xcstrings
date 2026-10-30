@@ -1,6 +1,22 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Couldn't create the task because the column is full.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't create the task because the column is full."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo crear la tarea porque la columna está llena."
+          }
+        }
+      }
+    },
     "Add Task" : {
       "localizations" : {
         "es" : {

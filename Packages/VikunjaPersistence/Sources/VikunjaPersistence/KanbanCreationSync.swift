@@ -4,20 +4,30 @@ import VikunjaCore
 
 /// Stored codes keep recovery copy localizable when the pending queue is read.
 enum KanbanCreationFailure: String, Error {
+    case capacity = "kanban.create.capacity"
     case destination = "kanban.create.destination"
     case rejected = "kanban.create.rejected"
     case ambiguous = "kanban.create.ambiguous"
 
+    var allowsRecovery: Bool {
+        self != .ambiguous
+    }
+
     var message: String {
         switch self {
+        case .capacity:
+            String(
+                localized: "This column is full. Retry, choose another column, or delete this local task.",
+                bundle: .module,
+            )
         case .destination:
             String(
-                localized: "Kanban column unavailable. Delete this local task and create it in another column.",
+                localized: "Column unavailable. Choose another column or delete this local task.",
                 bundle: .module,
             )
         case .rejected:
             String(
-                localized: "Kanban rejected. Check capacity and permissions, then delete and recreate this task.",
+                localized: "Creation rejected. Check capacity or permissions, retry, or choose another column.",
                 bundle: .module,
             )
         case .ambiguous:
@@ -70,6 +80,10 @@ extension SyncEngine {
             try await applyTaskPushResult(created, deleting: item)
             return .pushed
         } catch {
+            if (error as? VikunjaError) == .bucketFull {
+                try await handleFullCreation(item, task: task)
+                return .skipped
+            }
             let failure: KanbanCreationFailure = switch error {
             case VikunjaError.notFound, VikunjaError.unauthorized: .rejected
             case let VikunjaError.server(_, statusCode) where (400 ..< 500).contains(statusCode): .rejected
@@ -78,6 +92,35 @@ extension SyncEngine {
             try await blockKanbanCreation(item, failure: failure)
             return .skipped
         }
+    }
+
+    private func handleFullCreation(_ item: MutationQueueRecord, task: VikunjaTask) async throws {
+        let notify = try await localStore.write { db in
+            guard var current = try MutationQueueRecord.fetchOne(db, key: item.id),
+                  current.accountID == self.accountID,
+                  current.status == .inFlight,
+                  let payload = try Self.kanbanPayload(current)
+            else { return false }
+            let row = try TaskRecord.fetchOne(db, key: current.targetLocalID)
+            guard row?.remoteID == nil else { return false }
+            // An explicit deletion during the request also cancels the rejected POST.
+            if row == nil || payload.kanbanCreatedOnline == true {
+                try RejectedLocalTaskRemoval.remove(current.targetLocalID, accountID: self.accountID, db: db)
+                return row != nil
+            }
+            // Legacy/offline creations and explicit recoveries retain their local work.
+            current.status = .failed
+            current.needsConflictResolution = true
+            current.retryCount += 1
+            current.lastError = KanbanCreationFailure.capacity.rawValue
+            try current.update(db)
+            return false
+        }
+        if notify {
+            await onKanbanCreationRejected(accountID)
+        }
+        // Refresh capacity after rejection. Failed downloads retain the prior usable board.
+        try? await pullKanban(projectID: task.projectID)
     }
 
     private func claimKanbanCreation(

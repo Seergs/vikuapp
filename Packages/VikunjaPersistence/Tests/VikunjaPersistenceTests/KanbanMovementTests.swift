@@ -87,8 +87,11 @@ private actor MovingKanbanRemote: BucketRepositoryProtocol {
     func moveTask(taskID: Int, toBucketID: Int, projectID: Int, viewID: Int?) async throws -> VikunjaTask {
         #expect(viewID == 10)
         moved.append(toBucketID)
-        if let failure, case .server = failure {
-            throw failure
+        if let failure {
+            switch failure {
+            case .server, .bucketFull: throw failure
+            default: break // Unknown outcomes can happen after the remote placement changed.
+            }
         }
         var task = try #require(tasks[taskID])
         task.isDone = toBucketID == 22
@@ -315,10 +318,11 @@ struct KanbanMovementTests {
         #expect(try await queue(fixture).isEmpty)
     }
 
-    @Test func `definitively rejected move returns to the server placement`() async throws {
+    @Test(arguments: [VikunjaError.bucketFull, .server(message: "Full", statusCode: 412)])
+    func `definitively rejected move returns to the server placement`(error: VikunjaError) async throws {
         let fixture = try await fixture()
         try await move(fixture, to: 22)
-        await fixture.remote.setFailure(.server(message: "Full", statusCode: 412))
+        await fixture.remote.setFailure(error)
         try await fixture.engine.drainTaskMutations()
         #expect(await fixture.remote.moved == [22])
         #expect(try await queue(fixture).isEmpty)

@@ -25,6 +25,27 @@ final class FakePathMonitor: PathMonitor, @unchecked Sendable {
     }
 }
 
+private actor RegainedOnlyMonitor: ReachabilityMonitoring {
+    private var continuation: AsyncStream<Void>.Continuation?
+    private(set) var subscribedBeforeStatusRead = false
+    var isReachable: Bool {
+        subscribedBeforeStatusRead = continuation != nil
+        return true
+    }
+
+    func reachabilityRegained() async -> AsyncStream<Void> {
+        AsyncStream { continuation = $0 }
+    }
+
+    func regain() {
+        continuation?.yield()
+    }
+
+    func finish() {
+        continuation?.finish()
+    }
+}
+
 struct ReachabilityMonitorTests {
     @Test
     func `isReachable reflects the most recent reported status`() async {
@@ -126,5 +147,20 @@ struct ReachabilityMonitorTests {
 
         await #expect(first.next() != nil)
         await #expect(second.next() != nil)
+    }
+
+    @Test func `the legacy status adapter subscribes first and preserves successive reconnects`() async {
+        let monitor = RegainedOnlyMonitor()
+        var iterator = await monitor.reachabilityUpdates().makeAsyncIterator()
+        #expect(await iterator.next() == true)
+        #expect(await monitor.subscribedBeforeStatusRead)
+        await monitor.regain()
+        #expect(await iterator.next() == false)
+        #expect(await iterator.next() == true)
+        await monitor.regain()
+        #expect(await iterator.next() == false)
+        #expect(await iterator.next() == true)
+        await monitor.finish()
+        #expect(await iterator.next() == nil)
     }
 }

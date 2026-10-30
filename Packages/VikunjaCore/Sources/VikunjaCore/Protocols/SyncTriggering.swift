@@ -10,6 +10,7 @@ public protocol SyncTriggering: Sendable {
 }
 
 public enum SyncScope: Hashable, Sendable {
+    /// Upload queued changes before downloading the board.
     case kanban(projectID: EntityID)
     case account
     /// Also refresh the task's comment thread; attachments remain online-only.
@@ -19,8 +20,8 @@ public enum SyncScope: Hashable, Sendable {
 
     public var includesAccount: Bool {
         switch self {
-        case .account, .task: true
-        case .comments, .kanban: false
+        case .account, .task, .kanban: true
+        case .comments: false
         }
     }
 

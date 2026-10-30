@@ -231,4 +231,21 @@ struct KanbanBoardViewModelTests {
 
         #expect(repository.movedTaskIDs.isEmpty)
     }
+
+    @Test func `creation checks current occupancy even when the caller holds an older bucket`() async {
+        let repository = FakeBucketRepository()
+        let oldBucket = KanbanBucket(id: 1, title: "Limited", limit: 1)
+        repository.buckets = [oldBucket]
+        let toast = FakeToastPresenter()
+        let viewModel = KanbanBoardViewModel(
+            project: Project(id: 4, title: "Work"), repository: repository,
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(), toastPresenter: toast,
+        )
+        await viewModel.load()
+        await viewModel.createTask(title: "First", in: oldBucket)
+        await viewModel.createTask(title: "Second", in: oldBucket)
+        #expect(repository.createdTasks.count == 1)
+        #expect(viewModel.buckets[0].isFull)
+        #expect(toast.shownMessages.map(\.style) == [.error])
+    }
 }

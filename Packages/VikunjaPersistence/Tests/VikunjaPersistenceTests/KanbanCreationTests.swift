@@ -4,6 +4,24 @@ import Testing
 import VikunjaCore
 @testable import VikunjaPersistence
 
+private actor CreationReachability: ReachabilityMonitoring {
+    let isReachable: Bool
+    init(online: Bool) {
+        self.isReachable = online
+    }
+
+    func reachabilityRegained() async -> AsyncStream<Void> {
+        AsyncStream { $0.finish() }
+    }
+}
+
+private actor CreationNotifications {
+    private(set) var accounts: [UUID] = []
+    func record(_ account: UUID) {
+        accounts.append(account)
+    }
+}
+
 private actor CreationScheduler: SyncRequesting {
     private(set) var calls = 0
     func requestSync() async {
@@ -15,6 +33,12 @@ private actor CreationRemote: BucketRepositoryProtocol {
     private(set) var requests: [(VikunjaTask, Int)] = []
     var responseHook: (@Sendable () async throws -> Void)?
     var failure: VikunjaError?
+    private(set) var downloadRequests = 0
+    var download: KanbanDownload?
+    func setDownload(_ download: KanbanDownload) {
+        self.download = download
+    }
+
     func configure(failure: VikunjaError? = nil, hook: (@Sendable () async throws -> Void)? = nil) {
         self.failure = failure
         responseHook = hook
@@ -42,6 +66,10 @@ private actor CreationRemote: BucketRepositoryProtocol {
     }
 
     func downloadBoard(projectID: Int, viewID: Int?) async throws -> KanbanDownload {
+        downloadRequests += 1
+        if let download {
+            return download
+        }
         throw VikunjaError.notFound
     }
 
@@ -64,14 +92,16 @@ struct KanbanCreationTests {
         let engine: SyncEngine
         let remote: CreationRemote
         let scheduler: CreationScheduler
+        let notifications: CreationNotifications
     }
 
-    private func fixture() async throws -> Fixture {
+    private func fixture(online: Bool = false) async throws -> Fixture {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let store = try LocalStore(directory: directory)
         let accountID = UUID()
         try await store.write { db in try Self.seedBoard(accountID: accountID, db: db) }
         let remote = CreationRemote()
+        let notifications = CreationNotifications()
         let scheduler = CreationScheduler()
         let tasks = OfflineTaskRepository(localStore: store, accountID: accountID, syncRequester: scheduler)
         let engine = SyncEngine(
@@ -83,16 +113,21 @@ struct KanbanCreationTests {
             accountID: accountID,
             bucketRepository: remote,
             capabilityProvider: KanbanCapabilities(),
+            onKanbanCreationRejected: { await notifications.record($0) },
         )
         return Fixture(
             store: store,
             directory: directory,
             accountID: accountID,
-            board: OfflineKanbanBoardRepository(localStore: store, accountID: accountID, syncRequester: scheduler),
+            board: OfflineKanbanBoardRepository(
+                localStore: store, accountID: accountID, syncRequester: scheduler,
+                reachability: CreationReachability(online: online),
+            ),
             tasks: tasks,
             engine: engine,
             remote: remote,
             scheduler: scheduler,
+            notifications: notifications,
         )
     }
 
@@ -293,7 +328,7 @@ struct KanbanCreationTests {
         try await fixture.engine.drainTaskMutations()
         #expect(await fixture.remote.requests.isEmpty)
         let pending = try await fixture.store.pendingSyncOperations(accountID: fixture.accountID)
-        #expect(pending[0].failureMessage?.contains("column unavailable") == true)
+        #expect(pending[0].failureMessage?.contains("Column unavailable") == true)
     }
 
     @Test(arguments: ["filter", "missing", "unsynced"])
@@ -339,5 +374,236 @@ struct KanbanCreationTests {
             try await fixture.board.createTask(title: "Invalid", projectID: .remote(1), viewID: 99, bucketID: 20)
         }
         #expect(try await fixture.store.read { try TaskRecord.fetchCount($0) } == 0)
+    }
+
+    private func recovery(_ fixture: Fixture) -> OfflineKanbanCreationRecovery {
+        OfflineKanbanCreationRecovery(
+            localStore: fixture.store, accountID: fixture.accountID, syncRequester: fixture.scheduler,
+        )
+    }
+
+    @Test(arguments: [false, true])
+    func `capacity reserves the last slot and rejects another creation atomically`(online: Bool) async throws {
+        let fixture = try await fixture(online: online)
+        try await fixture.store.write { db in
+            try db.execute(sql: "UPDATE kanbanBucket SET \"limit\" = 1 WHERE remoteID = 20")
+        }
+        async let first: VikunjaTask? = try? fixture.board.createTask(
+            title: "First", projectID: .remote(1), viewID: 10, bucketID: 20,
+        )
+        async let second: VikunjaTask? = try? fixture.board.createTask(
+            title: "Second", projectID: .remote(1), viewID: 10, bucketID: 20,
+        )
+        let results = await [first, second].compactMap(\.self)
+        #expect(results.count == 1)
+        await #expect(throws: VikunjaError.bucketFull) {
+            try await fixture.board.createTask(title: "Third", projectID: .remote(1), viewID: 10, bucketID: 20)
+        }
+        #expect(try await fixture.store.read { try TaskRecord.fetchCount($0) } == 1)
+        #expect(try await fixture.store.read { try KanbanAssignmentRecord.fetchCount($0) } == 1)
+        #expect(try await fixture.store.read { try MutationQueueRecord.fetchCount($0) } == 1)
+        #expect(await fixture.scheduler.calls == 1)
+    }
+
+    @Test func `online capacity rejection removes task dependencies and notifies once despite failed refresh`() async throws {
+        let fixture = try await fixture(online: true)
+        var task = try await fixture.board.createTask(
+            title: "Rejected", projectID: .remote(1), viewID: 10, bucketID: 20,
+        )
+        task.description = "Edited before upload"
+        _ = try await fixture.tasks.update(task)
+        let comments = OfflineTaskCommentRepository(
+            localStore: fixture.store, accountID: fixture.accountID, syncRequester: fixture.scheduler,
+        )
+        _ = try await comments.addComment("Keep no orphan", toTask: task.id)
+        // A relation queued against another task must not retain a reference to the deleted local task.
+        let other = try await fixture.board.createTask(title: "Other", projectID: .remote(1), viewID: 10, bucketID: 21)
+        let relations = OfflineTaskRelationRepository(
+            localStore: fixture.store, accountID: fixture.accountID, syncRequester: fixture.scheduler,
+        )
+        try await relations.addRelation(kind: .related, otherTaskID: task.id, toTask: other.id)
+        await fixture.remote.configure(failure: .bucketFull)
+        try await fixture.engine.drainTaskMutations()
+        #expect(try await fixture.tasks.fetchTasks(projectID: .remote(1)).isEmpty)
+        #expect(try await fixture.store.read { try MutationQueueRecord.fetchCount($0) } == 0)
+        #expect(try await fixture.store.read { try TaskCommentRecord.fetchCount($0) } == 0)
+        #expect(try await fixture.store.read { try KanbanAssignmentRecord.fetchCount($0) } == 0)
+        #expect(await fixture.notifications.accounts == [fixture.accountID, fixture.accountID])
+        #expect(await fixture.remote.downloadRequests == 2)
+        try await fixture.engine.drainTaskMutations()
+        #expect(await fixture.remote.requests.count == 2)
+    }
+
+    @Test func `offline capacity rejection survives restart and redirects the same edited task`() async throws {
+        let fixture = try await fixture()
+        let task = try await fixture.board.createTask(title: "Offline", projectID: .remote(1), viewID: 10, bucketID: 20)
+        await fixture.remote.configure(failure: .bucketFull)
+        try await fixture.engine.drainTaskMutations()
+        try await fixture.engine.drainTaskMutations()
+        #expect(await fixture.remote.requests.count == 1)
+        #expect(await fixture.notifications.accounts.isEmpty)
+        var edited = task
+        edited.description = "Must survive"
+        edited.priority = .high
+        _ = try await fixture.tasks.update(edited)
+        let reopened = try LocalStore(directory: fixture.directory)
+        let pending = try #require(try await reopened.pendingSyncOperations(accountID: fixture.accountID).first)
+        #expect(pending.canRecoverKanbanCreation)
+        let recovery = OfflineKanbanCreationRecovery(
+            localStore: reopened, accountID: fixture.accountID, syncRequester: fixture.scheduler,
+        )
+        let buckets = try await recovery.recoveryBuckets(operationID: pending.id)
+        #expect(buckets.map(\.id) == [20, 21])
+        try await recovery.retryCreation(operationID: pending.id, bucketID: 21)
+        await fixture.remote.configure()
+        try await fixture.engine.drainTaskMutations()
+        let saved = try await fixture.tasks.fetchTask(id: task.id)
+        #expect(saved.id == .remote(500))
+        #expect(saved.description == "Must survive")
+        #expect(saved.priority == .high)
+        #expect(saved.isDone)
+        #expect(await fixture.remote.requests.last?.1 == 21)
+        #expect(try await fixture.store.read { try TaskRecord.fetchCount($0) } == 1)
+        #expect(try await fixture.store.read { try MutationQueueRecord.fetchCount($0) } == 0)
+    }
+
+    @Test func `recovery excludes its own slot but rejects a full different destination`() async throws {
+        let fixture = try await fixture()
+        let task = try await fixture.board.createTask(title: "Recover", projectID: .remote(1), viewID: 10, bucketID: 20)
+        await fixture.remote.configure(failure: .bucketFull)
+        try await fixture.engine.drainTaskMutations()
+        _ = try await fixture.board.createTask(title: "Occupant", projectID: .remote(1), viewID: 10, bucketID: 21)
+        try await fixture.store.write { db in
+            try db.execute(sql: "UPDATE kanbanBucket SET \"limit\" = 1")
+        }
+        let pending = try #require(try await fixture.store.pendingSyncOperations(accountID: fixture.accountID)
+            .first { $0.canRecoverKanbanCreation })
+        let recovery = recovery(fixture)
+        let buckets = try await recovery.recoveryBuckets(operationID: pending.id)
+        #expect(buckets.map(\.isFull) == [false, true])
+        await #expect(throws: VikunjaError.bucketFull) {
+            try await recovery.retryCreation(operationID: pending.id, bucketID: 21)
+        }
+        #expect(try await fixture.tasks.fetchTask(id: task.id).isDone == false)
+        try await recovery.retryCreation(operationID: pending.id, bucketID: nil)
+        let retried = try #require(try await fixture.store.pendingSyncOperations(accountID: fixture.accountID)
+            .first { $0.id == pending.id })
+        #expect(retried.status == .pending)
+        #expect(!retried.needsConflictResolution)
+    }
+
+    @Test func `explicit recovery and legacy creations never auto delete after rejection`() async throws {
+        let fixture = try await fixture(online: true)
+        let task = try await fixture.board.createTask(title: "Legacy", projectID: .remote(1), viewID: 10, bucketID: 20)
+        try await fixture.store.write { db in
+            var item = try #require(MutationQueueRecord.fetchAll(db).first)
+            var payload = try KanbanLocalMutations.decode(TaskCreateOrUpdatePayload.self, item: item)
+            payload.kanbanCreatedOnline = nil
+            item.payload = try KanbanLocalMutations.encode(payload)
+            try item.update(db)
+        }
+        await fixture.remote.configure(failure: .bucketFull)
+        try await fixture.engine.drainTaskMutations()
+        let pending = try #require(try await fixture.store.pendingSyncOperations(accountID: fixture.accountID).first)
+        try await recovery(fixture).retryCreation(operationID: pending.id, bucketID: nil)
+        try await fixture.engine.drainTaskMutations()
+        #expect(try await fixture.tasks.fetchTask(id: task.id).title == "Legacy")
+        #expect(await fixture.notifications.accounts.isEmpty)
+        try await recovery(fixture).deleteRejectedCreation(operationID: pending.id)
+        #expect(try await fixture.store.read { try TaskRecord.fetchCount($0) } == 0)
+        #expect(try await fixture.store.read { try MutationQueueRecord.fetchCount($0) } == 0)
+    }
+
+    @Test func `unknown outcomes cannot be retried redirected or removed by capacity recovery`() async throws {
+        let fixture = try await fixture(online: true)
+        let task = try await fixture.board.createTask(title: "Unknown", projectID: .remote(1), viewID: 10, bucketID: 20)
+        await fixture.remote.configure(failure: .timeout)
+        try await fixture.engine.drainTaskMutations()
+        let pending = try #require(try await fixture.store.pendingSyncOperations(accountID: fixture.accountID).first)
+        #expect(!pending.canRecoverKanbanCreation)
+        await #expect(throws: VikunjaError.notFound) {
+            try await recovery(fixture).retryCreation(operationID: pending.id, bucketID: 21)
+        }
+        await #expect(throws: VikunjaError.notFound) {
+            try await recovery(fixture).deleteRejectedCreation(operationID: pending.id)
+        }
+        #expect(try await fixture.tasks.fetchTask(id: task.id).title == "Unknown")
+        #expect(await fixture.notifications.accounts.isEmpty)
+        #expect(await fixture.remote.requests.count == 1)
+    }
+
+    @Test func `recovery cannot read modify or delete another account's task`() async throws {
+        let fixture = try await fixture()
+        _ = try await fixture.board.createTask(title: "Scoped", projectID: .remote(1), viewID: 10, bucketID: 20)
+        await fixture.remote.configure(failure: .bucketFull)
+        try await fixture.engine.drainTaskMutations()
+        let pending = try #require(try await fixture.store.pendingSyncOperations(accountID: fixture.accountID).first)
+        let other = OfflineKanbanCreationRecovery(
+            localStore: fixture.store, accountID: UUID(), syncRequester: fixture.scheduler,
+        )
+        await #expect(throws: VikunjaError.notFound) { try await other.recoveryBuckets(operationID: pending.id) }
+        await #expect(throws: VikunjaError.notFound) {
+            try await other.retryCreation(operationID: pending.id, bucketID: nil)
+        }
+        await #expect(throws: VikunjaError.notFound) { try await other.deleteRejectedCreation(operationID: pending.id) }
+        #expect(try await fixture.store.read { try TaskRecord.fetchCount($0) } == 1)
+    }
+
+    @Test func `capacity rejection refreshes external occupancy and prevents the next local add`() async throws {
+        let fixture = try await fixture(online: true)
+        _ = try await fixture.board.createTask(title: "Race", projectID: .remote(1), viewID: 10, bucketID: 20)
+        await fixture.remote.setDownload(KanbanDownload(
+            viewID: 10, mode: "manual", filterQuery: "", defaultBucketID: 20, doneBucketID: 21,
+            buckets: [
+                KanbanBucket(id: 20, title: "Full", limit: 1, tasks: [
+                    VikunjaTask(id: 123, title: "Created from web", projectID: 1),
+                ]),
+                KanbanBucket(id: 21, title: "Done", isDoneBucket: true),
+            ],
+        ))
+        await fixture.remote.configure(failure: .bucketFull)
+        try await fixture.engine.drainTaskMutations()
+        guard case let .available(board) = try await fixture.board.fetchBoard(projectID: .remote(1), viewID: 10)
+        else { Issue.record("Missing refreshed board"); return }
+        #expect(board.buckets[0].isFull)
+        #expect(board.buckets[0].tasks.map(\.id) == [.remote(123)])
+        await #expect(throws: VikunjaError.bucketFull) {
+            try await fixture.board.createTask(title: "Blocked", projectID: .remote(1), viewID: 10, bucketID: 20)
+        }
+        #expect(try await fixture.store.read { try MutationQueueRecord.fetchCount($0) } == 0)
+    }
+
+    @Test(arguments: [false, true])
+    func `deleting during a capacity rejected upload leaves no orphan or notification`(online: Bool) async throws {
+        let fixture = try await fixture(online: online)
+        let task = try await fixture.board.createTask(title: "Delete", projectID: .remote(1), viewID: 10, bucketID: 20)
+        await fixture.remote.configure(failure: .bucketFull, hook: { try await fixture.tasks.delete(id: task.id) })
+        try await fixture.engine.drainTaskMutations()
+        #expect(try await fixture.store.read { try MutationQueueRecord.fetchCount($0) } == 0)
+        #expect(try await fixture.store.read { try TaskRecord.fetchCount($0) } == 0)
+        #expect(await fixture.notifications.accounts.isEmpty)
+    }
+
+    @Test func `failed recovery deletion rolls back both the local task and its queued creation`() async throws {
+        let fixture = try await fixture()
+        let task = try await fixture.board.createTask(
+            title: "Preserve", projectID: .remote(1), viewID: 10, bucketID: 20,
+        )
+        await fixture.remote.configure(failure: .bucketFull)
+        try await fixture.engine.drainTaskMutations()
+        let pending = try #require(try await fixture.store.pendingSyncOperations(accountID: fixture.accountID).first)
+        try await fixture.store.write { db in
+            try db.execute(sql: """
+            CREATE TRIGGER reject_test_delete BEFORE DELETE ON task
+            BEGIN SELECT RAISE(ABORT, 'Simulated deletion failure'); END;
+            """)
+        }
+        await #expect(throws: DatabaseError.self) {
+            try await recovery(fixture).deleteRejectedCreation(operationID: pending.id)
+        }
+        #expect(try await fixture.tasks.fetchTask(id: task.id).title == "Preserve")
+        let remaining = try await fixture.store.pendingSyncOperations(accountID: fixture.accountID)
+        #expect(remaining.first?.canRecoverKanbanCreation == true)
+        #expect(try await fixture.store.read { try KanbanAssignmentRecord.fetchCount($0) } == 1)
     }
 }

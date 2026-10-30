@@ -1,6 +1,22 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "This column is full. Choose another column or try again when space is available.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This column is full. Choose another column or try again when space is available."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta columna está llena. Elige otra columna o vuelve a intentarlo cuando haya espacio."
+          }
+        }
+      }
+    },
     "You're offline. Data will update when you're connected again." : {
       "localizations": {
         "es": {

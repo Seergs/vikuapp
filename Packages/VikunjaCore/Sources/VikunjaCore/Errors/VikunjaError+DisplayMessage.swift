@@ -18,6 +18,11 @@ public extension VikunjaError {
             String(localized: "The request timed out. Check your connection and try again.", bundle: .module)
         case .notFound, .decoding:
             String(localized: "That address didn't respond like a Vikunja instance.", bundle: .module)
+        case .bucketFull:
+            String(
+                localized: "This column is full. Choose another column or try again when space is available.",
+                bundle: .module,
+            )
         case .unauthorized:
             String(localized: "That server rejected the request.", bundle: .module)
         case let .server(message, statusCode):

@@ -5,14 +5,15 @@ import VikunjaCore
 import VikuUI
 
 /// Lists the active account's queued mutations, oldest first, and updates
-/// live as the queue drains. Conflicted rows can be removed; retrying a
-/// failed push stays automatic for now.
+/// live as the queue drains. Confirmed Kanban rejections expose recovery
+/// actions; other conflicts keep their existing cleanup.
 struct PendingSyncView: View {
     @State private var viewModel: PendingSyncViewModel
     @State private var reloadID = 0
     @State private var showsLoadingIndicator = false
     @State private var loadingIndicatorShownAt: ContinuousClock.Instant?
     @State private var pendingConflictRemoval: PendingSyncOperation?
+    @State private var pendingTaskRemoval: PendingSyncOperation?
     @Environment(\.vikuPalette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -22,6 +23,43 @@ struct PendingSyncView: View {
 
     var body: some View {
         content
+            .confirmationDialog(
+                Text("Choose a column", bundle: .module),
+                isPresented: Binding(get: { viewModel.recoveryOperation != nil }, set: {
+                    if !$0 {
+                        viewModel.recoveryOperation = nil
+                    }
+                }),
+                titleVisibility: .visible,
+                presenting: viewModel.recoveryOperation,
+            ) { operation in
+                ForEach(viewModel.recoveryBuckets) { bucket in
+                    Button {
+                        Task { await viewModel.retryCreation(operation, bucketID: bucket.id) }
+                    } label: {
+                        Text(verbatim: bucket.title)
+                    }
+                    .disabled(bucket.isFull)
+                }
+                Button(role: .cancel) {} label: { Text("Cancel", bundle: .module) }
+            }
+            .confirmationDialog(
+                Text("Delete this local task?", bundle: .module),
+                isPresented: Binding(get: { pendingTaskRemoval != nil }, set: {
+                    if !$0 {
+                        pendingTaskRemoval = nil
+                    }
+                }),
+                titleVisibility: .visible,
+                presenting: pendingTaskRemoval,
+            ) { operation in
+                Button(role: .destructive) {
+                    Task { await viewModel.deleteRejectedCreation(operation) }
+                } label: { Text("Delete task", bundle: .module) }
+                Button(role: .cancel) {} label: { Text("Cancel", bundle: .module) }
+            } message: { _ in
+                Text("This task was not created on the server. Its local changes will be deleted.", bundle: .module)
+            }
             .animation(rowAnimation, value: viewModel.presentation.operations)
             .animation(.easeInOut(duration: 0.3), value: showsLoadingIndicator)
             .scrollContentBackground(.hidden)
@@ -96,21 +134,42 @@ struct PendingSyncView: View {
             if !viewModel.presentation.operations.isEmpty {
                 Section {
                     ForEach(viewModel.presentation.operations) { operation in
-                        PendingSyncOperationRow(operation: operation)
-                            .listRowBackground(palette.cardBackground)
-                            .transition(rowTransition)
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                if operation.needsConflictResolution, operation.failureMessage == nil {
-                                    Button(
-                                        String(localized: "Remove Conflict", bundle: .module),
-                                        systemImage: "trash",
-                                        role: .destructive,
-                                    ) {
-                                        pendingConflictRemoval = operation
-                                    }
-                                    .tint(palette.semanticDanger)
+                        VStack(alignment: .leading, spacing: VikuSpacing.sm) {
+                            PendingSyncOperationRow(operation: operation)
+                            if viewModel.canRecover(operation) {
+                                Menu {
+                                    Button {
+                                        Task { await viewModel.retryCreation(operation) }
+                                    } label: { Text("Retry", bundle: .module) }
+                                    Button {
+                                        Task { await viewModel.chooseRecoveryBucket(for: operation) }
+                                    } label: { Text("Choose another column", bundle: .module) }
+                                    Button(role: .destructive) {
+                                        pendingTaskRemoval = operation
+                                    } label: { Text("Delete task", bundle: .module) }
+                                } label: {
+                                    Label {
+                                        Text("Resolve", bundle: .module)
+                                    } icon: { Image(systemName: "ellipsis.circle") }
                                 }
+                                .font(VikuFont.footnote)
+                                .disabled(viewModel.busyOperationIDs.contains(operation.id))
                             }
+                        }
+                        .listRowBackground(palette.cardBackground)
+                        .transition(rowTransition)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            if operation.needsConflictResolution, operation.failureMessage == nil {
+                                Button(
+                                    String(localized: "Remove Conflict", bundle: .module),
+                                    systemImage: "trash",
+                                    role: .destructive,
+                                ) {
+                                    pendingConflictRemoval = operation
+                                }
+                                .tint(palette.semanticDanger)
+                            }
+                        }
                     }
                 } header: {
                     HStack {
@@ -250,7 +309,9 @@ private struct PendingSyncOperationRow: View {
     }
 
     private var statusLabel: LocalizedStringKey {
-        if operation.needsConflictResolution, operation.failureMessage == nil {
+        if operation.canRecoverKanbanCreation {
+            "Needs action"
+        } else if operation.needsConflictResolution, operation.failureMessage == nil {
             "Conflict"
         } else if operation.status == .failed {
             "Failed"

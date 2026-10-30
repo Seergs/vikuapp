@@ -17,6 +17,7 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
     /// overlapping sync against the same account and check it was skipped
     /// rather than racing a second `fetchProjects()` call of its own.
     var fetchDelay: Duration?
+    var beforeFetchResponse: (@Sendable () async -> Void)?
     var onFetchProjects: (@Sendable () -> Void)?
     var beforeCreateResponse: (@Sendable () async throws -> Void)?
     var beforeUpdateResponse: (@Sendable () async throws -> Void)?
@@ -27,6 +28,7 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
         if let fetchDelay {
             try await Task.sleep(for: fetchDelay)
         }
+        await beforeFetchResponse?()
         if let fetchError {
             throw fetchError
         }

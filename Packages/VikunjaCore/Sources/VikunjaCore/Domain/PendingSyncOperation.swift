@@ -38,6 +38,7 @@ public struct PendingSyncOperation: Identifiable, Hashable, Sendable {
     /// rather than just waiting for a retry.
     public let needsConflictResolution: Bool
     public let failureMessage: String?
+    public let canRecoverKanbanCreation: Bool
 
     public init(
         id: Int64,
@@ -48,6 +49,7 @@ public struct PendingSyncOperation: Identifiable, Hashable, Sendable {
         status: SyncItemStatus,
         needsConflictResolution: Bool,
         failureMessage: String? = nil,
+        canRecoverKanbanCreation: Bool = false,
     ) {
         self.id = id
         self.entity = entity
@@ -57,5 +59,6 @@ public struct PendingSyncOperation: Identifiable, Hashable, Sendable {
         self.status = status
         self.needsConflictResolution = needsConflictResolution
         self.failureMessage = failureMessage
+        self.canRecoverKanbanCreation = canRecoverKanbanCreation
     }
 }

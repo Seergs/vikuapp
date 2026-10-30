@@ -25,6 +25,8 @@ struct TaskCreateOrUpdatePayload: Codable, Equatable, Sendable {
     var reminders: [TaskReminder]?
     /// Optional for queues written before Kanban support.
     var kanbanDestination: KanbanCreationDestination?
+    /// Missing in legacy payloads: retain their local work on rejection.
+    var kanbanCreatedOnline: Bool?
 }
 
 /// What a queued `delete` needs to address the row server-side, since the

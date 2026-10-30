@@ -1,6 +1,54 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Add task": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add task"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agregar tarea"
+          }
+        }
+      }
+    },
+    "This column is full": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This column is full"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta columna está llena"
+          }
+        }
+      }
+    },
+    "Create a task in this column": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create a task in this column"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crear una tarea en esta columna"
+          }
+        }
+      }
+    },
     "Refresh": {
       "localizations": {
         "en": {
