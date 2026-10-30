@@ -22,6 +22,7 @@ enum DatabaseMigrations {
         migrator.registerMigration("addBaseUpdatedAtToMutationQueue", migrate: addBaseUpdatedAtToMutationQueue)
         migrator.registerMigration("createSavedFilter", migrate: createSavedFilter)
         migrator.registerMigration("createVirtualProjectTask", migrate: createVirtualProjectTask)
+        migrator.registerMigration("createKanban", migrate: createKanban)
     }
 
     private static func createProject(_ db: Database) throws {
@@ -271,5 +272,47 @@ enum DatabaseMigrations {
             on: "virtualProjectTask",
             columns: ["taskLocalID"],
         )
+    }
+
+    static func createKanban(_ db: Database) throws {
+        try db.execute(sql: """
+        CREATE UNIQUE INDEX project_kanban_owner ON project(localID, accountID);
+        CREATE UNIQUE INDEX task_kanban_owner ON task(localID, accountID, projectLocalID);
+        CREATE TABLE kanbanView (
+            localID TEXT PRIMARY KEY NOT NULL,
+            accountID TEXT NOT NULL, projectLocalID TEXT NOT NULL,
+            remoteID INTEGER NOT NULL, mode TEXT NOT NULL, filterQuery TEXT NOT NULL,
+            defaultBucketID INTEGER, doneBucketID INTEGER, lastCompletePullAt DATETIME,
+            UNIQUE(accountID, projectLocalID, remoteID),
+            UNIQUE(localID, accountID, projectLocalID),
+            FOREIGN KEY(projectLocalID, accountID) REFERENCES project(localID, accountID) ON DELETE CASCADE
+        );
+        CREATE TABLE kanbanBucket (
+            localID TEXT PRIMARY KEY NOT NULL,
+            accountID TEXT NOT NULL, projectLocalID TEXT NOT NULL, viewLocalID TEXT NOT NULL,
+            remoteID INTEGER NOT NULL, title TEXT NOT NULL, position DOUBLE NOT NULL,
+            "limit" INTEGER NOT NULL CHECK("limit" >= 0), serverCount INTEGER NOT NULL,
+            UNIQUE(viewLocalID, remoteID),
+            UNIQUE(localID, viewLocalID, accountID, projectLocalID),
+            FOREIGN KEY(viewLocalID, accountID, projectLocalID)
+                REFERENCES kanbanView(localID, accountID, projectLocalID) ON DELETE CASCADE
+        );
+        CREATE TABLE kanbanAssignment (
+            accountID TEXT NOT NULL, projectLocalID TEXT NOT NULL, viewLocalID TEXT NOT NULL,
+            bucketLocalID TEXT NOT NULL, taskLocalID TEXT NOT NULL, position DOUBLE NOT NULL,
+            PRIMARY KEY(viewLocalID, taskLocalID),
+            FOREIGN KEY(bucketLocalID, viewLocalID, accountID, projectLocalID)
+                REFERENCES kanbanBucket(localID, viewLocalID, accountID, projectLocalID) ON DELETE CASCADE,
+            FOREIGN KEY(taskLocalID, accountID, projectLocalID)
+                REFERENCES task(localID, accountID, projectLocalID) ON DELETE CASCADE
+        );
+        CREATE TRIGGER kanban_task_project_change BEFORE UPDATE OF projectLocalID ON task
+        WHEN NEW.projectLocalID != OLD.projectLocalID
+        BEGIN
+            DELETE FROM kanbanAssignment WHERE taskLocalID = OLD.localID;
+        END;
+        CREATE INDEX kanbanAssignment_task ON kanbanAssignment(taskLocalID);
+        CREATE INDEX kanbanAssignment_bucket ON kanbanAssignment(bucketLocalID);
+        """)
     }
 }

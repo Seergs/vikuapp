@@ -171,9 +171,15 @@ private struct AccountSnapshot: Equatable, Sendable {
     let reminders: [TaskReminderRecord]
     let memberships: [VirtualProjectTaskRecord]
     let relations: [TaskRelationRecord]
+    let kanbanViews: [KanbanViewRecord]
+    let kanbanBuckets: [KanbanBucketRecord]
+    let kanbanAssignments: [KanbanAssignmentRecord]
     let mutations: [MutationQueueRecord]
 
     init(accountID: UUID, db: Database) throws {
+        self.kanbanViews = try KanbanViewRecord.filter(Column("accountID") == accountID).fetchAll(db)
+        self.kanbanBuckets = try KanbanBucketRecord.filter(Column("accountID") == accountID).fetchAll(db)
+        self.kanbanAssignments = try KanbanAssignmentRecord.filter(Column("accountID") == accountID).fetchAll(db)
         self.projects = try ProjectRecord.filter(Column("accountID") == accountID).fetchAll(db)
         self.tasks = try TaskRecord.filter(Column("accountID") == accountID).fetchAll(db)
         self.labels = try LabelRecord.filter(Column("accountID") == accountID).fetchAll(db)
