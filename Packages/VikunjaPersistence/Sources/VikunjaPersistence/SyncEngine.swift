@@ -9,6 +9,8 @@ private let syncLogger = Logger(subsystem: "dev.sergiosuarez.vikunja", category:
 /// server: pulls the server's state in, and drains that account's locally
 /// queued mutations back out.
 public actor SyncEngine {
+    private let bucketRepository: BucketRepositoryProtocol?
+    private let capabilityProvider: CapabilityProvider
     private let localStore: LocalStore
     private let projectRepository: ProjectRepositoryProtocol
     private let labelRepository: LabelRepositoryProtocol
@@ -33,7 +35,11 @@ public actor SyncEngine {
         commentRepository: TaskCommentRepositoryProtocol? = nil,
         filterRepository: FilterRepositoryProtocol? = nil,
         accountID: UUID,
+        bucketRepository: BucketRepositoryProtocol? = nil,
+        capabilityProvider: CapabilityProvider = NoopCapabilityProvider(),
     ) {
+        self.bucketRepository = bucketRepository
+        self.capabilityProvider = capabilityProvider
         self.localStore = localStore
         self.projectRepository = projectRepository
         self.labelRepository = labelRepository
@@ -72,6 +78,130 @@ public actor SyncEngine {
         if hasPendingWork {
             throw SyncIncompleteError()
         }
+    }
+
+    /// Explicit demand-load. A failed download never enters the database transaction.
+    public func pullKanban(projectID: EntityID) async throws {
+        guard let bucketRepository, await capabilityProvider.supports(.apiV2) else { return }
+        let project = try await localStore.read { db in
+            try ProjectRecord.fetchAll(db).first {
+                $0.accountID == self.accountID && (projectID == .local($0.localID)
+                    || $0.remoteID.map(EntityID.remote) == projectID)
+            }
+        }
+        guard let project, let remoteID = project.remoteID, remoteID > 0 else { throw VikunjaError.notFound }
+        let existingView = try await localStore.read { db in
+            try KanbanViewRecord.filter(Column("accountID") == self.accountID)
+                .filter(Column("projectLocalID") == project.localID).order(Column("remoteID")).fetchOne(db)
+        }
+        let download = try await bucketRepository.downloadBoard(projectID: remoteID, viewID: existingView?.remoteID)
+        try await localStore.write { db in
+            // The project may have disappeared while the network request was running.
+            guard let current = try ProjectRecord.fetchOne(db, key: project.localID),
+                  current.accountID == self.accountID, current.remoteID == remoteID
+            else { throw VikunjaError.notFound }
+            try self.storeKanban(download, project: current, db: db)
+        }
+    }
+
+    private nonisolated func storeKanban(_ download: KanbanDownload, project: ProjectRecord, db: Database) throws {
+        let queue = try MutationQueueRecord.filter(Column("accountID") == accountID).fetchAll(db)
+        let protected = Set(queue.filter { $0.entityType == .task }.map(\.targetLocalID))
+        let deleted = Set(queue.filter { $0.entityType == .task && $0.operation == .delete }.map(\.targetLocalID))
+        let rows = try TaskRecord.filter(Column("accountID") == accountID).fetchAll(db)
+        let identities = try Self.upsertKanbanTasks(
+            download, project: project, rows: rows, intent: (protected, deleted), db: db,
+        )
+        var view = try KanbanViewRecord.filter(Column("accountID") == accountID)
+            .filter(Column("projectLocalID") == project.localID)
+            .filter(Column("remoteID") == download.viewID).fetchOne(db)
+            ?? KanbanViewRecord(
+                localID: UUID(),
+                accountID: accountID,
+                projectLocalID: project.localID,
+                remoteID: download.viewID,
+                mode: download.mode,
+                filterQuery: download.filterQuery,
+            )
+        view.mode = download.mode
+        view.filterQuery = download.filterQuery
+        view.defaultBucketID = download.defaultBucketID
+        view.doneBucketID = download.doneBucketID
+        view.lastCompletePullAt = Date()
+        try view.save(db)
+        let assignments = try KanbanAssignmentRecord.filter(Column("viewLocalID") == view.localID).fetchAll(db)
+        let preserved = assignments.filter { protected.contains($0.taskLocalID) && !deleted.contains($0.taskLocalID) }
+        try KanbanAssignmentRecord.filter(Column("viewLocalID") == view.localID)
+            .filter(!preserved.map(\.taskLocalID).contains(Column("taskLocalID"))).deleteAll(db)
+        var keptBucketIDs = Set(preserved.map(\.bucketLocalID))
+        for (index, bucket) in download.buckets.enumerated() {
+            let row = try Self.saveKanbanBucket(bucket, position: index, view: view, db: db)
+            keptBucketIDs.insert(row.localID)
+            for (position, task) in bucket.tasks.enumerated() {
+                guard let id = task.id.remoteValue, let localID = identities[id], !deleted.contains(localID),
+                      !preserved.contains(where: { $0.taskLocalID == localID }),
+                      let canonical = try TaskRecord.fetchOne(db, key: localID),
+                      canonical.projectLocalID == project.localID
+                else { continue }
+                try KanbanAssignmentRecord(
+                    accountID: accountID,
+                    projectLocalID: project.localID,
+                    viewLocalID: view.localID,
+                    bucketLocalID: row.localID,
+                    taskLocalID: localID,
+                    position: Double(position),
+                ).insert(db)
+            }
+        }
+        try KanbanBucketRecord.filter(Column("viewLocalID") == view.localID)
+            .filter(!keptBucketIDs.contains(Column("localID"))).deleteAll(db)
+        for assignment in preserved {
+            let bucket = try KanbanBucketRecord.fetchOne(db, key: assignment.bucketLocalID)
+            guard download.buckets.contains(where: { $0.id == bucket?.remoteID }) else {
+                // Abort this transaction, retaining the last complete board and pending work.
+                throw VikunjaError.notFound
+            }
+        }
+    }
+
+    private static func upsertKanbanTasks(
+        _ download: KanbanDownload, project: ProjectRecord, rows: [TaskRecord],
+        intent: (protected: Set<UUID>, deleted: Set<UUID>), db: Database,
+    ) throws -> [Int: UUID] {
+        guard let remoteProjectID = project.remoteID else { throw VikunjaError.notFound }
+        let tasks = download.buckets.flatMap(\.tasks)
+        guard Set(download.buckets.map(\.id)).count == download.buckets.count,
+              Set(tasks.map(\.id)).count == tasks.count,
+              tasks.allSatisfy({ $0.id.remoteValue != nil && $0.projectID == .remote(remoteProjectID) })
+        else { throw VikunjaError.decoding("Invalid Kanban snapshot identity") }
+        let identities = Self.reserveTaskLocalIDs(for: tasks, existing: rows)
+        try Self.upsertTaskRows(
+            for: tasks.filter { task in
+                guard let id = task.id.remoteValue, let localID = identities[id] else { return false }
+                return !intent.deleted.contains(localID)
+            },
+            accountID: project.accountID, localIDByRemoteID: identities,
+            projectLocalIDByRemoteID: [remoteProjectID: project.localID], protectedLocalIDs: intent.protected, db: db,
+        )
+        return identities
+    }
+
+    private static func saveKanbanBucket(
+        _ bucket: KanbanBucket, position: Int, view: KanbanViewRecord, db: Database,
+    ) throws -> KanbanBucketRecord {
+        var row = try KanbanBucketRecord.filter(Column("viewLocalID") == view.localID)
+            .filter(Column("remoteID") == bucket.id).fetchOne(db)
+            ?? KanbanBucketRecord(
+                localID: UUID(), accountID: view.accountID, projectLocalID: view.projectLocalID,
+                viewLocalID: view.localID, remoteID: bucket.id, title: bucket.title,
+                position: Double(position), limit: bucket.limit, serverCount: bucket.tasks.count,
+            )
+        row.title = bucket.title
+        row.position = Double(position)
+        row.limit = bucket.limit
+        row.serverCount = bucket.tasks.count
+        try row.save(db)
+        return row
     }
 
     /// Saved-filter queries are part of the offline snapshot, not a hidden

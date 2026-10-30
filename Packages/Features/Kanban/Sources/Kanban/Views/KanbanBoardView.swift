@@ -135,6 +135,10 @@ public struct KanbanBoardView: View {
 // MARK: - Preview Helpers
 
 private final class PreviewBucketRepository: @unchecked Sendable, BucketRepositoryProtocol {
+    func downloadBoard(projectID: Int, viewID: Int?) async throws -> KanbanDownload {
+        throw VikunjaError.notFound
+    }
+
     func fetchBuckets(projectID _: Int) async throws -> [KanbanBucket] {
         [
             KanbanBucket(

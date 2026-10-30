@@ -17,6 +17,8 @@ public actor SyncCoordinator {
         var includesAccountPass = false
         var needsAnotherPass = false
         var requestedThreads: Set<EntityID> = []
+        var requestedBoards: Set<EntityID> = []
+        var pendingBoards: Set<EntityID> = []
         var pendingThreads: Set<EntityID> = []
     }
 
@@ -106,6 +108,9 @@ public actor SyncCoordinator {
             if let id = scope.commentTaskID, work.requestedThreads.insert(id).inserted {
                 work.pendingThreads.insert(id)
             }
+            if let id = scope.kanbanProjectID, work.requestedBoards.insert(id).inserted {
+                work.pendingBoards.insert(id)
+            }
             workByAccount[accountID] = work
             return work.task
         }
@@ -116,6 +121,10 @@ public actor SyncCoordinator {
         if let id = scope.commentTaskID {
             work.requestedThreads.insert(id)
             work.pendingThreads.insert(id)
+        }
+        if let id = scope.kanbanProjectID {
+            work.requestedBoards.insert(id)
+            work.pendingBoards.insert(id)
         }
         workByAccount[accountID] = work
         return task
@@ -128,6 +137,7 @@ public actor SyncCoordinator {
         }
         let engine = makeEngine(account)
         var failure: (any Error)?
+        var boardFailures: [EntityID: any Error] = [:]
         var threadFailures: [EntityID: any Error] = [:]
         while true {
             let needsPass = workByAccount[accountID]?.needsAnotherPass ?? false
@@ -149,6 +159,10 @@ public actor SyncCoordinator {
                 } catch { threadFailures[id] = error }
                 workByAccount[accountID]?.requestedThreads.remove(id)
             }
+            boardFailures = await pullPendingBoards(account, previousFailures: boardFailures)
+            if workByAccount[accountID]?.pendingBoards.isEmpty == false {
+                continue
+            }
             if workByAccount[accountID]?.needsAnotherPass == true {
                 continue
             }
@@ -157,12 +171,28 @@ public actor SyncCoordinator {
             }
             break
         }
-        if let failure = failure ?? threadFailures.values.first {
+        if let failure = failure ?? threadFailures.values.first ?? boardFailures.values.first {
             throw failure
         }
     }
 
-    private func makeEngine(_ account: InstanceAccount) -> SyncEngine {
+    private func pullPendingBoards(
+        _ account: InstanceAccount, previousFailures: [EntityID: any Error],
+    ) async -> [EntityID: any Error] {
+        let boards = workByAccount[account.id]?.pendingBoards ?? []
+        workByAccount[account.id]?.pendingBoards = []
+        var failures = previousFailures
+        for id in boards {
+            do {
+                try await makeEngine(account, includeKanban: true).pullKanban(projectID: id)
+                failures[id] = nil
+            } catch { failures[id] = error }
+            workByAccount[account.id]?.requestedBoards.remove(id)
+        }
+        return failures
+    }
+
+    private func makeEngine(_ account: InstanceAccount, includeKanban: Bool = false) -> SyncEngine {
         let resolvedTokenProvider = tokenProvider(account)
         let projectRepository = clientFactory.makeProjectRepository(
             baseURL: account.baseURL,
@@ -197,6 +227,11 @@ public actor SyncCoordinator {
             commentRepository: commentRepository,
             filterRepository: filterRepository,
             accountID: account.id,
+            bucketRepository: includeKanban ? clientFactory.makeBucketRepository(
+                baseURL: account.baseURL, tokenProvider: resolvedTokenProvider,
+            ) : nil,
+            capabilityProvider: includeKanban ? clientFactory.makeCapabilityProvider(baseURL: account.baseURL)
+                : NoopCapabilityProvider(),
         )
     }
 }

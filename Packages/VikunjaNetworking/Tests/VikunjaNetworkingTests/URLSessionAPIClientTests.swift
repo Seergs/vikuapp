@@ -1934,7 +1934,7 @@ struct URLSessionAPIClientTests {
     }
 
     @Test
-    func `fetch buckets stops on empty task pages when counts become stale`() async throws {
+    func `fetch buckets rejects incomplete task pages when counts become stale`() async throws {
         let body = try Self.fixture("buckets-with-tasks")
             .replacingOccurrences(of: "\"count\": 1", with: "\"count\": 51")
         var empty = try #require(JSONSerialization.jsonObject(with: Data(body.utf8)) as? [String: Any])
@@ -1949,9 +1949,9 @@ struct URLSessionAPIClientTests {
         ])
         let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
 
-        let buckets = try await VikunjaBucketRepository(client: client).fetchBuckets(projectID: 6)
-
-        #expect(buckets.map(\.tasks.count) == [1, 1])
+        await #expect(throws: VikunjaError.self) {
+            _ = try await VikunjaBucketRepository(client: client).fetchBuckets(projectID: 6)
+        }
         #expect(await capture.requests.count == 3)
     }
 
