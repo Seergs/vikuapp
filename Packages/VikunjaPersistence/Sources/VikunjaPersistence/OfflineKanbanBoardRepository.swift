@@ -5,10 +5,89 @@ import VikunjaCore
 public struct OfflineKanbanBoardRepository: KanbanBoardRepositoryProtocol {
     private let localStore: LocalStore
     private let accountID: UUID
+    private let syncRequester: SyncRequesting
 
-    public init(localStore: LocalStore, accountID: UUID) {
+    public init(localStore: LocalStore, accountID: UUID, syncRequester: SyncRequesting) {
         self.localStore = localStore
         self.accountID = accountID
+        self.syncRequester = syncRequester
+    }
+
+    public func createTask(
+        title: String, projectID: EntityID, viewID: Int, bucketID: Int,
+    ) async throws -> VikunjaTask {
+        let created = try await localStore.write { db in
+            let project = try ProjectRecord.filter(Column("accountID") == accountID).fetchAll(db).first {
+                projectID == .local($0.localID) || $0.remoteID.map(EntityID.remote) == projectID
+            }
+            guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  let project, let remoteID = project.remoteID, remoteID > 0, !project.isArchived,
+                  let view = try KanbanViewRecord.filter(Column("projectLocalID") == project.localID)
+                  .filter(Column("remoteID") == viewID).fetchOne(db),
+                  view.lastCompletePullAt != nil, view.mode == "manual",
+                  view.filterQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  let bucket = try KanbanBucketRecord.filter(Column("viewLocalID") == view.localID)
+                  .filter(Column("remoteID") == bucketID).fetchOne(db)
+            else { throw VikunjaError.notFound }
+            let localID = UUID()
+            let done = view.doneBucketID == bucketID
+            try TaskRecord(
+                localID: localID,
+                accountID: accountID,
+                remoteID: nil,
+                title: title,
+                description: nil,
+                isDone: done,
+                dueDate: nil,
+                priority: 0,
+                projectLocalID: project.localID,
+                serverUpdatedAt: nil,
+            ).insert(db)
+            let position = try KanbanAssignmentRecord.filter(Column("bucketLocalID") == bucket.localID)
+                .fetchAll(db).map(\.position).max().map { $0 + 1 } ?? 0
+            try KanbanAssignmentRecord(
+                accountID: accountID,
+                projectLocalID: project.localID,
+                viewLocalID: view.localID,
+                bucketLocalID: bucket.localID,
+                taskLocalID: localID,
+                position: position,
+            ).insert(db)
+            let payload = TaskCreateOrUpdatePayload(
+                title: title,
+                description: nil,
+                isDone: done,
+                dueDate: nil,
+                priority: 0,
+                projectLocalID: project.localID,
+                baseUpdatedAt: nil,
+                reminders: [],
+                kanbanDestination: KanbanCreationDestination(viewID: viewID, bucketID: bucketID),
+            )
+            try Self.enqueueCreation(payload, localID: localID, accountID: accountID, db: db)
+            return VikunjaTask(id: .local(localID), title: title, isDone: done, projectID: .remote(remoteID))
+        }
+        await syncRequester.requestSync()
+        return created
+    }
+
+    private static func enqueueCreation(
+        _ payload: TaskCreateOrUpdatePayload, localID: UUID, accountID: UUID, db: Database,
+    ) throws {
+        var mutation = try MutationQueueRecord(
+            id: nil,
+            accountID: accountID,
+            entityType: .task,
+            operation: .create,
+            targetLocalID: localID,
+            payload: String(data: JSONEncoder().encode(payload), encoding: .utf8),
+            createdAt: Date(),
+            retryCount: 0,
+            lastError: nil,
+            status: .pending,
+            needsConflictResolution: false,
+        )
+        try mutation.insert(db)
     }
 
     public func fetchBoard(projectID: EntityID, viewID: Int) async throws -> KanbanBoardSnapshot {

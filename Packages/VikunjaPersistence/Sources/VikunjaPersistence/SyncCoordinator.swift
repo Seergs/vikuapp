@@ -184,7 +184,7 @@ public actor SyncCoordinator {
         var failures = previousFailures
         for id in boards {
             do {
-                try await makeEngine(account, includeKanban: true).pullKanban(projectID: id)
+                try await makeEngine(account).pullKanban(projectID: id)
                 failures[id] = nil
             } catch { failures[id] = error }
             workByAccount[account.id]?.requestedBoards.remove(id)
@@ -192,7 +192,7 @@ public actor SyncCoordinator {
         return failures
     }
 
-    private func makeEngine(_ account: InstanceAccount, includeKanban: Bool = false) -> SyncEngine {
+    private func makeEngine(_ account: InstanceAccount) -> SyncEngine {
         let resolvedTokenProvider = tokenProvider(account)
         let projectRepository = clientFactory.makeProjectRepository(
             baseURL: account.baseURL,
@@ -227,11 +227,10 @@ public actor SyncCoordinator {
             commentRepository: commentRepository,
             filterRepository: filterRepository,
             accountID: account.id,
-            bucketRepository: includeKanban ? clientFactory.makeBucketRepository(
+            bucketRepository: clientFactory.makeBucketRepository(
                 baseURL: account.baseURL, tokenProvider: resolvedTokenProvider,
-            ) : nil,
-            capabilityProvider: includeKanban ? clientFactory.makeCapabilityProvider(baseURL: account.baseURL)
-                : NoopCapabilityProvider(),
+            ),
+            capabilityProvider: clientFactory.makeCapabilityProvider(baseURL: account.baseURL),
         )
     }
 }

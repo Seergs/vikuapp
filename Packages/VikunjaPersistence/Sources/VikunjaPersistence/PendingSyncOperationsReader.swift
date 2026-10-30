@@ -24,6 +24,7 @@ enum PendingSyncOperationsReader {
                     createdAt: item.createdAt,
                     status: item.status == .failed || item.needsConflictResolution ? .failed : .pending,
                     needsConflictResolution: item.needsConflictResolution,
+                    failureMessage: item.lastError.flatMap(KanbanCreationFailure.init(rawValue:))?.message,
                 )
             }
             .sorted {

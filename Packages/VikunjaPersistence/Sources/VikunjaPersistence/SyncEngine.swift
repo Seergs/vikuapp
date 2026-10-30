@@ -9,9 +9,10 @@ private let syncLogger = Logger(subsystem: "dev.sergiosuarez.vikunja", category:
 /// server: pulls the server's state in, and drains that account's locally
 /// queued mutations back out.
 public actor SyncEngine {
-    private let bucketRepository: BucketRepositoryProtocol?
-    private let capabilityProvider: CapabilityProvider
-    private let localStore: LocalStore
+    var activeKanbanCreations: Set<Int64> = []
+    let bucketRepository: BucketRepositoryProtocol?
+    let capabilityProvider: CapabilityProvider
+    let localStore: LocalStore
     private let projectRepository: ProjectRepositoryProtocol
     private let labelRepository: LabelRepositoryProtocol
     private let taskRepository: TaskRepositoryProtocol
@@ -24,7 +25,7 @@ public actor SyncEngine {
     /// `InstanceAccount.id` — every row this engine reads or writes is
     /// scoped to this one account, since `LocalStore`'s tables hold every
     /// saved account's data together rather than one database file each.
-    private let accountID: UUID
+    let accountID: UUID
 
     public init(
         localStore: LocalStore,
@@ -963,7 +964,7 @@ public actor SyncEngine {
         }
     }
 
-    private enum DrainOutcome {
+    enum DrainOutcome {
         case pushed
         case deferred
         case conflicted
@@ -1250,6 +1251,7 @@ public actor SyncEngine {
     /// re-pull: a task mutation can be flagged `.conflicted` in
     /// `drainTaskUpdate`, exactly like a project's.
     public func drainTaskMutations() async throws {
+        try await recoverKanbanCreations()
         let items = try await localStore.read { db in
             try MutationQueueRecord.fetchAll(db)
                 .filter {
@@ -1438,6 +1440,9 @@ public actor SyncEngine {
             projectID: .remote(resolvedProjectID),
             reminders: payload.reminders ?? [],
         )
+        if let destination = payload.kanbanDestination {
+            return try await drainKanbanCreation(item, task: task, destination: destination)
+        }
         let created = try await taskRepository.create(task)
         try await applyTaskPushResult(created, deleting: item)
         return .pushed
@@ -1666,7 +1671,7 @@ public actor SyncEngine {
         }
     }
 
-    private func applyTaskPushResult(_ task: VikunjaTask, deleting item: MutationQueueRecord) async throws {
+    func applyTaskPushResult(_ task: VikunjaTask, deleting item: MutationQueueRecord) async throws {
         guard let remoteID = task.id.remoteValue else {
             preconditionFailure("SyncEngine: a pushed task create/update's response must carry a resolved remote id")
         }
@@ -1710,6 +1715,7 @@ public actor SyncEngine {
             payload.baseUpdatedAt = updatedAt
             current.payload = try encodePayload(payload)
         }
+        current.needsConflictResolution = false
         current.baseUpdatedAt = updatedAt
         current.status = .pending
         current.lastError = nil

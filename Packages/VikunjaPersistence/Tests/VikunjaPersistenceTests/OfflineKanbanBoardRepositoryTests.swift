@@ -50,7 +50,9 @@ struct OfflineKanbanBoardRepositoryTests {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let store = try LocalStore(directory: directory)
         let fixture = try await seed(store)
-        let repository = OfflineKanbanBoardRepository(localStore: store, accountID: fixture.project.accountID)
+        let repository = OfflineKanbanBoardRepository(
+            localStore: store, accountID: fixture.project.accountID, syncRequester: NoopKanbanSyncRequester(),
+        )
         guard case let .available(initial) = try await repository.fetchBoard(projectID: .remote(1), viewID: 10) else {
             Issue.record("Expected cached board"); return
         }
@@ -67,7 +69,7 @@ struct OfflineKanbanBoardRepositoryTests {
         }
         let reopened = try LocalStore(directory: directory)
         let reader = OfflineKanbanBoardRepository(
-            localStore: reopened, accountID: fixture.project.accountID,
+            localStore: reopened, accountID: fixture.project.accountID, syncRequester: NoopKanbanSyncRequester(),
         )
         let snapshot = try await reader.fetchBoard(projectID: .local(fixture.project.localID), viewID: 10)
         guard case let .available(board) = snapshot else {
@@ -82,7 +84,9 @@ struct OfflineKanbanBoardRepositoryTests {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let store = try LocalStore(directory: directory)
         let fixture = try await seed(store, complete: false)
-        let repository = OfflineKanbanBoardRepository(localStore: store, accountID: fixture.project.accountID)
+        let repository = OfflineKanbanBoardRepository(
+            localStore: store, accountID: fixture.project.accountID, syncRequester: NoopKanbanSyncRequester(),
+        )
         #expect(try await repository.fetchBoard(projectID: .remote(1), viewID: 10) == .unavailable)
         try await store.write { db in
             try fixture.task.delete(db)
@@ -117,8 +121,10 @@ struct OfflineKanbanBoardRepositoryTests {
                 try invalid.insert(db)
             }
         }
-        #expect(try await OfflineKanbanBoardRepository(localStore: store, accountID: UUID())
-            .fetchBoard(projectID: .remote(1), viewID: 10) == .unavailable)
+        #expect(try await OfflineKanbanBoardRepository(
+            localStore: store, accountID: UUID(), syncRequester: NoopKanbanSyncRequester(),
+        )
+        .fetchBoard(projectID: .remote(1), viewID: 10) == .unavailable)
         try await store.write { db in try first.project.delete(db) }
         let counts = try await store.read { db in
             try (
@@ -143,7 +149,9 @@ struct OfflineKanbanBoardRepositoryTests {
             view.filterQuery = "done = false"
             try view.update(db)
         }
-        let repository = OfflineKanbanBoardRepository(localStore: store, accountID: fixture.project.accountID)
+        let repository = OfflineKanbanBoardRepository(
+            localStore: store, accountID: fixture.project.accountID, syncRequester: NoopKanbanSyncRequester(),
+        )
         guard case let .available(board) = try await repository.fetchBoard(projectID: .remote(1), viewID: 10) else {
             Issue.record("Missing board"); return
         }

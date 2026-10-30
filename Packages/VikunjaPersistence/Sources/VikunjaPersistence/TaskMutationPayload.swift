@@ -23,6 +23,8 @@ struct TaskCreateOrUpdatePayload: Codable, Equatable, Sendable {
     /// Optional so payloads queued before reminders were persisted still
     /// decode; `nil` means the task had no reminders.
     var reminders: [TaskReminder]?
+    /// Optional for queues written before Kanban support.
+    var kanbanDestination: KanbanCreationDestination?
 }
 
 /// What a queued `delete` needs to address the row server-side, since the
@@ -52,4 +54,9 @@ struct TaskLabelMutationPayload: Codable, Equatable, Sendable {
 struct TaskRelationMutationPayload: Codable, Equatable, Sendable {
     var kind: RelationKind
     var otherTaskLocalID: UUID
+}
+
+struct KanbanCreationDestination: Codable, Equatable, Sendable {
+    var viewID: Int
+    var bucketID: Int
 }

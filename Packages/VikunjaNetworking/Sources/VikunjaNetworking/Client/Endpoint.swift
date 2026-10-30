@@ -9,6 +9,9 @@ public struct Endpoint: Sendable {
         case delete = "DELETE"
     }
 
+    /// Disable for non-idempotent writes whose outcome may be ambiguous.
+    public var allowsAutomaticRetry = true
+
     public let path: String
     public let method: Method
     public let queryItems: [URLQueryItem]

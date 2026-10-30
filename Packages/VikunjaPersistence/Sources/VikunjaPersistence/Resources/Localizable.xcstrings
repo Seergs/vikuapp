@@ -12,7 +12,55 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No se pudieron sincronizar algunos cambios. Revisa Sincronizaci\u00f3n pendiente en Ajustes."
+            "value": "No se pudieron sincronizar algunos cambios. Revisa Sincronización pendiente en Ajustes."
+          }
+        }
+      }
+    },
+    "Kanban column unavailable. Delete this local task and create it in another column.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kanban column unavailable. Delete this local task and create it in another column."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Columna Kanban no disponible. Elimina esta tarea local y créala en otra columna."
+          }
+        }
+      }
+    },
+    "Creation unconfirmed. Check server before recreating this task. Automatic retry is paused.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Creation unconfirmed. Check server before recreating this task. Automatic retry is paused."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Creación sin confirmar. Revisa el servidor antes de eliminar o recrear esta tarea. El reintento automático está pausado."
+          }
+        }
+      }
+    },
+    "Kanban rejected. Check capacity and permissions, then delete and recreate this task.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kanban rejected. Check capacity and permissions, then delete and recreate this task."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Creación Kanban rechazada. Revisa la capacidad y los permisos antes de eliminar y recrear esta tarea local."
           }
         }
       }

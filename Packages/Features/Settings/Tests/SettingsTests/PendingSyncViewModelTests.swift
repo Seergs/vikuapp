@@ -137,6 +137,26 @@ struct PendingSyncViewModelTests {
     }
 
     @Test
+    func `unconfirmed creation cannot be discarded as an ordinary conflict`() async {
+        let provider = FakePendingSyncOperationsProvider()
+        let viewModel = PendingSyncViewModel(
+            provider: provider, accountID: UUID(), toastPresenter: FakeToastPresenter(),
+        )
+        let review = PendingSyncOperation(
+            id: 42,
+            entity: .task,
+            action: .create,
+            targetTitle: "Review",
+            createdAt: Date(),
+            status: .failed,
+            needsConflictResolution: true,
+            failureMessage: "Check server",
+        )
+        await viewModel.discard(review)
+        #expect(provider.discardedIDs.isEmpty)
+    }
+
+    @Test
     func `a discard failure surfaces an error toast`() async {
         let provider = FakePendingSyncOperationsProvider()
         provider.discardError = VikunjaError.network("offline")

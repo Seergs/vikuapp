@@ -87,7 +87,7 @@ struct PendingSyncView: View {
                             PendingSyncOperationRow(operation: operation)
                                 .listRowBackground(palette.cardBackground)
                                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                    if operation.needsConflictResolution {
+                                    if operation.needsConflictResolution, operation.failureMessage == nil {
                                         Button(
                                             String(localized: "Remove Conflict", bundle: .module),
                                             systemImage: "trash",
@@ -132,6 +132,12 @@ private struct PendingSyncOperationRow: View {
                 .font(VikuFont.footnote)
                 .foregroundStyle(palette.textSecondary)
 
+                if let message = operation.failureMessage {
+                    Text(verbatim: message)
+                        .font(VikuFont.footnote)
+                        .foregroundStyle(palette.semanticDangerText)
+                }
+
                 Text(operation.createdAt, format: .relative(presentation: .named))
                     .font(VikuFont.caption)
                     .foregroundStyle(palette.textTertiary)
@@ -169,7 +175,7 @@ private struct PendingSyncOperationRow: View {
     }
 
     private var statusLabel: LocalizedStringKey {
-        if operation.needsConflictResolution {
+        if operation.needsConflictResolution, operation.failureMessage == nil {
             "Conflict"
         } else if operation.status == .failed {
             "Failed"

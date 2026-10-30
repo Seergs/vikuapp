@@ -1,4 +1,5 @@
 import Foundation
+import VikunjaCore
 
 /// v2-only endpoint builders for Kanban: it never shipped on v1, so there's
 /// no v1 counterpart to migrate. Kept in its own file, like
@@ -37,11 +38,13 @@ extension VikunjaEndpoints {
     /// Creates a task directly in `bucketID` via the regular task-create
     /// endpoint with `bucket_id` set, rather than a create-then-move pair of
     /// requests. Verified against a real instance's `/api/v2/openapi.json`.
-    static func createTaskInBucketV2(projectID: Int, bucketID: Int, title: String) throws -> Endpoint {
-        try .encoding(
+    static func createTaskInBucketV2(projectID: Int, bucketID: Int, task: VikunjaTask) throws -> Endpoint {
+        var endpoint = try Endpoint.encoding(
             path: "/api/v2/projects/\(projectID)/tasks",
             method: .post,
-            body: CreateTaskInBucketDTO(title: title, bucketId: bucketID),
+            body: CreateTaskInBucketDTO(task: TaskMapper.toDTO(task), bucketId: bucketID),
         )
+        endpoint.allowsAutomaticRetry = false
+        return endpoint
     }
 }

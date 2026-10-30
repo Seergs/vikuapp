@@ -153,7 +153,8 @@ public actor LocalStore {
         try await write { db in
             guard let item = try MutationQueueRecord.fetchOne(db, key: id),
                   item.accountID == accountID,
-                  item.needsConflictResolution
+                  item.needsConflictResolution,
+                  item.lastError.flatMap(KanbanCreationFailure.init(rawValue:)) == nil
             else { return }
             try item.delete(db)
         }
