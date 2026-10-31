@@ -10,6 +10,8 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     var deleteError: VikunjaError?
     var searchError: VikunjaError?
     var searchResults: [VikunjaTask] = []
+    var updatedTasks: [VikunjaTask] = []
+    var beforeUpdateReturns: (@Sendable () async throws -> Void)?
     var beforeFetchTaskReturns: (@Sendable () async -> Void)?
     var afterDelete: (@Sendable () async -> Void)?
     /// Artificial delay before `fetchTask(id:)` returns — lets tests simulate
@@ -72,6 +74,8 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     }
 
     func update(_ task: VikunjaTask) async throws -> VikunjaTask {
+        updatedTasks.append(task)
+        try await beforeUpdateReturns?()
         if let updateError {
             throw updateError
         }

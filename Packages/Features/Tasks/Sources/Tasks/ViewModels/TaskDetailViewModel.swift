@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import VikuDesignSystem
 import VikunjaCore
 import VikuUI
 
@@ -39,6 +40,7 @@ public final class TaskDetailViewModel {
     /// `true` while an upload request is in flight — the view disables the
     /// add affordance and shows a progress row.
     public private(set) var isUploadingAttachment = false
+    public private(set) var isUpdatingDescriptionCheckbox = false
 
     public var isLoading: Bool {
         loadState == .loading
@@ -260,6 +262,23 @@ public final class TaskDetailViewModel {
         let previous = task
         task.description = description
         await persist(previous: previous)
+    }
+
+    /// The source check rejects a tap from a document replaced since rendering.
+    /// Keep only one checkbox write in flight; local persistence normally
+    /// completes immediately, including while offline.
+    public func toggleDescriptionCheckbox(at index: Int, in sourceHTML: String) async {
+        guard !isDeletingOrDeleted, !isUpdatingDescriptionCheckbox, !Task.isCancelled,
+              task.description == sourceHTML,
+              let updated = RichText.togglingTaskItem(at: index, in: sourceHTML)
+        else { return }
+        isUpdatingDescriptionCheckbox = true
+        defer { isUpdatingDescriptionCheckbox = false }
+        let previous = task
+        task.description = updated
+        if let error = await persist(previous: previous), !Task.isCancelled {
+            toastPresenter.show(error, style: .error)
+        }
     }
 
     /// Appends a new reminder and persists it, rolling back on failure the
@@ -860,7 +879,8 @@ public final class TaskDetailViewModel {
     /// back — carrying over what's already loaded instead of taking the
     /// response as-is is what keeps those sections from disappearing after an
     /// edit.
-    private func persist(previous: VikunjaTask) async {
+    @discardableResult
+    private func persist(previous: VikunjaTask) async -> String? {
         taskWriteToken += 1
         let token = taskWriteToken
         do {
@@ -869,12 +889,14 @@ public final class TaskDetailViewModel {
             updated.dependsOn = previous.dependsOn
             updated.blocks = previous.blocks
             updated.otherRelations = previous.otherRelations
-            guard token == taskWriteToken else { return }
+            guard token == taskWriteToken else { return nil }
             task = updated
         } catch {
-            guard token == taskWriteToken else { return }
+            guard token == taskWriteToken else { return nil }
             task = previous
+            return (error as? VikunjaError)?.displayMessage ?? error.localizedDescription
         }
+        return nil
     }
 
     public func start() async {

@@ -140,8 +140,12 @@ struct RichTextParserTests {
         let blocks = RichText.parse(html)
         #expect(blocks == [
             .taskList([
-                RichTextTaskItem(isChecked: true, content: [.paragraph([RichTextRun(text: "done")])]),
-                RichTextTaskItem(isChecked: false, content: [.paragraph([RichTextRun(text: "todo")])]),
+                RichTextTaskItem(
+                    isChecked: true, content: [.paragraph([RichTextRun(text: "done")])], sourceTokenIndex: 1,
+                ),
+                RichTextTaskItem(
+                    isChecked: false, content: [.paragraph([RichTextRun(text: "todo")])], sourceTokenIndex: 13,
+                ),
             ]),
         ])
     }

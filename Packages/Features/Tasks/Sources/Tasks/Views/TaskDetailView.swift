@@ -537,14 +537,17 @@ public struct TaskDetailView: View {
             .focused($focusedField, equals: .description)
             .padding(.top, VikuSpacing.md)
         } else if let description = task.description, !RichText.isEmpty(description) {
-            // Vikunja stores the description as its web editor's HTML output;
-            // render it, don't show the raw markup. Tapping still opens the
-            // inline editor (which edits plain text, see `beginEditingDescription`).
-            RichTextView(html: description)
-                .foregroundStyle(palette.textSecondary)
-                .contentShape(Rectangle())
-                .onTapGesture { beginEditingDescription() }
-                .padding(.top, VikuSpacing.md)
+            // Text opens the editor; checkbox buttons own their taps.
+            RichTextView(
+                html: description,
+                taskTogglingEnabled: !viewModel.isUpdatingDescriptionCheckbox,
+                onTaskToggle: { index in
+                    Task { await viewModel.toggleDescriptionCheckbox(at: index, in: description) }
+                },
+                onTextTap: beginEditingDescription,
+            )
+            .foregroundStyle(palette.textSecondary)
+            .padding(.top, VikuSpacing.md)
         } else {
             Text("Add description...", bundle: .module)
                 .font(VikuFont.callout)

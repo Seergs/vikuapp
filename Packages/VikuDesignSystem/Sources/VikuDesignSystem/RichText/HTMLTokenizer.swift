@@ -19,10 +19,19 @@ enum HTMLTokenizer {
     ]
 
     static func tokenize(_ html: String) -> [HTMLToken] {
+        tokenizeWithRanges(html).map(\.token)
+    }
+
+    /// Original source spans let edits preserve markup outside the target tag.
+    static func tokenizeWithRanges(_ html: String) -> [(token: HTMLToken, range: Range<String.Index>)] {
         var scanner = Scanner(html)
+        let positions = Array(html.unicodeScalars.indices) + [html.endIndex]
         var tokens: [HTMLToken] = []
+        var located: [(token: HTMLToken, range: Range<String.Index>)] = []
 
         while let scalar = scanner.current {
+            let start = scanner.index
+            let count = tokens.count
             if scalar != "<" {
                 appendText(scanner.consumeText(), to: &tokens)
             } else if scanner.matches("<!--") {
@@ -34,9 +43,12 @@ enum HTMLTokenizer {
             } else {
                 tokens.append(makeStartTag(from: scanner.consumeStartTagBody()))
             }
+            if tokens.count > count, let token = tokens.last {
+                located.append((token, positions[start] ..< positions[scanner.index]))
+            }
         }
 
-        return tokens
+        return located
     }
 
     private static func appendText(_ raw: String, to tokens: inout [HTMLToken]) {
@@ -160,7 +172,7 @@ private extension Unicode.Scalar {
 /// consume-operations the tokenizer needs.
 private struct Scanner {
     private let scalars: [Unicode.Scalar]
-    private var index = 0
+    private(set) var index = 0
 
     init(_ string: String) {
         self.scalars = Array(string.unicodeScalars)

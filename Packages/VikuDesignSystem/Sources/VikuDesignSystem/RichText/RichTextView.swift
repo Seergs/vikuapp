@@ -14,9 +14,20 @@ import SwiftUI
 public struct RichTextView: View {
     private let blocks: [RichTextBlock]
     private let baseFont: Font
+    private var onTaskToggle: ((Int) -> Void)?
+    private var onTextTap: (() -> Void)?
+    private var taskTogglingEnabled = true
 
-    public init(html: String, baseFont: Font = VikuFont.callout) {
+    public init(
+        html: String, baseFont: Font = VikuFont.callout,
+        taskTogglingEnabled: Bool = true,
+        onTaskToggle: ((Int) -> Void)? = nil,
+        onTextTap: (() -> Void)? = nil,
+    ) {
         self.init(blocks: RichText.parse(html), baseFont: baseFont)
+        self.onTaskToggle = onTaskToggle
+        self.onTextTap = onTextTap
+        self.taskTogglingEnabled = taskTogglingEnabled
     }
 
     public init(blocks: [RichTextBlock], baseFont: Font = VikuFont.callout) {
@@ -26,6 +37,27 @@ public struct RichTextView: View {
 
     public var body: some View {
         RichTextBlocksView(blocks: blocks, baseFont: baseFont)
+            .environment(\.richTextTaskToggle, onTaskToggle)
+            .environment(\.richTextTextTap, onTextTap)
+            .environment(\.richTextTaskTogglingEnabled, taskTogglingEnabled)
+    }
+}
+
+private extension EnvironmentValues {
+    @Entry var richTextTaskToggle: ((Int) -> Void)?
+    @Entry var richTextTextTap: (() -> Void)?
+    @Entry var richTextTaskTogglingEnabled = true
+}
+
+private struct RichTextEditGesture: ViewModifier {
+    @Environment(\.richTextTextTap) private var onTextTap
+
+    func body(content: Content) -> some View {
+        if let onTextTap {
+            content.contentShape(Rectangle()).onTapGesture(perform: onTextTap)
+        } else {
+            content
+        }
     }
 }
 
@@ -63,6 +95,7 @@ private struct RichTextBlockView: View {
             )
             .font(baseFont)
             .fixedSize(horizontal: false, vertical: true)
+            .modifier(RichTextEditGesture())
 
         case let .heading(level, runs):
             Text(
@@ -75,6 +108,7 @@ private struct RichTextBlockView: View {
             .font(headingFont(level))
             .fontWeight(.semibold)
             .fixedSize(horizontal: false, vertical: true)
+            .modifier(RichTextEditGesture())
             .padding(.top, VikuSpacing.xs)
 
         case let .bulletList(items):
@@ -95,6 +129,7 @@ private struct RichTextBlockView: View {
 
         case let .codeBlock(text, _):
             RichTextCodeBlockView(text: text)
+                .modifier(RichTextEditGesture())
 
         case .thematicBreak:
             Divider().padding(.vertical, VikuSpacing.xs)
@@ -136,6 +171,9 @@ private struct RichTextListView: View {
 }
 
 private struct RichTextTaskListView: View {
+    @Environment(\.richTextTaskToggle) private var onTaskToggle
+    @Environment(\.richTextTaskTogglingEnabled) private var taskTogglingEnabled
+
     let items: [RichTextTaskItem]
     let baseFont: Font
 
@@ -145,14 +183,38 @@ private struct RichTextTaskListView: View {
         VStack(alignment: .leading, spacing: VikuSpacing.xs) {
             ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                 HStack(alignment: .firstTextBaseline, spacing: VikuSpacing.sm) {
-                    Image(systemName: item.isChecked ? "checkmark.square.fill" : "square")
-                        .font(baseFont)
-                        .foregroundStyle(item.isChecked ? palette.brand : palette.textTertiary)
+                    if let onTaskToggle, let index = item.sourceTokenIndex {
+                        Button { onTaskToggle(index) } label: {
+                            checkbox(item)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(!taskTogglingEnabled)
+                        .accessibilityLabel(Text(verbatim: RichText.plainText(from: item.content)))
+                        .accessibilityValue(
+                            item.isChecked
+                                ? String(localized: "Checked", bundle: .module)
+                                : String(localized: "Unchecked", bundle: .module),
+                        )
+                        .accessibilityHint(
+                            item.isChecked
+                                ? String(localized: "Uncheck item", bundle: .module)
+                                : String(localized: "Check item", bundle: .module),
+                        )
+                    } else {
+                        checkbox(item)
+                    }
                     RichTextBlocksView(blocks: item.content, baseFont: baseFont)
                         .opacity(item.isChecked ? 0.6 : 1)
                 }
             }
         }
+    }
+
+    private func checkbox(_ item: RichTextTaskItem) -> some View {
+        Image(systemName: item.isChecked ? "checkmark.square.fill" : "square")
+            .font(baseFont)
+            .foregroundStyle(item.isChecked ? palette.brand : palette.textTertiary)
     }
 }
 

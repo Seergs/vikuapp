@@ -27,8 +27,12 @@ public enum RichText {
     /// Blocks are separated by blank lines; list items get a `• ` / `1. `
     /// prefix.
     public static func plainText(from html: String) -> String {
-        let blocks = parse(html)
-        return blocks.map { plainText(for: $0) }
+        plainText(from: parse(html))
+    }
+
+    /// Visible text for an already parsed document or list item.
+    public static func plainText(from blocks: [RichTextBlock]) -> String {
+        blocks.map { plainText(for: $0) }
             .joined(separator: "\n\n")
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -234,11 +238,16 @@ private struct TreeBuilder {
                 return items
             case let .startTag(name: "li", attributes, _):
                 let isChecked = attributes["data-checked"] == "true"
+                let sourceTokenIndex = index
                 index += 1
                 let content = parseBlocks(until: ["li"])
                 consumeEndTag("li")
                 items.append(
-                    RichTextTaskItem(isChecked: isChecked, content: normalizeItemContent(content)),
+                    RichTextTaskItem(
+                        isChecked: isChecked,
+                        content: normalizeItemContent(content),
+                        sourceTokenIndex: sourceTokenIndex,
+                    ),
                 )
             case let .endTag(name):
                 if name == "li" {
