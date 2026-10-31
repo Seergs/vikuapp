@@ -55,7 +55,7 @@ public struct LabelPickerSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: VikuSpacing.xs) {
                     ForEach(filteredLabels) { label in
-                        LabelPickerRow(label: label, isSelected: taskLabels.contains(label)) {
+                        LabelPickerRow(label: label, isSelected: taskLabels.contains(where: { $0.id == label.id })) {
                             onToggle(label)
                         }
                     }

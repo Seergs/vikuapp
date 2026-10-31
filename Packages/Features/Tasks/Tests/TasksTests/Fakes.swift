@@ -171,6 +171,7 @@ final class FakeLabelRepository: LabelRepositoryProtocol, @unchecked Sendable {
     var createError: VikunjaError?
     var addError: VikunjaError?
     var removeError: VikunjaError?
+    var createdLabelID: EntityID?
     private var nextID = 100
 
     func fetchLabels() async throws -> [Label] {
@@ -184,7 +185,7 @@ final class FakeLabelRepository: LabelRepositoryProtocol, @unchecked Sendable {
         if let createError {
             throw createError
         }
-        let created = Label(id: .remote(nextID), title: label.title, hexColor: label.hexColor)
+        let created = Label(id: createdLabelID ?? .remote(nextID), title: label.title, hexColor: label.hexColor)
         nextID += 1
         labels.append(created)
         return created
