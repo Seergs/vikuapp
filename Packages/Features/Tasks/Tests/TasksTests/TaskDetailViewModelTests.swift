@@ -1700,6 +1700,86 @@ struct TaskDetailViewModelTests {
     }
 
     @Test
+    func `local reloads during and after deletion do not show missing task errors`() async {
+        let repository = FakeTaskRepository()
+        let task = VikunjaTask(id: 1, title: "Write report", projectID: 1)
+        repository.tasks = [task]
+        let comments = FakeTaskCommentRepository()
+        let attachments = FakeTaskAttachmentRepository()
+        let toast = FakeToastPresenter()
+        let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(), task: task,
+            project: Project(id: 1, title: "Work"), repository: repository,
+            labelRepository: FakeLabelRepository(), relationRepository: FakeTaskRelationRepository(),
+            commentRepository: comments, attachmentRepository: attachments,
+            projectRepository: FakeProjectRepository(), toastPresenter: toast,
+        )
+        await viewModel.load()
+        await viewModel.loadComments()
+        await viewModel.loadAttachments()
+        comments.fetchError = .notFound
+        attachments.fetchError = .notFound
+        // Mimic the database observation firing before delete returns and the
+        // view's task being cancelled only after the dismissal transition.
+        repository.afterDelete = {
+            await viewModel.load()
+            await viewModel.loadComments()
+            await viewModel.loadAttachments()
+        }
+
+        let succeeded = await viewModel.deleteTask()
+        await viewModel.load()
+        await viewModel.loadComments()
+        await viewModel.loadAttachments()
+
+        #expect(succeeded)
+        #expect(toast.shownMessages.count == 1)
+        #expect(toast.shownMessages.first?.style == .success)
+        #expect(viewModel.loadState == .loaded)
+    }
+
+    @Test(arguments: [false, true])
+    func `a read already in flight cannot update the detail after deletion`(fails: Bool) async {
+        let repository = FakeTaskRepository()
+        let task = VikunjaTask(id: 1, title: "Write report", projectID: 1)
+        repository.tasks = [task]
+        let toast = FakeToastPresenter()
+        let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(), task: task,
+            project: Project(id: 1, title: "Work"), repository: repository,
+            labelRepository: FakeLabelRepository(), relationRepository: FakeTaskRelationRepository(),
+            commentRepository: FakeTaskCommentRepository(), attachmentRepository: FakeTaskAttachmentRepository(),
+            projectRepository: FakeProjectRepository(), toastPresenter: toast,
+        )
+        await viewModel.load()
+        let started = AsyncStream<Void>.makeStream()
+        let release = AsyncStream<Void>.makeStream()
+        repository.fetchError = fails ? .notFound : nil
+        repository.tasks[0].title = "Stale read"
+        repository.beforeFetchTaskReturns = {
+            started.continuation.yield(())
+            for await _ in release.stream {
+                break
+            }
+        }
+        let pendingRead = Task { await viewModel.load() }
+        for await _ in started.stream {
+            break
+        }
+
+        let succeeded = await viewModel.deleteTask()
+        release.continuation.yield(())
+        await pendingRead.value
+        started.continuation.finish()
+        release.continuation.finish()
+
+        #expect(viewModel.task == task)
+        #expect(succeeded)
+        #expect(toast.shownMessages.count == 1)
+        #expect(toast.shownMessages.first?.style == .success)
+    }
+
+    @Test
     func `delete task shows A success toast`() async {
         let repository = FakeTaskRepository()
         repository.tasks = [VikunjaTask(id: 1, title: "Write report", projectID: 1)]
@@ -1746,6 +1826,10 @@ struct TaskDetailViewModelTests {
 
         #expect(succeeded == false)
         #expect(toastPresenter.shownMessages.last?.style == .error)
+        repository.tasks[0].title = "Still available"
+        await viewModel.load()
+        #expect(viewModel.task.title == "Still available")
+        #expect(viewModel.loadState == .loaded)
     }
 
     @Test
