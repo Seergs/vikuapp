@@ -122,6 +122,10 @@ public final class TaskDetailViewModel {
         return taskID
     }
 
+    /// Local delete notifications can arrive before the navigation pop finishes.
+    /// Keep the detail inert from the start of deletion through dismissal.
+    private var isDeletingOrDeleted = false
+
     private var taskWriteToken = 0
     /// Same guard as `taskWriteToken`, scoped to `comments`/`commentsLoadState`
     /// so a stale `loadComments()` can't erase a comment just posted, edited,
@@ -180,6 +184,7 @@ public final class TaskDetailViewModel {
     }
 
     public func load() async {
+        guard !isDeletingOrDeleted else { return }
         taskWriteToken += 1
         let token = taskWriteToken
         let hadContent = loadState == .loaded
@@ -468,17 +473,24 @@ public final class TaskDetailViewModel {
         }
     }
 
-    /// Deletes the task from the server. There's nothing left to show on this
+    /// Queues the task deletion locally. There's nothing left to show on this
     /// screen once it succeeds — the view is expected to pop back.
     public func deleteTask() async -> Bool {
+        guard !isDeletingOrDeleted else { return false }
+        isDeletingOrDeleted = true
+        taskWriteToken += 1
+        commentsWriteToken += 1
+        attachmentsWriteToken += 1
         do {
             try await repository.delete(id: task.id)
             toastPresenter.show(String(localized: "Task deleted", bundle: .module), style: .success)
             return true
         } catch let error as VikunjaError {
+            isDeletingOrDeleted = false
             toastPresenter.show(error.displayMessage, style: .error)
             return false
         } catch {
+            isDeletingOrDeleted = false
             toastPresenter.show(error.localizedDescription, style: .error)
             return false
         }
@@ -527,6 +539,7 @@ public final class TaskDetailViewModel {
     /// lazy load — comments are always-visible content on this screen, not a
     /// picker's suggestions, so a failure here is worth showing.
     public func loadComments() async {
+        guard !isDeletingOrDeleted else { return }
         commentsWriteToken += 1
         let token = commentsWriteToken
         let hadContent = commentsLoadState == .loaded
@@ -558,6 +571,7 @@ public final class TaskDetailViewModel {
     /// Loads this task's attachments. Failures surface into
     /// `attachmentsLoadState`, the same as `loadComments()`.
     public func loadAttachments() async {
+        guard !isDeletingOrDeleted else { return }
         // Same reasoning as `loadComments()`'s early exit - no attachments
         // can exist server-side before the task itself does.
         guard let taskID else {

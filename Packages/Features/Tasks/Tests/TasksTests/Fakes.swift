@@ -10,6 +10,8 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     var deleteError: VikunjaError?
     var searchError: VikunjaError?
     var searchResults: [VikunjaTask] = []
+    var beforeFetchTaskReturns: (@Sendable () async -> Void)?
+    var afterDelete: (@Sendable () async -> Void)?
     /// Artificial delay before `fetchTask(id:)` returns — lets tests simulate
     /// a slower, earlier-issued `load()` that resolves after a faster edit
     /// issued while it was still in flight.
@@ -36,6 +38,7 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
         if let fetchTaskDelay {
             try? await Task.sleep(for: fetchTaskDelay)
         }
+        await beforeFetchTaskReturns?()
         if let snapshotError {
             throw snapshotError
         }
@@ -87,6 +90,7 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
             throw deleteError
         }
         tasks.removeAll { $0.id == id }
+        await afterDelete?()
     }
 
     func searchTasks(query _: String) async throws -> [VikunjaTask] {
