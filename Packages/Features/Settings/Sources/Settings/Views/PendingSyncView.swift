@@ -16,6 +16,7 @@ struct PendingSyncView: View {
     @State private var pendingTaskRemoval: PendingSyncOperation?
     @Environment(\.vikuPalette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.vikuIsOnline) private var isOnline
 
     init(makeViewModel: @escaping () -> PendingSyncViewModel) {
         _viewModel = State(initialValue: makeViewModel())
@@ -61,6 +62,7 @@ struct PendingSyncView: View {
                 Text("This task was not created on the server. Its local changes will be deleted.", bundle: .module)
             }
             .animation(rowAnimation, value: viewModel.presentation.operations)
+            .animation(rowAnimation, value: showsOfflineBanner)
             .animation(.easeInOut(duration: 0.3), value: showsLoadingIndicator)
             .scrollContentBackground(.hidden)
             .background(palette.pageBackground)
@@ -131,10 +133,17 @@ struct PendingSyncView: View {
 
     private var queueList: some View {
         List {
+            if showsOfflineBanner {
+                Section {
+                    PendingSyncOfflineBanner(count: viewModel.presentation.operations.count)
+                        .listRowBackground(palette.cardBackground)
+                        .transition(rowTransition)
+                }
+            }
             if !viewModel.presentation.operations.isEmpty {
                 Section {
                     ForEach(viewModel.presentation.operations) { operation in
-                        VStack(alignment: .leading, spacing: VikuSpacing.sm) {
+                        VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
                             PendingSyncOperationRow(operation: operation)
                             if viewModel.canRecover(operation) {
                                 Menu {
@@ -148,11 +157,14 @@ struct PendingSyncView: View {
                                         pendingTaskRemoval = operation
                                     } label: { Text("Delete task", bundle: .module) }
                                 } label: {
-                                    Label {
+                                    HStack(spacing: VikuSpacing.xxs) {
+                                        Image(systemName: "ellipsis.circle")
                                         Text("Resolve", bundle: .module)
-                                    } icon: { Image(systemName: "ellipsis.circle") }
+                                    }
                                 }
                                 .font(VikuFont.footnote)
+                                .padding(.leading, VikuSpacing.xl + VikuSpacing.sm + VikuSpacing.xxs)
+                                .padding(.top, VikuSpacing.xxs)
                                 .disabled(viewModel.busyOperationIDs.contains(operation.id))
                             }
                         }
@@ -172,13 +184,22 @@ struct PendingSyncView: View {
                         }
                     }
                 } header: {
-                    HStack {
-                        Text("Waiting to upload", bundle: .module)
-                        Spacer()
-                        Text(viewModel.presentation.operations.count, format: .number)
-                            .monospacedDigit()
-                            .contentTransition(reduceMotion ? .opacity : .numericText())
-                            .accessibilityHidden(true)
+                    HStack(alignment: .firstTextBaseline, spacing: VikuSpacing.sm) {
+                        HStack(spacing: VikuSpacing.xxs) {
+                            Text("Queued", bundle: .module)
+                            Text(verbatim: "·")
+                                .foregroundStyle(palette.textTertiary)
+                                .accessibilityHidden(true)
+                            Text(viewModel.presentation.operations.count, format: .number)
+                                .monospacedDigit()
+                                .contentTransition(reduceMotion ? .opacity : .numericText())
+                                .accessibilityHidden(true)
+                        }
+                        Spacer(minLength: 0)
+                        Text("Changes are sent in this order", bundle: .module)
+                            .font(VikuFont.caption2)
+                            .textCase(nil)
+                            .multilineTextAlignment(.trailing)
                     }
                 }
             }
@@ -191,6 +212,10 @@ struct PendingSyncView: View {
                     .transition(.opacity)
             }
         }
+    }
+
+    private var showsOfflineBanner: Bool {
+        !isOnline && !viewModel.presentation.operations.isEmpty
     }
 
     private var rowAnimation: Animation? {
@@ -257,6 +282,55 @@ private struct PendingSyncEmptyState: View {
     }
 }
 
+/// Shown above the queue while the device is offline: the queued changes are
+/// safe on this device and will upload on their own once a connection returns.
+private struct PendingSyncOfflineBanner: View {
+    let count: Int
+
+    @Environment(\.vikuPalette) private var palette
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: VikuSpacing.md) {
+            HStack(alignment: .top, spacing: VikuSpacing.sm + VikuSpacing.xxs) {
+                Image(systemName: "wifi.slash")
+                    .font(VikuFont.body)
+                    .foregroundStyle(palette.brand)
+                    .frame(width: VikuSpacing.xl, height: VikuSpacing.xl)
+                    .background(palette.brand.opacity(0.1), in: Circle())
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: VikuSpacing.xs) {
+                    Text("You're offline", bundle: .module)
+                        .font(VikuFont.headline)
+                        .foregroundStyle(palette.textPrimary)
+
+                    Text("\(count) changes saved on this iPhone. They'll be sent automatically when you're back online.", bundle: .module)
+                        .font(VikuFont.subheadline)
+                        .foregroundStyle(palette.textSecondary)
+                }
+            }
+
+            Label {
+                Text("Waiting for connection", bundle: .module)
+            } icon: {
+                Image(systemName: "clock")
+            }
+            .font(VikuFont.subheadline.weight(.medium))
+            .foregroundStyle(palette.brand)
+            .padding(VikuSpacing.md)
+            .frame(maxWidth: .infinity)
+            .background(
+                palette.brand.opacity(0.1),
+                in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous),
+            )
+        }
+        .padding(.vertical, VikuSpacing.sm)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// Identifies what a queued change does at a glance. Failed items keep the
+/// action glyph and signal the failure through color and the status label.
 private struct PendingSyncOperationRow: View {
     let operation: PendingSyncOperation
 
@@ -264,15 +338,28 @@ private struct PendingSyncOperationRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: VikuSpacing.sm + VikuSpacing.xxs) {
-            Image(systemName: symbolName)
+            Image(systemName: operation.action.symbolName)
                 .font(VikuFont.body)
                 .foregroundStyle(statusColor)
                 .frame(width: VikuSpacing.xl, height: VikuSpacing.xl)
-                .background(statusColor.opacity(0.1), in: Circle())
+                .background(
+                    statusColor.opacity(0.1),
+                    in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous),
+                )
                 .contentTransition(.opacity)
 
             VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
-                title
+                HStack(alignment: .top, spacing: VikuSpacing.sm) {
+                    title
+                    Spacer(minLength: 0)
+                    Text(statusLabel, bundle: .module)
+                        .font(VikuFont.caption)
+                        .foregroundStyle(statusColor)
+                        .padding(.horizontal, VikuSpacing.sm)
+                        .padding(.vertical, VikuSpacing.xs)
+                        .background(statusColor.opacity(0.1), in: Capsule())
+                        .contentTransition(.opacity)
+                }
 
                 HStack(spacing: VikuSpacing.xxs) {
                     Text(operation.entity.displayName, bundle: .module)
@@ -286,22 +373,14 @@ private struct PendingSyncOperationRow: View {
                     Text(verbatim: message)
                         .font(VikuFont.footnote)
                         .foregroundStyle(palette.semanticDangerText)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Text(operation.createdAt, format: .relative(presentation: .named))
                     .font(VikuFont.caption)
                     .foregroundStyle(palette.textTertiary)
             }
-
-            Spacer(minLength: 0)
-
-            Text(statusLabel, bundle: .module)
-                .font(VikuFont.caption)
-                .foregroundStyle(statusColor)
-                .padding(.horizontal, VikuSpacing.sm)
-                .padding(.vertical, VikuSpacing.xs)
-                .background(statusColor.opacity(0.1), in: Capsule())
-                .contentTransition(.opacity)
         }
         .padding(.vertical, VikuSpacing.xxs)
     }
@@ -318,10 +397,6 @@ private struct PendingSyncOperationRow: View {
                 .font(VikuFont.body)
                 .foregroundStyle(palette.textPrimary)
         }
-    }
-
-    private var symbolName: String {
-        operation.status == .failed ? "exclamationmark.triangle.fill" : "clock.arrow.circlepath"
     }
 
     private var statusColor: Color {
@@ -364,6 +439,21 @@ private extension PendingSyncAction {
         case .removeLabel: "Removed label"
         case .addRelation: "Added relation"
         case .removeRelation: "Removed relation"
+        }
+    }
+}
+
+private extension PendingSyncAction {
+    var symbolName: String {
+        switch self {
+        case .create: "plus"
+        case .update: "pencil"
+        case .moveBucket: "arrow.left.arrow.right"
+        case .delete: "trash"
+        case .addLabel: "tag"
+        case .removeLabel: "tag.slash"
+        case .addRelation: "link.badge.plus"
+        case .removeRelation: "link"
         }
     }
 }

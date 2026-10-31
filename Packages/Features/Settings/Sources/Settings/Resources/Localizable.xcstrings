@@ -1,6 +1,72 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Queued" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En cola"
+          }
+        }
+      }
+    },
+    "Changes are sent in this order" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changes are sent in this order"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se envían en este orden"
+          }
+        }
+      }
+    },
+    "%lld changes saved on this iPhone. They'll be sent automatically when you're back online." : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld change saved on this iPhone. It'll be sent automatically when you're back online."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld changes saved on this iPhone. They'll be sent automatically when you're back online."
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld cambio guardado en este iPhone. Se enviará solo cuando vuelva la conexión."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld cambios guardados en este iPhone. Se enviarán solos cuando vuelva la conexión."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "Choose a column": {
       "localizations": {
         "en": {
@@ -513,6 +579,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Oscuro"
+          }
+        }
+      }
+    },
+    "Waiting for connection" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esperando conexión"
           }
         }
       }
@@ -1643,6 +1719,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Serás redirigido a la página de inicio de sesión de tu proveedor para finalizar."
+          }
+        }
+      }
+    },
+    "You're offline" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin conexión"
           }
         }
       }
