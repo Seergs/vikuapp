@@ -16,6 +16,7 @@ public final class TaskDetailViewModel {
     /// loaded lazily via `loadAllLabels()` rather than alongside `load()`,
     /// since most task views are never opened.
     public private(set) var allLabels: [Label] = []
+    private var hasRequestedLabels = false
     /// Candidates for the "add relation" task picker, from the most recent
     /// `searchTasksForRelation(query:)` call.
     public private(set) var relationSearchResults: [VikunjaTask] = []
@@ -197,6 +198,9 @@ public final class TaskDetailViewModel {
             task = fetched
             updateRelatedTaskIDsCache()
             loadState = .loaded
+            if hasRequestedLabels {
+                await loadAllLabels()
+            }
         } catch let error as VikunjaError {
             guard token == taskWriteToken else { return }
             if hadContent {
@@ -290,6 +294,7 @@ public final class TaskDetailViewModel {
     /// rather than surfacing an error — the sheet just shows fewer/no
     /// suggestions to pick from.
     public func loadAllLabels() async {
+        hasRequestedLabels = true
         allLabels = await (try? labelRepository.fetchLabels()) ?? allLabels
     }
 
@@ -299,7 +304,7 @@ public final class TaskDetailViewModel {
         let previous = task
         taskWriteToken += 1
         let token = taskWriteToken
-        if task.labels.contains(label) {
+        if task.labels.contains(where: { $0.id == label.id }) {
             task.labels.removeAll { $0.id == label.id }
             do {
                 try await labelRepository.removeLabel(label.id, fromTask: task.id)
@@ -319,13 +324,13 @@ public final class TaskDetailViewModel {
     }
 
     /// Creates a new label on the instance and attaches it to the task.
-    /// Rolls back to no-op if either the create or the attach request fails —
-    /// there's no partial state to reconcile since `allLabels` is reloaded
-    /// from the create response rather than guessed at.
+    /// If attachment fails, the created label remains available in the picker
+    /// for retry, but is not selected on the task.
     public func createAndAddLabel(title: String, hexColor: String) async {
         guard let created = try? await labelRepository.create(Label(id: 0, title: title, hexColor: hexColor)) else {
             return
         }
+        hasRequestedLabels = true
         allLabels.append(created)
         await toggleLabel(created)
     }
