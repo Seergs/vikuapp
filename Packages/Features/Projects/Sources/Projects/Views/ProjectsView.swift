@@ -42,9 +42,13 @@ struct ProjectsView: View {
                     Button {
                         isShowingCreateProject = true
                     } label: {
-                        Image(systemName: "plus")
+                        HStack(spacing: VikuSpacing.xs) {
+                            Image(systemName: "plus")
+                            Text("New Project", bundle: .module)
+                        }
+                        .font(VikuFont.subheadline)
+                        .fixedSize(horizontal: true, vertical: false)
                     }
-                    .accessibilityLabel(Text("New Project", bundle: .module))
                 }
             }
             .sheet(isPresented: $isShowingCreateProject, onDismiss: {
