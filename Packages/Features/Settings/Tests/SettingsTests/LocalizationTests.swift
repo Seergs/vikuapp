@@ -59,6 +59,7 @@ struct LocalizationTests {
         ("Pending Sync", "Sincronización pendiente"),
         ("Changes waiting to upload", "Cambios pendientes de subir"),
         ("Waiting to upload", "Pendientes de subir"),
+        ("Queued", "En cola"),
         ("Couldn't load pending changes", "No se pudieron cargar los cambios pendientes"),
         ("All caught up", "Todo al día"),
         (
@@ -71,6 +72,9 @@ struct LocalizationTests {
         ("Created", "Creación"),
         ("Updated", "Actualización"),
         ("Deleted", "Eliminación"),
+        ("You're offline", "Sin conexión"),
+        ("Waiting for connection", "Esperando conexión"),
+        ("Changes are sent in this order", "Se envían en este orden"),
         ("Added label", "Etiqueta agregada"),
         ("Removed label", "Etiqueta quitada"),
         ("Added relation", "Relación agregada"),
