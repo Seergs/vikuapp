@@ -76,10 +76,26 @@ struct QuickAddShortcutTests {
             syntax: .vikunja,
             projects: [Project(id: 1, title: "Dup"), Project(id: 2, title: "dup")],
         )
-        viewModel.input = "Leche +dup"
+        viewModel.input = "Leche +DUP"
 
         #expect(viewModel.selectedProjectID == nil)
         #expect(viewModel.shortcutChips.count == 1)
+    }
+
+    @Test(arguments: [QuickAddSyntax.todoist, .vikunja])
+    func `save uses the exact project when names differ only in case`(syntax: QuickAddSyntax) async {
+        let viewModel = await makeViewModel(
+            syntax: syntax,
+            projects: [Project(id: 1, title: "Bug"), Project(id: 2, title: "bug")],
+            selectedProjectID: 1,
+        )
+        viewModel.input = "Fix \(syntax.projectSigil)bug"
+
+        let created = await viewModel.save()
+
+        #expect(created?.title == "Fix")
+        #expect(created?.projectID == 2)
+        #expect(viewModel.shortcutChips.isEmpty)
     }
 
     @Test

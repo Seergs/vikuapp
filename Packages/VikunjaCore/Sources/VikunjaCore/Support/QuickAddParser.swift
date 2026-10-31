@@ -305,8 +305,7 @@ public enum QuickAddParser {
                     return ResolvedToken(token: token, resolution: .superseded)
                 }
                 seenProject = true
-                let key = fold(token.value)
-                let matches = projects.filter { fold($0.title) == key }
+                let matches = matching(token.value, in: projects, title: \.title)
                 let resolution: Resolution = switch matches.count {
                 case 0: .unmatchedProject
                 case 1: .project(matches[0])
@@ -315,8 +314,7 @@ public enum QuickAddParser {
                 return ResolvedToken(token: token, resolution: resolution)
 
             case .label:
-                let key = fold(token.value)
-                let matches = labels.filter { fold($0.title) == key }
+                let matches = matching(token.value, in: labels, title: \.title)
                 let resolution: Resolution = switch matches.count {
                 case 0: .newLabel(token.value)
                 case 1: .label(matches[0])
@@ -333,6 +331,20 @@ public enum QuickAddParser {
                 return ResolvedToken(token: token, resolution: .priority(syntax.priority(forLevel: level)))
             }
         }
+    }
+
+    /// Prefer the spelling the user typed before trying case/accent-insensitive
+    /// matching. Keep all exact duplicates so resolution never chooses an
+    /// arbitrary entity when multiple entities have the very same name.
+    private static func matching<Entity>(
+        _ name: String,
+        in entities: [Entity],
+        title: KeyPath<Entity, String>,
+    ) -> [Entity] {
+        let exact = entities.filter { $0[keyPath: title] == name }
+        guard exact.isEmpty else { return exact }
+        let key = fold(name)
+        return entities.filter { fold($0[keyPath: title]) == key }
     }
 
     // MARK: - Title
