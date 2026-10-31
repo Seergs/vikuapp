@@ -9,7 +9,7 @@ import Foundation
 //
 // The covered subset matches what the editor actually emits: paragraphs,
 // headings, bold/italic/strikethrough/inline-code, links, bullet/ordered
-// lists, task lists (read-only checkboxes), blockquotes, code blocks and
+// lists, task lists (optionally interactive checkboxes), blockquotes, code blocks and
 // horizontal rules. Anything outside that (images, tables, embeds) is reduced
 // to its text content rather than dropped.
 
@@ -67,9 +67,12 @@ public struct RichTextListItem: Equatable, Sendable {
 }
 
 public struct RichTextTaskItem: Equatable, Sendable {
+    /// Token position in the original HTML, valid only for that document.
+    public var sourceTokenIndex: Int?
     public var isChecked: Bool
     public var content: [RichTextBlock]
-    public init(isChecked: Bool, content: [RichTextBlock]) {
+    public init(isChecked: Bool, content: [RichTextBlock], sourceTokenIndex: Int? = nil) {
+        self.sourceTokenIndex = sourceTokenIndex
         self.isChecked = isChecked
         self.content = content
     }
