@@ -10,6 +10,10 @@ import VikuUI
 struct PendingSyncView: View {
     @State private var viewModel: PendingSyncViewModel
     @State private var reloadID = 0
+    @State private var confirmsServerReload = false
+    @State private var requestsServerReload = false
+    @State private var showsReloadIndicator = false
+    @State private var reloadIndicatorShownAt: ContinuousClock.Instant?
     @State private var showsLoadingIndicator = false
     @State private var loadingIndicatorShownAt: ContinuousClock.Instant?
     @State private var pendingConflictRemoval: PendingSyncOperation?
@@ -24,6 +28,31 @@ struct PendingSyncView: View {
 
     var body: some View {
         content
+            .disabled(viewModel.isReloading || showsReloadIndicator)
+            .confirmationDialog(
+                Text("Discard local changes and reload?", bundle: .module),
+                isPresented: $confirmsServerReload,
+                titleVisibility: .visible,
+            ) {
+                Button(role: .destructive) {
+                    requestsServerReload = true
+                } label: { Text("Discard and reload", bundle: .module) }
+                Button(role: .cancel) {} label: { Text("Cancel", bundle: .module) }
+            } message: {
+                Text(
+                    // swiftlint:disable:next line_length
+                    "All unsynced changes for this account will be lost, including local creations and changes without errors. Your local data and queue will stay unchanged if the download fails.",
+                    bundle: .module,
+                )
+            }
+            .task(id: requestsServerReload) {
+                guard requestsServerReload else { return }
+                await viewModel.reloadFromServer()
+                requestsServerReload = false
+            }
+            .task(id: viewModel.isReloading) {
+                await updateReloadIndicator()
+            }
             .confirmationDialog(
                 Text("Choose a column", bundle: .module),
                 isPresented: Binding(get: { viewModel.recoveryOperation != nil }, set: {
@@ -62,7 +91,9 @@ struct PendingSyncView: View {
                 Text("This task was not created on the server. Its local changes will be deleted.", bundle: .module)
             }
             .animation(rowAnimation, value: viewModel.presentation.operations)
+            .animation(rowAnimation, value: viewModel.isReloading)
             .animation(rowAnimation, value: showsOfflineBanner)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: showsReloadIndicator)
             .animation(.easeInOut(duration: 0.3), value: showsLoadingIndicator)
             .scrollContentBackground(.hidden)
             .background(palette.pageBackground)
@@ -203,10 +234,36 @@ struct PendingSyncView: View {
                     }
                 }
             }
+            if viewModel.canReloadFromServer || viewModel.isReloading || showsReloadIndicator {
+                Section {
+                    if viewModel.isReloading || showsReloadIndicator {
+                        HStack(spacing: VikuSpacing.sm) {
+                            if showsReloadIndicator {
+                                ProgressView()
+                            }
+                            Text("Reloading from server…", bundle: .module)
+                                .foregroundStyle(palette.textSecondary)
+                        }
+                    } else {
+                        Button(role: .destructive) {
+                            confirmsServerReload = true
+                        } label: {
+                            Text("Discard local changes and reload", bundle: .module)
+                        }
+                        .disabled(!isOnline || !viewModel.busyOperationIDs.isEmpty)
+                    }
+                } footer: {
+                    Text(
+                        "Replaces this account's local data with the server's data. Requires a connection.",
+                        bundle: .module,
+                    )
+                }
+                .listRowBackground(palette.cardBackground)
+            }
         }
         .settingsListStyle()
         .overlay {
-            if viewModel.presentation.operations.isEmpty {
+            if viewModel.presentation.operations.isEmpty, !viewModel.isReloading, !showsReloadIndicator {
                 PendingSyncEmptyState()
                     .padding(.top, VikuSpacing.xxl)
                     .transition(.opacity)
@@ -232,6 +289,25 @@ struct PendingSyncView: View {
             insertion: .move(edge: .top).combined(with: .opacity),
             removal: .opacity.combined(with: .scale(scale: 0.96)),
         )
+    }
+
+    @MainActor
+    private func updateReloadIndicator() async {
+        do {
+            if viewModel.isReloading {
+                try await Task.sleep(for: .seconds(1))
+                try Task.checkCancellation()
+                reloadIndicatorShownAt = .now
+                showsReloadIndicator = true
+            } else if let shownAt = reloadIndicatorShownAt {
+                try await ContinuousClock().sleep(until: shownAt.advanced(by: .seconds(1)))
+                try Task.checkCancellation()
+                showsReloadIndicator = false
+                reloadIndicatorShownAt = nil
+            }
+        } catch {
+            // A fast reload or navigation cancels the pending presentation update.
+        }
     }
 
     /// Loading presentation has its own lifetime; the provider never waits for it.

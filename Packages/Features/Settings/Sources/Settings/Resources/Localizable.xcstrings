@@ -1,6 +1,118 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Discard local changes and reload?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard local changes and reload?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Descartar los cambios locales y recargar?"
+          }
+        }
+      }
+    },
+    "Discard and reload" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard and reload"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descartar y recargar"
+          }
+        }
+      }
+    },
+    "All unsynced changes for this account will be lost, including local creations and changes without errors. Your local data and queue will stay unchanged if the download fails." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All unsynced changes for this account will be lost, including local creations and changes without errors. Your local data and queue will stay unchanged if the download fails."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se perderán todos los cambios sin sincronizar de esta cuenta, incluidas las creaciones locales y los cambios sin errores. Si falla la descarga, se conservarán tus datos locales y la cola."
+          }
+        }
+      }
+    },
+    "Reloading from server…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reloading from server…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recargando desde el servidor…"
+          }
+        }
+      }
+    },
+    "Discard local changes and reload" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard local changes and reload"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descartar cambios locales y recargar"
+          }
+        }
+      }
+    },
+    "Replaces this account's local data with the server's data. Requires a connection." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Replaces this account's local data with the server's data. Requires a connection."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reemplaza los datos locales de esta cuenta con los del servidor. Requiere conexión."
+          }
+        }
+      }
+    },
+    "Local changes discarded. Data reloaded from server." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Local changes discarded. Data reloaded from server."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambios locales descartados. Datos recargados desde el servidor."
+          }
+        }
+      }
+    },
     "Queued" : {
       "localizations" : {
         "es" : {

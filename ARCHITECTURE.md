@@ -733,3 +733,19 @@ Future offline support should replace this adapter at composition with durable
 cross-project board storage and queued commands. It must separate the owner of
 the board from each task's owning project, preserve per-view assignments, and
 reconcile server filter membership without duplicating canonical task records.
+
+## Discarding unsynced changes
+
+Settings' Pending Sync screen offers account recovery when the queue contains
+failures or conflicts. `AccountReloading`, implemented by `AccountSync`, asks the
+coordinator to cancel and await that account's worker, then download into a
+private temporary `LocalStore`. This path only pulls: it never drains the queue.
+It reloads projects, filter queries, labels, tasks, previously cached boards and
+comment threads affected by cached comments or queued comment changes.
+
+The live account remains readable while its writes are rejected at the store's
+transaction boundary. Other accounts can keep syncing and editing. Only a
+complete download replaces the account's cache and clears all its queued changes
+in one transaction. Download failure, cancellation before commit, or a failed
+replacement preserves the live cache and queue. Online-only resources remain
+on demand. This recovery does not issue any server mutations.

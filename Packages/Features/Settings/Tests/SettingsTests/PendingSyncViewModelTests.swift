@@ -53,6 +53,7 @@ struct PendingSyncViewModelTests {
         title: String = "Task",
         createdAt: Date = Date(),
         needsConflictResolution: Bool = false,
+        status: SyncItemStatus = .pending,
     ) -> PendingSyncOperation {
         PendingSyncOperation(
             id: id,
@@ -60,7 +61,7 @@ struct PendingSyncViewModelTests {
             action: .update,
             targetTitle: title,
             createdAt: createdAt,
-            status: .pending,
+            status: status,
             needsConflictResolution: needsConflictResolution,
         )
     }
@@ -252,5 +253,87 @@ struct PendingSyncViewModelTests {
         await viewModel.discard(operation(needsConflictResolution: true))
 
         #expect(toast.shownMessages.contains { $0.style == .error })
+    }
+}
+
+@MainActor
+private final class FakeAccountReloader: AccountReloading {
+    var error: Error?
+    var onReload: (() async -> Void)?
+    private(set) var calls = 0
+
+    func reloadFromServer() async throws {
+        calls += 1
+        await onReload?()
+        if let error {
+            throw error
+        }
+    }
+}
+
+extension PendingSyncViewModelTests {
+    @Test func `server reload is available for failures and conflicts with an injected reloader`() async {
+        let provider = FakePendingSyncOperationsProvider()
+        provider.snapshots = [[operation()]]
+        let model = PendingSyncViewModel(
+            provider: provider, accountID: UUID(), toastPresenter: FakeToastPresenter(),
+            accountReloader: FakeAccountReloader(),
+        )
+        await model.observe()
+        #expect(!model.canReloadFromServer)
+        provider.snapshots = [[operation(status: .failed)]]
+        await model.observe()
+        #expect(model.canReloadFromServer)
+        provider.snapshots = [[operation(needsConflictResolution: true)]]
+        await model.observe()
+        #expect(model.canReloadFromServer)
+    }
+
+    @Test func `reload reports success only after completion and ignores overlapping attempts`() async {
+        let provider = FakePendingSyncOperationsProvider()
+        provider.snapshots = [[operation(status: .failed)]]
+        let toast = FakeToastPresenter()
+        let reloader = FakeAccountReloader()
+        let model = PendingSyncViewModel(
+            provider: provider, accountID: UUID(), toastPresenter: toast, accountReloader: reloader,
+        )
+        await model.observe()
+        reloader.onReload = {
+            #expect(model.isReloading)
+            #expect(toast.shownMessages.isEmpty)
+            await model.reloadFromServer()
+        }
+        await model.reloadFromServer()
+        #expect(reloader.calls == 1)
+        #expect(model.operations.isEmpty)
+        #expect(model.presentation.operations.isEmpty)
+        #expect(!model.isReloading)
+        #expect(toast.shownMessages.last?.style == .success)
+    }
+
+    @Test func `failed reload keeps the visible queue and allows retry while cancellation stays silent`() async {
+        let provider = FakePendingSyncOperationsProvider()
+        let failed = operation(status: .failed)
+        provider.snapshots = [[failed]]
+        let toast = FakeToastPresenter()
+        let reloader = FakeAccountReloader()
+        let model = PendingSyncViewModel(
+            provider: provider, accountID: UUID(), toastPresenter: toast, accountReloader: reloader,
+        )
+        await model.observe()
+        reloader.error = VikunjaError.timeout
+        await model.reloadFromServer()
+        #expect(model.operations == [failed])
+        #expect(model.presentation.operations == [failed])
+        #expect(!model.isReloading)
+        #expect(toast.shownMessages.count == 1)
+        #expect(toast.shownMessages.last?.style == .error)
+        reloader.error = CancellationError()
+        await model.reloadFromServer()
+        #expect(toast.shownMessages.count == 1)
+        reloader.error = nil
+        await model.reloadFromServer()
+        #expect(reloader.calls == 3)
+        #expect(toast.shownMessages.last?.style == .success)
     }
 }

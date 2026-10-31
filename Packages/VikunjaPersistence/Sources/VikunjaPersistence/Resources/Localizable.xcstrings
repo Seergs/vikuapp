@@ -160,6 +160,22 @@
           }
         }
       }
+    },
+    "This account is being reloaded. Try again when it finishes.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This account is being reloaded. Try again when it finishes."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta cuenta se está recargando. Inténtalo de nuevo cuando termine."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

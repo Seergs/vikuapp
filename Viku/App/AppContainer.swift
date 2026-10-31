@@ -709,6 +709,7 @@ final class AppContainer {
             creationRecovery: OfflineKanbanCreationRecovery(
                 localStore: localStore, accountID: account.id, syncRequester: accountSync(for: account),
             ),
+            accountReloader: accountSync(for: account),
         )
     }
 
