@@ -21,6 +21,7 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
     var onFetchProjects: (@Sendable () -> Void)?
     var beforeCreateResponse: (@Sendable () async throws -> Void)?
     var beforeUpdateResponse: (@Sendable () async throws -> Void)?
+    var beforeDeleteResponse: (@Sendable () async throws -> Void)?
 
     func fetchProjects() async throws -> [Project] {
         fetchProjectsCallCount += 1
@@ -71,13 +72,22 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
     }
 
     func delete(id: EntityID) async throws {
+        try await beforeDeleteResponse?()
         if let deleteError {
             throw deleteError
         }
         if let remoteID = id.remoteValue {
             deletedIDs.append(remoteID)
         }
-        projects.removeAll { $0.id == id }
+        // Vikunja deletes descendants with the parent.
+        var deletedIDs: Set<EntityID> = [id]
+        var pending = [id]
+        while let parentID = pending.popLast() {
+            for child in projects where child.parentProjectID == parentID && deletedIDs.insert(child.id).inserted {
+                pending.append(child.id)
+            }
+        }
+        projects.removeAll { deletedIDs.contains($0.id) }
     }
 
     private static func withServerAssigned(_ project: Project, id: EntityID) -> Project {

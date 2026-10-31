@@ -274,12 +274,18 @@ public actor SyncEngine {
 
         try await localStore.write { db in
             let deletedIDs = try Self.pendingDeleteRemoteIDs(accountID: self.accountID, entityType: .project, db: db)
-            let remoteProjects = pulled.filter { !deletedIDs.contains($0.id.remoteValue ?? 0) }
             let localRows = try ProjectRecord.fetchAll(db).filter { $0.accountID == self.accountID }
+            let deletedLocalIDs = try ProjectSubtree.pendingDeleteIDs(
+                accountID: self.accountID, rows: localRows, db: db,
+            )
+            let deletedSubtreeRemoteIDs = Set(localRows.filter { deletedLocalIDs.contains($0.localID) }
+                .compactMap(\.remoteID)).union(deletedIDs)
+            let remoteProjects = pulled.filter { !deletedSubtreeRemoteIDs.contains($0.id.remoteValue ?? 0) }
             let localIDByRemoteID = Self.reserveLocalIDs(for: remoteProjects, existing: localRows)
             let queuedTargetLocalIDs = try Self.queuedTargetLocalIDs(
                 accountID: self.accountID, entityType: .project, db: db,
             ).union(Self.queuedTargetLocalIDs(accountID: self.accountID, entityType: .filter, db: db))
+                .union(deletedLocalIDs)
 
             try Self.upsertRows(
                 for: remoteProjects, accountID: self.accountID, localIDByRemoteID: localIDByRemoteID,
@@ -1084,11 +1090,14 @@ public actor SyncEngine {
         guard let payload: ProjectDeletePayload = try decodePayload(item.payload) else {
             throw DrainError.invalidPayload
         }
-        try await projectRepository.delete(id: .remote(payload.remoteID))
+        do {
+            try await projectRepository.delete(id: .remote(payload.remoteID))
+        } catch VikunjaError.notFound {
+            // An earlier attempt may have reached the server before losing
+            // its response. Already absent is a successful delete too.
+        }
         try await localStore.write { db in
-            if let row = try ProjectRecord.fetchOne(db, key: item.targetLocalID) {
-                try row.delete(db)
-            }
+            try ProjectSubtree.remove(rootID: item.targetLocalID, accountID: self.accountID, db: db)
             try item.delete(db)
         }
         return .pushed

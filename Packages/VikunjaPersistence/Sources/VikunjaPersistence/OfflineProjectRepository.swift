@@ -19,7 +19,7 @@ public actor OfflineProjectRepository: ProjectRepositoryProtocol {
     public func fetchProjects() async throws -> [Project] {
         try await localStore.read { db in
             let rows = try Self.accountRows(self.accountID, db: db)
-            let hiddenLocalIDs = try Self.pendingDeleteTargetLocalIDs(accountID: self.accountID, db: db)
+            let hiddenLocalIDs = try ProjectSubtree.pendingDeleteIDs(accountID: self.accountID, rows: rows, db: db)
             let rowsByLocalID = Dictionary(uniqueKeysWithValues: rows.map { ($0.localID, $0) })
             return rows
                 .filter { !hiddenLocalIDs.contains($0.localID) }
@@ -35,7 +35,7 @@ public actor OfflineProjectRepository: ProjectRepositoryProtocol {
         try await localStore.read { db in
             let rows = try Self.accountRows(self.accountID, db: db)
             guard let row = Self.findRow(matching: id, in: rows) else { throw VikunjaError.notFound }
-            let hiddenLocalIDs = try Self.pendingDeleteTargetLocalIDs(accountID: self.accountID, db: db)
+            let hiddenLocalIDs = try ProjectSubtree.pendingDeleteIDs(accountID: self.accountID, rows: rows, db: db)
             guard !hiddenLocalIDs.contains(row.localID) else { throw VikunjaError.notFound }
             let rowsByLocalID = Dictionary(uniqueKeysWithValues: rows.map { ($0.localID, $0) })
             return Self.project(from: row, rowsByLocalID: rowsByLocalID)
@@ -127,35 +127,32 @@ public actor OfflineProjectRepository: ProjectRepositoryProtocol {
             let rows = try Self.accountRows(self.accountID, db: db)
             guard let row = Self.findRow(matching: id, in: rows) else { throw VikunjaError.notFound }
 
-            // Any other mutation still pending (or failed but retryable)
-            // against this row is moot once it's being deleted.
-            try MutationQueueRecord.fetchAll(db)
-                .filter {
-                    $0.accountID == self.accountID && $0.targetLocalID == row.localID
-                        && ($0.status == .pending || $0.status == .failed)
-                }
-                .forEach { try $0.delete(db) }
+            let subtreeIDs = ProjectSubtree.localIDs(rootIDs: [row.localID], rows: rows)
+            try ProjectSubtree.discardMutations(projectIDs: subtreeIDs, accountID: self.accountID, db: db)
 
-            guard let remoteID = row.remoteID else {
-                // Never synced - nothing server-side to delete.
-                try row.delete(db)
-                return
+            let remoteRoots = ProjectSubtree.remoteRoots(rootID: row.localID, rows: rows)
+            let retainedIDs = ProjectSubtree.localIDs(rootIDs: Set(remoteRoots.map(\.localID)), rows: rows)
+            for deletedRow in rows where subtreeIDs.contains(deletedRow.localID)
+                && !retainedIDs.contains(deletedRow.localID) {
+                try deletedRow.delete(db)
             }
-            let payload = ProjectDeletePayload(remoteID: remoteID)
-            var item = try MutationQueueRecord(
-                id: nil,
-                accountID: self.accountID,
-                entityType: .project,
-                operation: .delete,
-                targetLocalID: row.localID,
-                payload: Self.encode(payload),
-                createdAt: Date(),
-                retryCount: 0,
-                lastError: nil,
-                status: .pending,
-                needsConflictResolution: false,
-            )
-            try item.insert(db)
+            for root in remoteRoots {
+                guard let remoteID = root.remoteID else { continue }
+                var item = try MutationQueueRecord(
+                    id: nil,
+                    accountID: self.accountID,
+                    entityType: .project,
+                    operation: .delete,
+                    targetLocalID: root.localID,
+                    payload: Self.encode(ProjectDeletePayload(remoteID: remoteID)),
+                    createdAt: Date(),
+                    retryCount: 0,
+                    lastError: nil,
+                    status: .pending,
+                    needsConflictResolution: false,
+                )
+                try item.insert(db)
+            }
         }
         await triggerDrainIfOnline()
     }
@@ -166,22 +163,6 @@ public actor OfflineProjectRepository: ProjectRepositoryProtocol {
 
     private static func accountRows(_ accountID: UUID, db: Database) throws -> [ProjectRecord] {
         try ProjectRecord.fetchAll(db).filter { $0.accountID == accountID }
-    }
-
-    /// Target ids to hide from a read — a delete the user asked for stays
-    /// hidden whether it's still pending its first attempt or failed and
-    /// waiting to be retried; either way it's not coming back.
-    private static func pendingDeleteTargetLocalIDs(accountID: UUID, db: Database) throws -> Set<UUID> {
-        try Set(
-            MutationQueueRecord.fetchAll(db)
-                .filter {
-                    $0.accountID == accountID
-                        && ($0.entityType == .project || $0.entityType == .filter)
-                        && $0.operation == .delete
-                        && ($0.status == .pending || $0.status == .failed)
-                }
-                .map(\.targetLocalID),
-        )
     }
 
     private static func findRow(matching id: EntityID, in rows: [ProjectRecord]) -> ProjectRecord? {
