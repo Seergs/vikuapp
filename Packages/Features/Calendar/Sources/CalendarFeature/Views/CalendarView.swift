@@ -12,18 +12,71 @@ struct CalendarView: View {
     @Bindable var viewModel: CalendarViewModel
     @Environment(AppRouter.self) private var router
     @Environment(\.vikuPalette) private var palette
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let calendar = Calendar.current
-    @State private var monthAnchor: Date = Calendar.current.startOfMonth(for: Date())
-    @State private var selectedDay: Date = Calendar.current.startOfDay(for: Date())
+    @State private var selection = CalendarSelection()
 
     var body: some View {
         content
             .background(palette.pageBackground)
             .navigationTitle(Text("Calendar", bundle: .module))
+            .toolbar { todayToolbar }
             .refreshable { await viewModel.refresh() }
             .task { await viewModel.start() }
             .task { await viewModel.observeLocalChanges() }
+    }
+
+    @ToolbarContentBuilder
+    private var todayToolbar: some ToolbarContent {
+        if #available(iOS 26, macOS 26, *) {
+            todayToolbarItem.sharedBackgroundVisibility(.hidden)
+        } else {
+            todayToolbarItem
+        }
+    }
+
+    private var todayToolbarItem: some ToolbarContent {
+        ToolbarItem(placement: .primaryAction) {
+            todayButton
+        }
+    }
+
+    private var todayButton: some View {
+        let isVisible = selection.showsJumpToToday()
+
+        // Keep the toolbar host stable so UIKit doesn't replace the item
+        // before SwiftUI can finish fading its content out.
+        return Button {
+            selection.jumpToToday()
+        } label: {
+            if #available(iOS 26, macOS 26, *) {
+                todayButtonLabel
+                    .glassEffect(.regular.interactive(), in: Capsule())
+            } else {
+                todayButtonLabel
+                    .background(.regularMaterial, in: Capsule())
+            }
+        }
+        .buttonStyle(.plain)
+        .opacity(isVisible ? 1 : 0)
+        .scaleEffect(isVisible || reduceMotion ? 1 : 0.92)
+        .animation(reduceMotion ? nil : .smooth(duration: 0.25), value: isVisible)
+        .allowsHitTesting(isVisible)
+        .accessibilityHidden(!isVisible)
+    }
+
+    private var todayButtonLabel: some View {
+        Label {
+            Text("Today", bundle: .module)
+        } icon: {
+            Image(systemName: "calendar")
+        }
+        .labelStyle(.titleAndIcon)
+        .font(VikuFont.subheadline.weight(.semibold))
+        .foregroundStyle(palette.brand)
+        .padding(.horizontal, VikuSpacing.sm)
+        .padding(.vertical, VikuSpacing.sm)
     }
 
     @ViewBuilder
@@ -50,11 +103,11 @@ struct CalendarView: View {
     }
 
     private var month: CalendarMonth {
-        CalendarMonth(containing: monthAnchor, tasks: viewModel.tasks, calendar: calendar)
+        CalendarMonth(containing: selection.monthAnchor, tasks: viewModel.tasks, calendar: calendar)
     }
 
     private var selectedTasks: [VikunjaTask] {
-        CalendarMonth.tasks(on: selectedDay, from: viewModel.tasks, calendar: calendar)
+        CalendarMonth.tasks(on: selection.selectedDay, from: viewModel.tasks, calendar: calendar)
     }
 
     private var loadedContent: some View {
@@ -63,9 +116,9 @@ struct CalendarView: View {
                 monthHeader
                 MonthGrid(
                     month: month,
-                    selectedDay: selectedDay,
+                    selectedDay: selection.selectedDay,
                     projectsByID: viewModel.projectsByID,
-                    onSelect: { selectedDay = $0 },
+                    onSelect: { selection.selectedDay = $0 },
                 )
                 .padding(VikuSpacing.md)
                 .background(palette.cardBackground, in: cardShape)
@@ -80,7 +133,7 @@ struct CalendarView: View {
     private var monthHeader: some View {
         HStack {
             Button {
-                shiftMonth(by: -1)
+                selection.shiftMonth(by: -1)
             } label: {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 15, weight: .semibold))
@@ -97,7 +150,7 @@ struct CalendarView: View {
             Spacer()
 
             Button {
-                shiftMonth(by: 1)
+                selection.shiftMonth(by: 1)
             } label: {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 15, weight: .semibold))
@@ -154,15 +207,10 @@ struct CalendarView: View {
     }
 
     private var selectedDayTitle: String {
-        if calendar.isDateInToday(selectedDay) {
+        if calendar.isDateInToday(selection.selectedDay) {
             return String(localized: "Today", bundle: .module)
         }
-        return selectedDay.formatted(.dateTime.weekday(.wide).month(.wide).day())
-    }
-
-    private func shiftMonth(by delta: Int) {
-        guard let shifted = calendar.date(byAdding: .month, value: delta, to: monthAnchor) else { return }
-        monthAnchor = shifted
+        return selection.selectedDay.formatted(.dateTime.weekday(.wide).month(.wide).day())
     }
 
     private func open(_ task: VikunjaTask) {
