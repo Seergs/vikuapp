@@ -3,7 +3,7 @@ import Testing
 import VikunjaCore
 @testable import VikunjaPersistence
 
-private actor FakeAccountStore: AccountStoreProtocol {
+actor FakeAccountStore: AccountStoreProtocol {
     var accounts: [InstanceAccount] = []
     private var tokensByAccountID: [InstanceAccount.ID: String] = [:]
 
@@ -37,7 +37,7 @@ private actor FakeAccountStore: AccountStoreProtocol {
 /// up the exact fake a given account's `baseURL` resolved to and inspect
 /// what `SyncCoordinator` did with it. Every other `make*Repository` is
 /// unused by these tests.
-private final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @unchecked Sendable {
+final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @unchecked Sendable {
     let boardRepository = KanbanDownloadFake(KanbanDownload(
         viewID: 10, mode: "manual", filterQuery: "", defaultBucketID: nil, doneBucketID: nil, buckets: [],
     ))
@@ -171,7 +171,7 @@ private final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @u
     }
 }
 
-private actor FakeReachabilityMonitor: ReachabilityMonitoring {
+actor CoordinatorReachabilityMonitor: ReachabilityMonitoring {
     private var reachable: Bool
     private var hasInitialReport: Bool
     private var hasReadStatus = false
@@ -262,7 +262,7 @@ struct SyncCoordinatorTests {
     /// test that calls `start()` must call this too, or the loop's `Task`
     /// leaks forever, parked on a continuation nothing will ever signal
     /// again.
-    private func stopObserving(_ coordinator: SyncCoordinator, _ reachability: FakeReachabilityMonitor) async {
+    private func stopObserving(_ coordinator: SyncCoordinator, _ reachability: CoordinatorReachabilityMonitor) async {
         await waitUntil { await reachability.hasSubscriber }
         await reachability.finish()
         await coordinator.stop()
@@ -273,7 +273,7 @@ struct SyncCoordinatorTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let accountStore = FakeAccountStore()
         let factory = FakeInstanceClientFactory()
-        let reachability = FakeReachabilityMonitor(isReachable: false)
+        let reachability = CoordinatorReachabilityMonitor(isReachable: false)
         let account = try makeAccount(host: "offline.example.com")
         try await accountStore.addAccount(account, token: "token")
         let coordinator = SyncCoordinator(
@@ -331,7 +331,7 @@ struct SyncCoordinatorTests {
             localStore: store,
             accountStore: accountStore,
             clientFactory: factory,
-            reachability: FakeReachabilityMonitor(),
+            reachability: CoordinatorReachabilityMonitor(),
             tokenProvider: { _ in { nil } },
         )
         await factory.boardRepository.slowDown()
@@ -348,7 +348,7 @@ struct SyncCoordinatorTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let accountStore = FakeAccountStore()
         let factory = FakeInstanceClientFactory()
-        let reachability = FakeReachabilityMonitor()
+        let reachability = CoordinatorReachabilityMonitor()
         await reachability.setReachable(true)
         let accountA = try makeAccount(host: "a.example.com")
         let accountB = try makeAccount(host: "b.example.com")
@@ -383,7 +383,7 @@ struct SyncCoordinatorTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let accountStore = FakeAccountStore()
         let factory = FakeInstanceClientFactory()
-        let reachability = FakeReachabilityMonitor(isReachable: false)
+        let reachability = CoordinatorReachabilityMonitor(isReachable: false)
         let account = try makeAccount(host: "a.example.com")
         try await accountStore.addAccount(account, token: "token-a")
         let repository = factory.projectRepository(for: account.baseURL)
@@ -410,7 +410,7 @@ struct SyncCoordinatorTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let accountStore = FakeAccountStore()
         let factory = FakeInstanceClientFactory()
-        let reachability = FakeReachabilityMonitor()
+        let reachability = CoordinatorReachabilityMonitor()
         await reachability.setReachable(true)
         let failingAccount = try makeAccount(host: "down.example.com")
         let healthyAccount = try makeAccount(host: "up.example.com")
@@ -439,7 +439,7 @@ struct SyncCoordinatorTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let accountStore = FakeAccountStore()
         let factory = FakeInstanceClientFactory()
-        let reachability = FakeReachabilityMonitor()
+        let reachability = CoordinatorReachabilityMonitor()
         await reachability.setReachable(true)
         let accountA = try makeAccount(host: "a.example.com")
         let accountB = try makeAccount(host: "b.example.com")
@@ -468,7 +468,7 @@ struct SyncCoordinatorTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let accountStore = FakeAccountStore()
         let factory = FakeInstanceClientFactory()
-        let reachability = FakeReachabilityMonitor(isReachable: false)
+        let reachability = CoordinatorReachabilityMonitor(isReachable: false)
         let account = try makeAccount(host: "a.example.com")
         try await accountStore.addAccount(account, token: "token-a")
         let repository = factory.projectRepository(for: account.baseURL)
@@ -489,7 +489,7 @@ struct SyncCoordinatorTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let accountStore = FakeAccountStore()
         let factory = FakeInstanceClientFactory()
-        let reachability = FakeReachabilityMonitor()
+        let reachability = CoordinatorReachabilityMonitor()
         let account = try makeAccount(host: "a.example.com")
         try await accountStore.addAccount(account, token: "token-a")
         let repository = factory.projectRepository(for: account.baseURL)
@@ -515,7 +515,7 @@ struct SyncCoordinatorTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let accountStore = FakeAccountStore()
         let factory = FakeInstanceClientFactory()
-        let reachability = FakeReachabilityMonitor()
+        let reachability = CoordinatorReachabilityMonitor()
         let account = try makeAccount(host: "a.example.com")
         try await accountStore.addAccount(account, token: "token-a")
         let repository = factory.projectRepository(for: account.baseURL)
@@ -546,7 +546,7 @@ struct SyncCoordinatorTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let accountStore = FakeAccountStore()
         let factory = FakeInstanceClientFactory()
-        let reachability = FakeReachabilityMonitor()
+        let reachability = CoordinatorReachabilityMonitor()
         let accountA = try makeAccount(host: "a.example.com")
         try await accountStore.addAccount(accountA, token: "raw-stored-credential-blob")
         let coordinator = SyncCoordinator(
@@ -572,7 +572,7 @@ struct SyncCoordinatorTests {
         remote.projects = [Project(id: -3, title: "Original filter")]
         let coordinator = SyncCoordinator(
             localStore: store, accountStore: accounts, clientFactory: factory,
-            reachability: FakeReachabilityMonitor(), tokenProvider: { _ in { "token" } },
+            reachability: CoordinatorReachabilityMonitor(), tokenProvider: { _ in { "token" } },
         )
         try await coordinator.refresh(accountID: account.id, scope: .account)
         remote.projects = [Project(id: -3, title: "Renamed on web")]
@@ -593,7 +593,7 @@ struct SyncCoordinatorTests {
         remote.projects = [Project(id: 1, title: "Cached")]
         let coordinator = SyncCoordinator(
             localStore: store, accountStore: accounts, clientFactory: factory,
-            reachability: FakeReachabilityMonitor(), tokenProvider: { _ in { "token" } },
+            reachability: CoordinatorReachabilityMonitor(), tokenProvider: { _ in { "token" } },
         )
         try await coordinator.refresh(accountID: account.id, scope: .account)
         remote.fetchError = VikunjaError.network("offline")
@@ -616,7 +616,7 @@ struct SyncCoordinatorTests {
         remote.fetchDelay = .milliseconds(150)
         let coordinator = SyncCoordinator(
             localStore: store, accountStore: accounts, clientFactory: factory,
-            reachability: FakeReachabilityMonitor(), tokenProvider: { _ in { "token" } },
+            reachability: CoordinatorReachabilityMonitor(), tokenProvider: { _ in { "token" } },
         )
         async let automatic: Void = coordinator.syncAllAccounts()
         await waitUntil { remote.fetchProjectsCallCount == 1 }
@@ -636,7 +636,7 @@ struct SyncCoordinatorTests {
         let factory = FakeInstanceClientFactory()
         let remote = factory.projectRepository(for: account.baseURL)
         remote.fetchDelay = .milliseconds(150)
-        let reachability = FakeReachabilityMonitor()
+        let reachability = CoordinatorReachabilityMonitor()
         await reachability.setReachable(true)
         let coordinator = SyncCoordinator(
             localStore: store, accountStore: accounts, clientFactory: factory,
@@ -666,7 +666,7 @@ struct SyncCoordinatorTests {
         remote.createError = VikunjaError.network("offline")
         let coordinator = SyncCoordinator(
             localStore: store, accountStore: accounts, clientFactory: factory,
-            reachability: FakeReachabilityMonitor(), tokenProvider: { _ in { "token" } },
+            reachability: CoordinatorReachabilityMonitor(), tokenProvider: { _ in { "token" } },
         )
         let sync = AccountSync(accountID: account.id, coordinator: coordinator, localStore: store)
         let repository = OfflineProjectRepository(localStore: store, accountID: account.id, syncRequester: sync)
@@ -695,7 +695,7 @@ struct SyncCoordinatorTests {
         )]
         let coordinator = SyncCoordinator(
             localStore: store, accountStore: accounts, clientFactory: factory,
-            reachability: FakeReachabilityMonitor(), tokenProvider: { _ in { "token" } },
+            reachability: CoordinatorReachabilityMonitor(), tokenProvider: { _ in { "token" } },
         )
         try await coordinator.refresh(accountID: account.id, scope: .account)
         #expect(comments.fetchedTaskIDs.isEmpty)
@@ -713,7 +713,7 @@ struct SyncCoordinatorTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let accountStore = FakeAccountStore()
         let factory = FakeInstanceClientFactory()
-        let reachability = FakeReachabilityMonitor()
+        let reachability = CoordinatorReachabilityMonitor()
         let account = try makeAccount(host: "offline-board.example.com")
         try await accountStore.addAccount(account, token: "token")
         factory.projectRepository(for: account.baseURL).projects = [Project(id: 1, title: "Work")]
@@ -775,7 +775,7 @@ struct SyncCoordinatorTests {
         let healthy = factory.projectRepository(for: second.baseURL)
         let coordinator = SyncCoordinator(
             localStore: store, accountStore: accountStore, clientFactory: factory,
-            reachability: FakeReachabilityMonitor(), tokenProvider: { _ in { "token" } },
+            reachability: CoordinatorReachabilityMonitor(), tokenProvider: { _ in { "token" } },
         )
         let pass = Task { await coordinator.syncAllAccounts() }
         await waitUntil { healthy.fetchProjectsCallCount == 1 }
@@ -788,7 +788,7 @@ struct SyncCoordinatorTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let accountStore = FakeAccountStore()
         let factory = FakeInstanceClientFactory()
-        let reachability = FakeReachabilityMonitor(isReachable: false)
+        let reachability = CoordinatorReachabilityMonitor(isReachable: false)
         let first = try makeAccount(host: "stalled.example.com")
         let second = try makeAccount(host: "healthy.example.com")
         try await accountStore.addAccount(first, token: "token")
@@ -822,7 +822,7 @@ struct SyncCoordinatorTests {
         let store = try LocalStore(directory: temporaryDirectory())
         let accountStore = FakeAccountStore()
         let factory = FakeInstanceClientFactory()
-        let reachability = FakeReachabilityMonitor(isReachable: false, hasInitialReport: false)
+        let reachability = CoordinatorReachabilityMonitor(isReachable: false, hasInitialReport: false)
         let account = try makeAccount(host: "first-path.example.com")
         try await accountStore.addAccount(account, token: "token")
         let remote = factory.projectRepository(for: account.baseURL)

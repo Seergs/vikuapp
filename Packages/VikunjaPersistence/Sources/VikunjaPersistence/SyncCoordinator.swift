@@ -23,6 +23,7 @@ public actor SyncCoordinator {
         var pendingThreads: Set<EntityID> = []
     }
 
+    private var reloadingAccounts: Set<UUID> = []
     private var workByAccount: [UUID: Work] = [:]
 
     public init(
@@ -87,6 +88,7 @@ public actor SyncCoordinator {
         var tasks: [Task<Void, Error>] = []
         for account in accounts {
             guard !Task.isCancelled else { break }
+            guard !reloadingAccounts.contains(account.id) else { continue }
             tasks.append(enqueue(accountID: account.id, scope: .account, afterWrite: retryInFlight))
         }
         return tasks
@@ -109,6 +111,7 @@ public actor SyncCoordinator {
     public func refresh(accountID: UUID, scope: SyncScope) async throws {
         try Task.checkCancellation()
         guard await reachability.isReachable else { throw VikunjaError.offline }
+        guard !reloadingAccounts.contains(accountID) else { throw LocalStoreError.accountReloadInProgress }
         let task = enqueue(accountID: accountID, scope: scope, afterWrite: false)
         // A disappearing screen must not cancel work shared with other triggers.
         try await task.value
@@ -117,7 +120,7 @@ public actor SyncCoordinator {
 
     /// Returns as soon as the work is scheduled, never after a network request.
     public func requestSync(accountID: UUID) async {
-        guard await reachability.isReachable else { return }
+        guard await reachability.isReachable, !reloadingAccounts.contains(accountID) else { return }
         _ = enqueue(accountID: accountID, scope: .account, afterWrite: true)
     }
 
@@ -162,6 +165,7 @@ public actor SyncCoordinator {
         var boardFailures: [EntityID: any Error] = [:]
         var threadFailures: [EntityID: any Error] = [:]
         while true {
+            try Task.checkCancellation()
             let needsPass = workByAccount[accountID]?.needsAnotherPass ?? false
             workByAccount[accountID]?.needsAnotherPass = false
             if needsPass {
@@ -175,6 +179,7 @@ public actor SyncCoordinator {
             let threads = workByAccount[accountID]?.pendingThreads ?? []
             workByAccount[accountID]?.pendingThreads = []
             for id in threads {
+                try Task.checkCancellation()
                 do {
                     try await engine.pullComments(taskID: id)
                     threadFailures[id] = nil
@@ -205,6 +210,7 @@ public actor SyncCoordinator {
         workByAccount[account.id]?.pendingBoards = []
         var failures = previousFailures
         for id in boards {
+            guard !Task.isCancelled else { break }
             do {
                 try await makeEngine(account).pullKanban(projectID: id)
                 failures[id] = nil
@@ -214,7 +220,37 @@ public actor SyncCoordinator {
         return failures
     }
 
-    private func makeEngine(_ account: InstanceAccount) -> SyncEngine {
+    /// Staging reuses the ordinary pull path, but never drains the live queue.
+    public func reloadFromServer(accountID: UUID) async throws {
+        try Task.checkCancellation()
+        guard reloadingAccounts.insert(accountID).inserted else { throw LocalStoreError.accountReloadInProgress }
+        defer { reloadingAccounts.remove(accountID) }
+        guard await reachability.isReachable else { throw VikunjaError.offline }
+        let previousWork = workByAccount[accountID]?.task
+        previousWork?.cancel()
+        _ = try? await previousWork?.value
+        try Task.checkCancellation()
+        guard let account = try await accountStore.fetchAccounts().first(where: { $0.id == accountID }) else {
+            throw VikunjaError.notFound
+        }
+        let original = try await localStore.beginAccountReload(accountID: accountID)
+        do {
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let staging = try LocalStore(directory: directory)
+            try await staging.write { db in try original.seedIdentities(db: db) }
+            try await makeEngine(account, store: staging).downloadReplacement(original: original)
+            try Task.checkCancellation()
+            let replacement = try await staging.read { db in try AccountSnapshot(accountID: accountID, db: db) }
+            try await localStore.replaceAccount(accountID: accountID, with: replacement)
+            await localStore.endAccountReload(accountID: accountID)
+        } catch {
+            await localStore.endAccountReload(accountID: accountID)
+            throw error
+        }
+    }
+
+    private func makeEngine(_ account: InstanceAccount, store: LocalStore? = nil) -> SyncEngine {
         let resolvedTokenProvider = tokenProvider(account)
         let projectRepository = clientFactory.makeProjectRepository(
             baseURL: account.baseURL,
@@ -241,7 +277,7 @@ public actor SyncCoordinator {
             tokenProvider: resolvedTokenProvider,
         )
         return SyncEngine(
-            localStore: localStore,
+            localStore: store ?? localStore,
             projectRepository: projectRepository,
             labelRepository: labelRepository,
             taskRepository: taskRepository,
@@ -260,7 +296,7 @@ public actor SyncCoordinator {
 
 /// Account binding is immutable: an account switch cannot redirect an in-flight
 /// screen or repository command to another account.
-public struct AccountSync: SyncTriggering, SyncRequesting, LocalDataObserving {
+public struct AccountSync: SyncTriggering, SyncRequesting, LocalDataObserving, AccountReloading {
     private let accountID: UUID
     private let coordinator: SyncCoordinator
     private let localStore: LocalStore
@@ -281,6 +317,10 @@ public struct AccountSync: SyncTriggering, SyncRequesting, LocalDataObserving {
 
     public func refresh(scope: SyncScope) async throws {
         try await coordinator.refresh(accountID: accountID, scope: scope)
+    }
+
+    public func reloadFromServer() async throws {
+        try await coordinator.reloadFromServer(accountID: accountID)
     }
 
     public func requestSync() async {

@@ -16,6 +16,8 @@ public final class PendingSyncViewModel {
     private let provider: PendingSyncOperationsProviding
     private let accountID: UUID
     private let toastPresenter: ToastPresenting
+    private let accountReloader: AccountReloading?
+    public private(set) var isReloading = false
     private let creationRecovery: KanbanCreationRecovering?
     public private(set) var busyOperationIDs: Set<Int64> = []
     public private(set) var recoveryBuckets: [KanbanCreationBucket] = []
@@ -26,11 +28,13 @@ public final class PendingSyncViewModel {
         accountID: UUID,
         toastPresenter: ToastPresenting,
         creationRecovery: KanbanCreationRecovering? = nil,
+        accountReloader: AccountReloading? = nil,
     ) {
         self.provider = provider
         self.accountID = accountID
         self.toastPresenter = toastPresenter
         self.creationRecovery = creationRecovery
+        self.accountReloader = accountReloader
     }
 
     /// Consumes the live stream until the calling `.task` is cancelled.
@@ -92,8 +96,28 @@ public final class PendingSyncViewModel {
     }
     #endif
 
+    public var canReloadFromServer: Bool {
+        accountReloader != nil && operations.contains { $0.status == .failed || $0.needsConflictResolution }
+    }
+
+    public func reloadFromServer() async {
+        guard canReloadFromServer, !isReloading, busyOperationIDs.isEmpty, let accountReloader else { return }
+        isReloading = true
+        defer { isReloading = false }
+        do {
+            try await accountReloader.reloadFromServer()
+            // A reset removes the whole queue at once, without the normal per-row departure delay.
+            operations = []
+            presentation.receive([], reset: true)
+            toastPresenter.show(
+                String(localized: "Local changes discarded. Data reloaded from server.", bundle: .module),
+                style: .success,
+            )
+        } catch { showRecoveryError(error) }
+    }
+
     public func canRecover(_ operation: PendingSyncOperation) -> Bool {
-        creationRecovery != nil && operations.contains {
+        !isReloading && creationRecovery != nil && operations.contains {
             $0.id == operation.id && $0.canRecoverKanbanCreation
         }
     }
@@ -135,7 +159,7 @@ public final class PendingSyncViewModel {
     /// Conflict items can never drain, so removing one is only queue cleanup.
     /// The live observation removes the row from the list once it's gone.
     public func discard(_ operation: PendingSyncOperation) async {
-        guard operation.needsConflictResolution, operation.failureMessage == nil else { return }
+        guard !isReloading, operation.needsConflictResolution, operation.failureMessage == nil else { return }
 
         do {
             try await provider.discardConflictedPendingSyncOperation(

@@ -72,6 +72,7 @@ public actor SyncEngine {
         ]
         var firstError: (any Error)?
         for phase in phases {
+            try Task.checkCancellation()
             do { try await phase() } catch { firstError = firstError ?? error }
         }
         if let firstError {
@@ -983,9 +984,9 @@ public actor SyncEngine {
         }
         var flaggedNewConflict = false
         for item in items {
+            try Task.checkCancellation()
             // Evaluate each drain before checking its outcome; a `where` filter
             // would skip the work that determines whether there is a conflict.
-            // swiftlint:disable:next for_where
             if try await drain(item) == .conflicted {
                 flaggedNewConflict = true
             }
@@ -1132,6 +1133,7 @@ public actor SyncEngine {
         }
 
         for item in items {
+            try Task.checkCancellation()
             do {
                 switch item.operation {
                 case .update:
@@ -1208,6 +1210,7 @@ public actor SyncEngine {
                 .sorted { $0.createdAt < $1.createdAt }
         }
         for item in items {
+            try Task.checkCancellation()
             try await drainLabel(item)
         }
     }
@@ -1296,9 +1299,9 @@ public actor SyncEngine {
         }
         var flaggedNewConflict = false
         for item in items {
+            try Task.checkCancellation()
             // Evaluate each drain before checking its outcome; a `where` filter
             // would skip the work that determines whether there is a conflict.
-            // swiftlint:disable:next for_where
             if try await drainTask(item) == .conflicted {
                 flaggedNewConflict = true
             }
@@ -1344,6 +1347,7 @@ public actor SyncEngine {
                 .sorted { $0.createdAt < $1.createdAt }
         }
         for item in items {
+            try Task.checkCancellation()
             _ = try await drainComment(item, repository: commentRepository)
         }
     }

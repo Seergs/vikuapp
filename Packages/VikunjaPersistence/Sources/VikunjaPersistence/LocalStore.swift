@@ -2,10 +2,19 @@ import Foundation
 import GRDB
 import VikunjaCore
 
-public enum LocalStoreError: Error, Sendable {
+public enum LocalStoreError: Error, Sendable, LocalizedError {
     /// The App Group container isn't available - the App Groups entitlement
     /// is missing, or the identifier doesn't match between targets.
     case containerUnavailable
+    case accountReloadInProgress
+
+    public var errorDescription: String? {
+        switch self {
+        case .containerUnavailable: nil
+        case .accountReloadInProgress:
+            String(localized: "This account is being reloaded. Try again when it finishes.", bundle: .module)
+        }
+    }
 }
 
 /// Actor wrapping a GRDB `DatabasePool` (WAL mode, GRDB's default for that
@@ -14,6 +23,7 @@ public enum LocalStoreError: Error, Sendable {
 /// being an actor rather than a class with locks.
 public actor LocalStore {
     private let dbPool: DatabasePool
+    private var reloadingAccounts: Set<UUID> = []
 
     /// - Parameter directory: where the database file lives, created if
     ///   missing. Pass the App Group container so a widget extension can
@@ -43,14 +53,46 @@ public actor LocalStore {
     }
 
     public func write<T: Sendable>(_ updates: @Sendable (Database) throws -> T) async throws -> T {
-        try await dbPool.write(updates)
+        // Only the rare account reload pays for this check. Keeping the guard at
+        // the transaction boundary covers every local repository without new plumbing.
+        let lockedAccounts = reloadingAccounts
+        return try await dbPool.write { db in
+            let before = try lockedAccounts.map { try AccountSnapshot(accountID: $0, db: db) }
+            let result = try updates(db)
+            let after = try lockedAccounts.map { try AccountSnapshot(accountID: $0, db: db) }
+            guard before == after else { throw LocalStoreError.accountReloadInProgress }
+            return result
+        }
+    }
+
+    /// The writer barrier lets previously submitted writes settle before the snapshot.
+    func beginAccountReload(accountID: UUID) async throws -> AccountSnapshot {
+        guard reloadingAccounts.insert(accountID).inserted else { throw LocalStoreError.accountReloadInProgress }
+        do {
+            return try await dbPool.write { db in try AccountSnapshot(accountID: accountID, db: db) }
+        } catch {
+            reloadingAccounts.remove(accountID)
+            throw error
+        }
+    }
+
+    func endAccountReload(accountID: UUID) {
+        reloadingAccounts.remove(accountID)
+    }
+
+    func replaceAccount(accountID: UUID, with snapshot: AccountSnapshot) async throws {
+        try await dbPool.write { db in
+            try Task.checkCancellation()
+            try snapshot.replace(accountID: accountID, db: db)
+            try Task.checkCancellation()
+        }
     }
 
     /// Observe account content, including queued optimistic edits. Comparing
     /// account snapshots suppresses writes belonging only to another account.
     public func observeChanges(accountID: UUID) -> AsyncThrowingStream<Void, Error> {
         let values = ValueObservation.tracking { db in
-            try AccountSnapshot(accountID: accountID, db: db)
+            try AccountSnapshot(accountID: accountID, db: db, includeSyncStates: false)
         }
         .removeDuplicates()
         .values(in: dbPool)
@@ -171,33 +213,3 @@ public actor LocalStore {
 }
 
 extension LocalStore: PendingSyncOperationsProviding {}
-
-private struct AccountSnapshot: Equatable, Sendable {
-    let projects: [ProjectRecord]
-    let tasks: [TaskRecord]
-    let labels: [LabelRecord]
-    let comments: [TaskCommentRecord]
-    let filters: [SavedFilterRecord]
-    let reminders: [TaskReminderRecord]
-    let memberships: [VirtualProjectTaskRecord]
-    let relations: [TaskRelationRecord]
-    let kanbanViews: [KanbanViewRecord]
-    let kanbanBuckets: [KanbanBucketRecord]
-    let kanbanAssignments: [KanbanAssignmentRecord]
-    let mutations: [MutationQueueRecord]
-
-    init(accountID: UUID, db: Database) throws {
-        self.kanbanViews = try KanbanViewRecord.filter(Column("accountID") == accountID).fetchAll(db)
-        self.kanbanBuckets = try KanbanBucketRecord.filter(Column("accountID") == accountID).fetchAll(db)
-        self.kanbanAssignments = try KanbanAssignmentRecord.filter(Column("accountID") == accountID).fetchAll(db)
-        self.projects = try ProjectRecord.filter(Column("accountID") == accountID).fetchAll(db)
-        self.tasks = try TaskRecord.filter(Column("accountID") == accountID).fetchAll(db)
-        self.labels = try LabelRecord.filter(Column("accountID") == accountID).fetchAll(db)
-        self.comments = try TaskCommentRecord.filter(Column("accountID") == accountID).fetchAll(db)
-        self.filters = try SavedFilterRecord.filter(Column("accountID") == accountID).fetchAll(db)
-        self.reminders = try TaskReminderRecord.filter(Column("accountID") == accountID).fetchAll(db)
-        self.memberships = try VirtualProjectTaskRecord.filter(Column("accountID") == accountID).fetchAll(db)
-        self.relations = try TaskRelationRecord.filter(Column("accountID") == accountID).fetchAll(db)
-        self.mutations = try MutationQueueRecord.filter(Column("accountID") == accountID).fetchAll(db)
-    }
-}
