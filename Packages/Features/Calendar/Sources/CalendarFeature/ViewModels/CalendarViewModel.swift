@@ -38,6 +38,7 @@ public final class CalendarViewModel {
 
     private let synchronization: LocalScreenSync
     private var loadVersion = 0
+    private var completionState = TaskCompletionState()
 
     public init(
         syncTrigger: SyncTriggering,
@@ -78,7 +79,7 @@ public final class CalendarViewModel {
             let result = try await taskLoader.loadAllTasks()
             guard version == loadVersion else { return }
             projectsByID = result.projectsByID
-            tasks = result.tasks
+            tasks = completionState.applying(to: result.tasks)
             loadState = .loaded
         } catch let error as VikunjaError {
             guard version == loadVersion else { return }
@@ -101,20 +102,17 @@ public final class CalendarViewModel {
     /// back if the server rejects it — so a failed request never leaves a row
     /// showing a state the server doesn't have.
     public func toggleDone(_ task: VikunjaTask) async {
+        guard let index = tasks.firstIndex(where: { $0.id == task.id }),
+              tasks[index].isDone == task.isDone else { return }
+        let original = tasks[index]
+        guard let flipped = completionState.begin(original) else { return }
         loadVersion += 1
-        guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
-        var flipped = task
-        flipped.isDone.toggle()
         tasks[index] = flipped
-        let result = await mutator.persistToggleDone(flipped: flipped, original: task)
-        acceptMutationResult(result, replacing: flipped)
-    }
-
-    /// Observation can reorder or remove a row while a write is suspended.
-    /// Apply the result only if that same optimistic value is still visible.
-    private func acceptMutationResult(_ result: VikunjaTask, replacing expected: VikunjaTask) {
-        guard let index = tasks.firstIndex(where: { $0.id == expected.id }), tasks[index] == expected else { return }
-        tasks[index] = result
+        let result = await mutator.persistToggleDone(flipped: flipped, original: original)
+        // A read started before the local write finished may still contain
+        // the old completion value, even after its pending overlay is removed.
+        loadVersion += 1
+        completionState.resolve(result, in: &tasks)
     }
 
     public func start() async {

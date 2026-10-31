@@ -112,6 +112,7 @@ public final class ProjectOverviewViewModel {
 
     private let synchronization: LocalScreenSync
     private var loadVersion = 0
+    private var completionState = TaskCompletionState()
 
     public init(
         syncTrigger: SyncTriggering,
@@ -239,7 +240,7 @@ public final class ProjectOverviewViewModel {
             }
             guard version == loadVersion else { return }
             project = fetchedProject
-            tasks = fetchedTasks
+            tasks = completionState.applying(to: fetchedTasks)
             subprojects = fetchedSubprojects
             subprojectTaskSummaries = summaries
             savedFilterQuery = query?.isEmpty == false ? query : nil
@@ -315,13 +316,17 @@ public final class ProjectOverviewViewModel {
     /// local flip back if the server rejects it — so a failed request never
     /// leaves the row showing a state the server doesn't actually have.
     public func toggleDone(_ task: VikunjaTask) async {
+        guard let index = tasks.firstIndex(where: { $0.id == task.id }),
+              tasks[index].isDone == task.isDone else { return }
+        let original = tasks[index]
+        guard let flipped = completionState.begin(original) else { return }
         loadVersion += 1
-        guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
-        var flipped = task
-        flipped.isDone.toggle()
         tasks[index] = flipped
-        let result = await mutator.persistToggleDone(flipped: flipped, original: task)
-        acceptMutationResult(result, replacing: flipped)
+        let result = await mutator.persistToggleDone(flipped: flipped, original: original)
+        // A read started before the local write finished may still contain
+        // the old completion value, even after its pending overlay is removed.
+        loadVersion += 1
+        completionState.resolve(result, in: &tasks)
     }
 
     /// Sets a task's priority, persists the change, and rolls the local edit

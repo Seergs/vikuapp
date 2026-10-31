@@ -15,6 +15,7 @@ final class FakeCapabilityProvider: CapabilityProvider, @unchecked Sendable {
 
 final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendable {
     var projects: [Project] = []
+    var beforeFetchProjects: (@Sendable () async -> Void)?
     var fetchError: VikunjaError?
     var createError: VikunjaError?
     var deleteError: VikunjaError?
@@ -22,6 +23,7 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
     private(set) var deletedIDs: [EntityID] = []
 
     func fetchProjects() async throws -> [Project] {
+        await beforeFetchProjects?()
         if let fetchError {
             throw fetchError
         }
@@ -104,7 +106,7 @@ final class FakeFilterRepository: FilterRepositoryProtocol, @unchecked Sendable 
 
 final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     var tasks: [VikunjaTask] = []
-    var beforeUpdate: (@Sendable () async -> Void)?
+    var beforeUpdate: (@Sendable () async throws -> Void)?
     var fetchError: VikunjaError?
     var updateError: VikunjaError?
     var deleteError: VikunjaError?
@@ -129,7 +131,7 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     }
 
     func update(_ task: VikunjaTask) async throws -> VikunjaTask {
-        await beforeUpdate?()
+        try await beforeUpdate?()
         if let updateError {
             throw updateError
         }

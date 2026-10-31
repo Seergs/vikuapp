@@ -35,6 +35,7 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     var fetchError: VikunjaError?
     var failingProjectIDs: Set<Int> = []
     var updateError: VikunjaError?
+    var beforeUpdate: (@Sendable () async -> Void)?
 
     func fetchTasks(projectID: EntityID) async throws -> [VikunjaTask] {
         if let fetchError {
@@ -56,6 +57,7 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     }
 
     func update(_ task: VikunjaTask) async throws -> VikunjaTask {
+        await beforeUpdate?()
         if let updateError {
             throw updateError
         }
