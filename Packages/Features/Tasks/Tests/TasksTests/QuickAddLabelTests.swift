@@ -119,4 +119,20 @@ struct QuickAddLabelTests {
         #expect(created != nil)
         #expect(toastPresenter.shownMessages.last?.style == .error)
     }
+
+    @Test(arguments: ["Bug", "bug"])
+    func `save attaches the exact label when names differ only in case`(name: String) async {
+        let labelRepository = FakeLabelRepository()
+        let viewModel = await makeViewModel(
+            labels: [Label(id: 10, title: "Bug", hexColor: "ff0000"), Label(id: 11, title: "bug", hexColor: "ff0000")],
+            labelRepository: labelRepository,
+        )
+        viewModel.input = "Fix @\(name)"
+
+        let created = await viewModel.save()
+
+        #expect(created?.title == "Fix")
+        #expect(labelRepository.addedLabelIDs.map(\.labelID) == [name == "Bug" ? 10 : 11])
+        #expect(labelRepository.labels.count == 2)
+    }
 }

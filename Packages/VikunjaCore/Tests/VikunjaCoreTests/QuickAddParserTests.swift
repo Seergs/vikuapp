@@ -99,10 +99,10 @@ struct QuickAddParserTests {
 
     @Test
     func `an ambiguous project stays in the title and is not applied`() {
-        let result = QuickAddParser.parse("Algo #dup", projects: projects, syntax: .todoist)
+        let result = QuickAddParser.parse("Algo #DUP", projects: projects, syntax: .todoist)
 
         #expect(result.projectID == nil)
-        #expect(result.title == "Algo #dup")
+        #expect(result.title == "Algo #DUP")
         #expect(result.tokens.first?.resolution == .ambiguousProject([projects[3], projects[4]]))
     }
 
@@ -201,5 +201,37 @@ struct QuickAddParserTests {
         #expect(result.projectID == nil)
         #expect(result.priority == nil)
         #expect(QuickAddParser.tokenize(input, syntax: nil).isEmpty)
+    }
+
+    @Test(arguments: [("Bug", "bug"), ("bug", "Bug"), ("Café", "Cafe"), ("Cafe", "Café")])
+    func `an exact project name takes precedence over folded matches`(name: String, other: String) {
+        let candidates = [Project(id: 1, title: other), Project(id: 2, title: name)]
+        let result = QuickAddParser.parse("Fix #\(name)", projects: candidates, syntax: .todoist)
+
+        #expect(result.projectID == 2)
+        #expect(result.title == "Fix")
+    }
+
+    @Test
+    func `identical project names remain ambiguous despite other folded matches`() {
+        let candidates = [
+            Project(id: 1, title: "Bug"),
+            Project(id: 2, title: "Bug"),
+            Project(id: 3, title: "bug"),
+        ]
+        let result = QuickAddParser.parse("Fix #Bug", projects: candidates, syntax: .todoist)
+
+        #expect(result.projectID == nil)
+        #expect(result.title == "Fix #Bug")
+        #expect(result.tokens.first?.resolution == .ambiguousProject(Array(candidates.prefix(2))))
+    }
+
+    @Test
+    func `a unique project still matches ignoring case and accents`() {
+        let candidates = [Project(id: 2, title: "Café")]
+        let result = QuickAddParser.parse("Fix #CAFE", projects: candidates, syntax: .todoist)
+
+        #expect(result.projectID == 2)
+        #expect(result.title == "Fix")
     }
 }
