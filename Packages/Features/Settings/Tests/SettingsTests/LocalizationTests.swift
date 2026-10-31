@@ -60,7 +60,7 @@ struct LocalizationTests {
         ("Changes waiting to upload", "Cambios pendientes de subir"),
         ("Waiting to upload", "Pendientes de subir"),
         ("Couldn't load pending changes", "No se pudieron cargar los cambios pendientes"),
-        ("Nothing waiting to sync", "No hay nada pendiente de sincronizar"),
+        ("All caught up", "Todo al día"),
         (
             "Changes you make offline will appear here until they upload.",
             "Los cambios que hagas sin conexión aparecerán aquí hasta que se suban.",

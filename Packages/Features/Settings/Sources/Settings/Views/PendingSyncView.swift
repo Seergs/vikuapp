@@ -186,16 +186,9 @@ struct PendingSyncView: View {
         .settingsListStyle()
         .overlay {
             if viewModel.presentation.operations.isEmpty {
-                VikuStatusView(
-                    systemImage: "checkmark.circle",
-                    title: String(localized: "Nothing waiting to sync", bundle: .module),
-                    message: String(
-                        localized: "Changes you make offline will appear here until they upload.",
-                        bundle: .module,
-                    ),
-                )
-                .padding(.top, VikuSpacing.xxl)
-                .transition(.opacity)
+                PendingSyncEmptyState()
+                    .padding(.top, VikuSpacing.xxl)
+                    .transition(.opacity)
             }
         }
     }
@@ -234,6 +227,33 @@ struct PendingSyncView: View {
         } catch {
             // A fast load or navigation cancels the pending presentation update.
         }
+    }
+}
+
+private struct PendingSyncEmptyState: View {
+    @Environment(\.vikuPalette) private var palette
+
+    var body: some View {
+        VStack(spacing: VikuSpacing.sm) {
+            Image(systemName: "checkmark")
+                .font(VikuFont.title.weight(.bold))
+                .foregroundStyle(palette.semanticSuccessText)
+                .frame(width: VikuSpacing.xxl + VikuSpacing.md, height: VikuSpacing.xxl + VikuSpacing.md)
+                .background(palette.semanticSuccess.opacity(0.15), in: Circle())
+                .padding(.bottom, VikuSpacing.xs)
+                .accessibilityHidden(true)
+
+            Text("All caught up", bundle: .module)
+                .font(VikuFont.headline)
+
+            Text("Changes you make offline will appear here until they upload.", bundle: .module)
+                .font(VikuFont.subheadline)
+                .foregroundStyle(palette.textSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .accessibilityElement(children: .combine)
+        .padding(VikuSpacing.lg)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

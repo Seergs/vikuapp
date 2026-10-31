@@ -237,6 +237,16 @@
         }
       }
     },
+    "All caught up" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todo al día"
+          }
+        }
+      }
+    },
     "Allow Insecure Connection" : {
       "localizations" : {
         "es" : {
@@ -2193,16 +2203,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Etiqueta"
-          }
-        }
-      }
-    },
-    "Nothing waiting to sync" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No hay nada pendiente de sincronizar"
           }
         }
       }
