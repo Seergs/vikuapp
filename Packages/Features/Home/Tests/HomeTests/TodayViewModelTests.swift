@@ -35,6 +35,29 @@ struct TodayViewModelTests {
     }
 
     @Test
+    func `offline tasks retain their project for detail navigation`() async {
+        let project = Project(id: .local(UUID()), title: "Offline project")
+        let task = VikunjaTask(id: .local(UUID()), title: "Offline task", projectID: project.id)
+        let projectRepository = FakeProjectRepository()
+        projectRepository.projects = [project]
+        let taskRepository = FakeTaskRepository()
+        taskRepository.tasks = [task]
+        let viewModel = TodayViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
+            taskRepository: taskRepository,
+            projectRepository: projectRepository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            toastPresenter: FakeToastPresenter(),
+        )
+
+        await viewModel.load()
+
+        #expect(viewModel.tasks == [task])
+        #expect(viewModel.projectsByID[task.projectID] == project)
+    }
+
+    @Test
     func `load drops A task list whose project fetch fails`() async {
         let projectRepository = FakeProjectRepository()
         projectRepository.projects = [

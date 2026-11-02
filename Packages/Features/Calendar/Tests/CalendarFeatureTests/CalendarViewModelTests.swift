@@ -47,6 +47,21 @@ struct CalendarViewModelTests {
     }
 
     @Test
+    func `offline tasks retain their project for detail navigation and colors`() async {
+        let project = Project(id: .local(UUID()), title: "Offline project", hexColor: "#123456")
+        let task = VikunjaTask(
+            id: .local(UUID()), title: "Offline task", dueDate: Date(), projectID: project.id,
+        )
+        let viewModel = makeViewModel(projects: [project], tasks: [task])
+
+        await viewModel.load()
+
+        #expect(viewModel.loadState == .loaded)
+        #expect(viewModel.tasks == [task])
+        #expect(viewModel.projectsByID[task.projectID] == project)
+    }
+
+    @Test
     func `a failing project is dropped, not fatal`() async {
         let viewModel = makeViewModel(
             projects: [Project(id: 1, title: "Work"), Project(id: 2, title: "Home")],

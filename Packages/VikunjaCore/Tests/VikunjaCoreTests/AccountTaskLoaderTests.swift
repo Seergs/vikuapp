@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import VikunjaCore
 
@@ -19,6 +20,24 @@ struct AccountTaskLoaderTests {
         #expect(Set(result.tasks.map(\.id)) == [10, 20])
         #expect(result.projectsByID[1]?.title == "Work")
         #expect(result.projectsByID[2]?.title == "Home")
+    }
+
+    @Test
+    func `indexes unsynced projects alongside remote projects`() async throws {
+        let localProject = Project(id: .local(UUID()), title: "Offline", hexColor: "#123456")
+        let remoteProject = Project(id: 1, title: "Synced")
+        let projects = FakeProjectRepository()
+        projects.projects = [remoteProject, localProject]
+        let task = VikunjaTask(id: .local(UUID()), title: "Offline task", projectID: localProject.id)
+        let tasks = FakeTaskRepository()
+        tasks.tasks = [task]
+        let loader = AccountTaskLoader(taskRepository: tasks, projectRepository: projects)
+
+        let result = try await loader.loadAllTasks()
+
+        #expect(result.tasks == [task])
+        #expect(result.projectsByID[task.projectID] == localProject)
+        #expect(result.projectsByID[remoteProject.id] == remoteProject)
     }
 
     @Test

@@ -190,7 +190,7 @@ struct CalendarView: View {
                 ForEach(Array(selectedTasks.enumerated()), id: \.element.id) { index, task in
                     CalendarTaskRow(
                         task: task,
-                        project: task.projectID.remoteValue.flatMap { viewModel.projectsByID[$0] },
+                        project: viewModel.projectsByID[task.projectID],
                         onToggle: { Task { await viewModel.toggleDone(task) } },
                         onOpen: { open(task) },
                     )
@@ -214,7 +214,7 @@ struct CalendarView: View {
     }
 
     private func open(_ task: VikunjaTask) {
-        guard let projectID = task.projectID.remoteValue, let project = viewModel.projectsByID[projectID] else {
+        guard let project = viewModel.projectsByID[task.projectID] else {
             return
         }
         router.push(.taskDetail(task, project))
@@ -226,7 +226,7 @@ struct CalendarView: View {
 private struct MonthGrid: View {
     let month: CalendarMonth
     let selectedDay: Date
-    let projectsByID: [Int: Project]
+    let projectsByID: [EntityID: Project]
     let onSelect: (Date) -> Void
 
     @Environment(\.vikuPalette) private var palette
@@ -254,7 +254,7 @@ private struct MonthGrid: View {
         }
     }
 
-    private func projectColor(for projectID: Int) -> Color {
+    private func projectColor(for projectID: EntityID) -> Color {
         projectsByID[projectID].flatMap { Color(vikuHex: $0.hexColor) } ?? palette.brand
     }
 }

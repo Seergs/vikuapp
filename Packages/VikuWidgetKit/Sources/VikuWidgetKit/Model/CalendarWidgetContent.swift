@@ -113,13 +113,13 @@ public struct CalendarWidgetContent: Sendable, Hashable, Codable {
     /// the same grid and task order the Calendar screen renders.
     public static func make(
         month: CalendarMonth,
-        projectsByID: [Int: Project],
+        projectsByID: [EntityID: Project],
         accountName: String,
         now: Date,
         calendar: Calendar = .current,
         taskLimit: Int = VikuWidgetConfig.calendarTaskLimit,
     ) -> CalendarWidgetContent {
-        func hex(forProjectID id: Int) -> String {
+        func hex(forProjectID id: EntityID) -> String {
             projectsByID[id]?.hexColor ?? ""
         }
 
@@ -139,7 +139,7 @@ public struct CalendarWidgetContent: Sendable, Hashable, Codable {
         let todayCell = month.weeks.flatMap(\.self).first { $0.isToday }
         let todayTasks = todayCell?.tasks ?? []
         let rows = todayTasks.prefix(taskLimit).map { task -> CalendarWidgetTask in
-            let project = task.projectID.remoteValue.flatMap { projectsByID[$0] }
+            let project = projectsByID[task.projectID]
             let overdue = !task.isDone && (task.dueDate.map { $0 < now } ?? false)
             return CalendarWidgetTask(
                 id: task.id.remoteValue ?? -1,
@@ -201,7 +201,7 @@ public extension CalendarWidgetContent {
         return CalendarWidgetContent.make(
             month: month,
             projectsByID: Dictionary(
-                uniqueKeysWithValues: projects.compactMap { project in project.id.remoteValue.map { ($0, project) } },
+                uniqueKeysWithValues: projects.map { ($0.id, $0) },
             ),
             accountName: "Viku",
             now: now,

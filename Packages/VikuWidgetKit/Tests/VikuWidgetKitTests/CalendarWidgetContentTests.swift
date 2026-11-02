@@ -47,13 +47,48 @@ struct CalendarWidgetContentTests {
         let content = CalendarWidgetContent.make(
             month: month,
             projectsByID: Dictionary(
-                uniqueKeysWithValues: projects.compactMap { project in project.id.remoteValue.map { ($0, project) } },
+                uniqueKeysWithValues: projects.map { ($0.id, $0) },
             ),
             accountName: "Home", now: Self.now, calendar: Self.calendar,
         )
 
         let cell = content.weeks.flatMap(\.self).first { $0.dayNumber == 20 && $0.isInMonth }
         #expect(cell?.dotColorHexes == ["#111111", "#222222"])
+    }
+
+    @Test
+    func `a local project keeps its dot using the fallback color`() {
+        let due = Self.date(2026, 9, 20)
+        let tasks = [
+            Self.task(id: 1, due: due, project: 10),
+            VikunjaTask(id: .local(UUID()), title: "Offline task", dueDate: due, projectID: .local(UUID())),
+        ]
+        let month = CalendarMonth(containing: Self.now, tasks: tasks, now: Self.now, calendar: Self.calendar)
+        let content = CalendarWidgetContent.make(
+            month: month,
+            projectsByID: [10: Project(id: 10, title: "Synced", hexColor: "#111111")],
+            accountName: "Home", now: Self.now, calendar: Self.calendar,
+        )
+
+        let cell = content.weeks.flatMap(\.self).first { $0.dayNumber == 20 && $0.isInMonth }
+        #expect(cell?.dotColorHexes == ["#111111", ""])
+    }
+
+    @Test
+    func `local projects provide their name and color before synchronization`() {
+        let project = Project(id: .local(UUID()), title: "Offline project", hexColor: "#123456")
+        let task = VikunjaTask(
+            id: .local(UUID()), title: "Offline task", dueDate: Self.now, projectID: project.id,
+        )
+        let month = CalendarMonth(containing: Self.now, tasks: [task], now: Self.now, calendar: Self.calendar)
+        let content = CalendarWidgetContent.make(
+            month: month, projectsByID: [project.id: project], accountName: "Home",
+            now: Self.now, calendar: Self.calendar,
+        )
+
+        #expect(content.weeks.flatMap(\.self).first(where: \.isToday)?.dotColorHexes == [project.hexColor])
+        #expect(content.todayTasks.first?.projectName == project.title)
+        #expect(content.todayTasks.first?.projectColorHex == project.hexColor)
     }
 
     @Test
