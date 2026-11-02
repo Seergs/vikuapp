@@ -77,13 +77,13 @@ public struct TodayWidgetContent: Sendable, Hashable, Codable {
     /// the same overdue → today → upcoming order the Home screen shows.
     public static func make(
         digest: TodayDigest,
-        projectsByID: [Int: Project],
+        projectsByID: [EntityID: Project],
         accountName: String,
         now: Date,
         taskLimit: Int = VikuWidgetConfig.taskLimit,
     ) -> TodayWidgetContent {
         func widgetTask(_ task: VikunjaTask, _ bucket: TaskDueBucket) -> TodayWidgetTask {
-            let project = task.projectID.remoteValue.flatMap { projectsByID[$0] }
+            let project = projectsByID[task.projectID]
             return TodayWidgetTask(
                 id: task.id.remoteValue ?? -1,
                 title: task.title,

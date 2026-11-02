@@ -15,7 +15,7 @@ public final class TodayViewModel {
     public private(set) var tasks: [VikunjaTask] = []
     /// Looked up per row for the project color dot + name, since a task only
     /// carries its `projectID`.
-    public private(set) var projectsByID: [Int: Project] = [:]
+    public private(set) var projectsByID: [EntityID: Project] = [:]
     public private(set) var loadState: ScreenLoadState<Void> = .idle
     /// The pinned project/saved filter, or `nil` for the default "Today"
     /// digest. Seeded from `homeSelectionCache` at init so `title` resolves
@@ -199,14 +199,9 @@ public final class TodayViewModel {
             homeSelectionCache.setCachedHomeSelection(refreshed)
         }
         pinnedSelection = refreshed
-        // Keyed by the server id, for looking up a task's project by
-        // `task.projectID.remoteValue`. A project without one yet
-        // (offline-created, not synced) is excluded — there's nothing to
-        // key it by until it syncs.
+        // Keep local projects available for task navigation and presentation.
         projectsByID = Dictionary(
-            uniqueKeysWithValues: projects.compactMap { project in
-                project.id.remoteValue.map { ($0, project) }
-            },
+            uniqueKeysWithValues: projects.map { ($0.id, $0) },
         )
         tasks = completionState.applying(to: fetchedTasks)
     }
@@ -384,7 +379,7 @@ public final class TodayViewModel {
     /// populates both from the same fetch, so this is only a defensive
     /// fallback), mirroring `TaskDetailViewModel.makeDuplicateTaskViewModel()`.
     public func makeDuplicateTaskViewModel(for task: VikunjaTask) -> DuplicateTaskViewModel {
-        let sourceProject = task.projectID.remoteValue.flatMap { projectsByID[$0] } ?? Project(
+        let sourceProject = projectsByID[task.projectID] ?? Project(
             id: task.projectID, title: "",
         )
         return DuplicateTaskViewModel(

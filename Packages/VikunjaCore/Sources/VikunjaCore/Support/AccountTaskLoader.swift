@@ -30,17 +30,12 @@ public struct AccountTaskLoader: Sendable {
     /// flattens them into one list. Throws only when the project-list fetch
     /// itself fails; a single project's task-fetch failure is swallowed (that
     /// project just contributes no tasks).
-    public func loadAllTasks() async throws -> (tasks: [VikunjaTask], projectsByID: [Int: Project]) {
+    public func loadAllTasks() async throws -> (tasks: [VikunjaTask], projectsByID: [EntityID: Project]) {
         let projects = try await projectRepository.fetchProjects()
-        // Keyed by the server id, for callers that look up a task's project
-        // by `task.projectID.remoteValue`. A project without one yet
-        // (offline-created, not synced) is excluded — there's nothing to
-        // key it by until it syncs, same as the task itself showing no
-        // project name/color until then.
+        // Preserve local identities so unsynced tasks can resolve their
+        // project for navigation, names, and colors before reaching the server.
         let projectsByID = Dictionary(
-            uniqueKeysWithValues: projects.compactMap { project in
-                project.id.remoteValue.map { ($0, project) }
-            },
+            uniqueKeysWithValues: projects.map { ($0.id, $0) },
         )
         let tasks = await Self.fetchAllTasks(projects: projects, repository: taskRepository)
         return (tasks, projectsByID)

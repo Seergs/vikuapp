@@ -41,14 +41,14 @@ public struct CalendarMonth: Equatable, Sendable {
 
         /// Distinct project ids of this day's pending tasks, in first-seen
         /// order, capped at three — one status dot each under the day number.
-        public var dotProjectIDs: [Int] {
-            var seen: Set<Int> = []
-            var result: [Int] = []
+        public var dotProjectIDs: [EntityID] {
+            var seen: Set<EntityID> = []
+            var result: [EntityID] = []
             for task in pendingTasks {
-                // A task under a project that hasn't synced yet has no
-                // remote id to look a color up by — it simply gets no dot
-                // until its project resolves.
-                guard let projectID = task.projectID.remoteValue, !seen.contains(projectID) else { continue }
+                // Local projects still get a dot before they sync; the view
+                // can use its fallback color when no project color is known.
+                let projectID = task.projectID
+                guard !seen.contains(projectID) else { continue }
                 seen.insert(projectID)
                 result.append(projectID)
                 if result.count == 3 {

@@ -89,6 +89,70 @@ struct CalendarMonthTests {
     }
 
     @Test
+    func `offline tasks appear in both the day list and its project dots`() {
+        let due = Self.date(2026, 9, 20)
+        let localProject = EntityID.local(UUID())
+        let offlineTask = VikunjaTask(
+            id: .local(UUID()), title: "Offline task", dueDate: due, projectID: localProject,
+        )
+        let month = CalendarMonth(
+            containing: Self.anchor, tasks: [offlineTask], now: Self.now, calendar: Self.calendar,
+        )
+        let cell = month.weeks.flatMap(\.self).first { $0.date == Self.calendar.startOfDay(for: due) }
+
+        #expect(CalendarMonth.tasks(on: due, from: [offlineTask], calendar: Self.calendar) == [offlineTask])
+        #expect(cell?.tasks == [offlineTask])
+        #expect(cell?.dotProjectIDs == [localProject])
+    }
+
+    @Test
+    func `mixed local and remote projects share the dot limit and exclude completed tasks`() {
+        let due = Self.date(2026, 9, 20)
+        let localProject = EntityID.local(UUID())
+        let otherLocalProject = EntityID.local(UUID())
+        let tasks = [
+            Self.task(id: 1, due: due, project: 10),
+            VikunjaTask(id: 2, title: "Local project", dueDate: due, projectID: localProject),
+            VikunjaTask(id: 3, title: "Same project", dueDate: due, projectID: localProject),
+            Self.task(id: 4, due: due, project: 20),
+            VikunjaTask(id: 5, title: "Fourth project", dueDate: due, projectID: otherLocalProject),
+        ]
+        let month = CalendarMonth(containing: Self.anchor, tasks: tasks, now: Self.now, calendar: Self.calendar)
+        let cell = month.weeks.flatMap(\.self).first { $0.date == Self.calendar.startOfDay(for: due) }
+
+        #expect(cell?.dotProjectIDs == [.remote(10), localProject, .remote(20)])
+
+        let completed = tasks.map { task in
+            var task = task
+            task.isDone = true
+            return task
+        }
+        let completedMonth = CalendarMonth(
+            containing: Self.anchor, tasks: completed, now: Self.now, calendar: Self.calendar,
+        )
+        let everyDotHidden = completedMonth.weeks.flatMap(\.self).allSatisfy(\.dotProjectIDs.isEmpty)
+        #expect(everyDotHidden)
+    }
+
+    @Test
+    func `an offline task in a synced project has a dot before and after synchronization`() {
+        let due = Self.date(2026, 9, 20)
+        let task = VikunjaTask(id: .local(UUID()), title: "Offline task", dueDate: due, projectID: 10)
+        let offlineMonth = CalendarMonth(
+            containing: Self.anchor, tasks: [task], now: Self.now, calendar: Self.calendar,
+        )
+        let syncedTask = VikunjaTask(id: 1, title: task.title, dueDate: due, projectID: task.projectID)
+        let syncedMonth = CalendarMonth(
+            containing: Self.anchor, tasks: [syncedTask], now: Self.now, calendar: Self.calendar,
+        )
+
+        let offlineCell = offlineMonth.weeks.flatMap(\.self).first { !$0.tasks.isEmpty }
+        let syncedCell = syncedMonth.weeks.flatMap(\.self).first { !$0.tasks.isEmpty }
+        #expect(offlineCell?.dotProjectIDs == [10])
+        #expect(syncedCell?.dotProjectIDs == offlineCell?.dotProjectIDs)
+    }
+
+    @Test
     func `tasks on a day are pending first then ascending by due date`() {
         let day = Self.date(2026, 9, 20)
         let tasks = [

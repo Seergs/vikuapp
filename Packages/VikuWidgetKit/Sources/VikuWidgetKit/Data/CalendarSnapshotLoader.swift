@@ -98,9 +98,7 @@ public struct CalendarSnapshotLoader: Sendable {
             return nil
         }
         let projectsByID = Dictionary(
-            uniqueKeysWithValues: snapshot.projects.compactMap { project in
-                project.id.remoteValue.map { ($0, project) }
-            },
+            uniqueKeysWithValues: snapshot.projects.map { ($0.id, $0) },
         )
         let month = CalendarMonth(containing: now(), tasks: snapshot.tasks, now: now())
         var content = CalendarWidgetContent.make(

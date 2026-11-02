@@ -13,7 +13,7 @@ public final class CalendarViewModel {
     public private(set) var tasks: [VikunjaTask] = []
     /// Looked up per row/dot for the project color, since a task only carries
     /// its `projectID`.
-    public private(set) var projectsByID: [Int: Project] = [:]
+    public private(set) var projectsByID: [EntityID: Project] = [:]
     public private(set) var loadState: ScreenLoadState<Void> = .idle
 
     public var isLoading: Bool {

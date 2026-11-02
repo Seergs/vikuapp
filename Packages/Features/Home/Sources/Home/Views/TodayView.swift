@@ -262,7 +262,7 @@ struct TodayView: View {
     /// `setPriority`, etc.) already works the same either way.
     @ViewBuilder
     private func taskRow(_ task: VikunjaTask, index: Int, count: Int) -> some View {
-        let project = task.projectID.remoteValue.flatMap { viewModel.projectsByID[$0] }
+        let project = viewModel.projectsByID[task.projectID]
         VikuTaskRow(
             task: task,
             project: project,
