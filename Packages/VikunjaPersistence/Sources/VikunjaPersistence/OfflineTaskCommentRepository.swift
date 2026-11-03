@@ -238,6 +238,9 @@ public actor OfflineTaskCommentRepository: TaskCommentRepositoryProtocol {
             existing.payload = encoded
             existing.status = .pending
             existing.needsConflictResolution = false
+            existing.lastError = nil
+            existing.failureDetails = nil
+            existing.retryCount = 0
             try existing.update(db)
         } else {
             try enqueue(

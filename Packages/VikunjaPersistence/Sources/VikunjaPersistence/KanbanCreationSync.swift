@@ -51,6 +51,7 @@ extension SyncEngine {
                 item.status = .failed
                 item.needsConflictResolution = true
                 item.lastError = KanbanCreationFailure.ambiguous.rawValue
+                item.failureDetails = nil
                 try item.update(db)
             }
         }
@@ -70,7 +71,7 @@ extension SyncEngine {
         do {
             claimed = try await claimKanbanCreation(item, destination: destination)
         } catch {
-            try await blockKanbanCreation(item, failure: .destination)
+            try await blockKanbanCreation(item, failure: .destination, error: error)
             return .skipped
         }
         guard claimed else { return .skipped }
@@ -89,7 +90,7 @@ extension SyncEngine {
             case let VikunjaError.server(_, statusCode) where (400 ..< 500).contains(statusCode): .rejected
             default: .ambiguous
             }
-            try await blockKanbanCreation(item, failure: failure)
+            try await blockKanbanCreation(item, failure: failure, error: error)
             return .skipped
         }
     }
@@ -113,6 +114,7 @@ extension SyncEngine {
             current.needsConflictResolution = true
             current.retryCount += 1
             current.lastError = KanbanCreationFailure.capacity.rawValue
+            current.failureDetails = StoredSyncFailure(error: VikunjaError.bucketFull).encoded
             try current.update(db)
             return false
         }
@@ -146,13 +148,16 @@ extension SyncEngine {
         }
     }
 
-    private func blockKanbanCreation(_ item: MutationQueueRecord, failure: KanbanCreationFailure) async throws {
+    private func blockKanbanCreation(
+        _ item: MutationQueueRecord, failure: KanbanCreationFailure, error: (any Error)? = nil,
+    ) async throws {
         try await localStore.write { db in
             guard var current = try MutationQueueRecord.fetchOne(db, key: item.id) else { return }
             current.status = .failed
             current.needsConflictResolution = true
             current.retryCount += 1
             current.lastError = failure.rawValue
+            current.failureDetails = error.flatMap { StoredSyncFailure(error: $0).encoded }
             try current.update(db)
         }
     }

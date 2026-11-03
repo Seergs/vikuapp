@@ -39,6 +39,11 @@ public struct PendingSyncOperation: Identifiable, Hashable, Sendable {
     public let needsConflictResolution: Bool
     public let failureMessage: String?
     public let canRecoverKanbanCreation: Bool
+    /// Queue cleanup eligibility is independent of the displayed error.
+    public let canDiscardConflict: Bool
+    public let retryCount: Int
+    /// Technical detail from the last failure, or the legacy stored error.
+    public let diagnosticDetails: String?
 
     public init(
         id: Int64,
@@ -50,6 +55,9 @@ public struct PendingSyncOperation: Identifiable, Hashable, Sendable {
         needsConflictResolution: Bool,
         failureMessage: String? = nil,
         canRecoverKanbanCreation: Bool = false,
+        canDiscardConflict: Bool = false,
+        retryCount: Int = 0,
+        diagnosticDetails: String? = nil,
     ) {
         self.id = id
         self.entity = entity
@@ -60,5 +68,8 @@ public struct PendingSyncOperation: Identifiable, Hashable, Sendable {
         self.needsConflictResolution = needsConflictResolution
         self.failureMessage = failureMessage
         self.canRecoverKanbanCreation = canRecoverKanbanCreation
+        self.canDiscardConflict = canDiscardConflict
+        self.retryCount = retryCount
+        self.diagnosticDetails = diagnosticDetails
     }
 }

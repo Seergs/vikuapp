@@ -222,6 +222,9 @@ public actor OfflineProjectRepository: ProjectRepositoryProtocol {
             existing.payload = encoded
             existing.status = .pending
             existing.needsConflictResolution = false
+            existing.lastError = nil
+            existing.failureDetails = nil
+            existing.retryCount = 0
             existing.baseUpdatedAt = context.baseUpdatedAt
             try existing.update(db)
         } else {

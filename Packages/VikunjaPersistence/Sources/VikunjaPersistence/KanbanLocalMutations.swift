@@ -133,6 +133,7 @@ enum KanbanLocalMutations {
         mutation.status = .pending
         mutation.needsConflictResolution = false
         mutation.lastError = nil
+        mutation.failureDetails = nil
         try mutation.save(db)
         // Any previously queued task edit must carry the same completion intent.
         for var edit in queue where edit.operation == .update && edit.status != .inFlight {

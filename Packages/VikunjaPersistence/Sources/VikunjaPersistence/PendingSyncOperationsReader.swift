@@ -16,6 +16,18 @@ enum PendingSyncOperationsReader {
             .filter { $0.accountID == accountID }
             .compactMap { item in
                 guard let id = item.id else { return nil }
+                let failure = StoredSyncFailure.decode(item.failureDetails)
+                let creationFailure = item.lastError.flatMap(KanbanCreationFailure.init(rawValue:))
+                let moveFailure = item.lastError.flatMap(KanbanMoveFailure.init(rawValue:))
+                let hasFailure = item.status == .failed || item.needsConflictResolution
+                let message = creationFailure?.message ?? moveFailure?.message ?? failure?.displayMessage
+                    ?? (item.needsConflictResolution
+                        ? String(
+                            localized: "This change conflicts with a newer version on the server.",
+                            bundle: .module,
+                        )
+                        : item.lastError)
+                    ?? StoredSyncFailure.unknownMessage
                 return try PendingSyncOperation(
                     id: id,
                     entity: item.entityType.pendingSyncEntity,
@@ -24,11 +36,13 @@ enum PendingSyncOperationsReader {
                     createdAt: item.createdAt,
                     status: item.status == .failed || item.needsConflictResolution ? .failed : .pending,
                     needsConflictResolution: item.needsConflictResolution,
-                    failureMessage: item.lastError.flatMap(KanbanCreationFailure.init(rawValue:))?.message
-                        ?? item.lastError.flatMap(KanbanMoveFailure.init(rawValue:))?.message,
+                    failureMessage: hasFailure ? message : nil,
                     canRecoverKanbanCreation: item.entityType == .task && item.operation == .create
                         && item.status == .failed && item.needsConflictResolution
-                        && item.lastError.flatMap(KanbanCreationFailure.init(rawValue:))?.allowsRecovery == true,
+                        && creationFailure?.allowsRecovery == true,
+                    canDiscardConflict: item.canDiscardConflict,
+                    retryCount: item.retryCount,
+                    diagnosticDetails: failure?.diagnosticDetails ?? item.lastError,
                 )
             }
             .sorted {

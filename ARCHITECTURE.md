@@ -749,3 +749,25 @@ complete download replaces the account's cache and clears all its queued changes
 in one transaction. Download failure, cancellation before commit, or a failed
 replacement preserves the live cache and queue. Online-only resources remain
 on demand. This recovery does not issue any server mutations.
+
+## Pending sync diagnostics
+
+Queue recovery eligibility is explicit (`canDiscardConflict` and
+`canRecoverKanbanCreation`) and never inferred from the presence of a display
+message. The store enforces the same conflict cleanup rule as Settings.
+
+`mutationQueueItem.failureDetails` stores the last failure as structured JSON:
+error kind, original detail, HTTP status when carried by the error, and failure
+time. `lastError` retains existing diagnostic text and Kanban recovery codes.
+The reader resolves localized explanations and preserves legacy errors when no
+structured detail is available. Kanban explanations retain their recovery copy
+and the underlying error remains stored locally. An edit that
+resets a mutation to pending, or explicit recovery, clears both representations.
+Standard queue retries preserve an earlier failure when connectivity is lost,
+without counting another failed attempt. Kanban submissions retain their
+uncertainty-specific handling.
+
+Settings displays the failure reason directly in the operation row. Structured
+diagnostics stay local and disappear with the queued operation, rather than
+forming a sync history. The original server response can contain submitted
+content.

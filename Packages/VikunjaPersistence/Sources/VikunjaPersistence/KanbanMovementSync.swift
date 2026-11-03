@@ -51,6 +51,7 @@ extension SyncEngine {
                 item.status = .failed
                 item.needsConflictResolution = true
                 item.lastError = KanbanMoveFailure.ambiguous.rawValue
+                item.failureDetails = nil
                 try item.update(db)
             }
         }
@@ -165,6 +166,7 @@ extension SyncEngine {
             context.item,
             reason: reason,
             baseline: reason == .rejected ? context.fallbackBucketID : nil,
+            error: error,
         )
         return .skipped
     }
@@ -189,7 +191,7 @@ extension SyncEngine {
     }
 
     private func failKanbanMove(
-        _ item: MutationQueueRecord, reason: KanbanMoveFailure, baseline: Int? = nil,
+        _ item: MutationQueueRecord, reason: KanbanMoveFailure, baseline: Int? = nil, error: (any Error)? = nil,
     ) async throws {
         try await localStore.write { db in
             guard var current = try MutationQueueRecord.fetchOne(db, key: item.id), current.payload == item.payload
@@ -197,6 +199,7 @@ extension SyncEngine {
             current.status = .failed
             current.needsConflictResolution = true
             current.lastError = reason.rawValue
+            current.failureDetails = error.flatMap { StoredSyncFailure(error: $0).encoded }
             current.retryCount += 1
             try current.update(db)
             if let baseline {

@@ -23,6 +23,11 @@ enum DatabaseMigrations {
         migrator.registerMigration("createSavedFilter", migrate: createSavedFilter)
         migrator.registerMigration("createVirtualProjectTask", migrate: createVirtualProjectTask)
         migrator.registerMigration("createKanban", migrate: createKanban)
+        migrator.registerMigration("addSyncFailureDetails") { db in
+            try db.alter(table: "mutationQueueItem") { table in
+                table.add(column: "failureDetails", .text)
+            }
+        }
     }
 
     private static func createProject(_ db: Database) throws {
