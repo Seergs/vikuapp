@@ -266,6 +266,7 @@ private struct DayCell: View {
     let onTap: () -> Void
 
     @Environment(\.vikuPalette) private var palette
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var numberColor: Color {
         if isSelected {
@@ -284,11 +285,23 @@ private struct DayCell: View {
         Button(action: onTap) {
             VStack(spacing: VikuSpacing.xs) {
                 ZStack {
-                    if isSelected {
-                        Circle().fill(palette.brand)
-                    } else if day.isToday {
+                    if day.isToday, !isSelected {
                         Circle().strokeBorder(palette.brand, lineWidth: 1.5)
                     }
+                    // Keep the background's identity stable so selection can
+                    // pulse without resizing the number or the grid's layout.
+                    Circle()
+                        .fill(palette.brand)
+                        .keyframeAnimator(
+                            initialValue: CGFloat(1),
+                            trigger: isSelected,
+                        ) { [reduceMotion, isSelected] background, scale in
+                            background.scaleEffect(reduceMotion || !isSelected ? 1 : scale)
+                        } keyframes: { _ in
+                            CubicKeyframe(1.14, duration: 0.09)
+                            CubicKeyframe(1, duration: 0.19)
+                        }
+                        .opacity(isSelected ? 1 : 0)
                     Text(verbatim: "\(day.dayNumber)")
                         .font(.system(size: 14.5, weight: day.isToday || isSelected ? .bold : .medium))
                         .foregroundStyle(numberColor)
