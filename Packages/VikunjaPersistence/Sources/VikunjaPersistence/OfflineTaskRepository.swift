@@ -572,6 +572,9 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
             if !kanbanCreate || (existing.status != .inFlight && !existing.needsConflictResolution) {
                 existing.status = .pending
                 existing.needsConflictResolution = false
+                existing.lastError = nil
+                existing.failureDetails = nil
+                existing.retryCount = 0
             }
             existing.baseUpdatedAt = context.baseUpdatedAt
             try existing.update(db)

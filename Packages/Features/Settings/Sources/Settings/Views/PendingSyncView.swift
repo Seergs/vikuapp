@@ -202,7 +202,7 @@ struct PendingSyncView: View {
                         .listRowBackground(palette.cardBackground)
                         .transition(rowTransition)
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            if operation.needsConflictResolution, operation.failureMessage == nil {
+                            if operation.canDiscardConflict {
                                 Button(
                                     String(localized: "Remove Conflict", bundle: .module),
                                     systemImage: "trash",
@@ -482,7 +482,7 @@ private struct PendingSyncOperationRow: View {
     private var statusLabel: LocalizedStringKey {
         if operation.canRecoverKanbanCreation {
             "Needs action"
-        } else if operation.needsConflictResolution, operation.failureMessage == nil {
+        } else if operation.canDiscardConflict {
             "Conflict"
         } else if operation.status == .failed {
             "Failed"

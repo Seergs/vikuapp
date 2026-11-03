@@ -64,6 +64,7 @@ public struct OfflineKanbanCreationRecovery: KanbanCreationRecovering {
             item.status = .pending
             item.needsConflictResolution = false
             item.lastError = nil
+            item.failureDetails = nil
             item.retryCount = 0
             try item.update(db)
             try task.update(db)

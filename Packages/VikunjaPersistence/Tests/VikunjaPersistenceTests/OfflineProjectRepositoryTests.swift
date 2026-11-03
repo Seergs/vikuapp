@@ -50,6 +50,26 @@ struct OfflineProjectRepositoryTests {
     }
 
     @Test
+    func `editing a failed creation clears diagnostics belonging to its old payload`() async throws {
+        let fixture = try makeRepository(online: false)
+        var project = try await fixture.repository.create(Project(id: 0, title: "Original"))
+        try await fixture.store.write { db in
+            var item = try #require(try MutationQueueRecord.fetchOne(db))
+            item.recordFailure(VikunjaError.server(message: "Old rejection", statusCode: 400))
+            item.status = .failed
+            item.retryCount = 2
+            try item.update(db)
+        }
+        project.title = "Corrected"
+        _ = try await fixture.repository.update(project)
+        let item = try #require(try await fixture.store.read { try MutationQueueRecord.fetchOne($0) })
+        #expect(item.status == .pending)
+        #expect(item.lastError == nil)
+        #expect(item.failureDetails == nil)
+        #expect(item.retryCount == 0)
+    }
+
+    @Test
     func `fetchProjects is empty for a freshly created local store`() async throws {
         let fixture = try makeRepository(online: false)
         #expect(try await fixture.repository.fetchProjects().isEmpty)

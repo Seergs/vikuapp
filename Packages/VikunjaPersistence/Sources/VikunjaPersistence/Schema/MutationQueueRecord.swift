@@ -64,6 +64,8 @@ struct MutationQueueRecord: Codable, Equatable, Sendable {
     /// was enqueued. Belongs to the mutation (not the mutable row) so pulls
     /// that refresh a protected row cannot invalidate the conflict baseline.
     var baseUpdatedAt: Date?
+    /// Structured diagnostic JSON; lastError retains legacy text and Kanban recovery codes.
+    var failureDetails: String?
 }
 
 extension MutationQueueRecord: FetchableRecord, MutablePersistableRecord {
@@ -71,5 +73,18 @@ extension MutationQueueRecord: FetchableRecord, MutablePersistableRecord {
 
     mutating func didInsert(_ inserted: InsertionSuccess) {
         id = inserted.rowID
+    }
+}
+
+extension MutationQueueRecord {
+    var canDiscardConflict: Bool {
+        needsConflictResolution
+            && lastError.flatMap(KanbanCreationFailure.init(rawValue:)) == nil
+            && lastError.flatMap(KanbanMoveFailure.init(rawValue:)) == nil
+    }
+
+    mutating func recordFailure(_ error: any Error) {
+        lastError = String(describing: error)
+        failureDetails = StoredSyncFailure(error: error).encoded
     }
 }

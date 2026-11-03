@@ -291,6 +291,8 @@ struct KanbanCreationTests {
         #expect(pending.count == 1)
         #expect(pending[0].status == .failed)
         #expect(pending[0].failureMessage != nil)
+        #expect(!pending[0].canDiscardConflict)
+        #expect(pending[0].diagnosticDetails?.contains("Last failure:") == true)
         if case .server(_, 412) = error {
             #expect(pending[0].failureMessage?.contains("capacity") == true)
             #expect(try await fixture.store.read { try MutationQueueRecord.fetchAll($0).first?.lastError }
@@ -490,6 +492,9 @@ struct KanbanCreationTests {
             .first { $0.id == pending.id })
         #expect(retried.status == .pending)
         #expect(!retried.needsConflictResolution)
+        #expect(retried.failureMessage == nil)
+        #expect(retried.diagnosticDetails == nil)
+        #expect(retried.retryCount == 0)
     }
 
     @Test func `explicit recovery and legacy creations never auto delete after rejection`() async throws {

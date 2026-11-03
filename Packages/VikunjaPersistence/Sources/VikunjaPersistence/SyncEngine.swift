@@ -1197,7 +1197,7 @@ public actor SyncEngine {
                   currentItem.payload == item.payload
             else { return }
             currentItem.retryCount += 1
-            currentItem.lastError = String(describing: error)
+            currentItem.recordFailure(error)
             currentItem.status = .failed
             try currentItem.update(db)
         }
@@ -1783,6 +1783,7 @@ public actor SyncEngine {
         current.baseUpdatedAt = updatedAt
         current.status = .pending
         current.lastError = nil
+        current.failureDetails = nil
         current.retryCount = 0
         try current.update(db)
     }
@@ -1836,7 +1837,7 @@ public actor SyncEngine {
             guard var row = try MutationQueueRecord.fetchOne(db, key: item.id),
                   row.payload == item.payload else { return }
             row.retryCount += 1
-            row.lastError = String(describing: error)
+            row.recordFailure(error)
             row.status = .failed
             try row.update(db)
         }

@@ -107,6 +107,56 @@ struct PendingSyncOperationsReaderTests {
         )
     }
 
+    @Test
+    func `conflict messages do not change cleanup eligibility and Kanban failures stay protected`() async throws {
+        let store = try makeStore()
+        let accountID = UUID()
+        try await store.write { db in
+            for error: String? in [
+                nil,
+                "legacy failure",
+                KanbanCreationFailure.ambiguous.rawValue,
+                KanbanCreationFailure.rejected.rawValue,
+                KanbanMoveFailure.rejected.rawValue,
+            ] {
+                var item = mutation(
+                    entityType: .task, operation: .create, targetLocalID: UUID(), accountID: accountID,
+                    status: .failed, needsConflictResolution: true,
+                )
+                item.lastError = error
+                try item.insert(db)
+            }
+        }
+        let operations = try await store.pendingSyncOperations(accountID: accountID)
+        #expect(operations.allSatisfy { $0.failureMessage != nil })
+        #expect(operations.map(\.canDiscardConflict) == [true, true, false, false, false])
+        #expect(operations.map(\.canRecoverKanbanCreation) == [false, false, false, true, false])
+        for operation in operations {
+            try await store.discardConflictedPendingSyncOperation(id: operation.id, accountID: accountID)
+        }
+        #expect(try await store.pendingSyncOperations(accountID: accountID).map(\.id) == operations.suffix(3).map(\.id))
+    }
+
+    @Test
+    func `legacy errors and unreadable diagnostics remain visible`() async throws {
+        let store = try makeStore()
+        let accountID = UUID()
+        try await store.write { db in
+            var item = mutation(
+                entityType: .task, operation: .update, targetLocalID: UUID(), accountID: accountID, status: .failed,
+            )
+            item.lastError = "legacy server rejection"
+            item.failureDetails = "unreadable JSON"
+            item.retryCount = 3
+            try item.insert(db)
+        }
+        let operation = try #require(try await store.pendingSyncOperations(accountID: accountID).first)
+        #expect(operation.failureMessage == "legacy server rejection")
+        #expect(operation.diagnosticDetails == "legacy server rejection")
+        #expect(operation.retryCount == 3)
+        #expect(!operation.canDiscardConflict)
+    }
+
     #if DEBUG
     @Test
     func `clearing removes every queue status only for the requested account and preserves cached data`() async throws {

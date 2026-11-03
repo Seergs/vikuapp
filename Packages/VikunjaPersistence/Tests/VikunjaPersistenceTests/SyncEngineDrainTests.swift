@@ -80,6 +80,54 @@ struct SyncEngineDrainTests {
         }
     }
 
+    @Test(arguments: [
+        VikunjaError.server(message: #"{"message":"Permission denied","code":3001}"#, statusCode: 403),
+        VikunjaError.timeout,
+        VikunjaError.network("DNS lookup failed"),
+        VikunjaError.unauthorized,
+        VikunjaError.decoding("Missing title"),
+    ])
+    func `failed uploads persist readable reasons and technical diagnostics across reopen`(
+        error: VikunjaError,
+    ) async throws {
+        let directory = temporaryDirectory()
+        let store = try LocalStore(directory: directory)
+        let repository = FakeProjectRepository()
+        repository.createError = error
+        let engine = SyncEngine(
+            localStore: store, projectRepository: repository, labelRepository: FakeLabelRepository(),
+            taskRepository: FakeTaskRepository(), relationRepository: FakeTaskRelationRepository(),
+            accountID: accountID,
+        )
+        let project = try await insertProject(in: store, remoteID: nil)
+        try await queueMutation(
+            in: store, operation: .create, targetLocalID: project.localID,
+            payload: ProjectCreateOrUpdatePayload(
+                title: "Groceries", description: nil, isArchived: false, isFavorite: false,
+                parentProjectLocalID: nil, position: 0, hexColor: "", baseUpdatedAt: nil,
+            ),
+        )
+        try await engine.drainProjectMutations()
+        let reopened = try LocalStore(directory: directory)
+        let operation = try #require(try await reopened.pendingSyncOperations(accountID: accountID).first)
+        #expect(operation.status == .failed)
+        #expect(operation.retryCount == 1)
+        #expect(operation.failureMessage?.isEmpty == false)
+        #expect(operation.diagnosticDetails?.contains("Last failure:") == true)
+        #expect(!operation.canDiscardConflict)
+        if case .server = error {
+            #expect(operation.failureMessage == "HTTP 403: Permission denied")
+            #expect(operation.diagnosticDetails?.contains("3001") == true)
+        }
+        // Losing connectivity preserves the original diagnostic, without another failed attempt.
+        repository.createError = VikunjaError.offline
+        await #expect(throws: VikunjaError.offline) { try await engine.drainProjectMutations() }
+        #expect(try await reopened.pendingSyncOperations(accountID: accountID).first == operation)
+        repository.createError = nil
+        try await engine.drainProjectMutations()
+        #expect(try await reopened.pendingSyncOperations(accountID: accountID).isEmpty)
+    }
+
     @Test(arguments: [MutationOperation.create, .update])
     func `connection loss during task upload keeps intent pending and retries later`(
         operation: MutationOperation,

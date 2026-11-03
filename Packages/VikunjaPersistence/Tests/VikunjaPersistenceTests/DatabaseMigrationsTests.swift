@@ -14,6 +14,27 @@ struct DatabaseMigrationsTests {
     }
 
     @Test
+    func `failure diagnostics migration preserves an existing failed queue`() throws {
+        let database = try DatabaseQueue()
+        var migrator = DatabaseMigrator()
+        DatabaseMigrations.registerAll(on: &migrator)
+        try migrator.migrate(database, upTo: "createKanban")
+        try database.write { db in
+            try db.execute(sql: """
+            INSERT INTO mutationQueueItem
+                (accountID, entityType, operation, targetLocalID, createdAt, retryCount, lastError, status)
+            VALUES (?, 'task', 'update', ?, ?, 2, 'legacy error', 'failed')
+            """, arguments: [UUID(), UUID(), Date()])
+        }
+        try migrator.migrate(database)
+        let item = try #require(database.read { try MutationQueueRecord.fetchOne($0) })
+        #expect(item.lastError == "legacy error")
+        #expect(item.retryCount == 2)
+        #expect(item.status == .failed)
+        #expect(item.failureDetails == nil)
+    }
+
+    @Test
     func `migrating twice is a no op`() throws {
         let dbQueue = try migratedDatabase()
         var migrator = DatabaseMigrator()

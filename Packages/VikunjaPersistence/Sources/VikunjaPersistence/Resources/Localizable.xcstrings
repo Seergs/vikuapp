@@ -1,6 +1,70 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "The item is no longer available.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The item is no longer available."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El elemento ya no está disponible."
+          }
+        }
+      }
+    },
+    "The server response could not be read.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server response could not be read."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo leer la respuesta del servidor."
+          }
+        }
+      }
+    },
+    "This change could not be synced.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This change could not be synced."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo sincronizar este cambio."
+          }
+        }
+      }
+    },
+    "This change conflicts with a newer version on the server.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This change conflicts with a newer version on the server."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este cambio entra en conflicto con una versión más reciente en el servidor."
+          }
+        }
+      }
+    },
     "This column is full. Retry, choose another column, or delete this local task.": {
       "localizations": {
         "en": {

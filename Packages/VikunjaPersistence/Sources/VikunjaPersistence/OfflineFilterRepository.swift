@@ -69,6 +69,7 @@ public actor OfflineFilterRepository: FilterRepositoryProtocol {
                 existingDelete.payload = try Self.encode(FilterDeletePayload(remoteID: id))
                 existingDelete.status = .pending
                 existingDelete.lastError = nil
+                existingDelete.failureDetails = nil
                 existingDelete.retryCount = 0
                 try existingDelete.update(db)
             } else {
@@ -156,6 +157,7 @@ public actor OfflineFilterRepository: FilterRepositoryProtocol {
             existing.payload = encoded
             existing.status = .pending
             existing.lastError = nil
+            existing.failureDetails = nil
             existing.retryCount = 0
             existing.needsConflictResolution = false
             try existing.update(db)

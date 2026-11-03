@@ -63,7 +63,23 @@ struct PendingSyncViewModelTests {
             createdAt: createdAt,
             status: status,
             needsConflictResolution: needsConflictResolution,
+            canDiscardConflict: needsConflictResolution,
         )
+    }
+
+    @Test
+    func `a conflict with an explanation still allows cleanup`() async {
+        let provider = FakePendingSyncOperationsProvider()
+        let model = PendingSyncViewModel(
+            provider: provider, accountID: UUID(), toastPresenter: FakeToastPresenter(),
+        )
+        let conflict = PendingSyncOperation(
+            id: 42, entity: .task, action: .update, targetTitle: "Task", createdAt: Date(),
+            status: .failed, needsConflictResolution: true, failureMessage: "Changed on server",
+            canDiscardConflict: true,
+        )
+        await model.discard(conflict)
+        #expect(provider.discardedIDs.first?.id == 42)
     }
 
     #if DEBUG
