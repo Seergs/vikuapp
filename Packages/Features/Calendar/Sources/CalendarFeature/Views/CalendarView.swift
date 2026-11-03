@@ -238,7 +238,8 @@ private struct MonthGrid: View {
 
     var body: some View {
         LazyVGrid(columns: columns, spacing: VikuSpacing.xs) {
-            ForEach(month.weekdaySymbols, id: \.self) { symbol in
+            // Weekday initials can repeat, so each column needs its own identity.
+            ForEach(Array(month.weekdaySymbols.enumerated()), id: \.offset) { _, symbol in
                 Text(verbatim: symbol)
                     .font(.system(size: 11.5, weight: .bold))
                     .foregroundStyle(palette.textTertiary)
