@@ -16,6 +16,7 @@ struct CalendarView: View {
 
     private let calendar = Calendar.current
     @State private var selection = CalendarSelection()
+    @State private var todayTapped = false
 
     var body: some View {
         content
@@ -48,6 +49,7 @@ struct CalendarView: View {
         // Keep the toolbar host stable so UIKit doesn't replace the item
         // before SwiftUI can finish fading its content out.
         return Button {
+            todayTapped.toggle()
             selection.jumpToToday()
         } label: {
             if #available(iOS 26, macOS 26, *) {
@@ -59,6 +61,7 @@ struct CalendarView: View {
             }
         }
         .buttonStyle(.plain)
+        .vikuHaptic(.light, trigger: todayTapped)
         .opacity(isVisible ? 1 : 0)
         .scaleEffect(isVisible || reduceMotion ? 1 : 0.92)
         .animation(reduceMotion ? nil : .smooth(duration: 0.25), value: isVisible)
