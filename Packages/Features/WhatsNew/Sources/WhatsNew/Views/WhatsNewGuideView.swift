@@ -110,20 +110,9 @@ public struct WhatsNewGuideView: View {
         }
     }
 
-    @ViewBuilder
     private func stepImage(_ name: String?) -> some View {
-        if let name {
-            Image(name)
-                .resizable()
-                .scaledToFill()
-                .frame(height: 150)
-                .clipped()
-                .clipShape(RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
-        } else {
-            RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous)
-                .fill(palette.fieldBackground)
-                .frame(height: 150)
-        }
+        WhatsNewImageView(value: name, height: VikuImageSize.whatsNewGuideHeight)
+            .clipShape(RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
     }
 
     private func tipCallout(_ tip: String) -> some View {

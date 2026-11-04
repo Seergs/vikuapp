@@ -6,8 +6,7 @@ public struct WhatsNewHero: Equatable, Sendable, Codable {
     public let badge: String?
     public let title: String
     public let body: String
-    /// A bundled image asset name, resolved by whatever renders this, not a
-    /// remote URL — the content ships inside the app binary.
+    /// A bundled image asset name or an absolute HTTPS image URL.
     public let image: String?
     public let action: WhatsNewAction?
 

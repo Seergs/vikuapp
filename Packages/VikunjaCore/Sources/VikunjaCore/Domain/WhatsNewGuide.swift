@@ -5,8 +5,8 @@ public struct WhatsNewGuide: Hashable, Sendable, Codable {
     public struct Step: Hashable, Sendable, Codable {
         public let title: String
         public let body: String
-        /// A bundled image asset name; `nil` renders a placeholder rather
-        /// than an empty gap.
+        /// A bundled image asset name or an absolute HTTPS image URL.
+        /// `nil` renders a placeholder rather than an empty gap.
         public let image: String?
 
         public init(title: String, body: String, image: String? = nil) {
