@@ -10,14 +10,9 @@
 
 > ⚠️ Beta. Bugs are expected. Don't point it at a production Vikunja instance without a tested backup.
 
-This is an opinionated mobile client for Vikunja, not a full port of the web app. 
-Vikunja already has an official PWA and a [capable third-party one](https://github.com/Bassey240/vikunja-pwa), 
-and both aim to mirror the web experience feature for feature. This app takes a different position.
-
-It is built to be what you reach for when you are away from your computer: a
-fast, native view of what matters today, and a frictionless way to capture a
-task before you forget it. Planning, reorganizing, and deep project work stay on
-the web, where they belong.
+Viku is a native iOS client for Vikunja, focused on everyday task management.
+Check what matters today, capture tasks quickly, and keep moving when you are
+away from your computer.
 
 ## Screenshots
 
