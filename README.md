@@ -23,7 +23,7 @@ the web, where they belong.
 
 | Home | Projects | Task |
 |---|---|---|
-| ![Home](docs/screenshots/home.jpg) | ![Projects](docs/screenshots/projects.jpg) | ![Task](docs/screenshots/task.jpg) |
+| ![Home](docs/screenshots/home.jpg) | <img width="600" alt="Projects" src="https://github.com/user-attachments/assets/1eec4a13-1cc6-4f1a-9594-777433d8a5a5" /> | ![Task](docs/screenshots/task.jpg) |
 
 | Quick add | Calendar | Kanban |
 |---|---|---|
