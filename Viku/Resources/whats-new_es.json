@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "release": {
+    "version": "0.7.0",
+    "date": "2026-11-04",
+    "minAppVersion": "0.7.0",
+    "title": "Tus tareas, incluso sin conexión",
+    "subtitle": "Trabaja sin conexión. Sincroniza al reconectarte."
+  },
+  "hero": {
+    "id": "offline-mode",
+    "badge": "Nuevo",
+    "title": "¿Sin conexión? Tú sigue.",
+    "body": "Crea y edita tareas sin conexión. Tus cambios quedan guardados, incluso al cerrar la app.",
+    "image": "https://static.viku.dev/cdn-cgi/image/width=1200,quality=80,format=auto/img/whats-new/offline-support/viku-portada-offline.png",
+    "action": {
+      "type": "guide",
+      "label": "Descubre cómo",
+      "guideId": "offline-mode"
+    }
+  },
+  "features": [
+    {
+      "id": "offline-kanban",
+      "icon": "rectangle.split.3x1",
+      "tint": "purple",
+      "title": "Kanban sin conexión",
+      "body": "Crea tareas y muévelas en los tableros de proyectos descargados."
+    },
+    {
+      "id": "pending-sync",
+      "icon": "arrow.triangle.2.circlepath",
+      "tint": "teal",
+      "title": "Sincronización a la vista",
+      "body": "Consulta los cambios pendientes y los motivos de error en Ajustes."
+    },
+    {
+      "id": "description-checkboxes",
+      "icon": "checklist",
+      "tint": "green",
+      "title": "Toca para marcar",
+      "body": "Marca las casillas directamente en la descripción de tus tareas."
+    },
+    {
+      "id": "offline-calendar",
+      "icon": "calendar",
+      "tint": "blue",
+      "title": "Tu calendario, sin conexión",
+      "body": "Abre tareas descargadas y vuelve a hoy con un toque."
+    }
+  ],
+  "fixes": [
+    "Los widgets pueden usar tareas descargadas si tu servidor no está disponible.",
+    "La creación rápida reconoce mejor los nombres y mantiene seleccionadas las etiquetas nuevas.",
+    "Los subproyectos eliminados ya no reaparecen. Se conservan las tareas marcadas rápidamente.",
+    "Kanban carga todas las tareas y respeta los límites de columna al sincronizar.",
+    "La recuperación permite descartar todos los cambios pendientes de la cuenta y recargar desde el servidor."
+  ],
+  "guides": {
+    "offline-mode": {
+      "title": "Sigue trabajando sin conexión",
+      "intro": "No necesitas activar nada. Solo carga tus datos antes de quedarte sin conexión.",
+      "steps": [
+        {
+          "title": "Carga tus datos",
+          "body": "Abre tus proyectos, tareas y tableros con conexión. Sin conexión solo tendrás los datos descargados.",
+          "image": null
+        },
+        {
+          "title": "Sigue trabajando",
+          "body": "Crea, edita y completa tareas. Tus cambios quedan guardados en este dispositivo.",
+          "image": null
+        },
+        {
+          "title": "Vuelve a conectarte",
+          "body": "Viku intenta sincronizar automáticamente. Si quedan cambios pendientes, revisa Ajustes → Sincronización pendiente.",
+          "image": null
+        }
+      ],
+      "tip": "Los adjuntos y tableros de filtros guardados necesitan conexión. Actualiza las listas de filtros tras sincronizar. Mantén la app instalada hasta sincronizar todos los cambios.",
+      "primaryAction": {
+        "type": "dismiss",
+        "label": "Entendido"
+      },
+      "secondaryAction": null
+    }
+  },
+  "history": [
+    {
+      "version": "0.6.0",
+      "date": "2026-10-29",
+      "items": [
+        "Renombra y elimina filtros guardados y consulta sus criterios de búsqueda.",
+        "Menús más claros en listas especiales de proyectos.",
+        "Carga más rápida de contadores de proyectos y nombres de cuenta, y mejor enfoque del campo de verificación en dos pasos."
+      ]
+    }
+  ]
+}

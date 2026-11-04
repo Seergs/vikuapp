@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "release": {
+    "version": "0.7.0",
+    "date": "2026-11-04",
+    "minAppVersion": "0.7.0",
+    "title": "Your tasks, even offline",
+    "subtitle": "Work offline. Sync when you reconnect."
+  },
+  "hero": {
+    "id": "offline-mode",
+    "badge": "New",
+    "title": "No connection? Keep going.",
+    "body": "Create and edit tasks offline. Your changes stay saved, even when you close the app.",
+    "image": "https://static.viku.dev/cdn-cgi/image/width=1200,quality=80,format=auto/img/whats-new/offline-support/viku-portada-offline.png",
+    "action": {
+      "type": "guide",
+      "label": "See how",
+      "guideId": "offline-mode"
+    }
+  },
+  "features": [
+    {
+      "id": "offline-kanban",
+      "icon": "rectangle.split.3x1",
+      "tint": "purple",
+      "title": "Kanban, even offline",
+      "body": "Create tasks and move them on downloaded project boards."
+    },
+    {
+      "id": "pending-sync",
+      "icon": "arrow.triangle.2.circlepath",
+      "tint": "teal",
+      "title": "Sync at a glance",
+      "body": "See pending changes and failure reasons in Settings."
+    },
+    {
+      "id": "description-checkboxes",
+      "icon": "checklist",
+      "tint": "green",
+      "title": "Tap to check off",
+      "body": "Check off items directly in task descriptions."
+    },
+    {
+      "id": "offline-calendar",
+      "icon": "calendar",
+      "tint": "blue",
+      "title": "Your calendar, offline",
+      "body": "Open downloaded tasks and jump back to today with a tap."
+    }
+  ],
+  "fixes": [
+    "Widgets can use downloaded tasks when your server is unavailable.",
+    "Quick add matches names more accurately and keeps new labels selected.",
+    "Deleted subprojects stay deleted. Rapid task completions are preserved.",
+    "Kanban loads all tasks and handles column limits during sync.",
+    "Sync recovery lets you discard all unsynced account changes and reload from your server."
+  ],
+  "guides": {
+    "offline-mode": {
+      "title": "Keep working offline",
+      "intro": "No setup needed. Just load your data before going offline.",
+      "steps": [
+        {
+          "title": "Load your data",
+          "body": "Open your projects, tasks, and boards while connected. Only downloaded data is available offline.",
+          "image": null
+        },
+        {
+          "title": "Keep working",
+          "body": "Create, edit, and complete tasks. Your changes stay saved on this device.",
+          "image": null
+        },
+        {
+          "title": "Reconnect",
+          "body": "Viku tries to sync automatically. Check Settings → Pending Sync if anything is still waiting.",
+          "image": null
+        }
+      ],
+      "tip": "Attachments and saved-filter boards need a connection. Refresh saved-filter lists after syncing. Keep the app installed until all changes have synced.",
+      "primaryAction": {
+        "type": "dismiss",
+        "label": "Got it"
+      },
+      "secondaryAction": null
+    }
+  },
+  "history": [
+    {
+      "version": "0.6.0",
+      "date": "2026-10-29",
+      "items": [
+        "Rename and delete saved filters, and view their queries.",
+        "Clearer menus for special project lists.",
+        "Faster project counts and account names, plus better two-factor sign-in focus."
+      ]
+    }
+  ]
+}
