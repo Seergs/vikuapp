@@ -75,20 +75,11 @@ public struct WhatsNewMainView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: VikuSpacing.xs) {
-                ZStack {
-                    Circle().fill(palette.brand)
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(palette.brandForeground)
-                }
-                .frame(width: 20, height: 20)
-                .accessibilityHidden(true)
-
                 (
                     Text("VERSION", bundle: .module)
                         .font(.system(.footnote, weight: .semibold))
                         + Text(verbatim: " \(viewModel.release.version)")
-                        .font(.system(.footnote, design: .monospaced, weight: .semibold))
+                        .font(.system(.footnote, weight: .semibold)),
                 )
                 .foregroundStyle(palette.brand)
             }
