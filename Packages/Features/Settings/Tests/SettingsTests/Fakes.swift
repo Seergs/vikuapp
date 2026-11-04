@@ -545,6 +545,13 @@ final class FakePushNotificationRegistering: PushNotificationRegistering, @unche
     /// Lets a test hold `enable()` open long enough to issue a second,
     /// overlapping call while the first is still in flight.
     var enableDelay: Duration?
+    var savedRegistrationResult: Result<PushRegistration?, Error> = .success(nil)
+    var onEnable: (@Sendable () async -> Void)?
+
+    func savedRegistration(accountID: InstanceAccount.ID) async throws -> PushRegistration? {
+        try savedRegistrationResult.get()
+    }
+
     var updatePreferencesError: Error?
     /// Lets a test fail `updatePreferences` for just this one account, while
     /// every other account's call still succeeds — unlike
@@ -558,6 +565,7 @@ final class FakePushNotificationRegistering: PushNotificationRegistering, @unche
     }
 
     func enable(vikunjaUserID: Int, accountID: InstanceAccount.ID) async throws -> PushRegistration? {
+        await onEnable?()
         if let enableDelay {
             try? await Task.sleep(for: enableDelay)
         }

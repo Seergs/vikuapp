@@ -63,12 +63,11 @@ public final class NotificationsViewModel {
         loadState == .loading
     }
 
-    /// This device's current relay registration, obtained the first time
-    /// `enable(vikunjaUserID:)` succeeds — `nil` until then, or after
-    /// `disable()`. Re-fetched (cheaply: see `RelayPushRegistrationService`)
-    /// on every `load()` while `settings.isEnabled`, so a permission revoked
-    /// from the system Settings app since the last launch is caught here.
+    /// Saved configuration is displayable before any remote work finishes.
+    /// Verification is tracked separately from the persisted configuration.
+    private var savedRegistration: PushRegistration?
     private var currentRegistration: PushRegistration?
+    public private(set) var isRegistrationVerified = false
     private var currentUserID: Int?
     /// The in-flight `load()` call, if any. `NotificationsView`'s `onAppear`
     /// can refire `load()` on this same cached view model (e.g. navigating
@@ -126,11 +125,11 @@ public final class NotificationsViewModel {
         self.settings = notificationSettingsStore.settings(for: accountID)
     }
 
-    /// This device's relay URL, once registered — what a screen shows as
-    /// "this is where your instance's webhooks point." `nil` until
-    /// `confirmEnable()`/`load()` has successfully registered.
+    /// Configured destination, including a saved registration while remote
+    /// verification is pending or unavailable. Revoked permission hides it.
     public var relayTargetURL: URL? {
-        currentRegistration?.targetURL
+        guard !isPermissionDenied else { return nil }
+        return (currentRegistration ?? savedRegistration)?.targetURL
     }
 
     public func load() async {
@@ -147,6 +146,12 @@ public final class NotificationsViewModel {
     private func performLoad() async {
         if loadState != .loaded {
             loadState = .loading
+        }
+        if settings.isEnabled, savedRegistration == nil, currentRegistration == nil {
+            // A local read must not hold the visible status behind project/user
+            // downloads or the APNs/relay handshake. Read failures are best effort;
+            // the normal refresh can still restore a registration.
+            savedRegistration = try? await pushNotificationRegistering.savedRegistration(accountID: accountID)
         }
         do {
             async let fetchedProjects = projectRepository.fetchProjects()
@@ -218,6 +223,8 @@ public final class NotificationsViewModel {
         await apply(updated)
         try? await pushNotificationRegistering.disable(accountID: accountID)
         currentRegistration = nil
+        savedRegistration = nil
+        isRegistrationVerified = false
     }
 
     public func setUserLevelEvent(_ event: WebhookEvent, isEnabled: Bool) async {
@@ -320,6 +327,7 @@ public final class NotificationsViewModel {
     private func refreshRegistration() async -> Bool {
         guard let userID = await resolveUserID() else { return false }
         lastRegistrationRefreshAttempt = Date()
+        isRegistrationVerified = false
         do {
             guard let registration = try await pushNotificationRegistering.enable(
                 vikunjaUserID: userID,
@@ -331,6 +339,8 @@ public final class NotificationsViewModel {
             }
             isPermissionDenied = false
             currentRegistration = registration
+            savedRegistration = registration
+            isRegistrationVerified = true
             return true
         } catch let error as VikunjaError {
             toastPresenter.show(error.displayMessage, style: .error)
@@ -355,7 +365,7 @@ public final class NotificationsViewModel {
     /// so a failed request never leaves `notificationSettingsStore`
     /// claiming a state the server doesn't actually have.
     private func apply(_ newSettings: NotificationSettings) async {
-        guard let registration = currentRegistration else {
+        guard let registration = currentRegistration ?? savedRegistration else {
             // Nothing to reconcile against (never enabled, or already
             // disabled) — e.g. toggling a project off while the feature
             // itself is off. Persist and exit.

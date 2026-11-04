@@ -1,3 +1,5 @@
+import Foundation
+
 /// Composes the OS permission prompt, the APNs device-token handshake, and
 /// the relay registration (`PushRegistrationProviding`) behind one seam a
 /// `Features/*` view model can depend on without importing UIKit or any
@@ -6,6 +8,11 @@
 /// `PushRegistrationProviding`) in the app target, since neither belongs in
 /// VikunjaCore.
 public protocol PushNotificationRegistering: Sendable {
+    /// Reads this account's saved configuration without requesting permission,
+    /// contacting APNs, or making an HTTP request. This is not verification
+    /// that permission is still granted or the relay registration still exists.
+    func savedRegistration(accountID: InstanceAccount.ID) async throws -> PushRegistration?
+
     /// Requests notification authorization, and on success registers this
     /// device with the relay for `accountID`/`vikunjaUserID`. Returns `nil`
     /// when the user denies (or has previously denied) authorization — the

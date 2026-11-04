@@ -23,6 +23,39 @@ struct RelayPushRegistrationServiceTests {
     {"id": "reg-1", "webhook_url": "https://relay.example.com/h/reg-1", "management_token": "mgmt-token-1"}
     """
 
+    @Test
+    func `saved registration survives a new service and reads without HTTP`() async throws {
+        let session = MockURLProtocol.makeSession(responses: [(200, Self.registerResponse)])
+        let namespace = "dev.sergiosuarez.viku.tests.push.\(UUID().uuidString)"
+        let service = RelayPushRegistrationService(session: session, keychainService: namespace)
+        let registered = try await service.register(
+            deviceToken: Data([0x01]), vikunjaUserID: 1, accountID: Self.accountA,
+        )
+        let reopened = RelayPushRegistrationService(session: session, keychainService: namespace)
+
+        #expect(try await reopened.savedRegistration(accountID: Self.accountA) == registered)
+        #expect(try await reopened.savedRegistration(accountID: Self.accountB) == nil)
+        #expect(MockURLProtocol.capturedRequests.count == 1)
+    }
+
+    @Test
+    func `unregister removes only that account's saved configuration`() async throws {
+        let session = MockURLProtocol.makeSession(
+            responses: [(200, Self.registerResponse), (200, Self.registerResponse), (204, "")],
+        )
+        let service = makeService(session: session)
+        _ = try await service.register(deviceToken: Data([0x01]), vikunjaUserID: 1, accountID: Self.accountA)
+        let registeredB = try await service.register(
+            deviceToken: Data([0x01]), vikunjaUserID: 2, accountID: Self.accountB,
+        )
+
+        try await service.unregister(accountID: Self.accountA)
+
+        #expect(try await service.savedRegistration(accountID: Self.accountA) == nil)
+        #expect(try await service.savedRegistration(accountID: Self.accountB) == registeredB)
+        #expect(MockURLProtocol.capturedRequests.count == 3)
+    }
+
     // MARK: register
 
     @Test

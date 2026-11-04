@@ -1915,6 +1915,46 @@
         }
       }
     },
+    "Verified" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verificado"
+          }
+        }
+      }
+    },
+    "Not verified" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin verificar"
+          }
+        }
+      }
+    },
+    "Configured with %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configurado con %@"
+          }
+        }
+      }
+    },
+    "Updating notifications…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualizando notificaciones…"
+          }
+        }
+      }
+    },
     "Registered with %@" : {
       "localizations" : {
         "es" : {
