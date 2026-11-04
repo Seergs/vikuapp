@@ -37,6 +37,11 @@ public actor RelayPushRegistrationService: PushRegistrationProviding {
         self.keychainService = keychainService
     }
 
+    public func savedRegistration(accountID: InstanceAccount.ID) throws -> PushRegistration? {
+        guard let record = try loadRecord(account: Self.keychainAccount(for: accountID)) else { return nil }
+        return PushRegistration(targetURL: record.webhookURL, secret: record.webhookSecret)
+    }
+
     public func register(deviceToken: Data, vikunjaUserID: Int, accountID: InstanceAccount.ID) async throws -> PushRegistration {
         let apnsTokenHex = deviceToken.hexEncoded
         let account = Self.keychainAccount(for: accountID)

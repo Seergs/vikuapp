@@ -25,15 +25,18 @@ struct NotificationsView: View {
     /// Which parent projects are expanded to reveal their subprojects —
     /// empty by default, so every project starts collapsed.
     @State private var expandedProjectIDs: Set<EntityID> = []
-    /// Mirrors `viewModel.isSyncing`, but only after it's been true for
-    /// `syncIndicatorDelay` — see `body`'s `.task(id:)`. A round trip that
-    /// finishes faster than that never shows anything, so a quick toggle
-    /// doesn't flash a spinner on and immediately back off.
-    @State private var showSyncIndicator = false
+    @State private var progress = NotificationProgressPresentation()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.openURL) private var openURL
     @Environment(\.vikuPalette) private var palette
 
-    private static let syncIndicatorDelay: Duration = .seconds(1)
+    private var isWorking: Bool {
+        viewModel.isLoading || viewModel.isSyncing
+    }
+
+    private var statusAnimation: Animation? {
+        reduceMotion ? nil : .easeInOut(duration: 0.2)
+    }
 
     /// `viewModel` is built once by `SettingsRootView`'s cache and handed
     /// down (see `NotificationsViewModelCache`), not via a factory held in
@@ -130,53 +133,60 @@ struct NotificationsView: View {
                 Text("This removes the webhooks Viku created on your Vikunja instance.", bundle: .module)
             }
             .onAppear { Task { await viewModel.load() } }
-            // `.task(id:)` cancels the previous task the instant `isSyncing`
-            // changes, so a sync that finishes within `syncIndicatorDelay`
-            // never reaches the `withAnimation` below at all.
-            .task(id: viewModel.isSyncing) {
-                if viewModel.isSyncing {
-                    try? await Task.sleep(for: Self.syncIndicatorDelay)
-                    guard !Task.isCancelled else { return }
-                }
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    showSyncIndicator = viewModel.isSyncing
+            .task(id: isWorking) {
+                progress.update(isActive: isWorking)
+                guard let deadline = progress.nextUpdate else { return }
+                do {
+                    try await ContinuousClock().sleep(until: deadline)
+                    try Task.checkCancellation()
+                    progress.advance()
+                } catch {
+                    // Completion, a new operation, or navigation cancels this
+                    // presentation update without affecting the operation.
                 }
             }
+            .onDisappear { progress = NotificationProgressPresentation() }
     }
 
-    @ViewBuilder
     private var content: some View {
-        switch viewModel.loadState {
-        case .idle, .loading:
-            ProgressView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        case let .failure(message):
-            VikuStatusView(
-                systemImage: "exclamationmark.triangle.fill",
-                title: String(localized: "Couldn't load projects", bundle: .module),
-                message: message,
-            ) {
-                Task { await viewModel.load() }
-            }
-            .padding(.top, VikuSpacing.xxl)
-        case .loaded:
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    enableSection
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                enableSection
+                if viewModel.settings.isEnabled, viewModel.loadState == .loaded {
+                    userLevelSection
+                        .disabled(viewModel.pendingChange == .enabling || viewModel.pendingChange == .disabling)
+                }
+                switch viewModel.loadState {
+                case .idle, .loading:
+                    EmptyView()
+                case let .failure(message):
+                    VikuStatusView(
+                        systemImage: "exclamationmark.triangle.fill",
+                        title: String(localized: "Couldn't load projects", bundle: .module),
+                        message: message,
+                    ) {
+                        Task { await viewModel.load() }
+                    }
+                    .padding(.top, VikuSpacing.xxl)
+                case .loaded:
                     if viewModel.settings.isEnabled {
-                        userLevelSection
                         projectsSection
                     }
-                    // Keeps the last card clear of the tab bar.
-                    Color.clear.frame(height: VikuSpacing.xxl)
                 }
+                // Keeps the last card clear of the tab bar.
+                Color.clear.frame(height: VikuSpacing.xxl)
             }
-            .searchable(
-                text: $projectQuery,
-                placement: .automatic,
-                prompt: Text("Search projects...", bundle: .module),
-            )
+            .animation(statusAnimation, value: viewModel.relayTargetURL)
+            .animation(statusAnimation, value: viewModel.isRegistrationVerified)
+            .animation(statusAnimation, value: viewModel.isPermissionDenied)
+            .animation(statusAnimation, value: progress.isVisible)
+            .animation(statusAnimation, value: viewModel.settings.isEnabled)
         }
+        .searchable(
+            text: $projectQuery,
+            placement: .automatic,
+            prompt: Text("Search projects...", bundle: .module),
+        )
     }
 
     private var enableSection: some View {
@@ -191,7 +201,10 @@ struct NotificationsView: View {
                                 .foregroundStyle(palette.textSecondary)
                         }
                     }
-                    .disabled(viewModel.pendingChange == .enabling || viewModel.pendingChange == .disabling)
+                    .disabled(
+                        viewModel.loadState == .idle || viewModel.isLoading
+                            || viewModel.pendingChange == .enabling || viewModel.pendingChange == .disabling,
+                    )
                 }
                 .padding(.vertical, VikuSpacing.xs)
 
@@ -199,16 +212,22 @@ struct NotificationsView: View {
                     Divider()
                     HStack(spacing: VikuSpacing.sm) {
                         Circle()
-                            .fill(palette.semanticSuccess)
+                            .fill(viewModel.isRegistrationVerified ? palette.semanticSuccess : palette.textSecondary)
                             .frame(width: 8, height: 8)
-                        Text(String(localized: "Registered with \(relayTargetURL.host ?? relayTargetURL.absoluteString)", bundle: .module))
+                        Text(String(localized: "Configured with \(relayTargetURL.host ?? relayTargetURL.absoluteString)", bundle: .module))
                             .font(VikuFont.footnote)
                             .foregroundStyle(palette.textSecondary)
                     }
                     .padding(.vertical, VikuSpacing.sm)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityValue(
+                        viewModel.isRegistrationVerified
+                            ? Text("Verified", bundle: .module)
+                            : Text("Not verified", bundle: .module),
+                    )
                 }
 
-                if showSyncIndicator {
+                if progress.isVisible {
                     Divider()
                     syncingRow
                         .padding(.vertical, VikuSpacing.sm)
@@ -245,14 +264,13 @@ struct NotificationsView: View {
         .padding(.top, VikuSpacing.sm)
     }
 
-    /// Shown once `confirmEnable()`/`disable()`/a toggle's sync has been
-    /// running for longer than `syncIndicatorDelay` — a fast round trip
-    /// never reaches this, so the screen doesn't flash a spinner for
-    /// something that was over almost instantly.
+    /// Delayed by one second, then visible for at least one full second.
     private var syncingRow: some View {
         HStack(spacing: VikuSpacing.sm) {
             ProgressView()
-            Text("Setting up notifications…", bundle: .module)
+            Text(viewModel.settings.isEnabled
+                ? String(localized: "Updating notifications…", bundle: .module)
+                : String(localized: "Setting up notifications…", bundle: .module))
                 .font(VikuFont.footnote)
                 .foregroundStyle(palette.textSecondary)
         }
@@ -261,10 +279,12 @@ struct NotificationsView: View {
     private var deniedBanner: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm) {
             Text("Notifications are turned off for Viku in iOS Settings.", bundle: .module)
-                .foregroundStyle(palette.semanticDangerText)
+                .font(VikuFont.footnote)
+                .foregroundStyle(palette.textSecondary)
             Button(String(localized: "Open Settings", bundle: .module)) {
                 openSystemSettings()
             }
+            .font(VikuFont.footnote)
         }
     }
 

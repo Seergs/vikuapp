@@ -31,6 +31,10 @@ actor PushNotificationCoordinator: PushNotificationRegistering {
         self.registrationService = registrationService
     }
 
+    func savedRegistration(accountID: InstanceAccount.ID) async throws -> PushRegistration? {
+        try await registrationService.savedRegistration(accountID: accountID)
+    }
+
     func enable(vikunjaUserID: Int, accountID: InstanceAccount.ID) async throws -> PushRegistration? {
         if let existing = inFlightEnables[accountID] {
             return try await existing.value

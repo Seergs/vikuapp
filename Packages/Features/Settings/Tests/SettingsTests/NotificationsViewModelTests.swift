@@ -26,6 +26,111 @@ struct NotificationsViewModelTests {
         )
     }
 
+    @Test
+    func `saved configuration is visible before remote registration completes`() async throws {
+        let store = FakeNotificationSettingsStore(settings: NotificationSettings(isEnabled: true))
+        let registering = FakePushNotificationRegistering()
+        let saved = try PushRegistration(targetURL: #require(URL(string: "https://relay.example.com/h/saved")), secret: "saved")
+        registering.savedRegistrationResult = .success(saved)
+        let viewModel = makeViewModel(pushNotificationRegistering: registering, notificationSettingsStore: store)
+        registering.onEnable = {
+            await MainActor.run {
+                #expect(viewModel.relayTargetURL == saved.targetURL)
+                #expect(!viewModel.isRegistrationVerified)
+            }
+        }
+
+        await viewModel.load()
+
+        #expect(viewModel.isRegistrationVerified)
+        #expect(viewModel.relayTargetURL == URL(string: "https://relay.example.com/h/device-1"))
+    }
+
+    @Test
+    func `remote failure preserves configured destination without claiming verification`() async throws {
+        let store = FakeNotificationSettingsStore(settings: NotificationSettings(isEnabled: true))
+        let registering = FakePushNotificationRegistering()
+        let saved = try PushRegistration(targetURL: #require(URL(string: "https://relay.example.com/h/saved")), secret: "saved")
+        registering.savedRegistrationResult = .success(saved)
+        registering.enableResult = .failure(VikunjaError.network("offline"))
+        let toast = FakeToastPresenter()
+        let viewModel = makeViewModel(
+            pushNotificationRegistering: registering, notificationSettingsStore: store, toastPresenter: toast,
+        )
+
+        await viewModel.load()
+
+        #expect(viewModel.relayTargetURL == saved.targetURL)
+        #expect(!viewModel.isRegistrationVerified)
+        #expect(!viewModel.isPermissionDenied)
+        #expect(!viewModel.isSyncing)
+    }
+
+    @Test
+    func `permission revocation hides the saved destination`() async {
+        let store = FakeNotificationSettingsStore(settings: NotificationSettings(isEnabled: true))
+        let registering = FakePushNotificationRegistering()
+        registering.savedRegistrationResult = registering.enableResult
+        registering.enableResult = .success(nil)
+        let viewModel = makeViewModel(pushNotificationRegistering: registering, notificationSettingsStore: store)
+
+        await viewModel.load()
+
+        #expect(viewModel.isPermissionDenied)
+        #expect(viewModel.relayTargetURL == nil)
+        #expect(!viewModel.isRegistrationVerified)
+    }
+
+    @Test
+    func `a failed local read still allows remote registration`() async {
+        let store = FakeNotificationSettingsStore(settings: NotificationSettings(isEnabled: true))
+        let registering = FakePushNotificationRegistering()
+        registering.savedRegistrationResult = .failure(VikunjaError.network("local read failed"))
+        let viewModel = makeViewModel(pushNotificationRegistering: registering, notificationSettingsStore: store)
+
+        await viewModel.load()
+
+        #expect(viewModel.isRegistrationVerified)
+        #expect(viewModel.relayTargetURL != nil)
+    }
+
+    @Test
+    func `a disabled account never presents a leftover saved registration`() async {
+        let registering = FakePushNotificationRegistering()
+        registering.savedRegistrationResult = registering.enableResult
+        let viewModel = makeViewModel(pushNotificationRegistering: registering)
+
+        await viewModel.load()
+
+        #expect(viewModel.relayTargetURL == nil)
+        #expect(!viewModel.isRegistrationVerified)
+    }
+
+    @Test
+    func `disabling after a failed refresh removes webhooks using saved configuration`() async throws {
+        let saved = try PushRegistration(targetURL: #require(URL(string: "https://relay.example.com/h/saved")), secret: "saved")
+        let store = FakeNotificationSettingsStore(
+            settings: NotificationSettings(isEnabled: true, userLevelEvents: [.tasksOverdue]),
+        )
+        let registering = FakePushNotificationRegistering()
+        registering.savedRegistrationResult = .success(saved)
+        registering.enableResult = .failure(VikunjaError.network("relay unavailable"))
+        let webhooks = FakeWebhookRepository(
+            userWebhooks: [Webhook(id: 10, targetURL: saved.targetURL, events: [.tasksOverdue])],
+        )
+        let viewModel = makeViewModel(
+            webhookRepository: webhooks, pushNotificationRegistering: registering, notificationSettingsStore: store,
+        )
+        await viewModel.load()
+
+        await viewModel.disable()
+
+        #expect(webhooks.deletedUserWebhookIDs == [10])
+        #expect(viewModel.relayTargetURL == nil)
+        #expect(!viewModel.settings.isEnabled)
+        #expect(!viewModel.isRegistrationVerified)
+    }
+
     // MARK: load
 
     @Test
@@ -396,6 +501,8 @@ struct NotificationsViewModelTests {
         #expect(webhookRepository.deletedUserWebhookIDs.count == 1)
         #expect(webhookRepository.deletedProjectWebhookIDs.map(\.projectID) == [4])
         #expect(registering.disableCallCount == 1)
+        #expect(viewModel.relayTargetURL == nil)
+        #expect(!viewModel.isRegistrationVerified)
         #expect(store.savedSettings.last?.isEnabled == false)
         // The toggles reset along with the master switch — see the next test.
         #expect(viewModel.settings.userLevelEvents.isEmpty)
