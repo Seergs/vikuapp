@@ -148,19 +148,8 @@ public struct WhatsNewMainView: View {
         .clipShape(RoundedRectangle(cornerRadius: VikuRadius.lg, style: .continuous))
     }
 
-    @ViewBuilder
     private func heroImage(_ name: String?) -> some View {
-        if let name {
-            Image(name)
-                .resizable()
-                .scaledToFill()
-                .frame(height: 180)
-                .clipped()
-        } else {
-            Rectangle()
-                .fill(palette.fieldBackground)
-                .frame(height: 180)
-        }
+        WhatsNewImageView(value: name, height: VikuImageSize.whatsNewHeroHeight)
     }
 
     private func featureRow(_ feature: WhatsNewFeature) -> some View {
