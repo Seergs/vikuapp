@@ -23,7 +23,7 @@ struct SettingsView: View {
     let isDevBuild: Bool
     let devBadgeStore: DevBadgeVisibilityStoring
     let networkLoggingStore: NetworkRequestLoggingStoring
-    let whatsNewSeenVersionStore: WhatsNewSeenVersionStoring
+    let whatsNewViewModel: WhatsNewSettingsViewModel
     let onPreviewOnboarding: () -> Void
     let router: Router<SettingsRoute>
 
@@ -274,7 +274,7 @@ struct SettingsView: View {
                         title: String(localized: "Reset What's New", bundle: .module),
                         subtitle: String(localized: "Show the sheet again on the next launch", bundle: .module),
                     ) {
-                        whatsNewSeenVersionStore.setLastSeenReleaseVersion(nil)
+                        whatsNewViewModel.reset()
                     }
                 } header: {
                     Text("Developer", bundle: .module)

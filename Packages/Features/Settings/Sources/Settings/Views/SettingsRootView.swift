@@ -19,7 +19,7 @@ public struct SettingsRootView: View {
     private let isDevBuild: Bool
     private let devBadgeStore: DevBadgeVisibilityStoring
     private let networkLoggingStore: NetworkRequestLoggingStoring
-    private let whatsNewSeenVersionStore: WhatsNewSeenVersionStoring
+    private let whatsNewViewModel: WhatsNewSettingsViewModel
     private let onPreviewOnboarding: () -> Void
     private let makeConnectionsListViewModel: () -> ConnectionsListViewModel
     private let makeConnectionFormViewModel: (ConnectionFormMode) -> ConnectionFormViewModel
@@ -65,6 +65,7 @@ public struct SettingsRootView: View {
         devBadgeStore: DevBadgeVisibilityStoring,
         networkLoggingStore: NetworkRequestLoggingStoring,
         whatsNewSeenVersionStore: WhatsNewSeenVersionStoring,
+        toastPresenter: ToastPresenting,
         onPreviewOnboarding: @escaping () -> Void,
         makeConnectionsListViewModel: @escaping () -> ConnectionsListViewModel,
         makeConnectionFormViewModel: @escaping (ConnectionFormMode) -> ConnectionFormViewModel,
@@ -83,7 +84,10 @@ public struct SettingsRootView: View {
         self.isDevBuild = isDevBuild
         self.devBadgeStore = devBadgeStore
         self.networkLoggingStore = networkLoggingStore
-        self.whatsNewSeenVersionStore = whatsNewSeenVersionStore
+        self.whatsNewViewModel = WhatsNewSettingsViewModel(
+            seenVersionStore: whatsNewSeenVersionStore,
+            toastPresenter: toastPresenter,
+        )
         self.onPreviewOnboarding = onPreviewOnboarding
         self.makeConnectionsListViewModel = makeConnectionsListViewModel
         self.makeConnectionFormViewModel = makeConnectionFormViewModel
@@ -128,7 +132,7 @@ public struct SettingsRootView: View {
                 isDevBuild: isDevBuild,
                 devBadgeStore: devBadgeStore,
                 networkLoggingStore: networkLoggingStore,
-                whatsNewSeenVersionStore: whatsNewSeenVersionStore,
+                whatsNewViewModel: whatsNewViewModel,
                 onPreviewOnboarding: onPreviewOnboarding,
                 router: router,
             )

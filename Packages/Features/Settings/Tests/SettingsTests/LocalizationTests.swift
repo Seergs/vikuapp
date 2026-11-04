@@ -30,6 +30,10 @@ struct LocalizationTests {
     }
 
     @Test(arguments: [
+        (
+            "What's New will appear on the next launch",
+            "Novedades aparecerá al volver a abrir la app",
+        ),
         ("Automatic", "Automático"),
         ("Light", "Claro"),
         ("Dark", "Oscuro"),

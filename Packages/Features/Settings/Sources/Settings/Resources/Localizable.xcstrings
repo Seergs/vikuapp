@@ -1365,6 +1365,22 @@
         }
       }
     },
+    "What's New will appear on the next launch" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What's New will appear on the next launch"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Novedades aparecerá al volver a abrir la app"
+          }
+        }
+      }
+    },
     "Reset What's New" : {
       "localizations" : {
         "es" : {
