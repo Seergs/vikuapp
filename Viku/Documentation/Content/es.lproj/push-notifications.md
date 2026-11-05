@@ -1,3 +1,11 @@
+---
+title: Notificaciones push
+summary: Configura las notificaciones y conoce cómo funcionan.
+category: setup
+updated: 2026-11-05
+related: server-version-support
+---
+
 # Notificaciones push
 
 Vikunja no envía notificaciones push a iOS por su cuenta: Apple solo proporciona esas credenciales a los desarrolladores de la propia app. Por eso, cuando activas las notificaciones en Viku, interviene un servicio intermediario: Viku Relay, que administramos los desarrolladores de Viku y que conecta tu instancia de Vikunja con tu iPhone.

@@ -8,23 +8,12 @@ struct DocumentationTableOfContentsView: View {
     let onSelect: (Int) -> Void
 
     @Environment(\.vikuPalette) private var palette
-    @Environment(\.displayScale) private var displayScale
-
-    private var borderColor: Color {
-        palette.textTertiary.opacity(0.35)
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("In this article")
-                .textCase(.uppercase)
-                .font(VikuFont.caption.weight(.bold))
-                .foregroundStyle(palette.textSecondary)
-                .accessibilityAddTraits(.isHeader)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(VikuSpacing.md)
+            DocumentationCardHeader(title: "In this article")
 
-            separator
+            DocumentationCardSeparator()
 
             ForEach(Array(headings.enumerated()), id: \.element.id) { index, heading in
                 Button {
@@ -46,32 +35,19 @@ struct DocumentationTableOfContentsView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xs)
-                    .padding(.vertical, VikuSpacing.sm)
-                    .frame(minHeight: VikuSpacing.xxl - VikuSpacing.xs)
+                    .padding(.vertical, VikuSpacing.xs)
+                    .frame(minHeight: VikuSpacing.xl + VikuSpacing.sm)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityElement(children: .combine)
 
                 if index < headings.count - 1 {
-                    separator
+                    DocumentationCardSeparator()
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(palette.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous)
-                .strokeBorder(borderColor)
-                .allowsHitTesting(false)
-        }
-    }
-
-    private var separator: some View {
-        Rectangle()
-            .fill(borderColor)
-            .frame(height: 1 / displayScale)
+        .documentationCard()
     }
 }
 

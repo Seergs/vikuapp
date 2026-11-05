@@ -1,3 +1,11 @@
+---
+title: Quick-Add Shortcuts
+summary: Set projects, labels, and priorities as you type.
+category: basics
+updated: 2026-11-05
+related: offline-mode
+---
+
 # Quick-Add Shortcuts
 
 The quick-add sheet can read shortcuts typed straight into the title, so you can

@@ -1,3 +1,11 @@
+---
+title: Server Version Support
+summary: Learn which Vikunja server versions are supported.
+category: setup
+updated: 2026-11-05
+related: push-notifications, offline-mode
+---
+
 # Server Version Support
 
 Viku works with any Vikunja instance. It detects what your server actually
