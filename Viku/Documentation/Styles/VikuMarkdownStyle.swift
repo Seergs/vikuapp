@@ -39,7 +39,7 @@ struct VikuMarkdownStyle: StructuredText.Style {
     }
 
     var orderedListMarker: some StructuredText.OrderedListMarker {
-        .decimal
+        VikuMarkdownNumberStyle(palette: palette)
     }
 
     var tableStyle: some StructuredText.TableStyle {
@@ -67,6 +67,23 @@ struct VikuMarkdownStyle: StructuredText.Style {
                 .blockComment: AnyTextProperty(.foregroundColor(palette.textSecondary)),
             ],
         )
+    }
+}
+
+private struct VikuMarkdownNumberStyle: StructuredText.OrderedListMarker {
+    let palette: VikuPalette
+
+    @ScaledMetric(relativeTo: .footnote) private var minimumSize = VikuSpacing.lg
+
+    func makeBody(configuration: Configuration) -> some View {
+        Text(verbatim: String(configuration.ordinal))
+            .font(VikuFont.footnote.weight(.semibold))
+            .monospacedDigit()
+            .foregroundStyle(palette.brandForeground)
+            .padding(.horizontal, VikuSpacing.xs)
+            .padding(.vertical, VikuSpacing.xxs)
+            .frame(minWidth: minimumSize, minHeight: minimumSize)
+            .background(palette.brand, in: Capsule())
     }
 }
 
