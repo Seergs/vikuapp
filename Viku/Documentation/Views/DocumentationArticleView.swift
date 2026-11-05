@@ -6,7 +6,7 @@ import VikuUI
 /// Pass resolved display strings; this view does not localize its inputs.
 /// Optional context (summary, category, update date, related guides) is shown
 /// only when provided.
-/// A leading Markdown H1 is omitted because navigation already shows the title.
+/// A leading Markdown H1 is omitted because the article header shows the title.
 /// Bundled Markdown works offline. Remote images and links require connectivity.
 struct DocumentationArticleView: View {
     let title: String
@@ -47,6 +47,12 @@ struct DocumentationArticleView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     VStack(alignment: .leading, spacing: VikuSpacing.sm) {
+                        Text(verbatim: title)
+                            .font(VikuFont.largeTitle.bold())
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .accessibilityAddTraits(.isHeader)
+
                         header
 
                         if !summary.isEmpty {
@@ -85,7 +91,7 @@ struct DocumentationArticleView: View {
             }
             .background(palette.pageBackground)
             .navigationTitle(Text(verbatim: title))
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 
@@ -231,9 +237,20 @@ private let relatedPreviewEntry = DocumentationEntry(
 
 #Preview("Article — Accessibility") {
     NavigationStack {
-        DocumentationArticleView(title: "Getting started", markdown: articlePreviewMarkdown)
+        DocumentationArticleView(title: "Compatibilidad del servidor", markdown: articlePreviewMarkdown)
     }
     .dynamicTypeSize(.accessibility3)
+}
+
+#Preview("Article — Long title") {
+    NavigationStack {
+        DocumentationArticleView(
+            title: "Compatibilidad del servidor",
+            summary: "Consulta qué funciones están disponibles en tu versión de Vikunja.",
+            category: "Servidor",
+            markdown: articlePreviewMarkdown,
+        )
+    }
 }
 
 #Preview("Article — Nord") {
