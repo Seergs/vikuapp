@@ -635,7 +635,13 @@ struct SyncCoordinatorTests {
         try await accounts.addAccount(account, token: "token")
         let factory = FakeInstanceClientFactory()
         let remote = factory.projectRepository(for: account.baseURL)
-        remote.fetchDelay = .milliseconds(150)
+        let fetchStarted = AsyncStream<Void>.makeStream()
+        let releaseFetch = AsyncStream<Void>.makeStream()
+        remote.beforeFetchResponse = {
+            fetchStarted.continuation.yield()
+            for await _ in releaseFetch.stream {}
+        }
+        defer { fetchStarted.continuation.finish() }
         let reachability = CoordinatorReachabilityMonitor()
         await reachability.setReachable(true)
         let coordinator = SyncCoordinator(
@@ -645,10 +651,18 @@ struct SyncCoordinatorTests {
         let sync = AccountSync(accountID: account.id, coordinator: coordinator, localStore: store)
         let repository = OfflineProjectRepository(localStore: store, accountID: account.id, syncRequester: sync)
         async let automatic: Void = coordinator.syncAllAccounts()
-        await waitUntil { remote.fetchProjectsCallCount == 1 }
-        let created = try await repository.create(Project(id: .local(UUID()), title: "Saved immediately"))
+        var fetchEvents = fetchStarted.stream.makeAsyncIterator()
+        _ = await fetchEvents.next()
+        let created: Project
+        do {
+            created = try await repository.create(Project(id: .local(UUID()), title: "Saved immediately"))
+        } catch {
+            releaseFetch.continuation.finish()
+            throw error
+        }
         #expect(created.id.remoteValue == nil)
         #expect(remote.createdProjects.isEmpty)
+        releaseFetch.continuation.finish()
         await automatic
         #expect(remote.fetchProjectsCallCount == 2)
         #expect(remote.createdProjects.count == 1)
