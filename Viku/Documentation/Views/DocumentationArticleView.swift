@@ -9,24 +9,61 @@ import VikuUI
 struct DocumentationArticleView: View {
     let title: String
     private let markdown: String
+    private let metadata: MarkdownArticleMetadata
 
     @Environment(\.vikuPalette) private var palette
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(title: String, markdown: String) {
         self.title = title
-        self.markdown = MarkdownArticleBody.removingLeadingHeading(from: markdown)
+        let body = MarkdownArticleBody.removingLeadingHeading(from: markdown)
+        self.markdown = body
+        self.metadata = MarkdownArticleMetadata(markdown: body)
     }
 
     var body: some View {
-        ScrollView {
-            MarkdownContentView(markdown: markdown)
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: VikuSpacing.sm) {
+                    if metadata.estimatedReadingMinutes > 0 {
+                        HStack(spacing: VikuSpacing.xs) {
+                            Image(systemName: "clock")
+                                .accessibilityHidden(true)
+                            Text(verbatim: String(localized: "\(metadata.estimatedReadingMinutes) min"))
+                        }
+                        .font(VikuFont.footnote)
+                        .foregroundStyle(palette.textSecondary)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(Text(verbatim: String(
+                            localized: "Estimated reading time: \(metadata.estimatedReadingMinutes) min",
+                        )))
+                    }
+
+                    if !metadata.tableOfContents.isEmpty {
+                        DocumentationTableOfContentsView(
+                            headings: metadata.tableOfContents,
+                            onSelect: { id in scrollToHeading(id, using: proxy) },
+                        )
+                        .padding(.vertical, VikuSpacing.sm)
+                    }
+
+                    MarkdownContentView(markdown: markdown)
+                }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, VikuSpacing.lg)
                 .padding(.vertical, VikuSpacing.md)
+            }
+            .background(palette.pageBackground)
+            .navigationTitle(Text(verbatim: title))
+            .navigationBarTitleDisplayMode(.large)
         }
-        .background(palette.pageBackground)
-        .navigationTitle(Text(verbatim: title))
-        .navigationBarTitleDisplayMode(.large)
+    }
+
+    private func scrollToHeading(_ id: Int, using proxy: ScrollViewProxy) {
+        guard let heading = metadata.tableOfContents.first(where: { $0.id == id }) else { return }
+        withAnimation(reduceMotion ? nil : .smooth) {
+            proxy.scrollTo(heading.anchor, anchor: .top)
+        }
     }
 }
 

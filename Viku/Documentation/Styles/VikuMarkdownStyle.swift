@@ -35,7 +35,7 @@ struct VikuMarkdownStyle: StructuredText.Style {
     }
 
     var unorderedListMarker: some StructuredText.UnorderedListMarker {
-        .hierarchical(.disc, .circle, .square)
+        VikuMarkdownBulletStyle(palette: palette)
     }
 
     var orderedListMarker: some StructuredText.OrderedListMarker {
@@ -70,12 +70,32 @@ struct VikuMarkdownStyle: StructuredText.Style {
     }
 }
 
+private struct VikuMarkdownBulletStyle: StructuredText.UnorderedListMarker {
+    let palette: VikuPalette
+
+    func makeBody(configuration: Configuration) -> some View {
+        // Textual's presets reserve a wide, trailing-aligned marker column.
+        // Use the glyph's intrinsic width so the outer bullet starts at the
+        // article's leading edge; nested lists retain their natural indentation.
+        StructuredText.HierarchicalSymbolListMarker(
+            .init(symbolName: "circle.fill", scale: 0.33, minWidth: .fontScaled(0)),
+            .init(symbolName: "circle", scale: 0.33, minWidth: .fontScaled(0)),
+            .init(symbolName: "square.fill", scale: 0.33, minWidth: .fontScaled(0)),
+        )
+        .makeBody(configuration: configuration)
+        .foregroundStyle(palette.brand)
+    }
+}
+
 private struct VikuMarkdownHeadingStyle: StructuredText.HeadingStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(font(for: configuration.headingLevel))
             .lineSpacing(VikuSpacing.xxs)
-            .textual.blockSpacing(.init(top: VikuSpacing.lg, bottom: VikuSpacing.sm))
+            .textual.blockSpacing(.init(
+                top: VikuSpacing.lg + VikuSpacing.xs,
+                bottom: VikuSpacing.sm + VikuSpacing.xs,
+            ))
             .accessibilityAddTraits(.isHeader)
     }
 
@@ -96,7 +116,10 @@ private struct VikuMarkdownParagraphStyle: StructuredText.ParagraphStyle {
         configuration.label
             .font(VikuFont.body)
             .lineSpacing(VikuSpacing.xs)
-            .textual.blockSpacing(.init(top: VikuSpacing.sm, bottom: VikuSpacing.sm))
+            .textual.blockSpacing(.init(
+                top: VikuSpacing.sm + VikuSpacing.xs,
+                bottom: VikuSpacing.sm + VikuSpacing.xs,
+            ))
     }
 }
 
@@ -107,6 +130,7 @@ private struct VikuMarkdownListItemStyle: StructuredText.ListItemStyle {
             configuration.block
         }
         .font(VikuFont.body)
+        .padding(.vertical, VikuSpacing.xxs)
     }
 }
 
