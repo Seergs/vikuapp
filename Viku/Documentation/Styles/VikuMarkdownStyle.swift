@@ -6,6 +6,7 @@ import VikuDesignSystem
 /// design system packages. Font tokens retain their native Dynamic Type sizes.
 struct VikuMarkdownStyle: StructuredText.Style {
     let palette: VikuPalette
+    var bodyFont: Font = VikuFont.body
 
     var inlineStyle: InlineStyle {
         InlineStyle()
@@ -19,7 +20,7 @@ struct VikuMarkdownStyle: StructuredText.Style {
     }
 
     var paragraphStyle: some StructuredText.ParagraphStyle {
-        VikuMarkdownParagraphStyle()
+        VikuMarkdownParagraphStyle(font: bodyFont)
     }
 
     var blockQuoteStyle: some StructuredText.BlockQuoteStyle {
@@ -31,7 +32,7 @@ struct VikuMarkdownStyle: StructuredText.Style {
     }
 
     var listItemStyle: some StructuredText.ListItemStyle {
-        VikuMarkdownListItemStyle()
+        VikuMarkdownListItemStyle(font: bodyFont)
     }
 
     var unorderedListMarker: some StructuredText.UnorderedListMarker {
@@ -129,9 +130,11 @@ private struct VikuMarkdownHeadingStyle: StructuredText.HeadingStyle {
 }
 
 private struct VikuMarkdownParagraphStyle: StructuredText.ParagraphStyle {
+    let font: Font
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(VikuFont.body)
+            .font(font)
             .lineSpacing(VikuSpacing.xs)
             .textual.blockSpacing(.init(
                 top: VikuSpacing.sm + VikuSpacing.xs,
@@ -141,12 +144,14 @@ private struct VikuMarkdownParagraphStyle: StructuredText.ParagraphStyle {
 }
 
 private struct VikuMarkdownListItemStyle: StructuredText.ListItemStyle {
+    let font: Font
+
     func makeBody(configuration: Configuration) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: VikuSpacing.sm) {
             configuration.marker
             configuration.block
         }
-        .font(VikuFont.body)
+        .font(font)
         .padding(.vertical, VikuSpacing.xxs)
     }
 }
