@@ -1,14 +1,21 @@
 import SwiftUI
 import VikuDesignSystem
+import VikuUI
 
 /// A read-only article ready to push onto the caller's navigation stack.
 /// Pass resolved display strings; this view does not localize its inputs.
+/// A leading Markdown H1 is omitted because navigation already shows the title.
 /// Bundled Markdown works offline. Remote images and links require connectivity.
 struct DocumentationArticleView: View {
     let title: String
-    let markdown: String
+    private let markdown: String
 
     @Environment(\.vikuPalette) private var palette
+
+    init(title: String, markdown: String) {
+        self.title = title
+        self.markdown = MarkdownArticleBody.removingLeadingHeading(from: markdown)
+    }
 
     var body: some View {
         ScrollView {
@@ -25,7 +32,11 @@ struct DocumentationArticleView: View {
 
 #if DEBUG
 private let articlePreviewMarkdown = """
+# Getting started
+
 Keep your work organized with **projects**, *labels*, and due dates.
+
+# Heading level 1
 
 ## Create your first project
 
@@ -39,6 +50,18 @@ Keep your work organized with **projects**, *labels*, and due dates.
 - Add **labels** to find tasks across projects.
   - Use a label for each area of your work.
 - Use `priority` to highlight what matters next.
+
+#### Heading level 4
+
+Normal text with ~~strikethrough~~ and **strong emphasis**.
+
+##### Heading level 5
+
+Body text keeps the same Dynamic Type size across sections.
+
+###### Heading level 6
+
+The smallest heading still uses a named Viku font token.
 
 > Tip: keep task titles short and put supporting details in the description.
 
@@ -80,6 +103,14 @@ Learn more in the [Vikunja documentation](https://vikunja.io/help/).
         DocumentationArticleView(title: "Getting started", markdown: articlePreviewMarkdown)
     }
     .dynamicTypeSize(.accessibility3)
+}
+
+#Preview("Article — Nord") {
+    NavigationStack {
+        DocumentationArticleView(title: "Getting started", markdown: articlePreviewMarkdown)
+    }
+    .environment(\.vikuPalette, .nord)
+    .preferredColorScheme(.dark)
 }
 
 #Preview("Article — Empty") {
