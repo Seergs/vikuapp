@@ -17,6 +17,10 @@ let package = Package(
             dependencies: ["VikunjaCore", "VikuDesignSystem"],
             resources: [.process("Resources")],
         ),
-        .testTarget(name: "VikuUITests", dependencies: ["VikuUI", "VikunjaCore"]),
+        .testTarget(
+            name: "VikuUITests",
+            dependencies: ["VikuUI", "VikunjaCore"],
+            exclude: ["Fixtures"],
+        ),
     ],
 )

@@ -14,7 +14,7 @@ import UIKit
 /// rather than an independent flow.
 struct ConnectionFormView: View {
     @State private var viewModel: ConnectionFormViewModel
-    let router: Router<SettingsRoute>
+    let router: AppRouter
     @State private var isTokenVisible = false
     @State private var isPasswordVisible = false
     @State private var isConfirmingDelete = false
@@ -27,7 +27,7 @@ struct ConnectionFormView: View {
     /// Takes a factory rather than an already-built view model — see
     /// `ConnectionsListView.init`'s doc comment for why this has to be
     /// `@State`-owned instead of a plain `@Bindable` property.
-    init(makeViewModel: @escaping () -> ConnectionFormViewModel, router: Router<SettingsRoute>) {
+    init(makeViewModel: @escaping () -> ConnectionFormViewModel, router: AppRouter) {
         _viewModel = State(initialValue: makeViewModel())
         self.router = router
     }

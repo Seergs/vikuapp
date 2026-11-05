@@ -17,6 +17,7 @@
 		A4AB5605158E4F5B9385BF68 /* VikunjaPersistence in Frameworks */ = {isa = PBXBuildFile; productRef = 2EF2537ADE58486F9C09FF14 /* VikunjaPersistence */; };
 		8D36636D0FDBD7ED575EA315 /* WhatsNew in Frameworks */ = {isa = PBXBuildFile; productRef = 18D7D1815299123CB4E17140 /* WhatsNew */; };
 		A2C44E7EAB8501F032F94F77 /* VikunjaCore in Frameworks */ = {isa = PBXBuildFile; productRef = C7C86918EA5BF47E31F95689 /* VikunjaCore */; };
+		AB128ECA62FD4D2ABAB9D001 /* Textual in Frameworks */ = {isa = PBXBuildFile; productRef = AB128ECA62FD4D2ABAB9D002 /* Textual */; };
 		AF1A9958F7144C64A26AE7DE /* VikuAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 1EDAB22A2783416BA9F0AC6D /* VikuAuth */; };
 		B89F0AB3411531775B788526 /* Viku-widgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 092ABB4ABC46663D77A4333A /* Viku-widgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C0A0235CF7A4953CBF6775E2 /* VikuDesignSystem in Frameworks */ = {isa = PBXBuildFile; productRef = 887DB5E3A518911BD1897E4B /* VikuDesignSystem */; };
@@ -124,6 +125,7 @@
 				F8DCC6D8B7369D0CF81969F6 /* VikuWidgetKit in Frameworks */,
 				13222C99D726509EF1E32034 /* Kanban in Frameworks */,
 				8D36636D0FDBD7ED575EA315 /* WhatsNew in Frameworks */,
+				AB128ECA62FD4D2ABAB9D001 /* Textual in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -226,6 +228,7 @@
 				8A10F10FDD4DC2CAF301F579 /* VikuWidgetKit */,
 				E8024A7799294F5CBCB0B3D8 /* Kanban */,
 				18D7D1815299123CB4E17140 /* WhatsNew */,
+				AB128ECA62FD4D2ABAB9D002 /* Textual */,
 			);
 			productName = Viku;
 			productReference = EC3BB466303D1EF6002753FC /* Viku.app */;
@@ -257,6 +260,7 @@
 			mainGroup = EC3BB45D303D1EF6002753FC;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				AB128ECA62FD4D2ABAB9D003 /* XCRemoteSwiftPackageReference "textual" */,
 				3F7D0D7A2D8E0EC22EE402E6 /* XCLocalSwiftPackageReference "Packages/VikunjaCore" */,
 				3A9FB82DE1CB8FCF7F92D8D5 /* XCLocalSwiftPackageReference "Packages/VikunjaNetworking" */,
 				06F83FC1F5114AB2B901D1D6 /* XCLocalSwiftPackageReference "Packages/VikuAuth" */,
@@ -699,6 +703,17 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		AB128ECA62FD4D2ABAB9D003 /* XCRemoteSwiftPackageReference "textual" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/gonzalezreal/textual";
+			requirement = {
+				kind = upToNextMinorVersion;
+				minimumVersion = 0.5.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		166A7A7237924DFA8CF44351 /* Home */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -739,6 +754,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = CF9745CA233B841AB93A4A82 /* XCLocalSwiftPackageReference "Packages/Features/Settings" */;
 			productName = Settings;
+		};
+		AB128ECA62FD4D2ABAB9D002 /* Textual */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AB128ECA62FD4D2ABAB9D003 /* XCRemoteSwiftPackageReference "textual" */;
+			productName = Textual;
 		};
 		C7C86918EA5BF47E31F95689 /* VikunjaCore */ = {
 			isa = XCSwiftPackageProductDependency;

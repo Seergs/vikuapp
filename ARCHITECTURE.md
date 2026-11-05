@@ -226,14 +226,14 @@ Features/Tasks/Sources/Tasks/
     value in the path, the pushed screen and its view model survive re-renders
     — this replaced the `(T) -> AnyView` destination closures and the
     `...DestinationBox` identity workarounds.
-  - **Intra-feature**: `VikuNavigation.Router<Route>` — the same generic
-    `@Observable`/`@MainActor` `NavigationPath` wrapper — typed to a `Route`
-    enum for destinations whose payload is feature-private (e.g. `Projects`'
-    `ProjectsRoute.projectOverview(ProjectNode)` carries the loaded subtree) or
-    whose whole stack is self-contained (`Settings`). A feature-local route is
-    still pushed onto the tab's `AppRouter` path (`push(_ route: some Hashable)`)
-    and resolved by that feature's own `.navigationDestination(for: Route.self)`
-    on the same stack; `Settings` keeps its own `NavigationStack` + `Router`.
+  - **Intra-feature**: a feature-local `Route` enum carries private payloads
+    (e.g. `ProjectsRoute.projectOverview(ProjectNode)` carries the loaded subtree).
+    These values are pushed onto the tab's `AppRouter` path via its generic
+    `push(_ route: some Hashable)` and resolved by the feature's own
+    `.navigationDestination(for: Route.self)` on that stack. Settings follows
+    this pattern too: its local `SettingsRoute` values share a path with the
+    app-owned documentation article's `AppRoute`. `Router<Route>` remains
+    available for entirely self-contained flows.
 
 This keeps "V" and "VM" cleanly separated from "M", and the Model never knows HTTP
 exists — only `VikunjaNetworking` does.
@@ -274,9 +274,17 @@ Glass bottom tab bar — the default rendering for `TabView` built with the mode
 never resets where you were in another one — the same pattern Apple's own
 Music/App Store apps use — and rebuilt on account switch via
 `.id(connectedAccount)`), each hosting a Feature's stack-less `<Name>RootView`
-and the shared `.appDestinations(...)` resolver. `Settings` is the exception:
-`SettingsRootView` still owns its own `NavigationStack` + `Router<SettingsRoute>`
-(a fully self-contained stack).
+and the shared `.appDestinations(...)` resolver. Settings uses the same
+arrangement to open app-owned documentation; `SettingsRootView` resolves only
+its feature-local `SettingsRoute` values. Session-expiry navigation still uses
+that tab's router to open the reconnect form.
+
+Settings' Help section opens `AppRoute.documentationIndex`. The index and article
+screens live in `Viku/Documentation`, alongside an ordered article catalog and
+localized Markdown under `Content/en.lproj` and `Content/es.lproj`. The app bundles
+all guide text for offline reads; `VikuUI.BundledMarkdownLoader` selects a supported
+language with English fallback. The four user guides formerly in root `docs/`
+now live here; README links point to their English resources.
 
 ```swift
 TabView(selection: $selection) {

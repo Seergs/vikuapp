@@ -10,7 +10,7 @@ import VikuUI
 /// within its edit screen (`ConnectionFormView`), not from this list.
 struct ConnectionsListView: View {
     @State private var viewModel: ConnectionsListViewModel
-    let router: Router<SettingsRoute>
+    let router: AppRouter
 
     @Environment(\.vikuPalette) private var palette
 
@@ -23,7 +23,7 @@ struct ConnectionsListView: View {
     /// already-loaded `accounts`) across any later re-invocation — otherwise
     /// a re-invocation would hand back a fresh, unloaded view model and the
     /// list would render blank after returning from a pushed screen.
-    init(makeViewModel: @escaping () -> ConnectionsListViewModel, router: Router<SettingsRoute>) {
+    init(makeViewModel: @escaping () -> ConnectionsListViewModel, router: AppRouter) {
         _viewModel = State(initialValue: makeViewModel())
         self.router = router
     }
@@ -79,7 +79,7 @@ struct ConnectionsListView: View {
                                 isActive: account.id == viewModel.activeAccountID,
                                 serverVersion: viewModel.serverVersions[account.id],
                                 onSelect: { Task { await viewModel.setActive(account) } },
-                                onEdit: { router.push(.connectionForm(.edit(account))) },
+                                onEdit: { router.push(SettingsRoute.connectionForm(.edit(account))) },
                             )
                             .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
 
@@ -99,7 +99,7 @@ struct ConnectionsListView: View {
                     )
 
                     AddConnectionButton {
-                        router.push(.connectionForm(.create))
+                        router.push(SettingsRoute.connectionForm(.create))
                     }
                 }
                 .padding(VikuSpacing.md)

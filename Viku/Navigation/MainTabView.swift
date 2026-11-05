@@ -62,7 +62,7 @@ struct MainTabView: View {
     /// Owned here rather than by `SettingsRootView` itself (see that type's
     /// doc comment) so a session-expiry prompt on any tab can push straight
     /// to the reconnect screen on this one.
-    @State private var settingsRouter = Router<SettingsRoute>()
+    @State private var settingsRouter = AppRouter()
 
     /// Drives the "your session expired" alert — set either from
     /// `account.needsReauthentication` already being true when this shell
@@ -142,44 +142,48 @@ struct MainTabView: View {
             }
 
             Tab(AppTab.settings.title, systemImage: AppTab.settings.systemImage, value: .settings) {
-                SettingsRootView(
-                    router: settingsRouter,
-                    account: account,
-                    themeStore: container.themeCenter,
-                    quickAddSyntaxStore: container.quickAddSyntaxStore,
-                    isDevBuild: BuildConfig.isDevBuild,
-                    devBadgeStore: container.devToolsCenter,
-                    networkLoggingStore: container.devToolsCenter,
-                    whatsNewSeenVersionStore: container.whatsNewSeenVersionStore,
-                    onPreviewOnboarding: onPreviewOnboarding,
-                    makeConnectionsListViewModel: {
-                        container.makeConnectionsListViewModel(onActiveAccountChanged: onAccountsChanged)
-                    },
-                    makeConnectionFormViewModel: { mode in
-                        container.makeConnectionFormViewModel(mode: mode, onActiveAccountChanged: onAccountsChanged)
-                    },
-                    makeManageLabelsViewModel: {
-                        container.makeManageLabelsViewModel(account: account)
-                    },
-                    makePendingSyncViewModel: {
-                        container.makePendingSyncViewModel(account: account)
-                    },
-                    makeNotificationsViewModel: {
-                        container.makeNotificationsViewModel(account: account)
-                    },
-                    makeAppIconBadgeViewModel: {
-                        container.makeAppIconBadgeViewModel()
-                    },
-                    makeGroupOverdueNotificationsViewModel: {
-                        container.makeGroupOverdueNotificationsViewModel()
-                    },
-                    makeDefaultProjectSettingsViewModel: {
-                        container.makeDefaultProjectSettingsViewModel(account: account)
-                    },
-                    makeHomeSelectionSettingsViewModel: {
-                        container.makeHomeSelectionSettingsViewModel(account: account)
-                    },
-                )
+                NavigationStack(path: $settingsRouter.path) {
+                    SettingsRootView(
+                        router: settingsRouter,
+                        account: account,
+                        themeStore: container.themeCenter,
+                        quickAddSyntaxStore: container.quickAddSyntaxStore,
+                        isDevBuild: BuildConfig.isDevBuild,
+                        devBadgeStore: container.devToolsCenter,
+                        networkLoggingStore: container.devToolsCenter,
+                        whatsNewSeenVersionStore: container.whatsNewSeenVersionStore,
+                        onPreviewOnboarding: onPreviewOnboarding,
+                        makeConnectionsListViewModel: {
+                            container.makeConnectionsListViewModel(onActiveAccountChanged: onAccountsChanged)
+                        },
+                        makeConnectionFormViewModel: { mode in
+                            container.makeConnectionFormViewModel(mode: mode, onActiveAccountChanged: onAccountsChanged)
+                        },
+                        makeManageLabelsViewModel: {
+                            container.makeManageLabelsViewModel(account: account)
+                        },
+                        makePendingSyncViewModel: {
+                            container.makePendingSyncViewModel(account: account)
+                        },
+                        makeNotificationsViewModel: {
+                            container.makeNotificationsViewModel(account: account)
+                        },
+                        makeAppIconBadgeViewModel: {
+                            container.makeAppIconBadgeViewModel()
+                        },
+                        makeGroupOverdueNotificationsViewModel: {
+                            container.makeGroupOverdueNotificationsViewModel()
+                        },
+                        makeDefaultProjectSettingsViewModel: {
+                            container.makeDefaultProjectSettingsViewModel(account: account)
+                        },
+                        makeHomeSelectionSettingsViewModel: {
+                            container.makeHomeSelectionSettingsViewModel(account: account)
+                        },
+                    )
+                    .appDestinations(container: container, account: account)
+                }
+                .environment(settingsRouter)
             }
 
             Tab(value: AppTab.search, role: .search) {
@@ -258,7 +262,7 @@ struct MainTabView: View {
         .alert(Text("Session Expired"), isPresented: $isShowingSessionExpiredAlert) {
             Button {
                 selection = .settings
-                settingsRouter.push(.connectionForm(.edit(account)))
+                settingsRouter.push(SettingsRoute.connectionForm(.edit(account)))
             } label: {
                 Text("Sign In Again")
             }
@@ -314,10 +318,9 @@ struct MainTabView: View {
         }
     }
 
-    /// Pushes a task's detail screen onto the active tab's `AppRouter`. The
-    /// Settings tab has none (it uses its own `Router<SettingsRoute>`), so a
-    /// push that lands there switches to Home first rather than silently
-    /// doing nothing. Shared by a tapped toast action and a tapped push
+    /// Pushes a task's detail screen onto the active tab's `AppRouter`.
+    /// Task navigation from Settings switches to Home, preserving the
+    /// existing task deep-link behavior. Shared by a tapped toast action and a tapped push
     /// notification (`handleTaskDeepLink` below) - both resolve a task the
     /// same screen needs to show, just from different triggers.
     private func pushTaskDetail(_ task: VikunjaTask, _ project: Project) {

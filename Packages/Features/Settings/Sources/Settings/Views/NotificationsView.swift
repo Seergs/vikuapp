@@ -18,7 +18,7 @@ import UIKit
 /// sync that keeps Vikunja's webhooks matching whatever's shown here.
 struct NotificationsView: View {
     let viewModel: NotificationsViewModel
-    let router: Router<SettingsRoute>
+    let router: AppRouter
     @State private var isShowingConsent = false
     @State private var isShowingDisableConfirmation = false
     @State private var projectQuery = ""
@@ -44,7 +44,7 @@ struct NotificationsView: View {
     /// instance so a project's event selection shows up back on this list
     /// without a reload, and only the caller that already stabilizes it
     /// across `.navigationDestination` re-invocations can guarantee that.
-    init(viewModel: NotificationsViewModel, router: Router<SettingsRoute>) {
+    init(viewModel: NotificationsViewModel, router: AppRouter) {
         self.viewModel = viewModel
         self.router = router
     }
@@ -401,7 +401,7 @@ struct NotificationsView: View {
                                 .map { viewModel.settings.events(for: $0).count } ?? 0,
                             hasChildren: projectQuery.isEmpty && projectsWithChildren.contains(entry.project.id),
                             isExpanded: expandedProjectIDs.contains(entry.project.id),
-                            onSelect: { router.push(.projectNotifications(entry.project)) },
+                            onSelect: { router.push(SettingsRoute.projectNotifications(entry.project)) },
                             onToggleExpand: { toggleExpanded(entry.project.id) },
                         )
                         .vikuCardRow(index: index, count: filteredProjects.count)
