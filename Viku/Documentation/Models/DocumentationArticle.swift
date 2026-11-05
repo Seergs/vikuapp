@@ -9,7 +9,6 @@ enum DocumentationArticle: String, CaseIterable, Identifiable {
     case quickAddShortcuts = "quick-add-shortcuts"
     case pushNotifications = "push-notifications"
     case serverVersionSupport = "server-version-support"
-    case numberedListSample = "numbered-list-sample"
 
     var id: String {
         rawValue
@@ -21,7 +20,6 @@ enum DocumentationArticle: String, CaseIterable, Identifiable {
         case .quickAddShortcuts: "number"
         case .pushNotifications: "bell"
         case .serverVersionSupport: "server.rack"
-        case .numberedListSample: "list.number"
         }
     }
 
@@ -33,7 +31,6 @@ enum DocumentationArticle: String, CaseIterable, Identifiable {
         case .quickAddShortcuts: .purple
         case .pushNotifications: .amber
         case .serverVersionSupport: .blue
-        case .numberedListSample: .purple
         }
     }
 }
