@@ -95,6 +95,15 @@ These are binding for anything added under `Features/`, `VikuAuth`, or
 `AppContainer` — not just aspirational. See `ARCHITECTURE.md` for the "why"
 behind each one.
 
+- **Design new features offline first.** Define how reads, writes, and UI states
+  behave without connectivity before implementation. Reuse the existing local
+  persistence and sync abstractions through `VikunjaCore` protocols; keep storage
+  and synchronization logic out of views and feature ViewModels. Where supported,
+  show cached data and persist pending changes for synchronization when connectivity
+  returns. Make pending, failed, and conflicting changes visible and recoverable.
+  If an operation requires the server, document that limitation and provide a clear
+  offline state without losing user input. Cover offline use, reconnection, sync
+  failures, and conflicts in the relevant tests.
 - **Never import `VikunjaNetworking` from a Feature.** Features depend only on
   `VikunjaCore` protocols and models. Only the composition root (`AppContainer`)
   is allowed to know about concrete `VikunjaNetworking`/`VikuAuth` types and
