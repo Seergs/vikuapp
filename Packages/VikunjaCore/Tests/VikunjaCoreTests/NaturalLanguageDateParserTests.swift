@@ -140,6 +140,28 @@ struct NaturalLanguageDateParserTests {
     }
 
     @Test(arguments: [
+        ("6pm", "6 pm"), ("6PM", "6 PM"), ("6am", "6 am"), ("6:30pm", "6:30 pm"),
+        ("12am", "12 am"), ("12pm", "12 pm"), ("13pm", "13 pm"), ("0am", "0 am"),
+        ("tomorrow at 6pm", "tomorrow at 6 pm"), ("mañana a las 6:30pm", "mañana a las 6:30 pm"),
+    ])
+    func `attached meridiem matches spaced form`(_ compact: String, _ spaced: String) throws {
+        let context = try context()
+        let result = Parser.parse(compact, context: context)
+        let baseline = Parser.parse(spaced, context: context)
+        #expect(result.status == baseline.status)
+        #expect(result.expressions.map(\.outcome) == baseline.expressions.map(\.outcome))
+        #expect(result.expressions.count == 1)
+        let expression = try #require(result.expressions.first)
+        #expect(expression.text == compact)
+        #expect(String(compact[expression.range]) == compact)
+    }
+
+    @Test(arguments: ["task6pm", "6pmish", "6pm_extra", "https://example.com/6pm", "6pm@example.com"])
+    func `attached meridiem respects word and address boundaries`(_ text: String) throws {
+        #expect(try Parser.parse(text, context: context()).status == .noMatch)
+    }
+
+    @Test(arguments: [
         "31 de febrero",
         "February 30",
         "2026-02-29",
