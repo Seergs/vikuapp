@@ -1,3 +1,11 @@
+---
+title: Usar Viku sin conexión
+summary: Trabaja sin conexión y sincroniza tus cambios después.
+category: basics
+updated: 2026-11-05
+related: quick-add-shortcuts, server-version-support
+---
+
 # Usar la app sin conexión
 
 Puedes seguir trabajando sin conexión a internet. La app guarda tus cambios en el dispositivo e intenta enviarlos a tu servidor Vikunja cuando vuelves a conectarte.

@@ -1,3 +1,11 @@
+---
+title: Using Viku Offline
+summary: Work offline and sync your changes later.
+category: basics
+updated: 2026-11-05
+related: quick-add-shortcuts, server-version-support
+---
+
 # Using the app offline
 
 You can keep working without an internet connection. The app saves your changes on your device and tries to send them to your Vikunja server when you reconnect.

@@ -1,3 +1,11 @@
+---
+title: Compatibilidad del servidor
+summary: Consulta qué versiones del servidor Vikunja son compatibles.
+category: setup
+updated: 2026-11-05
+related: push-notifications, offline-mode
+---
+
 # Compatibilidad del servidor
 
 Viku funciona con cualquier instancia de Vikunja. Detecta durante la ejecución qué funciones admite tu servidor, sin asumir una única estructura de API, y utiliza automáticamente la nueva API v2 de Vikunja cuando tu instancia la ofrece (2.4.0 o posterior). En caso contrario, utiliza v1. Este proceso es transparente y no necesitas hacer nada.

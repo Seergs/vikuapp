@@ -35,6 +35,18 @@ struct BundledMarkdownLoaderTests {
     }
 
     @Test
+    func `load omits front matter and loadDocument exposes it`() throws {
+        let loader = try loader()
+        let markdown = try loader.load(resource: "with-metadata", preferredLanguages: ["en"])
+        #expect(!markdown.contains("title:"))
+        #expect(markdown.contains("## Guide"))
+
+        let document = try loader.loadDocument(resource: "with-metadata", preferredLanguages: ["en"])
+        #expect(document["title"] == "Guide")
+        #expect(document["related"] == "other")
+    }
+
+    @Test
     func `missing articles report an error`() throws {
         let loader = try loader()
         #expect(throws: BundledMarkdownLoader.LoadError.missingResource) {

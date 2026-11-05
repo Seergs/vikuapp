@@ -8,17 +8,16 @@ struct DocumentationIndexView: View {
     @Environment(\.vikuPalette) private var palette
     @Environment(\.locale) private var locale
     @State private var viewModel = DocumentationIndexViewModel()
-    @ScaledMetric(relativeTo: .body) private var iconSize = VikuSpacing.xl + VikuSpacing.sm
 
     var body: some View {
         List {
             Section {
-                if viewModel.articles.isEmpty {
+                if viewModel.entries.isEmpty {
                     ContentUnavailableView.search(text: viewModel.query)
                         .listRowBackground(palette.pageBackground)
                 } else {
-                    ForEach(viewModel.articles) { article in
-                        articleRow(article)
+                    ForEach(viewModel.entries) { entry in
+                        articleRow(entry)
                     }
                 }
             } footer: {
@@ -36,42 +35,15 @@ struct DocumentationIndexView: View {
             prompt: Text("Search Help"),
         )
         .task(id: locale.identifier) {
-            viewModel.loadSearchIndex(preferredLanguages: [locale.identifier])
+            viewModel.load(preferredLanguages: [locale.identifier])
         }
     }
 
-    private func articleRow(_ article: DocumentationArticle) -> some View {
+    private func articleRow(_ entry: DocumentationEntry) -> some View {
         Button {
-            router.push(.documentationArticle(article.id))
+            router.push(.documentationArticle(entry.id))
         } label: {
-            HStack(spacing: VikuSpacing.md) {
-                Image(systemName: article.systemImage)
-                    .font(VikuFont.title3.weight(.semibold))
-                    .foregroundStyle(article.tint.color)
-                    .frame(width: iconSize, height: iconSize)
-                    .background(
-                        article.tint.color.opacity(0.14),
-                        in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous),
-                    )
-                    .accessibilityHidden(true)
-
-                VStack(alignment: .leading, spacing: VikuSpacing.xs) {
-                    Text(verbatim: article.title)
-                        .font(VikuFont.body.weight(.bold))
-                        .foregroundStyle(palette.textPrimary)
-                    Text(verbatim: article.summary)
-                        .font(VikuFont.footnote)
-                        .foregroundStyle(palette.textSecondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                Image(systemName: "chevron.right")
-                    .font(VikuFont.footnote)
-                    .foregroundStyle(palette.textTertiary)
-                    .accessibilityHidden(true)
-            }
-            .padding(.vertical, VikuSpacing.xs)
-            .contentShape(Rectangle())
+            DocumentationEntryRow(entry: entry)
         }
         .buttonStyle(.plain)
         .listRowBackground(palette.cardBackground)

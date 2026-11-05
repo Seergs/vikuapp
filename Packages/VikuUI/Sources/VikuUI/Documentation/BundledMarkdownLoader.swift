@@ -14,12 +14,20 @@ public struct BundledMarkdownLoader {
         self.bundle = bundle
     }
 
-    /// Uses the best supported language, falling back to the English article
-    /// if the translated resource is missing. Read failures remain errors.
+    /// Returns the article body without its front matter. See `loadDocument`.
     public func load(
         resource: String,
         preferredLanguages: [String] = Locale.preferredLanguages,
     ) throws -> String {
+        try loadDocument(resource: resource, preferredLanguages: preferredLanguages).body
+    }
+
+    /// Uses the best supported language, falling back to the English article
+    /// if the translated resource is missing. Read failures remain errors.
+    public func loadDocument(
+        resource: String,
+        preferredLanguages: [String] = Locale.preferredLanguages,
+    ) throws -> MarkdownFrontMatter {
         guard !resource.isEmpty, !resource.contains("/"), !resource.contains("\\") else {
             throw LoadError.missingResource
         }
@@ -34,11 +42,11 @@ public struct BundledMarkdownLoader {
                   let url = localizedBundle.url(forResource: resource, withExtension: "md")
             else { continue }
 
-            let markdown = try String(contentsOf: url, encoding: .utf8)
-            guard !markdown.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            let document = try MarkdownFrontMatter(parsing: String(contentsOf: url, encoding: .utf8))
+            guard !document.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                 throw LoadError.emptyDocument
             }
-            return markdown
+            return document
         }
         throw LoadError.missingResource
     }

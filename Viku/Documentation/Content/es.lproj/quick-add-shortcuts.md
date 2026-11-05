@@ -1,3 +1,11 @@
+---
+title: Atajos de creación rápida
+summary: Asigna proyectos, etiquetas y prioridades mientras escribes.
+category: basics
+updated: 2026-11-05
+related: offline-mode
+---
+
 # Atajos de creación rápida
 
 La pantalla de creación rápida reconoce atajos escritos directamente en el título,
