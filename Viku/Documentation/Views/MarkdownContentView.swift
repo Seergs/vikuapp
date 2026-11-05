@@ -10,7 +10,11 @@ struct MarkdownContentView: View {
     @Environment(\.vikuPalette) private var palette
 
     var body: some View {
+        let style = VikuMarkdownStyle(palette: palette)
+
         StructuredText(markdown: markdown)
+            .textual.structuredTextStyle(style)
+            .textual.highlighterTheme(style.highlighterTheme)
             .textual.textSelection(.enabled)
             .font(VikuFont.body)
             .foregroundStyle(palette.textPrimary)
