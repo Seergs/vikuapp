@@ -2,7 +2,7 @@ import Foundation
 
 /// Stable front matter identifiers. Display names live in the String Catalog
 /// so one `category` value works in every language.
-enum DocumentationCategory: String {
+enum DocumentationCategory: String, CaseIterable {
     case basics
     case setup
 

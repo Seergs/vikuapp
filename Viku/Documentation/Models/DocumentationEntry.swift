@@ -5,6 +5,7 @@ struct DocumentationEntry: Identifiable {
     let article: DocumentationArticle
     let title: String
     let summary: String
+    let category: DocumentationCategory?
 
     var id: String {
         article.id
@@ -16,5 +17,6 @@ struct DocumentationEntry: Identifiable {
         self.article = article
         self.title = title
         self.summary = document["summary"] ?? ""
+        self.category = document["category"].flatMap(DocumentationCategory.init(rawValue:))
     }
 }
