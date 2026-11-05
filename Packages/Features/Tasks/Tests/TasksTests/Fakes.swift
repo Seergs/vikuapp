@@ -176,6 +176,8 @@ final class FakeLabelRepository: LabelRepositoryProtocol, @unchecked Sendable {
     var addError: VikunjaError?
     var removeError: VikunjaError?
     var createdLabelID: EntityID?
+    var labelAfterAttachment: Label?
+    var aliases: [EntityID: EntityID] = [:]
     private var nextID = 100
 
     func fetchLabels() async throws -> [Label] {
@@ -183,6 +185,10 @@ final class FakeLabelRepository: LabelRepositoryProtocol, @unchecked Sendable {
             throw fetchError
         }
         return labels
+    }
+
+    func fetchLabelCatalog() async throws -> LabelCatalog {
+        try await LabelCatalog(labels: fetchLabels(), aliases: aliases)
     }
 
     func create(_ label: Label) async throws -> Label {
@@ -208,6 +214,11 @@ final class FakeLabelRepository: LabelRepositoryProtocol, @unchecked Sendable {
             throw addError
         }
         addedLabelIDs.append((labelID, taskID))
+        if let labelAfterAttachment {
+            aliases[labelID] = labelAfterAttachment.id
+            labels.removeAll { $0.id == labelID }
+            labels.append(labelAfterAttachment)
+        }
     }
 
     func removeLabel(_ labelID: EntityID, fromTask taskID: EntityID) async throws {

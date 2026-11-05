@@ -411,6 +411,22 @@
         }
       }
     },
+    "Available labels": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Available labels"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Etiquetas disponibles"
+          }
+        }
+      }
+    },
     "Before": {
       "localizations": {
         "es": {
@@ -477,6 +493,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Crear y agregar"
+          }
+        }
+      }
+    },
+    "Creating label...": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Creating label..."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Creando etiqueta..."
           }
         }
       }
@@ -681,12 +713,44 @@
         }
       }
     },
+    "On this task": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On this task"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En esta tarea"
+          }
+        }
+      }
+    },
     "On time": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "A la hora"
+          }
+        }
+      }
+    },
+    "Other labels": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other labels"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otras etiquetas"
           }
         }
       }
@@ -807,6 +871,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Guardar"
+          }
+        }
+      }
+    },
+    "Search or create label...": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search or create label..."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buscar o crear etiqueta..."
           }
         }
       }

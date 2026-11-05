@@ -252,10 +252,11 @@ public struct TaskDetailView: View {
                 LabelPickerSheet(
                     taskLabels: viewModel.task.labels,
                     allLabels: viewModel.allLabels,
+                    labelAliases: viewModel.labelCatalog.aliases,
                     onLoad: { await viewModel.loadAllLabels() },
                     onToggle: { label in Task { await viewModel.toggleLabel(label) } },
                     onCreate: { title, hexColor in
-                        Task { await viewModel.createAndAddLabel(title: title, hexColor: hexColor) }
+                        await viewModel.createAndAddLabel(title: title, hexColor: hexColor)
                     },
                 )
             }

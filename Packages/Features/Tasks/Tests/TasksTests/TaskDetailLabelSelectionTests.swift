@@ -15,6 +15,26 @@ private struct LabelSyncChange: LocalDataObserving {
 @MainActor
 struct TaskDetailLabelSelectionTests {
     @Test
+    func `creation resolves a sync ID change and the canonical row can be deselected`() async throws {
+        let labels = FakeLabelRepository()
+        let localID = EntityID.local(UUID())
+        let remote = Label(id: 100, title: "Urgent", hexColor: "ef4444")
+        labels.createdLabelID = localID
+        labels.labelAfterAttachment = remote
+        let viewModel = makeViewModel(labels: labels)
+
+        let result = await viewModel.createAndAddLabel(title: "Urgent", hexColor: "EF4444")
+
+        #expect(result == remote)
+        #expect(viewModel.allLabels == [remote])
+        #expect(viewModel.labelCatalog.canonicalID(for: localID) == remote.id)
+        try await viewModel.toggleLabel(#require(result))
+        #expect(viewModel.task.labels.isEmpty)
+        #expect(labels.addedLabelIDs.count == 1)
+        #expect(labels.removedLabelIDs.map(\.labelID) == [remote.id])
+    }
+
+    @Test
     func `toggling an attached label with different display fields removes it`() async {
         let attached = Label(id: 10, title: "Urgent", hexColor: "ef4444")
         let pickerLabel = Label(id: 10, title: "Urgent", hexColor: "EF4444")
@@ -48,8 +68,9 @@ struct TaskDetailLabelSelectionTests {
         let repository = FakeTaskRepository()
         let viewModel = makeViewModel(labels: labels, repository: repository)
         await viewModel.loadAllLabels()
-        await viewModel.createAndAddLabel(title: "Urgent", hexColor: "EF4444")
+        let result = await viewModel.createAndAddLabel(title: "Urgent", hexColor: "EF4444")
         let created = try #require(viewModel.allLabels.first)
+        #expect(result == created)
         #expect(viewModel.task.labels == [created])
         #expect(labels.addedLabelIDs.count == 1)
 
@@ -72,7 +93,8 @@ struct TaskDetailLabelSelectionTests {
         labels.addError = .network("offline")
         let viewModel = makeViewModel(labels: labels)
 
-        await viewModel.createAndAddLabel(title: "Urgent", hexColor: "EF4444")
+        let result = await viewModel.createAndAddLabel(title: "Urgent", hexColor: "EF4444")
+        #expect(result == nil)
 
         let created = try #require(viewModel.allLabels.first)
         #expect(viewModel.task.labels.isEmpty)
