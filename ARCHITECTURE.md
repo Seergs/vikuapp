@@ -286,6 +286,27 @@ all guide text for offline reads; `VikuUI.BundledMarkdownLoader` selects a suppo
 language with English fallback. The four user guides formerly in root `docs/`
 now live here; README links point to their English resources.
 
+Documentation supports basic GitHub-style alerts through
+`VikuUI.MarkdownAlertParser`: `NOTE`, `TIP`, `IMPORTANT`, `WARNING`, and `CAUTION`.
+Write the exact uppercase marker on its own line, at column zero, with a blank
+line before the block (or at the start of the article):
+
+```markdown
+> [!TIP]
+> Long press a task and drag it onto another to create a dependency.
+>
+> **Markdown**, links, and lists work inside the alert.
+```
+
+Prefix every body line with `> ` and blank paragraphs with `>`. End the alert
+with an unquoted blank line. Custom titles, nested alerts, and alerts inside
+lists are unsupported; unknown markers and empty alerts remain ordinary quotes.
+Fenced code examples are preserved. `MarkdownContentView` renders the resulting
+sections using Textual, with app-localized alert labels and palette tokens.
+Selection is available within each Textual section; a single selection cannot
+span an alert boundary. Keep reference-style link definitions in the section
+that uses them, since sections are parsed independently.
+
 ```swift
 TabView(selection: $selection) {
     Tab(AppTab.home.title, systemImage: AppTab.home.systemImage, value: .home) {
