@@ -227,11 +227,7 @@ struct SettingsView: View {
                 ) {
                     appRouter.push(.documentationIndex)
                 }
-            }
-            .listRowBackground(palette.cardBackground)
 
-            // Reference info, separate from preferences and guides.
-            Section {
                 SettingsNavigationRow(
                     icon: "info.circle",
                     title: String(localized: "About", bundle: .module),

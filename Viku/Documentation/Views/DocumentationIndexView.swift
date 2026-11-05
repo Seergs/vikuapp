@@ -11,17 +11,29 @@ struct DocumentationIndexView: View {
 
     var body: some View {
         List {
-            Section {
-                if viewModel.entries.isEmpty {
+            if viewModel.entries.isEmpty {
+                Section {
                     ContentUnavailableView.search(text: viewModel.query)
                         .listRowBackground(palette.pageBackground)
-                } else {
-                    ForEach(viewModel.entries) { entry in
-                        articleRow(entry)
+                } footer: {
+                    supportFooter
+                }
+            } else {
+                ForEach(sections, id: \.category) { section in
+                    Section {
+                        ForEach(section.entries) { entry in
+                            articleRow(entry)
+                        }
+                    } header: {
+                        if let category = section.category {
+                            Text(verbatim: category.title)
+                        }
+                    } footer: {
+                        if section.category == sections.last?.category {
+                            supportFooter
+                        }
                     }
                 }
-            } footer: {
-                supportFooter
             }
         }
         .listStyle(.insetGrouped)
@@ -36,6 +48,17 @@ struct DocumentationIndexView: View {
         )
         .task(id: locale.identifier) {
             viewModel.load(preferredLanguages: [locale.identifier])
+        }
+    }
+
+    /// Keep catalog order within each category and omit empty search sections.
+    /// Articles with missing or unknown categories remain visible at the end.
+    private var sections: [(category: DocumentationCategory?, entries: [DocumentationEntry])] {
+        let entries = viewModel.entries
+        let categories = DocumentationCategory.allCases.map(Optional.some) + [nil]
+        return categories.compactMap { category in
+            let matches = entries.filter { $0.category == category }
+            return matches.isEmpty ? nil : (category: category, entries: matches)
         }
     }
 
