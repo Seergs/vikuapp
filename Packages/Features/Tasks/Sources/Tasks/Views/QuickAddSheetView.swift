@@ -20,6 +20,7 @@ public struct QuickAddSheetView: View {
     @Bindable var viewModel: QuickAddTaskViewModel
     @Environment(\.dismiss) private var dismiss
     @Environment(\.vikuPalette) private var palette
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isShowingProjectPicker = false
     @FocusState private var isTitleFocused: Bool
     @State private var titleFieldHeight: CGFloat = QuickAddSheetView.titleFieldSingleLineHeight
@@ -43,6 +44,9 @@ public struct QuickAddSheetView: View {
         // The title field wraps up to `ShortcutTitleField.maxVisibleLines` instead of
         // scrolling at one line, so the sheet grows to match, bounded by that same cap.
         height += max(0, titleFieldHeight - Self.titleFieldSingleLineHeight)
+        if viewModel.isDatePreviewEnabled {
+            height += QuickAddDatePreview.height + VikuSpacing.md
+        }
         guard QuickAddShortcutChips.hasChip(in: viewModel.shortcutChips) else { return height }
         return height + QuickAddShortcutChips.height + VikuSpacing.md
     }
@@ -53,31 +57,41 @@ public struct QuickAddSheetView: View {
 
     public var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: VikuSpacing.md) {
-                titleField
-                    .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
-                    .padding(.vertical, VikuSpacing.sm + VikuSpacing.xxs)
-                    .background(
-                        palette.fieldBackground,
-                        in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous),
-                    )
+            ScrollView {
+                VStack(alignment: .leading, spacing: VikuSpacing.md) {
+                    titleField
+                        .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
+                        .padding(.vertical, VikuSpacing.sm + VikuSpacing.xxs)
+                        .background(
+                            palette.fieldBackground,
+                            in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous),
+                        )
 
-                QuickAddShortcutChips(input: viewModel.input, tokens: viewModel.shortcutChips)
+                    QuickAddShortcutChips(input: viewModel.input, tokens: viewModel.shortcutChips)
 
-                projectSection
+                    projectSection
 
-                PriorityChipRow(selection: Binding(
-                    get: { viewModel.priority },
-                    set: { viewModel.pickPriority($0) },
-                ))
+                    PriorityChipRow(selection: Binding(
+                        get: { viewModel.priority },
+                        set: { viewModel.pickPriority($0) },
+                    ))
 
-                if let message = viewModel.saveErrorMessage {
-                    SaveErrorBanner(message: message)
-                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    if let message = viewModel.saveErrorMessage {
+                        SaveErrorBanner(message: message)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+
+                    if viewModel.isDatePreviewEnabled {
+                        QuickAddDatePreview(
+                            result: viewModel.datePreview,
+                            timeZone: viewModel.dateParsingContext.timeZone,
+                        )
+                    }
                 }
+                .padding(.horizontal, VikuSpacing.md)
+                .padding(.top, VikuSpacing.md)
             }
-            .padding(.horizontal, VikuSpacing.md)
-            .padding(.top, VikuSpacing.md)
+            .scrollDismissesKeyboard(.interactively)
             // Anchored to the top: when the keyboard nudges the sheet up to
             // its taller detent, the slack falls below the priority chips
             // instead of being split above and below a vertically-centered
@@ -98,8 +112,11 @@ public struct QuickAddSheetView: View {
             // same time the sheet's own detent resize is animating, and the
             // two never looked like one smooth motion no matter how the
             // spring was tuned, so this one row just pops instead.
-            .animation(.spring(response: 0.35, dampingFraction: 0.86), value: viewModel.saveErrorMessage)
-            .animation(.spring(response: 0.35, dampingFraction: 0.86), value: titleFieldHeight)
+            .animation(
+                reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.86),
+                value: viewModel.saveErrorMessage,
+            )
+            .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.86), value: titleFieldHeight)
             .navigationTitle(Text("New Task", bundle: .module))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

@@ -23,6 +23,7 @@ struct SettingsView: View {
     let isDevBuild: Bool
     let devBadgeStore: DevBadgeVisibilityStoring
     let networkLoggingStore: NetworkRequestLoggingStoring
+    let datePreviewStore: QuickAddDatePreviewStoring
     let whatsNewSeenVersionStore: WhatsNewSeenVersionStoring
     let onPreviewOnboarding: () -> Void
     let router: AppRouter
@@ -269,6 +270,18 @@ struct SettingsView: View {
                         }
                     }
 
+                    Toggle(isOn: datePreviewBinding) {
+                        HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
+                            SettingsRowIcon(systemName: "calendar.badge.clock")
+                            VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
+                                Text("Show Quick Add Date Preview", bundle: .module)
+                                Text("This session only. Dates are not applied.", bundle: .module)
+                                    .font(VikuFont.footnote)
+                                    .foregroundStyle(palette.textTertiary)
+                            }
+                        }
+                    }
+
                     SettingsNavigationRow(
                         icon: "arrow.counterclockwise",
                         title: String(localized: "Preview Onboarding", bundle: .module),
@@ -380,6 +393,13 @@ struct SettingsView: View {
         Binding(
             get: { networkLoggingStore.isNetworkRequestLoggingEnabled },
             set: { networkLoggingStore.setNetworkRequestLoggingEnabled($0) },
+        )
+    }
+
+    private var datePreviewBinding: Binding<Bool> {
+        Binding(
+            get: { datePreviewStore.isQuickAddDatePreviewVisible },
+            set: { datePreviewStore.setQuickAddDatePreviewVisible($0) },
         )
     }
 }

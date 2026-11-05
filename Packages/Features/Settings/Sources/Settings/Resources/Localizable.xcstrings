@@ -1,6 +1,26 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Show Quick Add Date Preview": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar vista previa de fechas en agregado rápido"
+          }
+        }
+      }
+    },
+    "This session only. Dates are not applied.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo durante esta sesión. Las fechas no se aplican."
+          }
+        }
+      }
+    },
     "Help": {
       "localizations": {
         "en": {

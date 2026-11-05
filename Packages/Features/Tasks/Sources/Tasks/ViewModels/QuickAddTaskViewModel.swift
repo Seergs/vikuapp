@@ -58,6 +58,27 @@ public final class QuickAddTaskViewModel {
         QuickAddParser.parse(input, projects: projects, labels: labels, syntax: syntax)
     }
 
+    /// Read-only interpretation for the preview. Never participates in title cleanup or saving.
+    /// Snapshotting context keeps relative dates stable throughout this editing session.
+    public let dateParsingContext: NaturalLanguageDateParser.Context
+    private let datePreviewStore: QuickAddDatePreviewStoring?
+
+    public var isDatePreviewEnabled: Bool {
+        syntax != nil && datePreviewStore?.isQuickAddDatePreviewVisible == true
+    }
+
+    public var datePreview: NaturalLanguageDateParser.Result {
+        NaturalLanguageDateParser.parse(
+            input,
+            context: NaturalLanguageDateParser.Context(
+                referenceDate: dateParsingContext.referenceDate,
+                timeZone: dateParsingContext.timeZone,
+                languages: syntax != nil ? dateParsingContext.languages : [],
+            ),
+            protecting: QuickAddParser.tokenize(input, syntax: syntax).map(\.range),
+        )
+    }
+
     /// Shortcuts that get a chip: a project that matched nothing or several projects,
     /// a label that matched several labels, and a label that will be created on save.
     /// The pickers cannot show these, so the chips do.
@@ -196,6 +217,10 @@ public final class QuickAddTaskViewModel {
         syntaxStore: QuickAddSyntaxStore? = nil,
         labelRepository: LabelRepositoryProtocol? = nil,
         defaultProjectCache: DefaultProjectCaching? = nil,
+        datePreviewStore: QuickAddDatePreviewStoring? = nil,
+        dateParsingContext: NaturalLanguageDateParser.Context = .init(
+            referenceDate: Date(), timeZone: .current, languages: [.spanish, .english],
+        ),
     ) {
         self.preselectedProjectID = preselectedProjectID
         self.preselectedProject = preselectedProject?.id == preselectedProjectID ? preselectedProject : nil
@@ -209,6 +234,8 @@ public final class QuickAddTaskViewModel {
         self.labelRepository = labelRepository
         self.defaultProjectCache = defaultProjectCache
         self.cachedDefaultProject = defaultProjectCache?.cachedDefaultProject()
+        self.dateParsingContext = dateParsingContext
+        self.datePreviewStore = datePreviewStore
     }
 
     public func load() async {

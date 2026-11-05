@@ -211,6 +211,16 @@
         }
       }
     },
+    "Date preview": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vista previa de fecha"
+          }
+        }
+      }
+    },
     "Delete Attachment": {
       "localizations": {
         "es": {
@@ -301,6 +311,26 @@
         }
       }
     },
+    "Invalid date or time": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fecha u hora no válida"
+          }
+        }
+      }
+    },
+    "Keep typing…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sigue escribiendo…"
+          }
+        }
+      }
+    },
     "Labels": {
       "localizations": {
         "es": {
@@ -371,6 +401,26 @@
         }
       }
     },
+    "Multiple date interpretations": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Varias interpretaciones de fecha"
+          }
+        }
+      }
+    },
+    "Needs clarification": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Necesita aclaración"
+          }
+        }
+      }
+    },
     "New Task": {
       "localizations": {
         "es": {
@@ -411,6 +461,16 @@
         }
       }
     },
+    "No date recognized": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se detectó ninguna fecha"
+          }
+        }
+      }
+    },
     "No relations with other tasks.": {
       "localizations": {
         "es": {
@@ -447,6 +507,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ninguna"
+          }
+        }
+      }
+    },
+    "Preview only. Dates are not applied.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo vista previa. Las fechas no se aplican."
           }
         }
       }
@@ -657,6 +727,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Esta tarea aún no se sincronizó"
+          }
+        }
+      }
+    },
+    "Unsupported expression": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expresión no compatible"
           }
         }
       }
