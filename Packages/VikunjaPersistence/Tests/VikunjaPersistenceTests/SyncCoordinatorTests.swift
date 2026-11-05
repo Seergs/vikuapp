@@ -775,7 +775,8 @@ struct SyncCoordinatorTests {
         }
     }
 
-    @Test func `a stalled account cannot prevent another account from synchronizing`() async throws {
+    @Test(.timeLimit(.minutes(1)))
+    func `a stalled account cannot prevent another account from synchronizing`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let accountStore = FakeAccountStore()
         let factory = FakeInstanceClientFactory()
@@ -787,12 +788,18 @@ struct SyncCoordinatorTests {
         defer { continuation.finish() }
         factory.projectRepository(for: first.baseURL).beforeFetchResponse = { for await _ in release {} }
         let healthy = factory.projectRepository(for: second.baseURL)
+        let fetchStarted = AsyncStream<Void>.makeStream()
+        defer { fetchStarted.continuation.finish() }
+        healthy.beforeFetchResponse = { fetchStarted.continuation.yield() }
         let coordinator = SyncCoordinator(
             localStore: store, accountStore: accountStore, clientFactory: factory,
             reachability: CoordinatorReachabilityMonitor(), tokenProvider: { _ in { "token" } },
         )
         let pass = Task { await coordinator.syncAllAccounts() }
-        await waitUntil { healthy.fetchProjectsCallCount == 1 }
+        // Observe the healthy request while the first account is still blocked.
+        // A busy runner must not turn scheduling latency into a test failure.
+        var fetchEvents = fetchStarted.stream.makeAsyncIterator()
+        #expect(await fetchEvents.next() != nil)
         #expect(healthy.fetchProjectsCallCount == 1)
         continuation.finish()
         await pass.value
