@@ -1,18 +1,66 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "Guides & Documentation": {
+    "Help": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Guides & Documentation"
+            "value": "Help"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Guías y documentación"
+            "value": "Ayuda"
+          }
+        }
+      }
+    },
+    "Search Help": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search Help"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buscar en Ayuda"
+          }
+        }
+      }
+    },
+    "Can't find what you're looking for?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't find what you're looking for?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿No encuentras lo que buscas?"
+          }
+        }
+      }
+    },
+    "Contact Support": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contact Support"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escribir a soporte"
           }
         }
       }

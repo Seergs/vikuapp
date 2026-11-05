@@ -1,4 +1,5 @@
 import Foundation
+import VikuDesignSystem
 
 /// Ordered catalog shared by the index and article lookup. Resource names and
 /// route IDs stay stable when a title or its translation changes.
@@ -36,6 +37,17 @@ enum DocumentationArticle: String, CaseIterable, Identifiable {
         case .quickAddShortcuts: "number"
         case .pushNotifications: "bell"
         case .serverVersionSupport: "server.rack"
+        }
+    }
+
+    /// Fixed per article so filtering, language, and appearance never change
+    /// its visual identity. Uses the design system's content accent colors.
+    var tint: VikuColor.AccentTint {
+        switch self {
+        case .offlineMode: .teal
+        case .quickAddShortcuts: .purple
+        case .pushNotifications: .amber
+        case .serverVersionSupport: .blue
         }
     }
 }
