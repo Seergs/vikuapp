@@ -25,13 +25,14 @@ struct SettingsView: View {
     let networkLoggingStore: NetworkRequestLoggingStoring
     let whatsNewSeenVersionStore: WhatsNewSeenVersionStoring
     let onPreviewOnboarding: () -> Void
-    let router: Router<SettingsRoute>
+    let router: AppRouter
 
     @State private var isPresentingBadgeConsent = false
     @State private var isPresentingDefaultProjectPicker = false
     @State private var isPresentingHomeSelectionPicker = false
     @Environment(\.openURL) private var openURL
     @Environment(\.vikuPalette) private var palette
+    @Environment(AppRouter.self) private var appRouter
 
     var body: some View {
         List {
@@ -44,7 +45,7 @@ struct SettingsView: View {
                     title: String(localized: "Appearance", bundle: .module),
                     subtitle: themeStore.theme.displayName,
                 ) {
-                    router.push(.appearance)
+                    router.push(SettingsRoute.appearance)
                 }
 
                 Toggle(isOn: badgeEnabledBinding) {
@@ -109,7 +110,7 @@ struct SettingsView: View {
                     connectionHost: activeAccountHost,
                     userDisplayName: defaultProjectViewModel.accountDisplayName,
                 ) {
-                    router.push(.connections)
+                    router.push(SettingsRoute.connections)
                 }
                 .listRowBackground(palette.cardBackground)
 
@@ -118,7 +119,7 @@ struct SettingsView: View {
                     title: String(localized: "Manage Labels", bundle: .module),
                     subtitle: String(localized: "View, edit, and create labels", bundle: .module),
                 ) {
-                    router.push(.manageLabels)
+                    router.push(SettingsRoute.manageLabels)
                 }
                 .listRowBackground(palette.cardBackground)
 
@@ -127,7 +128,7 @@ struct SettingsView: View {
                     title: String(localized: "Pending Sync", bundle: .module),
                     subtitle: String(localized: "Changes waiting to upload", bundle: .module),
                 ) {
-                    router.push(.pendingSync)
+                    router.push(SettingsRoute.pendingSync)
                 }
                 .listRowBackground(palette.cardBackground)
 
@@ -170,7 +171,7 @@ struct SettingsView: View {
                         title: String(localized: "Push Notifications", bundle: .module),
                         subtitle: String(localized: "Enable alerts and choose events", bundle: .module),
                     ) {
-                        router.push(.notifications)
+                        router.push(SettingsRoute.notifications)
                     }
                     .listRowBackground(palette.cardBackground)
                 }
@@ -218,14 +219,27 @@ struct SettingsView: View {
             }
             .listRowBackground(palette.cardBackground)
 
-            // Last, on its own: reference info, not something people change.
+            Section {
+                SettingsNavigationRow(
+                    icon: "book.closed",
+                    title: String(localized: "Guides & Documentation", bundle: .module),
+                    subtitle: String(localized: "Learn how to use Viku", bundle: .module),
+                ) {
+                    appRouter.push(.documentationIndex)
+                }
+            } header: {
+                Text("Help", bundle: .module)
+            }
+            .listRowBackground(palette.cardBackground)
+
+            // Reference info, separate from preferences and guides.
             Section {
                 SettingsNavigationRow(
                     icon: "info.circle",
                     title: String(localized: "About", bundle: .module),
                     subtitle: String(localized: "Version, links, and privacy", bundle: .module),
                 ) {
-                    router.push(.about)
+                    router.push(SettingsRoute.about)
                 }
             }
             .listRowBackground(palette.cardBackground)

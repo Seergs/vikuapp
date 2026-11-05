@@ -17,6 +17,10 @@ import VikunjaCore
 /// `ProjectNode` tree) still travel through a feature-local `Route` enum on the
 /// same stack — see `Router`.
 public enum AppRoute: Hashable, Sendable {
+    /// The index of bundled guides, available without connectivity.
+    case documentationIndex
+    /// Bundled documentation, identified independently of language and title.
+    case documentationArticle(String)
     /// A single task's detail screen. Carries the owning `Project` alongside
     /// the task (not just its id) so the detail screen's pill/swatch never
     /// needs a second fetch.

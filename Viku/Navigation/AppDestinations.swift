@@ -14,6 +14,10 @@ extension View {
     func appDestinations(container: AppContainer, account: InstanceAccount) -> some View {
         navigationDestination(for: AppRoute.self) { route in
             switch route {
+            case .documentationIndex:
+                DocumentationIndexView()
+            case let .documentationArticle(id):
+                BundledDocumentationArticleView(articleID: id)
             case let .taskDetail(task, project):
                 TaskDetailDestination(container: container, account: account, task: task, project: project)
             case let .projectOverview(project):

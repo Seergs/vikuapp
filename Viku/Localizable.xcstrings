@@ -1,6 +1,198 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Guides & Documentation": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guides & Documentation"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guías y documentación"
+          }
+        }
+      }
+    },
+    "Using Viku Offline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Using Viku Offline"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usar Viku sin conexión"
+          }
+        }
+      }
+    },
+    "Push Notifications": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Push Notifications"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notificaciones push"
+          }
+        }
+      }
+    },
+    "Server Version Support": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server Version Support"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compatibilidad del servidor"
+          }
+        }
+      }
+    },
+    "Work offline and sync your changes later.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Work offline and sync your changes later."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trabaja sin conexión y sincroniza tus cambios después."
+          }
+        }
+      }
+    },
+    "Set projects, labels, and priorities as you type.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set projects, labels, and priorities as you type."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Asigna proyectos, etiquetas y prioridades mientras escribes."
+          }
+        }
+      }
+    },
+    "Set up notifications and understand how they work.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set up notifications and understand how they work."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configura las notificaciones y conoce cómo funcionan."
+          }
+        }
+      }
+    },
+    "Learn which Vikunja server versions are supported.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Learn which Vikunja server versions are supported."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Consulta qué versiones del servidor Vikunja son compatibles."
+          }
+        }
+      }
+    },
+    "Quick-Add Shortcuts": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quick-Add Shortcuts"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atajos de creación rápida"
+          }
+        }
+      }
+    },
+    "Couldn't load the article": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't load the article"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo cargar el artículo"
+          }
+        }
+      }
+    },
+    "This guide isn't available in this version of the app.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This guide isn't available in this version of the app."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta guía no está disponible en esta versión de la app."
+          }
+        }
+      }
+    },
+    "Documentation": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Documentation"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Documentación"
+          }
+        }
+      }
+    },
     "Couldn't create the task because the column is full.": {
       "localizations": {
         "en": {

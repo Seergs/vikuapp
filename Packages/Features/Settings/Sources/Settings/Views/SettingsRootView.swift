@@ -2,17 +2,10 @@ import SwiftUI
 import VikuNavigation
 import VikunjaCore
 
-/// Settings' entry point for the app target: hosts the tab's own
-/// `NavigationStack` around a `Router<SettingsRoute>`, so pushing a screen
-/// from inside Settings never needs another feature to know about it.
-///
-/// Unlike the other tabs, `router` is passed in rather than owned here
-/// (`@State` in `MainTabView`, alongside `homeRouter`/`projectsRouter`/etc.)
-/// — `MainTabView` needs to be able to push onto it itself, to jump straight
-/// to the reconnect screen when a session expires while the user is on a
-/// different tab.
+/// Settings' entry point, hosted in the app target's navigation stack.
+/// Feature-local routes and cross-feature AppRoutes share the same AppRouter.
 public struct SettingsRootView: View {
-    private let router: Router<SettingsRoute>
+    private let router: AppRouter
     private let account: InstanceAccount
     private let themeStore: AppThemeStoring
     private let quickAddSyntaxStore: QuickAddSyntaxStore
@@ -57,7 +50,7 @@ public struct SettingsRootView: View {
     /// know about the concrete `AccountStoreProtocol`/
     /// `InstanceClientFactoryProtocol` these view models need.
     public init(
-        router: Router<SettingsRoute>,
+        router: AppRouter,
         account: InstanceAccount,
         themeStore: AppThemeStoring,
         quickAddSyntaxStore: QuickAddSyntaxStore,
@@ -109,48 +102,41 @@ public struct SettingsRootView: View {
     @State private var notificationsViewModelCache = NotificationsViewModelCache()
 
     public var body: some View {
-        // `router` is a reference type owned outside this view (unlike the
-        // other tab roots, which get an `@State`-owned router and can use
-        // its `$`-projected binding directly) — this builds the same
-        // read/write binding by hand so `MainTabView` can still push onto
-        // the identical `NavigationPath` instance.
-        NavigationStack(path: Binding(get: { router.path }, set: { router.path = $0 })) {
-            SettingsView(
-                activeAccountName: account.displayName,
-                activeAccountHost: account.displayHost,
-                themeStore: themeStore,
-                quickAddSyntaxStore: quickAddSyntaxStore,
-                badgeViewModel: badgeViewModel,
-                pendingSyncViewModel: pendingSyncViewModel,
-                groupOverdueNotificationsViewModel: groupOverdueNotificationsViewModel,
-                defaultProjectViewModel: defaultProjectViewModel,
-                homeSelectionViewModel: homeSelectionViewModel,
-                isDevBuild: isDevBuild,
-                devBadgeStore: devBadgeStore,
-                networkLoggingStore: networkLoggingStore,
-                whatsNewSeenVersionStore: whatsNewSeenVersionStore,
-                onPreviewOnboarding: onPreviewOnboarding,
-                router: router,
-            )
-            .navigationDestination(for: SettingsRoute.self) { route in
-                switch route {
-                case .appearance:
-                    AppearancePickerView(themeStore: themeStore)
-                case .connections:
-                    ConnectionsListView(makeViewModel: makeConnectionsListViewModel, router: router)
-                case let .connectionForm(mode):
-                    ConnectionFormView(makeViewModel: { makeConnectionFormViewModel(mode) }, router: router)
-                case .manageLabels:
-                    ManageLabelsView(makeViewModel: makeManageLabelsViewModel)
-                case .pendingSync:
-                    PendingSyncView(makeViewModel: makePendingSyncViewModel)
-                case .notifications:
-                    NotificationsView(viewModel: cachedNotificationsViewModel(), router: router)
-                case let .projectNotifications(project):
-                    ProjectNotificationsView(viewModel: cachedNotificationsViewModel(), project: project)
-                case .about:
-                    AboutView()
-                }
+        SettingsView(
+            activeAccountName: account.displayName,
+            activeAccountHost: account.displayHost,
+            themeStore: themeStore,
+            quickAddSyntaxStore: quickAddSyntaxStore,
+            badgeViewModel: badgeViewModel,
+            pendingSyncViewModel: pendingSyncViewModel,
+            groupOverdueNotificationsViewModel: groupOverdueNotificationsViewModel,
+            defaultProjectViewModel: defaultProjectViewModel,
+            homeSelectionViewModel: homeSelectionViewModel,
+            isDevBuild: isDevBuild,
+            devBadgeStore: devBadgeStore,
+            networkLoggingStore: networkLoggingStore,
+            whatsNewSeenVersionStore: whatsNewSeenVersionStore,
+            onPreviewOnboarding: onPreviewOnboarding,
+            router: router,
+        )
+        .navigationDestination(for: SettingsRoute.self) { route in
+            switch route {
+            case .appearance:
+                AppearancePickerView(themeStore: themeStore)
+            case .connections:
+                ConnectionsListView(makeViewModel: makeConnectionsListViewModel, router: router)
+            case let .connectionForm(mode):
+                ConnectionFormView(makeViewModel: { makeConnectionFormViewModel(mode) }, router: router)
+            case .manageLabels:
+                ManageLabelsView(makeViewModel: makeManageLabelsViewModel)
+            case .pendingSync:
+                PendingSyncView(makeViewModel: makePendingSyncViewModel)
+            case .notifications:
+                NotificationsView(viewModel: cachedNotificationsViewModel(), router: router)
+            case let .projectNotifications(project):
+                ProjectNotificationsView(viewModel: cachedNotificationsViewModel(), project: project)
+            case .about:
+                AboutView()
             }
         }
     }

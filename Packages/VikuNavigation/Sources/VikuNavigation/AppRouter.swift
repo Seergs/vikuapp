@@ -11,8 +11,8 @@ import SwiftUI
 /// F-12). A feature that also has destinations which never leave it keeps its
 /// own `Route` enum and pushes those values onto this same path via the
 /// generic `push(_:)`; its own `.navigationDestination(for: Route.self)` on the
-/// stack resolves them. `Router<Route>` remains for a feature whose entire
-/// stack is self-contained (Settings).
+/// stack resolves them. `Router<Route>` remains available for self-contained
+/// flows. Settings uses AppRouter too so it can open app-owned documentation.
 @Observable
 @MainActor
 public final class AppRouter {
