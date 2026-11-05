@@ -222,13 +222,11 @@ struct SettingsView: View {
             Section {
                 SettingsNavigationRow(
                     icon: "book.closed",
-                    title: String(localized: "Guides & Documentation", bundle: .module),
+                    title: String(localized: "Help", bundle: .module),
                     subtitle: String(localized: "Learn how to use Viku", bundle: .module),
                 ) {
                     appRouter.push(.documentationIndex)
                 }
-            } header: {
-                Text("Help", bundle: .module)
             }
             .listRowBackground(palette.cardBackground)
 

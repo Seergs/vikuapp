@@ -54,7 +54,6 @@ struct LocalizationTests {
         ("About", "Acerca de"),
         ("Appearance", "Apariencia"),
         ("Help", "Ayuda"),
-        ("Guides & Documentation", "Guías y documentación"),
         ("Learn how to use Viku", "Aprende a usar Viku"),
         ("Connections", "Conexiones"),
         ("Manage Labels", "Administrar etiquetas"),

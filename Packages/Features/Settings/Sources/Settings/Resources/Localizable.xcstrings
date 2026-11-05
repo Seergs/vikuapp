@@ -17,22 +17,6 @@
         }
       }
     },
-    "Guides & Documentation": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Guides & Documentation"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Guías y documentación"
-          }
-        }
-      }
-    },
     "Learn how to use Viku": {
       "localizations": {
         "en": {
