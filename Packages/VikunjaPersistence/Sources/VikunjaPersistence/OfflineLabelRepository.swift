@@ -31,12 +31,20 @@ public actor OfflineLabelRepository: LabelRepositoryProtocol {
     }
 
     public func fetchLabels() async throws -> [Label] {
+        try await fetchLabelCatalog().labels
+    }
+
+    public func fetchLabelCatalog() async throws -> LabelCatalog {
         try await localStore.read { db in
             let rows = try Self.accountRows(self.accountID, db: db)
             let hiddenLocalIDs = try Self.pendingDeleteTargetLocalIDs(accountID: self.accountID, db: db)
-            return rows
-                .filter { !hiddenLocalIDs.contains($0.localID) }
-                .map(Self.label(from:))
+            let visible = rows.filter { !hiddenLocalIDs.contains($0.localID) }
+            return LabelCatalog(
+                labels: visible.map(Self.label(from:)),
+                aliases: Dictionary(uniqueKeysWithValues: visible.map {
+                    (.local($0.localID), $0.remoteID.map(EntityID.remote) ?? .local($0.localID))
+                }),
+            )
         }
     }
 

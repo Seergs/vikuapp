@@ -16,62 +16,92 @@ import VikunjaCore
 public struct LabelPickerSheet: View {
     let taskLabels: [VikunjaCore.Label]
     let allLabels: [VikunjaCore.Label]
+    let labelAliases: [EntityID: EntityID]
     let onLoad: () async -> Void
     let onToggle: (VikunjaCore.Label) -> Void
-    let onCreate: (String, String) -> Void
+    let onCreate: (String, String) async -> VikunjaCore.Label?
     @Environment(\.dismiss) private var dismiss
-    @State private var query = ""
+    @State private var state: LabelPickerState
     @State private var pickedColor = VikuColor.SwatchPalette.labelSwatches[0]
 
     public init(
         taskLabels: [VikunjaCore.Label],
         allLabels: [VikunjaCore.Label],
+        labelAliases: [EntityID: EntityID] = [:],
         onLoad: @escaping () async -> Void,
         onToggle: @escaping (VikunjaCore.Label) -> Void,
-        onCreate: @escaping (String, String) -> Void,
+        onCreate: @escaping (String, String) async -> VikunjaCore.Label?,
     ) {
+        _state = State(initialValue: LabelPickerState(taskLabels: taskLabels))
         self.taskLabels = taskLabels
         self.allLabels = allLabels
+        self.labelAliases = labelAliases
         self.onLoad = onLoad
         self.onToggle = onToggle
         self.onCreate = onCreate
     }
 
     private var trimmedQuery: String {
-        query.trimmingCharacters(in: .whitespacesAndNewlines)
+        state.query.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private var filteredLabels: [VikunjaCore.Label] {
-        guard !trimmedQuery.isEmpty else { return allLabels }
-        return allLabels.filter { $0.title.localizedCaseInsensitiveContains(trimmedQuery) }
+    private var filteredItems: [LabelPickerItem] {
+        state.ordering.items(
+            catalog: LabelCatalog(labels: allLabels, aliases: labelAliases),
+            taskLabels: taskLabels, query: trimmedQuery,
+        )
     }
 
     private var hasExactMatch: Bool {
-        allLabels.contains { $0.title.caseInsensitiveCompare(trimmedQuery) == .orderedSame }
+        (allLabels + taskLabels).contains { $0.title.caseInsensitiveCompare(trimmedQuery) == .orderedSame }
     }
 
     public var body: some View {
-        NavigationStack {
+        let items = filteredItems
+        let selectedHeaderID = items.first(where: { $0.section == .onTask })?.id
+        let otherHeaderID = items.first(where: { $0.section == .other })?.id
+        return NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: VikuSpacing.xs) {
-                    ForEach(filteredLabels) { label in
-                        LabelPickerRow(label: label, isSelected: taskLabels.contains(where: { $0.id == label.id })) {
-                            onToggle(label)
+                    ForEach(items) { item in
+                        if item.id == selectedHeaderID {
+                            sectionHeader(String(localized: "On this task", bundle: .module))
+                        } else if item.id == otherHeaderID {
+                            sectionHeader(
+                                state.ordering.hasOnTaskSection
+                                    ? String(localized: "Other labels", bundle: .module)
+                                    : String(localized: "Available labels", bundle: .module),
+                                separated: selectedHeaderID != nil,
+                            )
+                        }
+                        LabelPickerRow(label: item.label, isSelected: item.isSelected) {
+                            onToggle(item.label)
                         }
                     }
 
-                    if !trimmedQuery.isEmpty, !hasExactMatch {
-                        CreateLabelCard(title: trimmedQuery, pickedColor: $pickedColor) {
+                    if !trimmedQuery.isEmpty, !hasExactMatch || state.ordering.isCreating {
+                        CreateLabelCard(
+                            title: trimmedQuery, pickedColor: $pickedColor, isCreating: state.ordering.isCreating,
+                        ) {
                             let title = trimmedQuery
                             let color = pickedColor
-                            query = ""
-                            onCreate(title, color)
+                            state.ordering.beginCreation(
+                                catalog: LabelCatalog(labels: allLabels, aliases: labelAliases), taskLabels: taskLabels,
+                            )
+                            Task {
+                                let created = await onCreate(title, color)
+                                state.finishCreation(created)
+                            }
                         }
+                        .disabled(state.ordering.isCreating)
                     }
                 }
                 .padding(.vertical, VikuSpacing.sm)
             }
-            .searchable(text: $query, prompt: "Search or create label...")
+            .searchable(
+                text: $state.query, isPresented: $state.isSearchPresented,
+                prompt: Text("Search or create label...", bundle: .module),
+            )
             .navigationTitle(Text("Labels", bundle: .module))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -86,6 +116,14 @@ public struct LabelPickerSheet: View {
         .presentationDetents([.fraction(0.75), .large])
         .presentationDragIndicator(.visible)
         .task { await onLoad() }
+    }
+
+    private func sectionHeader(_ title: String, separated: Bool = false) -> some View {
+        Text(verbatim: title)
+            .vikuSectionHeader()
+            .padding(.horizontal, VikuSpacing.md)
+            .padding(.top, separated ? VikuSpacing.lg : VikuSpacing.sm)
+            .padding(.bottom, VikuSpacing.xs)
     }
 }
 
@@ -158,6 +196,7 @@ private struct LabelSelectionIndicator: View {
 private struct CreateLabelCard: View {
     let title: String
     @Binding var pickedColor: String
+    let isCreating: Bool
     let action: () -> Void
 
     @Environment(\.vikuPalette) private var palette
@@ -193,7 +232,9 @@ private struct CreateLabelCard: View {
             }
 
             Button(action: action) {
-                Text("Create and Add", bundle: .module)
+                Text(verbatim: isCreating
+                    ? String(localized: "Creating label...", bundle: .module)
+                    : String(localized: "Create and Add", bundle: .module))
                     .font(.system(size: 14.5, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)

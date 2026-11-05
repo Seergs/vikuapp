@@ -166,7 +166,8 @@ final class FakeLabelRepository: LabelRepositoryProtocol, @unchecked Sendable {
     }
 
     func create(_ label: Label) async throws -> Label {
-        label
+        labels.append(label)
+        return label
     }
 
     func update(_ label: Label) async throws -> Label {

@@ -218,10 +218,11 @@ struct ProjectOverviewView: View {
                 LabelPickerSheet(
                     taskLabels: viewModel.tasks.first(where: { $0.id == task.id })?.labels ?? task.labels,
                     allLabels: viewModel.allLabels,
+                    labelAliases: viewModel.labelCatalog.aliases,
                     onLoad: { await viewModel.loadAllLabels() },
                     onToggle: { label in Task { await viewModel.toggleLabel(task, label) } },
                     onCreate: { title, hexColor in
-                        Task { await viewModel.createAndAddLabel(task, title: title, hexColor: hexColor) }
+                        await viewModel.createAndAddLabel(task, title: title, hexColor: hexColor)
                     },
                 )
             }

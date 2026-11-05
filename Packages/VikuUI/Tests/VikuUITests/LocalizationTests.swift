@@ -71,6 +71,12 @@ struct LocalizationTests {
         ("Copied From", "Copiado de"),
         ("Copied To", "Copiado a"),
         ("Labels", "Etiquetas"),
+        ("On this task", "En esta tarea"),
+        ("Other labels", "Otras etiquetas"),
+        ("Available labels", "Etiquetas disponibles"),
+        ("Creating label...", "Creando etiqueta..."),
+        ("Search or create label...", "Buscar o crear etiqueta..."),
+
         ("Done", "Listo"),
         ("Create New Label", "Crear nueva etiqueta"),
         ("Create and Add", "Crear y agregar"),

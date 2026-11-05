@@ -324,7 +324,9 @@ struct TodayViewModelTests {
         )
         await viewModel.load()
 
-        await viewModel.createAndAddLabel(viewModel.tasks[0], title: "Urgent", hexColor: "ff0000")
+        let created = await viewModel.createAndAddLabel(viewModel.tasks[0], title: "Urgent", hexColor: "ff0000")
+        #expect(created == viewModel.allLabels.last)
+        #expect(created != nil)
 
         #expect(viewModel.allLabels.map(\.title) == ["Urgent"])
         #expect(viewModel.tasks[0].labels.map(\.title) == ["Urgent"])

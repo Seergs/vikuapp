@@ -16,8 +16,13 @@ public final class TaskDetailViewModel {
     /// Every label on the instance, for the label picker sheet to offer —
     /// loaded lazily via `loadAllLabels()` rather than alongside `load()`,
     /// since most task views are never opened.
-    public private(set) var allLabels: [Label] = []
+    public private(set) var labelCatalog = LabelCatalog(labels: [])
+    public var allLabels: [Label] {
+        labelCatalog.labels
+    }
+
     private var hasRequestedLabels = false
+    private var labelCatalogVersion = 0
     /// Candidates for the "add relation" task picker, from the most recent
     /// `searchTasksForRelation(query:)` call.
     public private(set) var relationSearchResults: [VikunjaTask] = []
@@ -197,12 +202,11 @@ public final class TaskDetailViewModel {
         do {
             let fetched = try await repository.fetchTask(id: task.id)
             guard token == taskWriteToken else { return }
+            await loadRequestedLabels()
+            guard token == taskWriteToken else { return }
             task = fetched
             updateRelatedTaskIDsCache()
             loadState = .loaded
-            if hasRequestedLabels {
-                await loadAllLabels()
-            }
         } catch let error as VikunjaError {
             guard token == taskWriteToken else { return }
             if hadContent {
@@ -314,17 +318,22 @@ public final class TaskDetailViewModel {
     /// suggestions to pick from.
     public func loadAllLabels() async {
         hasRequestedLabels = true
-        allLabels = await (try? labelRepository.fetchLabels()) ?? allLabels
+        labelCatalogVersion += 1
+        let version = labelCatalogVersion
+        if let catalog = try? await labelRepository.fetchLabelCatalog(), version == labelCatalogVersion {
+            labelCatalog = catalog
+        }
     }
 
     /// Adds or removes `label` from the task, optimistically, rolling back if
     /// the server rejects it — mirrors `toggleDone()`.
     public func toggleLabel(_ label: Label) async {
+        let label = labelCatalog.canonicalLabel(label)
         let previous = task
         taskWriteToken += 1
         let token = taskWriteToken
-        if task.labels.contains(where: { $0.id == label.id }) {
-            task.labels.removeAll { $0.id == label.id }
+        if task.labels.contains(where: { labelCatalog.canonicalID(for: $0.id) == label.id }) {
+            task.labels.removeAll { labelCatalog.canonicalID(for: $0.id) == label.id }
             do {
                 try await labelRepository.removeLabel(label.id, fromTask: task.id)
             } catch {
@@ -342,16 +351,28 @@ public final class TaskDetailViewModel {
         }
     }
 
+    private func loadRequestedLabels() async {
+        if hasRequestedLabels {
+            await loadAllLabels()
+        }
+    }
+
     /// Creates a new label on the instance and attaches it to the task.
     /// If attachment fails, the created label remains available in the picker
     /// for retry, but is not selected on the task.
-    public func createAndAddLabel(title: String, hexColor: String) async {
+    @discardableResult
+    public func createAndAddLabel(title: String, hexColor: String) async -> Label? {
         guard let created = try? await labelRepository.create(Label(id: 0, title: title, hexColor: hexColor)) else {
-            return
+            return nil
         }
         hasRequestedLabels = true
-        allLabels.append(created)
+        labelCatalogVersion += 1
+        labelCatalog.labels.append(created)
         await toggleLabel(created)
+        await loadAllLabels()
+        let canonical = labelCatalog.canonicalLabel(created)
+        let attached = task.labels.contains { labelCatalog.canonicalID(for: $0.id) == canonical.id }
+        return attached ? canonical : nil
     }
 
     /// Adds `relation` under `kind` to the task, optimistically, rolling back

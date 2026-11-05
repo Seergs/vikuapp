@@ -53,6 +53,23 @@ struct OfflineLabelRepositoryTests {
     }
 
     @Test
+    func `catalog preserves local identity after sync assigns a remote ID`() async throws {
+        let fixture = try makeRepository(online: false)
+        let created = try await fixture.repository.create(Label(id: 0, title: "New", hexColor: "EF4444"))
+        let before = try await fixture.repository.fetchLabelCatalog()
+        #expect(before.canonicalID(for: created.id) == created.id)
+        try await fixture.store.write { db in
+            var row = try #require(LabelRecord.fetchAll(db).first)
+            row.remoteID = 100
+            try row.update(db)
+        }
+        let after = try await fixture.repository.fetchLabelCatalog()
+        #expect(after.labels.map(\.id) == [.remote(100)])
+        #expect(after.canonicalID(for: created.id) == .remote(100))
+        #expect(after.stableID(for: .remote(100)) == created.id)
+    }
+
+    @Test
     func `fetchLabels stays local on an online account that has never synced`() async throws {
         let network = FakeLabelRepository()
         network.labels = [Label(id: 1, title: "Already on the server", hexColor: "")]

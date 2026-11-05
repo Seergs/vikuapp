@@ -29,7 +29,11 @@ public final class TodayViewModel {
     public private(set) var allProjects: [Project] = []
     /// Every label on the instance, for the label picker sheet - loaded
     /// lazily via `loadAllLabels()`, mirroring `allProjects`.
-    public private(set) var allLabels: [Label] = []
+    public private(set) var labelCatalog = LabelCatalog(labels: [])
+    public var allLabels: [Label] {
+        labelCatalog.labels
+    }
+
     /// Candidates for the "add relation" task picker, from the most recent
     /// `searchTasksForRelation(for:query:)` call.
     public private(set) var relationSearchResults: [VikunjaTask] = []
@@ -70,6 +74,8 @@ public final class TodayViewModel {
     private let mutator: TaskListMutator
     private let taskRepository: TaskRepositoryProtocol
     private let projectRepository: ProjectRepositoryProtocol
+    private var hasRequestedLabels = false
+    private var labelCatalogVersion = 0
     private let labelRepository: LabelRepositoryProtocol
     private let relationRepository: TaskRelationRepositoryProtocol
     private let toastPresenter: ToastPresenting
@@ -153,6 +159,7 @@ public final class TodayViewModel {
 
     private func loadDigest(version: Int) async throws {
         let result = try await taskLoader.loadAllTasks()
+        await loadRequestedLabels()
         guard version == loadVersion else { return }
         projectsByID = result.projectsByID
         tasks = completionState.applying(to: result.tasks)
@@ -190,6 +197,7 @@ public final class TodayViewModel {
         }
 
         let fetchedTasks = try await taskRepository.fetchTasks(projectID: .remote(pinned.id))
+        await loadRequestedLabels()
         guard version == loadVersion else { return }
         let refreshed = CachedHomeSelection(
             id: current.id.remoteValue ?? pinned.id, title: current.title, hexColor: current.hexColor,
@@ -256,15 +264,16 @@ public final class TodayViewModel {
     /// task update endpoint, so this routes through the label repository
     /// rather than `mutator.persistSetPriority`'s `repository.update(_:)`.
     public func toggleLabel(_ task: VikunjaTask, _ label: Label) async {
+        let label = labelCatalog.canonicalLabel(label)
         loadVersion += 1
         guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         let original = tasks[index]
         var updated = original
-        let isAdding = !updated.labels.contains(label)
+        let isAdding = !updated.labels.contains { labelCatalog.canonicalID(for: $0.id) == label.id }
         if isAdding {
             updated.labels.append(label)
         } else {
-            updated.labels.removeAll { $0.id == label.id }
+            updated.labels.removeAll { labelCatalog.canonicalID(for: $0.id) == label.id }
         }
         tasks[index] = updated
         let result = await mutator.persistToggleLabel(
@@ -277,17 +286,36 @@ public final class TodayViewModel {
     /// Failures leave `allLabels` at whatever it already was, mirroring
     /// `loadMoveCandidates()`.
     public func loadAllLabels() async {
-        allLabels = await (try? labelRepository.fetchLabels()) ?? allLabels
+        hasRequestedLabels = true
+        labelCatalogVersion += 1
+        let version = labelCatalogVersion
+        if let catalog = try? await labelRepository.fetchLabelCatalog(), version == labelCatalogVersion {
+            labelCatalog = catalog
+        }
+    }
+
+    private func loadRequestedLabels() async {
+        if hasRequestedLabels {
+            await loadAllLabels()
+        }
     }
 
     /// Creates a new label on the instance and attaches it to `task` -
     /// mirrors `TaskDetailViewModel.createAndAddLabel(title:hexColor:)`.
-    public func createAndAddLabel(_ task: VikunjaTask, title: String, hexColor: String) async {
+    @discardableResult
+    public func createAndAddLabel(_ task: VikunjaTask, title: String, hexColor: String) async -> Label? {
         guard let created = try? await labelRepository.create(Label(id: 0, title: title, hexColor: hexColor)) else {
-            return
+            return nil
         }
-        allLabels.append(created)
+        labelCatalogVersion += 1
+        labelCatalog.labels.append(created)
         await toggleLabel(task, created)
+        await loadAllLabels()
+        let canonical = labelCatalog.canonicalLabel(created)
+        let attached = tasks.first(where: { $0.id == task.id })?.labels.contains {
+            labelCatalog.canonicalID(for: $0.id) == canonical.id
+        } ?? false
+        return attached ? canonical : nil
     }
 
     /// Searches every task the account can see for the "add relation" task
@@ -412,7 +440,12 @@ public final class TodayViewModel {
     }
 
     public func observeLocalChanges() async {
-        await synchronization.observe { await self.load() }
+        await synchronization.observe {
+            if self.hasRequestedLabels {
+                await self.loadAllLabels()
+            }
+            await self.load()
+        }
     }
 
     public func refresh() async {

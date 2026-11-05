@@ -662,7 +662,9 @@ struct TaskDetailViewModelTests {
             toastPresenter: FakeToastPresenter(),
         )
 
-        await viewModel.createAndAddLabel(title: "Urgent", hexColor: "EF4444")
+        let created = await viewModel.createAndAddLabel(title: "Urgent", hexColor: "EF4444")
+        #expect(created == viewModel.allLabels.last)
+        #expect(created != nil)
 
         #expect(viewModel.task.labels.map(\.title) == ["Urgent"])
         #expect(viewModel.allLabels.map(\.title) == ["Urgent"])
@@ -686,7 +688,8 @@ struct TaskDetailViewModelTests {
             toastPresenter: FakeToastPresenter(),
         )
 
-        await viewModel.createAndAddLabel(title: "Urgent", hexColor: "EF4444")
+        let created = await viewModel.createAndAddLabel(title: "Urgent", hexColor: "EF4444")
+        #expect(created == nil)
 
         #expect(viewModel.task.labels.isEmpty)
         #expect(viewModel.allLabels.isEmpty)

@@ -750,6 +750,20 @@ in one transaction. Download failure, cancellation before commit, or a failed
 replacement preserves the live cache and queue. Online-only resources remain
 on demand. This recovery does not issue any server mutations.
 
+## Label picker identity
+
+Label pickers read `LabelCatalog` through `LabelRepositoryProtocol`. The local
+adapter returns labels and their local-to-current ID aliases from one database
+snapshot. Features retain that catalog alongside live task selection, and the
+shared picker uses its aliases for deduplication, selection, ordering, and stable
+row identity when sync assigns a server ID. Server-only repositories use the
+default catalog implementation without aliases. A label's title is never its identity.
+The picker fixes section membership at opening; live selection only changes the
+checkbox. Successful creation inserts the new label into the first section.
+Search filters those fixed sections without reassigning membership. Creation
+keeps its search draft visible while pending, then dismisses search and inserts
+the new row into the first section without animation on success; failure preserves the draft.
+
 ## Pending sync diagnostics
 
 Queue recovery eligibility is explicit (`canDiscardConflict` and
