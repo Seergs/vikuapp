@@ -137,6 +137,10 @@ extension VikunjaEndpoints {
         Endpoint(path: "/api/v2/tasks/\(id)", method: .delete)
     }
 
+    static func setTaskBulkCompletionV2(dto: TaskBulkCompletionRequestDTO) throws -> Endpoint {
+        try .encoding(path: "/api/v2/tasks/bulk", method: .put, body: dto)
+    }
+
     static func searchTasksV2(query: String) -> Endpoint {
         Endpoint(path: "/api/v2/tasks", queryItems: [URLQueryItem(name: "q", value: query)])
     }
