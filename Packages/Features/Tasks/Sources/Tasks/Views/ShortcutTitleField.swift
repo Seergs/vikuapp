@@ -6,10 +6,10 @@ import VikunjaCore
 
 /// The quick-add title field. A `UITextView` rather than a `TextField`, because
 /// SwiftUI's text fields cannot color part of their text. Each shortcut is drawn
-/// in its tint (see `QuickAddParser.Resolution.tint(in:)`) while the text stays in place.
+/// in its tint alongside recognized dates, while the text stays in place.
 struct ShortcutTitleField: UIViewRepresentable {
     @Binding var text: String
-    let tokens: [QuickAddParser.ResolvedToken]
+    let highlights: QuickAddTitleHighlights
     let focusOnAppear: Bool
 
     @Environment(\.vikuPalette) private var palette
@@ -46,13 +46,20 @@ struct ShortcutTitleField: UIViewRepresentable {
 
     func updateUIView(_ view: UITextView, context: Context) {
         context.coordinator.text = $text
+        context.coordinator.refreshHighlights = { view in
+            guard view.markedTextRange == nil else { return }
+            applyHighlights(to: view)
+        }
+        // Leave an in-progress IME composition untouched until UIKit commits it.
+        guard view.markedTextRange == nil else { return }
         if view.text != text {
             // Only set text that came from outside, so typing and marked text
             // (IME composition) are never replaced underneath the user.
             let selection = view.selectedRange
             view.text = text
             let end = view.text.utf16.count
-            view.selectedRange = NSRange(location: min(selection.location, end), length: 0)
+            let location = min(selection.location, end)
+            view.selectedRange = NSRange(location: location, length: min(selection.length, end - location))
         }
         applyHighlights(to: view)
         let width = view.bounds.width > 0 ? view.bounds.width : UIScreen.main.bounds.width
@@ -80,16 +87,18 @@ struct ShortcutTitleField: UIViewRepresentable {
     /// Recolors the existing storage in place instead of reassigning the text,
     /// so the caret and any marked text survive the update.
     private func applyHighlights(to view: UITextView) {
+        guard view.text == highlights.input else { return }
+        let selection = view.selectedRange
         let storage = view.textStorage
         let base: [NSAttributedString.Key: Any] = [
             .font: UIFont.preferredFont(forTextStyle: .body),
-            .foregroundColor: UIColor.label,
+            .foregroundColor: UIColor(palette.textPrimary),
         ]
         storage.beginEditing()
         storage.setAttributes(base, range: NSRange(location: 0, length: storage.length))
-        for item in tokens {
-            guard let tint = item.resolution.tint(in: palette) else { continue }
-            let range = NSRange(item.token.range, in: view.text)
+        for span in highlights.spans {
+            guard let tint = span.style.tint(in: palette) else { continue }
+            let range = NSRange(span.range, in: highlights.input)
             storage.addAttributes(
                 [
                     .foregroundColor: UIColor(tint),
@@ -99,10 +108,14 @@ struct ShortcutTitleField: UIViewRepresentable {
             )
         }
         storage.endEditing()
+        view.selectedRange = selection
+        // New ordinary text must not inherit the color of the preceding shortcut/date.
+        view.typingAttributes = base
     }
 
     final class Coordinator: NSObject, UITextViewDelegate {
         var text: Binding<String>
+        var refreshHighlights: ((UITextView) -> Void)?
 
         init(text: Binding<String>) {
             self.text = text
@@ -110,6 +123,8 @@ struct ShortcutTitleField: UIViewRepresentable {
 
         func textViewDidChange(_ textView: UITextView) {
             text.wrappedValue = textView.text
+            // IME commits can leave the string unchanged; refresh using the latest snapshot.
+            refreshHighlights?(textView)
         }
 
         /// The title is one line, so Return dismisses the keyboard instead of inserting a newline.

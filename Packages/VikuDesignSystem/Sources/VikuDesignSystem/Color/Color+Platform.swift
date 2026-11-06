@@ -4,6 +4,24 @@ import SwiftUI
 /// the token file itself stays free of `#if os(...)` branching — this package
 /// also builds for macOS to run its tests, where `UIColor` doesn't exist.
 extension Color {
+    /// Dark green on light fields and mint on dark fields, independent of the brand hue.
+    static var platformDateHighlightText: Color {
+        #if os(iOS)
+        Color(uiColor: UIColor { traits in
+            let rgb = traits.userInterfaceStyle == .dark ? DateHighlightRGB.dark : DateHighlightRGB.light
+            return UIColor(red: rgb.red, green: rgb.green, blue: rgb.blue, alpha: 1)
+        })
+        #elseif os(macOS)
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let dark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            let rgb = dark ? DateHighlightRGB.dark : DateHighlightRGB.light
+            return NSColor(srgbRed: rgb.red, green: rgb.green, blue: rgb.blue, alpha: 1)
+        })
+        #else
+        Color.green
+        #endif
+    }
+
     static var platformCardBackground: Color {
         #if os(iOS)
         Color(uiColor: .secondarySystemGroupedBackground)
@@ -125,4 +143,10 @@ struct ReferenceRGB {
     let red: Double
     let green: Double
     let blue: Double
+}
+
+/// Shared by the adaptive date token and its non-rendering contrast checks.
+enum DateHighlightRGB {
+    static let light = ReferenceRGB(red: 0.071, green: 0.420, blue: 0.224)
+    static let dark = ReferenceRGB(red: 0.388, green: 0.859, blue: 0.675)
 }
