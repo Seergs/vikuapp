@@ -2,7 +2,7 @@
 title: Server Version Support
 summary: Learn which Vikunja server versions are supported.
 category: setup
-updated: 2026-11-05
+lastUpdated: 2026-11-05
 related: push-notifications, offline-mode
 ---
 

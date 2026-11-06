@@ -2,7 +2,7 @@
 title: Using Viku Offline
 summary: Work offline and sync your changes later.
 category: basics
-updated: 2026-11-05
+lastUpdated: 2026-11-05
 related: quick-add-shortcuts, server-version-support
 ---
 

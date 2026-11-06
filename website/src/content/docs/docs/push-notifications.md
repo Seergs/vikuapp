@@ -2,7 +2,7 @@
 title: Push Notifications
 summary: Set up notifications and understand how they work.
 category: setup
-updated: 2026-11-05
+lastUpdated: 2026-11-05
 related: server-version-support
 ---
 

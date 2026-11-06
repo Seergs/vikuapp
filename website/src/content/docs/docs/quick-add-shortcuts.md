@@ -2,7 +2,7 @@
 title: Quick-Add Shortcuts
 summary: Set dates, projects, labels, and priorities as you type.
 category: basics
-updated: 2026-11-05
+lastUpdated: 2026-11-05
 related: offline-mode
 ---
 
