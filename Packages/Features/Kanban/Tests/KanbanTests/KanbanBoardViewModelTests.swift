@@ -1,3 +1,4 @@
+import Foundation
 @testable import Kanban
 import Testing
 import VikunjaCore
@@ -128,6 +129,58 @@ struct KanbanBoardViewModelTests {
         await viewModel.moveTask(task, to: viewModel.buckets[0])
 
         #expect(repository.movedTaskIDs.isEmpty)
+    }
+
+    @Test(arguments: [false, true])
+    func `moves to full buckets are rejected using current capacity`(isDoneBucket: Bool) async {
+        let repository = FakeBucketRepository()
+        let task = VikunjaTask(id: 1, title: "Write report", projectID: 4)
+        let staleDestination = KanbanBucket(id: 2, title: "Limited", isDoneBucket: isDoneBucket, limit: 1)
+        repository.buckets = [
+            KanbanBucket(id: 1, title: "To Do", tasks: [task]),
+            KanbanBucket(id: 2, title: "Limited", isDoneBucket: isDoneBucket, limit: 1, tasks: [
+                VikunjaTask(id: .local(UUID()), title: "Pending offline task", projectID: 4),
+            ]),
+        ]
+        let toast = FakeToastPresenter()
+        let haptics = FakeHapticPresenter()
+        let viewModel = KanbanBoardViewModel(
+            project: Project(id: 4, title: "Work"), repository: repository,
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
+            toastPresenter: toast, hapticPresenter: haptics,
+        )
+        await viewModel.load()
+        await viewModel.moveTask(task, to: staleDestination)
+
+        #expect(repository.movedTaskIDs.isEmpty)
+        #expect(viewModel.buckets == repository.buckets)
+        #expect(viewModel.buckets[0].tasks == [task])
+        #expect(toast.shownMessages.map(\.style) == [.error])
+        #expect(haptics.played.isEmpty)
+
+        // Once capacity becomes available, retry the same move successfully.
+        repository.buckets[1].tasks = []
+        await viewModel.load()
+        await viewModel.moveTask(task, to: staleDestination)
+        #expect(repository.movedTaskIDs.map(\.bucketID) == [2])
+        #expect(viewModel.buckets[0].tasks.isEmpty)
+        #expect(viewModel.buckets[1].tasks.map(\.id) == [task.id])
+    }
+
+    @Test func `returning to a full source bucket is a silent no op`() async {
+        let repository = FakeBucketRepository()
+        let task = VikunjaTask(id: 1, title: "Task", projectID: 4)
+        repository.buckets = [KanbanBucket(id: 1, title: "Full", limit: 1, tasks: [task])]
+        let toast = FakeToastPresenter()
+        let viewModel = KanbanBoardViewModel(
+            project: Project(id: 4, title: "Work"), repository: repository,
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(), toastPresenter: toast,
+        )
+        await viewModel.load()
+        await viewModel.moveTask(task, to: viewModel.buckets[0])
+        #expect(repository.movedTaskIDs.isEmpty)
+        #expect(toast.shownMessages.isEmpty)
+        #expect(viewModel.buckets[0].tasks == [task])
     }
 
     @Test
