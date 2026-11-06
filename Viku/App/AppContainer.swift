@@ -131,10 +131,8 @@ final class AppContainer {
     /// The shortcut dialect quick-add parses with, chosen in Settings.
     let quickAddSyntaxStore: QuickAddSyntaxStore = QuickAddSyntaxCenter()
 
-    /// Session-only dev-tools state (currently just whether the "DEV" badge
-    /// overlay is shown) — see `DevToolsCenter`. Passed to `Settings` as
-    /// `DevBadgeVisibilityStoring`, the same way `themeCenter` is passed as
-    /// `AppThemeStoring`.
+    /// Session-only dev-tools state, shared with Settings and Quick Add
+    /// through the corresponding VikunjaCore protocols. See `DevToolsCenter`.
     let devToolsCenter = DevToolsCenter()
     /// On-device record of which "What's New" release this device has
     /// already shown — see `WhatsNewSeenVersionStore`. Passed to `Settings`
@@ -348,6 +346,7 @@ final class AppContainer {
         guard let user = try? await userRepository.fetchCurrentUser() else { return }
         currentUserStore.setUser(user, for: account.id)
         defaultProjectStore.setProjectID(user.defaultProjectID, forAccountID: account.id)
+        accountTimezoneStore.setCachedTimezone(user.timezone, forAccountID: account.id)
     }
 
     /// Reconciles every saved account's webhooks with its own stored
@@ -696,6 +695,13 @@ final class AppContainer {
             syntaxStore: quickAddSyntaxStore,
             labelRepository: offlineLabelRepository(for: account),
             defaultProjectCache: AccountDefaultProjectCache(store: defaultProjectStore, accountID: account.id),
+            datePreviewStore: BuildConfig.isDevBuild ? devToolsCenter : nil,
+            dateParsingContext: .init(
+                referenceDate: Date(),
+                timeZone: accountTimezoneStore.cachedTimezone(forAccountID: account.id)
+                    .flatMap(TimeZone.init(identifier:)) ?? .current,
+                languages: [.spanish, .english],
+            ),
         )
     }
 

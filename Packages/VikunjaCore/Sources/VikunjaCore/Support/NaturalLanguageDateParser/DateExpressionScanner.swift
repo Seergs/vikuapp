@@ -26,7 +26,10 @@ struct DateExpressionScanner {
         self.input = input
         self.context = context
         self.protectedRanges = protectedRanges + Self.addressRanges(in: input)
-        let regex = try? NSRegularExpression(pattern: #"[\p{L}\p{M}\p{N}_]+|[^\s]"#)
+        // Split an attached meridiem only at a numeric word boundary: `6pm` and
+        // `6:30PM` use the same clock grammar as spaced forms, while `task6pm` stays text.
+        let pattern = #"(?i)(?<![\p{L}\p{M}\p{N}_])[0-9]+(?=(?:am|pm)\b)|[\p{L}\p{M}\p{N}_]+|[^\s]"#
+        let regex = try? NSRegularExpression(pattern: pattern)
         self.tokens = regex?.matches(in: input, range: NSRange(input.startIndex..., in: input)).compactMap {
             guard let range = Range($0.range, in: input) else { return nil }
             return Token(word: String(input[range]).lowercased(), range: range)

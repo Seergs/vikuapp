@@ -8,8 +8,13 @@ import VikunjaCore
 /// true, but harmless to construct otherwise.
 @MainActor
 @Observable
-final class DevToolsCenter: DevBadgeVisibilityStoring, NetworkRequestLoggingStoring {
+final class DevToolsCenter: DevBadgeVisibilityStoring, NetworkRequestLoggingStoring, QuickAddDatePreviewStoring {
     var isDevBadgeVisible = true
+    private(set) var isQuickAddDatePreviewVisible = false
+
+    func setQuickAddDatePreviewVisible(_ visible: Bool) {
+        isQuickAddDatePreviewVisible = visible
+    }
 
     func setDevBadgeVisible(_ visible: Bool) {
         isDevBadgeVisible = visible

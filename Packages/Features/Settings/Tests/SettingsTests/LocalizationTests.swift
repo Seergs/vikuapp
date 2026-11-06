@@ -96,6 +96,11 @@ struct LocalizationTests {
         ("Overdue and due-today tasks", "Tareas vencidas y de hoy"),
         ("Show DEV Badge", "Mostrar insignia DEV"),
         ("Log Network Requests", "Registrar solicitudes de red"),
+        ("Show Quick Add Date Preview", "Mostrar vista previa de fechas en agregado rápido"),
+        (
+            "This session only. Dates are not applied.",
+            "Solo durante esta sesión. Las fechas no se aplican.",
+        ),
         ("Preview Onboarding", "Previsualizar onboarding"),
         ("See the first-launch screen again", "Ver otra vez la pantalla de primer inicio"),
         ("Developer", "Desarrollador"),
