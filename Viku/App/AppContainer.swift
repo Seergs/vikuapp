@@ -66,6 +66,8 @@ final class AppContainer {
     /// A purely view-driven tap should use `View.vikuHaptic(_:trigger:)`
     /// instead and needs nothing from here.
     let hapticCenter = HapticFeedbackCenter()
+    /// See `inlineImageLoader(for:attachmentRepository:)`.
+    private var inlineImageLoaders: [String: InlineImageLoader] = [:]
     /// Tracks which project (if any) the visible screen represents, so the
     /// tab-bar quick-add sheet defaults to it — see `QuickAddContext`.
     let quickAddContext = QuickAddContext()
@@ -590,7 +592,31 @@ final class AppContainer {
             quickAddContext: quickAddContext,
             notificationSettingsStore: notificationSettingsStore,
             accountID: account.id,
+            inlineImageLoader: inlineImageLoader(for: account, attachmentRepository: attachmentRepository),
         )
+    }
+
+    /// One loader per account and instance URL, so its in-memory image cache
+    /// outlives a single task screen: reopening a task, or showing the same
+    /// picture in a comment, doesn't download it again. Keyed by URL too, so
+    /// editing the connection never serves images from the old instance.
+    private func inlineImageLoader(
+        for account: InstanceAccount,
+        attachmentRepository: TaskAttachmentRepositoryProtocol,
+    ) -> InlineImageLoader {
+        let key = "\(account.id.uuidString)|\(account.baseURL.absoluteString)"
+        if let existing = inlineImageLoaders[key] {
+            return existing
+        }
+        let fetcher = PublicImageFetcher()
+        let loader = InlineImageLoader(
+            instanceURL: account.baseURL,
+            attachmentRepository: attachmentRepository,
+        ) { url in
+            try await fetcher.fetch(url)
+        }
+        inlineImageLoaders[key] = loader
+        return loader
     }
 
     /// Resolves a tapped push notification's `task_id` into the task and its

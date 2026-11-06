@@ -98,6 +98,10 @@ public final class TaskDetailViewModel {
     /// both — in which case it always reads `nil`.
     private let notificationSettingsStore: NotificationSettingsStore?
     private let accountID: InstanceAccount.ID?
+    /// Loads images embedded in the description and comments. The view hands
+    /// it to `RichTextView` through the environment; `nil` shows them as
+    /// unavailable.
+    public let inlineImageLoader: (any InlineImageLoading)?
     private var cachedRelatedTaskIDs: Set<EntityID> = []
 
     /// Bumped at the start of every operation that will eventually write
@@ -160,6 +164,7 @@ public final class TaskDetailViewModel {
         quickAddContext: QuickAddContextTracking? = nil,
         notificationSettingsStore: NotificationSettingsStore? = nil,
         accountID: InstanceAccount.ID? = nil,
+        inlineImageLoader: (any InlineImageLoading)? = nil,
     ) {
         self.synchronization = LocalScreenSync(
             trigger: syncTrigger, localData: localData, toastPresenter: toastPresenter,
@@ -177,6 +182,7 @@ public final class TaskDetailViewModel {
         self.quickAddContext = quickAddContext
         self.notificationSettingsStore = notificationSettingsStore
         self.accountID = accountID
+        self.inlineImageLoader = inlineImageLoader
         updateRelatedTaskIDsCache()
     }
 
@@ -723,6 +729,26 @@ public final class TaskDetailViewModel {
         return AttachmentPreviewFile.write(data, named: attachment.fileName)
     }
 
+    /// Downloads the original of an image embedded in the description or a
+    /// comment and stages it for QuickLook, the same way
+    /// `attachmentPreviewURL(for:)` does for the attachment list. Returns
+    /// `nil` (with a toast) when it can't be loaded.
+    public func inlineImagePreviewURL(for image: RichTextImage) async -> URL? {
+        guard let inlineImageLoader else { return nil }
+        do {
+            let data = try await inlineImageLoader.imageData(for: image.source, variant: .original)
+            // Shared downloads may finish after this screen's request was cancelled.
+            try Task.checkCancellation()
+            let baseName = image.alt ?? String(localized: "Image", bundle: .module)
+            return AttachmentPreviewFile.write(data, named: AttachmentPreviewFile.imageFileName(baseName, for: data))
+        } catch is CancellationError {
+            return nil
+        } catch {
+            toastPresenter.show(String(localized: "Couldn't open the image", bundle: .module), style: .error)
+            return nil
+        }
+    }
+
     /// Deletes `attachment`, optimistically removing it and restoring the
     /// whole list if the server rejects it — mirrors `deleteComment(_:)`.
     public func deleteAttachment(_ attachment: TaskAttachment) async {
@@ -780,8 +806,7 @@ public final class TaskDetailViewModel {
     /// blank text or an unknown comment id.
     public func editComment(_ comment: TaskComment, newText: String) async {
         let trimmed = newText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        guard comments.contains(where: { $0.id == comment.id }) else { return }
+        guard !trimmed.isEmpty, comments.contains(where: { $0.id == comment.id }) else { return }
         commentsWriteToken += 1
         do {
             let updated = try await commentRepository.updateComment(comment.id, text: trimmed, onTask: task.id)

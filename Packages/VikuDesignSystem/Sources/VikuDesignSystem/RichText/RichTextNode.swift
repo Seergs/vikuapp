@@ -9,9 +9,9 @@ import Foundation
 //
 // The covered subset matches what the editor actually emits: paragraphs,
 // headings, bold/italic/strikethrough/inline-code, links, bullet/ordered
-// lists, task lists (optionally interactive checkboxes), blockquotes, code blocks and
-// horizontal rules. Anything outside that (images, tables, embeds) is reduced
-// to its text content rather than dropped.
+// lists, task lists (optionally interactive checkboxes), blockquotes, code blocks,
+// horizontal rules and images. Anything outside that (tables, embeds) is
+// reduced to its text content rather than dropped.
 
 /// One contiguous span of inline text sharing the same styling and link.
 public struct RichTextRun: Equatable, Sendable {
@@ -57,6 +57,22 @@ public indirect enum RichTextBlock: Equatable, Sendable {
     /// or `data-language` on the inner `<code>`, when present.
     case codeBlock(text: String, language: String?)
     case thematicBreak
+    case image(RichTextImage)
+}
+
+/// An embedded `<img>`. TipTap stores an uploaded image as
+/// `<img data-src="{attachment URL}" src="#">`, so `source` is `data-src` when
+/// present and `src` otherwise, verbatim. Resolving and loading it is the
+/// image loader's job; the model only carries the string.
+public struct RichTextImage: Equatable, Sendable {
+    public var source: String
+    /// The `alt` text, `nil` when missing or blank.
+    public var alt: String?
+
+    public init(source: String, alt: String? = nil) {
+        self.source = source
+        self.alt = alt
+    }
 }
 
 public struct RichTextListItem: Equatable, Sendable {

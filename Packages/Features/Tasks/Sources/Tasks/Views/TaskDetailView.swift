@@ -330,6 +330,10 @@ public struct TaskDetailView: View {
                     Task { await viewModel.editComment(comment, newText: newText) }
                 }
             }
+            // Description and comments both render rich text; their embedded
+            // images load through the screen's loader and open in QuickLook.
+            .richTextImageLoader(viewModel.inlineImageLoader)
+            .onRichTextImageTap(openInlineImage)
             .modifier(
                 AttachmentActionsModifier(
                     viewModel: viewModel,
@@ -424,6 +428,12 @@ public struct TaskDetailView: View {
     private func openAttachment(_ attachment: TaskAttachment) {
         Task {
             attachmentPreviewURL = await viewModel.attachmentPreviewURL(for: attachment)
+        }
+    }
+
+    private func openInlineImage(_ image: RichTextImage) {
+        Task {
+            attachmentPreviewURL = await viewModel.inlineImagePreviewURL(for: image)
         }
     }
 

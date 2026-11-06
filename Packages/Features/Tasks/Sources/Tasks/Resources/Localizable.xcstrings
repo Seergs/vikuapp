@@ -790,6 +790,26 @@
           }
         }
       }
+    },
+    "Image": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imagen"
+          }
+        }
+      }
+    },
+    "Couldn't open the image": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo abrir la imagen"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

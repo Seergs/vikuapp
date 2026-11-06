@@ -9,8 +9,9 @@ import SwiftUI
 /// paragraph/list size and headings scale up from there.
 ///
 /// The covered subset (paragraphs, headings, bold/italic/strikethrough/code,
-/// links, lists, task lists, blockquotes, code blocks, rules) matches what the
-/// editor emits. Images and tables collapse to their text.
+/// links, lists, task lists, blockquotes, code blocks, rules, images) matches
+/// what the editor emits. Tables collapse to their text. Images load through
+/// the loader set with `.richTextImageLoader(_:)`.
 public struct RichTextView: View {
     private let blocks: [RichTextBlock]
     private let baseFont: Font
@@ -133,6 +134,9 @@ private struct RichTextBlockView: View {
 
         case .thematicBreak:
             Divider().padding(.vertical, VikuSpacing.xs)
+
+        case let .image(image):
+            RichTextImageView(image: image)
         }
     }
 

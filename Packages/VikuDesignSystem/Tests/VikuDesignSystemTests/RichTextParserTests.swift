@@ -186,9 +186,61 @@ struct RichTextParserTests {
 
     @Test
     func `reduces an unknown element to its text content`() {
-        let blocks = RichText.parse("<p>before <img src=\"x.png\" alt=\"pic\"> <mark>after</mark></p>")
+        let blocks = RichText.parse("<p>before <mark>marked</mark> after</p>")
         #expect(blocks == [
-            .paragraph([RichTextRun(text: "before  after")]),
+            .paragraph([RichTextRun(text: "before marked after")]),
+        ])
+    }
+
+    @Test
+    func `reads an uploaded image from data-src, not the placeholder src`() {
+        let html = #"<p>asdads</p><img data-src="https://vikunja.example.com/api/v1/tasks/284/attachments/8" "#
+            + ##"src="#" alt="test" id="tiptap-image-284-8"><p></p>"##
+        #expect(RichText.parse(html) == [
+            .paragraph([RichTextRun(text: "asdads")]),
+            .image(RichTextImage(source: "https://vikunja.example.com/api/v1/tasks/284/attachments/8", alt: "test")),
+        ])
+    }
+
+    @Test
+    func `falls back to src for an image without data-src`() {
+        let blocks = RichText.parse(#"<img src="https://example.org/cat.png" alt="  ">"#)
+        #expect(blocks == [.image(RichTextImage(source: "https://example.org/cat.png", alt: nil))])
+    }
+
+    @Test
+    func `splits a paragraph around an inline image`() {
+        let blocks = RichText.parse(#"<p>before <img src="https://example.org/a.png" alt="pic"> after</p>"#)
+        #expect(blocks == [
+            .paragraph([RichTextRun(text: "before ")]),
+            .image(RichTextImage(source: "https://example.org/a.png", alt: "pic")),
+            .paragraph([RichTextRun(text: " after")]),
+        ])
+    }
+
+    @Test
+    func `drops an image with nothing to load`() {
+        #expect(RichText.parse(##"<p>text <img src="#"> more</p>"##) == [
+            .paragraph([RichTextRun(text: "text  more")]),
+        ])
+        #expect(RichText.parse(#"<img alt="orphan">"#).isEmpty)
+    }
+
+    @Test
+    func `keeps a description that only holds an image`() {
+        #expect(!RichText.isEmpty(##"<p></p><img data-src="https://example.org/a.png" src="#"><p></p>"##))
+    }
+
+    @Test
+    func `parses an image inside a list item`() {
+        let blocks = RichText.parse(#"<ul><li><p>see</p><img src="https://example.org/a.png"></li></ul>"#)
+        #expect(blocks == [
+            .bulletList([
+                RichTextListItem(content: [
+                    .paragraph([RichTextRun(text: "see")]),
+                    .image(RichTextImage(source: "https://example.org/a.png")),
+                ]),
+            ]),
         ])
     }
 
@@ -229,6 +281,12 @@ struct RichTextPlainTextTests {
         let item = #"<li data-checked="true" data-type="taskItem"><div><p>x</p></div></li>"#
         let html = #"<ul data-type="taskList">\#(item)</ul>"#
         #expect(RichText.plainText(from: html) == "[x] x")
+    }
+
+    @Test
+    func `leaves images out without extra blank lines`() {
+        let text = RichText.plainText(from: #"<p>above</p><img src="https://example.org/a.png"><p>below</p>"#)
+        #expect(text == "above\n\nbelow")
     }
 
     @Test
