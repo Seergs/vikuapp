@@ -283,8 +283,12 @@ Settings' Help section opens `AppRoute.documentationIndex`. The index and articl
 screens live in `Viku/Documentation`, alongside an ordered article catalog and
 localized Markdown under `Content/en.lproj` and `Content/es.lproj`. The app bundles
 all guide text for offline reads; `VikuUI.BundledMarkdownLoader` selects a supported
-language with English fallback. The four user guides formerly in root `docs/`
-now live here; README links point to their English resources.
+language with English fallback. Bundled help focuses on practical steps, examples,
+and essential limitations. Extended guides live in `docs/guides/en/` and
+`docs/guides/es/`; README links point to the extended English guides. Keep both
+layers accurate when behavior changes: app help explains how to use a feature,
+while extended guides cover detailed behavior, troubleshooting, and compatibility
+policy.
 
 Documentation supports basic GitHub-style alerts through
 `VikuUI.MarkdownAlertParser`: `NOTE`, `TIP`, `IMPORTANT`, `WARNING`, and `CAUTION`.

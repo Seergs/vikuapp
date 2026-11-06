@@ -71,7 +71,7 @@ and only shows the ones that are actually available.
 - **Multiple Instances:** Connect several Vikunja accounts and switch between them.
 - **Home:** An account-wide list of what is overdue, due today, and coming up across every project, behind quick filters. Pin a project or a saved filter in Settings to show that instead.
 - **Quick Capture:** Add a task in one tap from the tab bar, the Today home-screen widget, or the `viku://quick-add` deep link
-- **Quick-add shortcuts (experimental):** Set the project, priority and labels by typing them into the title. See [Quick-Add Shortcuts](Viku/Documentation/Content/en.lproj/quick-add-shortcuts.md).
+- **Quick-add shortcuts (experimental):** Set the project, priority and labels by typing them into the title. See [Quick-Add Shortcuts](docs/guides/en/quick-add-shortcuts.md).
 - **Widgets:** Quickly see your daily tasks and a calendar view from your Home screen.
 - **Kanban board:** Switch a project between List and Kanban view, drag tasks between buckets, and add tasks directly into a bucket. Requires a Vikunja instance on 2.4.0+.
 - **Themes:** Multiple color palettes, including light, dark and Warm, with live previews in Settings > Appearance.
@@ -144,7 +144,7 @@ so it covers the parts of the API that matter for day-to-day mobile use
 Viku works with any Vikunja instance, detecting what your server supports
 at runtime and using the newer v2 API when available (2.4.0+), falling back
 to v1 otherwise. No action needed on your end. See
-[Server Version Support](Viku/Documentation/Content/en.lproj/server-version-support.md) for the full
+[Server Version Support](docs/guides/en/server-version-support.md) for the full
 compatibility plan and Vikunja's v1 retirement timeline.
 
 ## OIDC Setup
