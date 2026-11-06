@@ -121,12 +121,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateReposi
                     .filter(Column("status") != MutationStatus.inFlight.rawValue).deleteAll(db)
             }
             let completionChanged = row.isDone != task.isDone
-            if completionChanged {
-                try MutationQueueRecord.filter(Column("accountID") == self.accountID)
-                    .filter(Column("targetLocalID") == row.localID)
-                    .filter(Column("operation") == MutationOperation.setCompletion.rawValue)
-                    .filter(Column("status") != MutationStatus.inFlight.rawValue).deleteAll(db)
-            }
+            try Self.dropSupersededBulkIntents(for: row, editedTo: task, db: db)
             row.title = task.title
             row.description = task.description
             row.isDone = task.isDone
@@ -165,6 +160,26 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateReposi
         }
         await triggerDrainIfOnline()
         return try await readTask(id: task.id)
+    }
+
+    /// A full edit carries the newest value of each changed field, so a
+    /// pending bulk intent for that field is obsolete. In-flight intent stays
+    /// until its acknowledgement.
+    private static func dropSupersededBulkIntents(
+        for row: TaskRecord, editedTo task: VikunjaTask, db: Database,
+    ) throws {
+        var superseded: [MutationOperation] = []
+        if row.isDone != task.isDone {
+            superseded.append(.setCompletion)
+        }
+        if row.dueDate != task.dueDate {
+            superseded.append(.setDueDate)
+        }
+        guard !superseded.isEmpty else { return }
+        try MutationQueueRecord.filter(Column("accountID") == row.accountID)
+            .filter(Column("targetLocalID") == row.localID)
+            .filter(superseded.map(\.rawValue).contains(Column("operation")))
+            .filter(Column("status") != MutationStatus.inFlight.rawValue).deleteAll(db)
     }
 
     /// Persist the whole selection atomically without waiting for connectivity.
@@ -225,6 +240,11 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateReposi
             if completionChanged {
                 try KanbanLocalMutations.applyCompletion(row, db: db)
             }
+        case let .dueDate(dueDate):
+            // Relative reminders stay as cached until the server's response
+            // replaces them; the server recomputes them from the new date.
+            row.dueDate = dueDate
+            try row.save(db)
         }
     }
 
@@ -509,7 +529,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateReposi
                 }
             case .removeLabel:
                 labels.removeAll { $0.id == labelID }
-            case .create, .update, .delete, .addRelation, .removeRelation, .moveBucket, .setCompletion:
+            case .create, .update, .delete, .addRelation, .removeRelation, .moveBucket, .setCompletion, .setDueDate:
                 break
             }
         }
@@ -597,7 +617,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateReposi
                 relationsByKind[mutation.kind] = relations
             case .removeRelation:
                 relationsByKind[mutation.kind]?.removeAll { $0.id == otherID }
-            case .create, .update, .delete, .addLabel, .removeLabel, .moveBucket, .setCompletion:
+            case .create, .update, .delete, .addLabel, .removeLabel, .moveBucket, .setCompletion, .setDueDate:
                 break
             }
         }

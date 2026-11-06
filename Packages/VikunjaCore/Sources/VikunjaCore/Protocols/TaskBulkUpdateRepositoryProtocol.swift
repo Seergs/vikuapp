@@ -5,6 +5,9 @@ import Foundation
 /// unrelated task fields.
 public enum TaskBulkChange: Sendable, Hashable {
     case completion(isDone: Bool)
+    /// Sets the same due date on every task, e.g. moving overdue tasks to
+    /// the end of today or tomorrow.
+    case dueDate(Date)
 }
 
 /// Applies one `TaskBulkChange` to a group of tasks.
@@ -21,5 +24,9 @@ public protocol TaskBulkUpdateRepositoryProtocol: Sendable {
 public extension TaskBulkUpdateRepositoryProtocol {
     func setCompletion(taskIDs: [EntityID], isDone: Bool) async throws -> [VikunjaTask] {
         try await apply(.completion(isDone: isDone), toTaskIDs: taskIDs)
+    }
+
+    func setDueDate(taskIDs: [EntityID], dueDate: Date) async throws -> [VikunjaTask] {
+        try await apply(.dueDate(dueDate), toTaskIDs: taskIDs)
     }
 }

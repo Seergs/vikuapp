@@ -72,6 +72,14 @@ struct TaskCompletionPayload: Codable, Equatable, Sendable {
     var baseUpdatedAt: Date?
 }
 
+/// Same batching and baseline rules as `TaskCompletionPayload`.
+struct TaskDueDatePayload: Codable, Equatable, Sendable {
+    var batchID: UUID
+    var dueDate: Date
+    /// Frozen across pulls; only our own acknowledged writes rebase this value.
+    var baseUpdatedAt: Date?
+}
+
 /// One queued bulk row decoded independently of its stored payload type, so
 /// the bulk drain handles every `TaskBulkChange` the same way. Each change
 /// keeps its own operation and payload type, which leaves queues written by
@@ -95,6 +103,12 @@ struct TaskBulkIntent: Equatable, Sendable {
                 batchID: payload.batchID, change: .completion(isDone: payload.isDone),
                 baseUpdatedAt: payload.baseUpdatedAt,
             )
+        case .setDueDate:
+            let payload = try KanbanLocalMutations.decode(TaskDueDatePayload.self, item: item)
+            self.init(
+                batchID: payload.batchID, change: .dueDate(payload.dueDate),
+                baseUpdatedAt: payload.baseUpdatedAt,
+            )
         case .create, .update, .delete, .addLabel, .removeLabel, .addRelation, .removeRelation, .moveBucket:
             throw VikunjaError.decoding("Queue item \(item.operation.rawValue) is not a bulk task change.")
         }
@@ -110,13 +124,17 @@ struct TaskBulkIntent: Equatable, Sendable {
             try KanbanLocalMutations.encode(
                 TaskCompletionPayload(batchID: batchID, isDone: isDone, baseUpdatedAt: baseUpdatedAt),
             )
+        case let .dueDate(dueDate):
+            try KanbanLocalMutations.encode(
+                TaskDueDatePayload(batchID: batchID, dueDate: dueDate, baseUpdatedAt: baseUpdatedAt),
+            )
         }
     }
 }
 
 extension MutationOperation {
     /// Operations which are drained in batches through the bulk endpoint.
-    static let bulkTaskChanges: [MutationOperation] = [.setCompletion]
+    static let bulkTaskChanges: [MutationOperation] = [.setCompletion, .setDueDate]
 
     var isBulkTaskChange: Bool {
         Self.bulkTaskChanges.contains(self)
@@ -125,6 +143,7 @@ extension MutationOperation {
     init(bulkChange: TaskBulkChange) {
         switch bulkChange {
         case .completion: self = .setCompletion
+        case .dueDate: self = .setDueDate
         }
     }
 }

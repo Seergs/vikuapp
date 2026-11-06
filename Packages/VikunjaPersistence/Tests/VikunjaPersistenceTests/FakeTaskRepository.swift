@@ -23,6 +23,13 @@ final class FakeTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateRepository
         }
     }
 
+    var dueDateCalls: [(ids: [EntityID], dueDate: Date)] {
+        bulkUpdateCalls.compactMap { call in
+            guard case let .dueDate(dueDate) = call.change else { return nil }
+            return (call.ids, dueDate)
+        }
+    }
+
     var deleteError: Error?
     var searchError: Error?
     private(set) var createdTasks: [VikunjaTask] = []
@@ -105,6 +112,7 @@ final class FakeTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateRepository
             guard let index = tasks.firstIndex(where: { $0.id == id }) else { throw VikunjaError.notFound }
             switch change {
             case let .completion(isDone): tasks[index].isDone = isDone
+            case let .dueDate(dueDate): tasks[index].dueDate = dueDate
             }
             tasks[index].updated = Date()
             result.append(tasks[index])

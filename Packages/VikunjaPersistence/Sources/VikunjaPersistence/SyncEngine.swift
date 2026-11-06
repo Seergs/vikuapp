@@ -1019,7 +1019,7 @@ public actor SyncEngine {
             case .create: return try await drainCreate(item)
             case .update: return try await drainUpdate(item)
             case .delete: return try await drainDelete(item)
-            case .addLabel, .removeLabel, .addRelation, .removeRelation, .moveBucket, .setCompletion:
+            case .addLabel, .removeLabel, .addRelation, .removeRelation, .moveBucket, .setCompletion, .setDueDate:
                 // Only ever queued against `entityType: .task` - unreachable
                 // here since `drainProjectMutations()` filters to `.project`.
                 return .skipped
@@ -1178,7 +1178,8 @@ public actor SyncEngine {
                         }
                         try item.delete(db)
                     }
-                case .create, .addLabel, .removeLabel, .addRelation, .removeRelation, .moveBucket, .setCompletion:
+                case .create, .addLabel, .removeLabel, .addRelation, .removeRelation, .moveBucket,
+                     .setCompletion, .setDueDate:
                     throw DrainError.invalidPayload
                 }
             } catch {
@@ -1234,7 +1235,7 @@ public actor SyncEngine {
             case .create: try await drainLabelCreate(item)
             case .update: try await drainLabelUpdate(item)
             case .delete: try await drainLabelDelete(item)
-            case .addLabel, .removeLabel, .addRelation, .removeRelation, .moveBucket, .setCompletion:
+            case .addLabel, .removeLabel, .addRelation, .removeRelation, .moveBucket, .setCompletion, .setDueDate:
                 // Only ever queued against `entityType: .task` - unreachable
                 // here since `drainLabelMutations()` filters to `.label`.
                 break
@@ -1343,7 +1344,7 @@ public actor SyncEngine {
     private func drainTask(_ item: MutationQueueRecord) async throws -> DrainOutcome {
         do {
             switch item.operation {
-            case .setCompletion: return .skipped
+            case .setCompletion, .setDueDate: return .skipped
             case .moveBucket: return try await drainKanbanMove(item)
             case .create: return try await drainTaskCreate(item)
             case .update: return try await drainTaskUpdate(item)
@@ -1390,7 +1391,7 @@ public actor SyncEngine {
             case .create: return try await drainCommentCreate(item, repository: repository)
             case .update: return try await drainCommentUpdate(item, repository: repository)
             case .delete: return try await drainCommentDelete(item, repository: repository)
-            case .addLabel, .removeLabel, .addRelation, .removeRelation, .moveBucket, .setCompletion:
+            case .addLabel, .removeLabel, .addRelation, .removeRelation, .moveBucket, .setCompletion, .setDueDate:
                 // Comment rows only ever queue create/update/delete.
                 return .skipped
             }
@@ -1757,7 +1758,8 @@ public actor SyncEngine {
             row.serverUpdatedAt = task.updated
             let queued = try MutationQueueRecord.filter(Column("targetLocalID") == row.localID).fetchAll(db)
             let hasNewerIntent = queued.contains {
-                $0.id != item.id && [.create, .update, .moveBucket, .delete, .setCompletion].contains($0.operation)
+                $0.id != item.id
+                    && [.create, .update, .moveBucket, .delete, .setCompletion, .setDueDate].contains($0.operation)
             } || queued.first(where: { $0.id == item.id })?.payload != item.payload
             applyReminders = !hasNewerIntent
             if !hasNewerIntent {

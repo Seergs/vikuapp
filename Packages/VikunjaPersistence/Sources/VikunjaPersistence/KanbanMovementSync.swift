@@ -274,7 +274,7 @@ extension SyncEngine {
                     try assignment.update(db)
                 }
                 let hasQueuedUpdate = related.contains {
-                    [.update, .setCompletion].contains($0.operation) && $0.status != .inFlight
+                    [.update, .setCompletion, .setDueDate].contains($0.operation) && $0.status != .inFlight
                 }
                 if !hasQueuedUpdate {
                     task.isDone = serverTask.isDone
@@ -309,7 +309,7 @@ extension SyncEngine {
             if var row = try TaskRecord.fetchOne(db, key: item.targetLocalID) {
                 row.serverUpdatedAt = response.updated
                 let hasNewerIntent = others.contains {
-                    [.create, .update, .moveBucket, .delete, .setCompletion].contains($0.operation)
+                    [.create, .update, .moveBucket, .delete, .setCompletion, .setDueDate].contains($0.operation)
                 }
                 if !hasNewerIntent {
                     row.isDone = response.isDone

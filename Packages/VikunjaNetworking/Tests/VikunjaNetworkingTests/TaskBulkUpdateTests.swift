@@ -3,10 +3,10 @@ import Testing
 import VikunjaCore
 @testable import VikunjaNetworking
 
-struct TaskBulkCompletionTests {
+struct TaskBulkUpdateTests {
     @Test(arguments: [false, true], [false, true])
     func `sets only done in one request on the selected API`(usesV2: Bool, isDone: Bool) async throws {
-        let client = try BulkCompletionFixtureClient(body: fixture(isDone: isDone))
+        let client = try BulkUpdateFixtureClient(body: fixture(isDone: isDone))
         let repository = makeRepository(client: client, usesV2: usesV2)
 
         let tasks = try await repository.setCompletion(taskIDs: [1, 2, 1], isDone: isDone)
@@ -28,8 +28,52 @@ struct TaskBulkCompletionTests {
         #expect(tasks.allSatisfy { $0.isDone == isDone })
     }
 
+    @Test(arguments: [false, true])
+    func `sets only the due date in one request on the selected API`(usesV2: Bool) async throws {
+        let dueDate = try #require(ISO8601DateFormatter().date(from: "2026-11-07T05:59:59Z"))
+        let client = try BulkUpdateFixtureClient(body: fixture(dueDate: "2026-11-07T05:59:59Z"))
+        let repository = makeRepository(client: client, usesV2: usesV2)
+
+        let tasks = try await repository.setDueDate(taskIDs: [1, 2, 1], dueDate: dueDate)
+
+        let requests = await client.requests
+        #expect(requests.count == 1)
+        let request = try #require(requests.first)
+        #expect(request.path == "/api/\(usesV2 ? "v2" : "v1")/tasks/bulk")
+        #expect(request.method == (usesV2 ? .put : .post))
+        let requestData = try #require(request.body)
+        let body = try #require(JSONSerialization.jsonObject(with: requestData) as? [String: Any])
+        #expect(Set(body.keys) == ["task_ids", "fields", "values"])
+        #expect(body["task_ids"] as? [Int] == [1, 2])
+        #expect(body["fields"] as? [String] == ["due_date"])
+        let values = try #require(body["values"] as? [String: Any])
+        #expect(Set(values.keys) == ["due_date"])
+        #expect(values["due_date"] as? String == "2026-11-07T05:59:59Z")
+        #expect(tasks.map(\.dueDate) == [dueDate, dueDate])
+    }
+
+    @Test func `due date responses are validated against the requested IDs`() async throws {
+        var response = try #require(JSONSerialization.jsonObject(with: fixture()) as? [String: Any])
+        let original = try #require(response["tasks"] as? [[String: Any]])
+        response["tasks"] = [original[0]]
+        let client = try BulkUpdateFixtureClient(body: JSONSerialization.data(withJSONObject: response))
+
+        await #expect(throws: VikunjaError.self) {
+            try await makeRepository(client: client).setDueDate(taskIDs: [1, 2], dueDate: Date())
+        }
+    }
+
+    @Test func `unsynced IDs reject a due date batch before any request`() async throws {
+        let client = try BulkUpdateFixtureClient(body: fixture())
+
+        await #expect(throws: VikunjaError.notFound) {
+            try await makeRepository(client: client).setDueDate(taskIDs: [1, .local(UUID())], dueDate: Date())
+        }
+        #expect(await client.requests.isEmpty)
+    }
+
     @Test func `maps full server task data for later synchronization`() async throws {
-        let client = try BulkCompletionFixtureClient(body: fixture())
+        let client = try BulkUpdateFixtureClient(body: fixture())
         let tasks = try await makeRepository(client: client).setCompletion(taskIDs: [1, 2], isDone: true)
 
         #expect(tasks.map(\.id) == [1, 2])
@@ -46,8 +90,8 @@ struct TaskBulkCompletionTests {
     }
 
     @Test func `empty selections perform no request or capability lookup`() async throws {
-        let client = try BulkCompletionFixtureClient(body: fixture())
-        let capability = BulkCompletionCapabilityProvider(usesV2: true)
+        let client = try BulkUpdateFixtureClient(body: fixture())
+        let capability = BulkUpdateCapabilityProvider(usesV2: true)
         let repository = VikunjaTaskBulkUpdateRepository(client: client, capabilityProvider: capability)
 
         #expect(try await repository.setCompletion(taskIDs: [], isDone: true).isEmpty)
@@ -58,7 +102,7 @@ struct TaskBulkCompletionTests {
     @Test(arguments: [false, true])
     func `unsynced or invalid IDs reject the entire batch before any request`(usesV2: Bool) async throws {
         for invalidID: EntityID in [.local(UUID()), .remote(0), .remote(-1)] {
-            let client = try BulkCompletionFixtureClient(body: fixture())
+            let client = try BulkUpdateFixtureClient(body: fixture())
             let repository = makeRepository(client: client, usesV2: usesV2)
 
             await #expect(throws: VikunjaError.notFound) {
@@ -78,7 +122,7 @@ struct TaskBulkCompletionTests {
         .server(message: "Server unavailable", statusCode: 503),
     ])
     func `forwards errors without a legacy or per-task fallback`(usesV2: Bool, error: VikunjaError) async throws {
-        let client = try BulkCompletionFixtureClient(body: fixture(), error: error)
+        let client = try BulkUpdateFixtureClient(body: fixture(), error: error)
         let repository = makeRepository(client: client, usesV2: usesV2)
 
         await #expect(throws: error) {
@@ -89,7 +133,7 @@ struct TaskBulkCompletionTests {
 
     @Test(arguments: [false, true])
     func `cancellation is propagated without fallback`(usesV2: Bool) async throws {
-        let client = try BulkCompletionFixtureClient(body: fixture(), error: CancellationError())
+        let client = try BulkUpdateFixtureClient(body: fixture(), error: CancellationError())
         let repository = makeRepository(client: client, usesV2: usesV2)
 
         await #expect(throws: CancellationError.self) {
@@ -107,7 +151,7 @@ struct TaskBulkCompletionTests {
             task["id"] = id
             return task
         }
-        let client = try BulkCompletionFixtureClient(body: JSONSerialization.data(withJSONObject: response))
+        let client = try BulkUpdateFixtureClient(body: JSONSerialization.data(withJSONObject: response))
         let repository = makeRepository(client: client)
 
         await #expect(throws: VikunjaError.self) {
@@ -117,13 +161,13 @@ struct TaskBulkCompletionTests {
     }
 
     @Test func `task response order is not assumed to match request order`() async throws {
-        let client = try BulkCompletionFixtureClient(body: fixture())
+        let client = try BulkUpdateFixtureClient(body: fixture())
         let tasks = try await makeRepository(client: client).setCompletion(taskIDs: [2, 1], isDone: true)
         #expect(Set(tasks.map(\.id)) == [1, 2])
     }
 
     @Test func `returns the servers completion state without replacing it with the request`() async throws {
-        let client = try BulkCompletionFixtureClient(body: fixture())
+        let client = try BulkUpdateFixtureClient(body: fixture())
         let tasks = try await makeRepository(client: client).setCompletion(taskIDs: [1, 2], isDone: false)
         #expect(tasks.map(\.isDone) == [true, true])
     }
@@ -133,7 +177,7 @@ struct TaskBulkCompletionTests {
         var tasks = try #require(response["tasks"] as? [[String: Any]])
         tasks[1]["project_id"] = 9
         response["tasks"] = tasks
-        let client = try BulkCompletionFixtureClient(body: JSONSerialization.data(withJSONObject: response))
+        let client = try BulkUpdateFixtureClient(body: JSONSerialization.data(withJSONObject: response))
 
         let updated = try await makeRepository(client: client).setCompletion(taskIDs: [1, 2], isDone: true)
 
@@ -157,10 +201,25 @@ struct TaskBulkCompletionTests {
             response.removeValue(forKey: "tasks")
             body = try JSONSerialization.data(withJSONObject: response)
         }
-        let client = BulkCompletionFixtureClient(body: body)
+        let client = BulkUpdateFixtureClient(body: body)
         await #expect(throws: DecodingError.self) {
             try await makeRepository(client: client).setCompletion(taskIDs: [1, 2], isDone: true)
         }
+    }
+
+    /// The completion fixture with every task's due date set to `dueDate`,
+    /// matching the server's response to a bulk due-date update.
+    private func fixture(dueDate: String) throws -> Data {
+        var response = try #require(JSONSerialization.jsonObject(with: fixture()) as? [String: Any])
+        let tasks = try #require(response["tasks"] as? [[String: Any]])
+        response["tasks"] = tasks.map { task in
+            var task = task
+            task["due_date"] = dueDate
+            return task
+        }
+        response["fields"] = ["due_date"]
+        response["values"] = ["due_date": dueDate]
+        return try JSONSerialization.data(withJSONObject: response)
     }
 
     private func fixture(isDone: Bool = true) throws -> Data {
@@ -181,16 +240,16 @@ struct TaskBulkCompletionTests {
     }
 
     private func makeRepository(
-        client: BulkCompletionFixtureClient,
+        client: BulkUpdateFixtureClient,
         usesV2: Bool = false,
     ) -> VikunjaTaskBulkUpdateRepository {
         VikunjaTaskBulkUpdateRepository(
-            client: client, capabilityProvider: BulkCompletionCapabilityProvider(usesV2: usesV2),
+            client: client, capabilityProvider: BulkUpdateCapabilityProvider(usesV2: usesV2),
         )
     }
 }
 
-private actor BulkCompletionCapabilityProvider: CapabilityProvider {
+private actor BulkUpdateCapabilityProvider: CapabilityProvider {
     let usesV2: Bool
     private(set) var calls = 0
 
@@ -208,7 +267,7 @@ private actor BulkCompletionCapabilityProvider: CapabilityProvider {
     }
 }
 
-private actor BulkCompletionFixtureClient: APIClient {
+private actor BulkUpdateFixtureClient: APIClient {
     let body: Data
     let error: (any Error)?
     private(set) var requests: [Endpoint] = []

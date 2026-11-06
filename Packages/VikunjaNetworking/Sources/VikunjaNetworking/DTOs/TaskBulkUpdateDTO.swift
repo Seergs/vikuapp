@@ -1,3 +1,4 @@
+import Foundation
 import VikunjaCore
 
 /// Deliberately narrower than TaskDTO: the bulk endpoint must receive an
@@ -6,18 +7,17 @@ import VikunjaCore
 struct TaskBulkUpdateRequestDTO: Encodable, Sendable {
     let taskIDs: [Int]
     let fields: [String]
-    let values: Values
-
-    struct Values: Encodable, Sendable {
-        var done: Bool?
-    }
+    let values: TaskBulkUpdateValuesDTO
 
     init(taskIDs: [Int], change: TaskBulkChange) {
         self.taskIDs = taskIDs
         switch change {
         case let .completion(isDone):
             self.fields = ["done"]
-            self.values = Values(done: isDone)
+            self.values = TaskBulkUpdateValuesDTO(done: isDone)
+        case let .dueDate(dueDate):
+            self.fields = ["due_date"]
+            self.values = TaskBulkUpdateValuesDTO(dueDate: dueDate)
         }
     }
 
@@ -25,6 +25,18 @@ struct TaskBulkUpdateRequestDTO: Encodable, Sendable {
         case taskIDs = "task_ids"
         case fields
         case values
+    }
+}
+
+/// Only the field named in the request's `fields` is set; nil values are
+/// omitted from the encoded body.
+struct TaskBulkUpdateValuesDTO: Encodable, Sendable {
+    var done: Bool?
+    var dueDate: Date?
+
+    enum CodingKeys: String, CodingKey {
+        case done
+        case dueDate = "due_date"
     }
 }
 
