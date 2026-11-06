@@ -154,6 +154,13 @@ final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @unchecked
         fatalError("not exercised by Settings tests")
     }
 
+    func makeTaskBulkCompletionRepository(
+        baseURL _: URL,
+        tokenProvider _: @escaping @Sendable () async throws -> String?,
+    ) -> TaskBulkCompletionRepositoryProtocol {
+        fatalError("not exercised by Settings tests")
+    }
+
     func makeLabelRepository(
         baseURL _: URL,
         tokenProvider _: @escaping @Sendable () async throws -> String?,
