@@ -167,7 +167,7 @@ public struct QuickAddSheetView: View {
         ZStack(alignment: .leading) {
             ShortcutTitleField(
                 text: $viewModel.input,
-                tokens: viewModel.parsed.tokens,
+                highlights: viewModel.titleHighlights,
                 focusOnAppear: true,
             )
             .onGeometryChange(for: CGFloat.self) { proxy in

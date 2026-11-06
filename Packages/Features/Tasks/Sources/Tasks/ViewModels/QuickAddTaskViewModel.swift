@@ -79,6 +79,18 @@ public final class QuickAddTaskViewModel {
         )
     }
 
+    /// Date styling is independent of the Developer panel and never changes save behavior.
+    var titleHighlights: QuickAddTitleHighlights {
+        var spans = parsed.tokens.map {
+            QuickAddTitleHighlights.Span(range: $0.token.range, style: .shortcut($0.resolution))
+        }
+        let dates = datePreview
+        if dates.resolvedDate != nil, let expression = dates.expressions.first {
+            spans.append(.init(range: expression.range, style: .date))
+        }
+        return QuickAddTitleHighlights(input: input, spans: spans)
+    }
+
     /// Shortcuts that get a chip: a project that matched nothing or several projects,
     /// a label that matched several labels, and a label that will be created on save.
     /// The pickers cannot show these, so the chips do.

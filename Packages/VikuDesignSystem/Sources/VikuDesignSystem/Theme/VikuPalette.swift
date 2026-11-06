@@ -39,6 +39,8 @@ public struct VikuPalette: Sendable, Equatable {
     public var semanticSuccessText: Color
     public var semanticDanger: Color
     public var semanticDangerText: Color
+    /// Text of a recognized date in Quick Add, on the field surface.
+    public var dateHighlightText: Color
 
     public init(
         brand: Color,
@@ -53,6 +55,7 @@ public struct VikuPalette: Sendable, Equatable {
         semanticSuccessText: Color,
         semanticDanger: Color,
         semanticDangerText: Color,
+        dateHighlightText: Color? = nil,
     ) {
         self.brand = brand
         self.brandForeground = brandForeground
@@ -66,6 +69,7 @@ public struct VikuPalette: Sendable, Equatable {
         self.semanticSuccessText = semanticSuccessText
         self.semanticDanger = semanticDanger
         self.semanticDangerText = semanticDangerText
+        self.dateHighlightText = dateHighlightText ?? semanticSuccessText
     }
 }
 
@@ -85,6 +89,7 @@ public extension VikuPalette {
         semanticSuccessText: Color(hex: 0x15753F),
         semanticDanger: Color(hex: 0xDF202E),
         semanticDangerText: Color.platformDangerText,
+        dateHighlightText: Color.platformDateHighlightText,
     )
 }
 
@@ -136,6 +141,7 @@ public extension VikuPalette {
         semanticSuccessText: Color(hex: 0xA3BE8C),
         semanticDanger: Color(hex: 0xBF616A),
         semanticDangerText: Color(hex: 0xE8A1A6),
+        dateHighlightText: Color(hex: 0xADC897),
     )
 
     /// Desaturated base16 dark palette modeled on Solarized Dark (Ethan

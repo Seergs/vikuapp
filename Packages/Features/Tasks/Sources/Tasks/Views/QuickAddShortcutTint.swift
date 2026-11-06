@@ -2,6 +2,15 @@ import SwiftUI
 import VikuDesignSystem
 import VikunjaCore
 
+extension QuickAddTitleHighlights.Style {
+    func tint(in palette: VikuPalette) -> Color? {
+        switch self {
+        case let .shortcut(resolution): resolution.tint(in: palette)
+        case .date: palette.dateHighlightText
+        }
+    }
+}
+
 extension QuickAddParser.Resolution {
     /// The color a shortcut's text is drawn in inside the title field. `nil`
     /// leaves the text plain, which is what a superseded shortcut gets.
