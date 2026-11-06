@@ -129,10 +129,10 @@ final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @unchecked
         fatalError("not exercised by Onboarding tests")
     }
 
-    func makeTaskBulkCompletionRepository(
+    func makeTaskBulkUpdateRepository(
         baseURL: URL,
         tokenProvider: @escaping @Sendable () async throws -> String?,
-    ) -> TaskBulkCompletionRepositoryProtocol {
+    ) -> TaskBulkUpdateRepositoryProtocol {
         fatalError("Bulk completion is not exercised by these tests")
     }
 

@@ -48,7 +48,7 @@ struct TaskBulkCompletionTests {
     @Test func `empty selections perform no request or capability lookup`() async throws {
         let client = try BulkCompletionFixtureClient(body: fixture())
         let capability = BulkCompletionCapabilityProvider(usesV2: true)
-        let repository = VikunjaTaskBulkCompletionRepository(client: client, capabilityProvider: capability)
+        let repository = VikunjaTaskBulkUpdateRepository(client: client, capabilityProvider: capability)
 
         #expect(try await repository.setCompletion(taskIDs: [], isDone: true).isEmpty)
         #expect(await client.requests.isEmpty)
@@ -183,8 +183,8 @@ struct TaskBulkCompletionTests {
     private func makeRepository(
         client: BulkCompletionFixtureClient,
         usesV2: Bool = false,
-    ) -> VikunjaTaskBulkCompletionRepository {
-        VikunjaTaskBulkCompletionRepository(
+    ) -> VikunjaTaskBulkUpdateRepository {
+        VikunjaTaskBulkUpdateRepository(
             client: client, capabilityProvider: BulkCompletionCapabilityProvider(usesV2: usesV2),
         )
     }

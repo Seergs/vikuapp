@@ -148,7 +148,7 @@ struct KanbanMovementTests {
             labelRepository: FakeLabelRepository(),
             taskRepository: taskRemote,
             relationRepository: FakeTaskRelationRepository(),
-            taskBulkCompletionRepository: taskRemote,
+            taskBulkUpdateRepository: taskRemote,
             accountID: accountID,
             bucketRepository: remote,
             capabilityProvider: KanbanCapabilities(),

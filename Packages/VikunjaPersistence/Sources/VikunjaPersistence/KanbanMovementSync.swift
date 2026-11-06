@@ -285,7 +285,7 @@ extension SyncEngine {
             try task.update(db)
 
             try current.delete(db)
-            try Self.rebaseTaskCompletionIntents(after: item, updatedAt: serverTask.updated, db: db)
+            try Self.rebaseTaskBulkIntents(after: item, updatedAt: serverTask.updated, db: db)
         }
     }
 
@@ -337,7 +337,7 @@ extension SyncEngine {
                 }
             }
             try current.delete(db)
-            try Self.rebaseTaskCompletionIntents(after: item, updatedAt: response.updated, db: db)
+            try Self.rebaseTaskBulkIntents(after: item, updatedAt: response.updated, db: db)
         }
     }
 }

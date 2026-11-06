@@ -1,4 +1,5 @@
 @testable import Home
+import Testing
 import VikunjaCore
 
 final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendable {
@@ -32,7 +33,7 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
     }
 }
 
-final class FakeTaskRepository: TaskRepositoryProtocol, TaskBulkCompletionRepositoryProtocol, @unchecked Sendable {
+final class FakeTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateRepositoryProtocol, @unchecked Sendable {
     var tasks: [VikunjaTask] = []
     var failingDeleteIDs: Set<EntityID> = []
     private(set) var deletedTaskIDs: [EntityID] = []
@@ -48,7 +49,11 @@ final class FakeTaskRepository: TaskRepositoryProtocol, TaskBulkCompletionReposi
     var beforeCompletion: (@Sendable () async throws -> Void)?
     private(set) var completionCalls: [(ids: [EntityID], isDone: Bool)] = []
 
-    func setCompletion(taskIDs: [EntityID], isDone: Bool) async throws -> [VikunjaTask] {
+    func apply(_ change: TaskBulkChange, toTaskIDs taskIDs: [EntityID]) async throws -> [VikunjaTask] {
+        guard case let .completion(isDone) = change else {
+            Issue.record("Unexpected bulk change \(change)")
+            return []
+        }
         completionCalls.append((taskIDs, isDone))
         try await beforeCompletion?()
         if let completionError {

@@ -92,7 +92,7 @@ public final class ProjectOverviewViewModel {
     }
 
     private let repository: TaskRepositoryProtocol
-    private let completionRepository: TaskBulkCompletionRepositoryProtocol
+    private let completionRepository: TaskBulkUpdateRepositoryProtocol
     private let projectRepository: ProjectRepositoryProtocol
     private var hasRequestedLabels = false
     private var labelCatalogVersion = 0
@@ -133,7 +133,7 @@ public final class ProjectOverviewViewModel {
         project: Project,
         subprojects: [ProjectNode] = [],
         repository: TaskRepositoryProtocol,
-        completionRepository: TaskBulkCompletionRepositoryProtocol,
+        completionRepository: TaskBulkUpdateRepositoryProtocol,
         projectRepository: ProjectRepositoryProtocol,
         labelRepository: LabelRepositoryProtocol,
         relationRepository: TaskRelationRepositoryProtocol,

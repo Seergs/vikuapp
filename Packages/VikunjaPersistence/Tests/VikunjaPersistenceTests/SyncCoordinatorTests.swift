@@ -100,10 +100,10 @@ final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @unchecked
         taskRepository(for: baseURL)
     }
 
-    func makeTaskBulkCompletionRepository(
+    func makeTaskBulkUpdateRepository(
         baseURL: URL,
         tokenProvider: @escaping @Sendable () async throws -> String?,
-    ) -> TaskBulkCompletionRepositoryProtocol {
+    ) -> TaskBulkUpdateRepositoryProtocol {
         taskRepository(for: baseURL)
     }
 

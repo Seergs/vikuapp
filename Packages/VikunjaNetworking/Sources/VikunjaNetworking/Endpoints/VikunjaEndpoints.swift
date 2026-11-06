@@ -72,7 +72,7 @@ enum VikunjaEndpoints {
         Endpoint(path: "/api/v1/tasks/\(id)", method: .delete)
     }
 
-    static func setTaskBulkCompletion(dto: TaskBulkCompletionRequestDTO) throws -> Endpoint {
+    static func updateTasksInBulk(dto: TaskBulkUpdateRequestDTO) throws -> Endpoint {
         try .encoding(path: "/api/v1/tasks/bulk", method: .post, body: dto)
     }
 

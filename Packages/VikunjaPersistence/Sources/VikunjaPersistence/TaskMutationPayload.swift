@@ -71,3 +71,60 @@ struct TaskCompletionPayload: Codable, Equatable, Sendable {
     /// Frozen across pulls; only our own acknowledged writes rebase this value.
     var baseUpdatedAt: Date?
 }
+
+/// One queued bulk row decoded independently of its stored payload type, so
+/// the bulk drain handles every `TaskBulkChange` the same way. Each change
+/// keeps its own operation and payload type, which leaves queues written by
+/// earlier versions decodable.
+struct TaskBulkIntent: Equatable, Sendable {
+    var batchID: UUID
+    var change: TaskBulkChange
+    var baseUpdatedAt: Date?
+
+    init(batchID: UUID, change: TaskBulkChange, baseUpdatedAt: Date?) {
+        self.batchID = batchID
+        self.change = change
+        self.baseUpdatedAt = baseUpdatedAt
+    }
+
+    init(item: MutationQueueRecord) throws {
+        switch item.operation {
+        case .setCompletion:
+            let payload = try KanbanLocalMutations.decode(TaskCompletionPayload.self, item: item)
+            self.init(
+                batchID: payload.batchID, change: .completion(isDone: payload.isDone),
+                baseUpdatedAt: payload.baseUpdatedAt,
+            )
+        case .create, .update, .delete, .addLabel, .removeLabel, .addRelation, .removeRelation, .moveBucket:
+            throw VikunjaError.decoding("Queue item \(item.operation.rawValue) is not a bulk task change.")
+        }
+    }
+
+    var operation: MutationOperation {
+        MutationOperation(bulkChange: change)
+    }
+
+    func encodedPayload() throws -> String {
+        switch change {
+        case let .completion(isDone):
+            try KanbanLocalMutations.encode(
+                TaskCompletionPayload(batchID: batchID, isDone: isDone, baseUpdatedAt: baseUpdatedAt),
+            )
+        }
+    }
+}
+
+extension MutationOperation {
+    /// Operations which are drained in batches through the bulk endpoint.
+    static let bulkTaskChanges: [MutationOperation] = [.setCompletion]
+
+    var isBulkTaskChange: Bool {
+        Self.bulkTaskChanges.contains(self)
+    }
+
+    init(bulkChange: TaskBulkChange) {
+        switch bulkChange {
+        case .completion: self = .setCompletion
+        }
+    }
+}
