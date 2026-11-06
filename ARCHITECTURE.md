@@ -815,38 +815,53 @@ diagnostics stay local and disappear with the queued operation, rather than
 forming a sync history. The original server response can contain submitted
 content.
 
-## Bulk task completion transport
+## Bulk task updates
 
-`TaskBulkCompletionRepositoryProtocol` is separate from full task replacement.
-Its `setCompletion(taskIDs:isDone:)` operation applies one explicit state and
-returns the server's updated tasks for reconciliation by ID. Empty inputs are
-no-ops and duplicate IDs represent one task. The transport rejects unsynced IDs
-before sending the batch and rejects incomplete or mismatched response task IDs.
+`TaskBulkUpdateRepositoryProtocol` is separate from full task replacement. Its
+`apply(_:toTaskIDs:)` operation applies one explicit `TaskBulkChange` to every
+selected task and returns the server's updated tasks for reconciliation by ID.
+There are exactly two changes: `.completion(isDone:)` and `.dueDate(_:)`, with
+`setCompletion` and `setDueDate` conveniences. This is a closed set, not a
+generic field-update mechanism. Empty inputs are no-ops and duplicate IDs
+represent one task. The transport rejects unsynced IDs before sending the batch
+and rejects incomplete or mismatched response task IDs.
 
-`VikunjaTaskBulkCompletionRepository` selects `POST /api/v1/tasks/bulk` or
+`VikunjaTaskBulkUpdateRepository` selects `POST /api/v1/tasks/bulk` or
 `PUT /api/v2/tasks/bulk` through `CapabilityProvider.supports(.apiV2)`. Both use
-`task_ids`, `fields: ["done"]`, and `values: {"done": ...}`. Response decoding
-uses the actual BulkTask object's `tasks` array; v1's Swagger annotation instead
+`task_ids`, a one-entry `fields` list, and a `values` object carrying only that
+field: `done` for completion, `due_date` for due dates. Response decoding uses
+the actual BulkTask object's `tasks` array; v1's Swagger annotation instead
 claims a bare array. The implementation follows the server handlers, not that
 annotation. Server errors propagate without legacy payload or per-task fallbacks.
+The server recomputes relative reminders when the due date changes.
 
-`OfflineTaskRepository` also implements this contract. It changes only completion
-and cached board placement, then writes one `setCompletion` queue row per task in
-one transaction. A shared batch ID defines a single atomic bulk request; duplicate
-local/remote aliases select one task. A later local completion replaces pending
-completion intent for that task, while in-flight intent remains until acknowledged.
+`OfflineTaskRepository` also implements this contract. It changes only the named
+field (plus cached board placement for completion), then writes one queue row per
+task in one transaction: `setCompletion` with `TaskCompletionPayload`, or
+`setDueDate` with `TaskDueDatePayload`. `TaskBulkIntent` decodes either row into
+one shape for the drain, and each kind keeps its own payload so existing queues
+stay readable. A shared batch ID defines a single atomic bulk request; duplicate
+local/remote aliases select one task. A later intent of the same kind replaces a
+pending one for that task, while in-flight intent remains until acknowledged.
+Completion and due-date intents never replace each other. A full task edit that
+changes completion or the due date drops the pending intent of that kind, since
+the edit carries the newer value. Cached relative reminders keep their previous
+time until the server's response replaces them.
 
 `SyncCoordinator` obtains the bulk transport through `InstanceClientFactoryProtocol`.
 The task drain resolves offline creations first, preserves ordering with earlier
-edits, and claims each batch before sending it. All response tasks and queue
-acknowledgements commit in one transaction. New edits and deletions arriving during
-the request remain protected; known successful writes rebase subsequent local
-intent. The baseline in the completion payload stays frozen across pulls so real
-server conflicts still block the batch and use the existing recovery flow.
+edits and earlier bulk intents of either kind, and claims each batch before
+sending it. All response tasks and queue acknowledgements commit in one
+transaction. New edits and deletions arriving during the request remain
+protected; known successful writes rebase subsequent local intent, and an
+acknowledged full edit supersedes older bulk intents for that task. The baseline
+in each bulk payload stays frozen across pulls so real server conflicts still
+block the batch and use the existing recovery flow.
 
 Failures remain visible per task in Pending Sync as updates. Rejections retain the
 batch for retry. Offline/cancelled requests release claims without counting a
 failed attempt, and a new engine recovers durable claims left by a stopped process.
+No screen sends a bulk due-date change yet.
 Home and project lists inject the local bulk-completion protocol separately from
 full task editing. Their shared selection bar offers Complete or Reopen for a
 uniform selection and an explicit choice for mixed selections. One target state
