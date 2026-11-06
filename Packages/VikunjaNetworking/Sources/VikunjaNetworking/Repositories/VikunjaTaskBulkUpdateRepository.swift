@@ -1,9 +1,9 @@
 import VikunjaCore
 
 /// Transport for the modern bulk contract on both API versions. This is kept
-/// separate from full task updates so sync can submit completion intents without
+/// separate from full task updates so sync can submit bulk intents without
 /// fetching or replacing each task. The local queue is wired independently.
-public final class VikunjaTaskBulkCompletionRepository: TaskBulkCompletionRepositoryProtocol {
+public final class VikunjaTaskBulkUpdateRepository: TaskBulkUpdateRepositoryProtocol {
     private let client: APIClient
     private let capabilityProvider: CapabilityProvider
 
@@ -12,7 +12,7 @@ public final class VikunjaTaskBulkCompletionRepository: TaskBulkCompletionReposi
         self.capabilityProvider = capabilityProvider
     }
 
-    public func setCompletion(taskIDs: [EntityID], isDone: Bool) async throws -> [VikunjaTask] {
+    public func apply(_ change: TaskBulkChange, toTaskIDs taskIDs: [EntityID]) async throws -> [VikunjaTask] {
         guard !taskIDs.isEmpty else { return [] }
         var seen: Set<Int> = []
         var remoteIDs: [Int] = []
@@ -26,15 +26,15 @@ public final class VikunjaTaskBulkCompletionRepository: TaskBulkCompletionReposi
                 remoteIDs.append(remoteID)
             }
         }
-        let dto = TaskBulkCompletionRequestDTO(taskIDs: remoteIDs, isDone: isDone)
+        let dto = TaskBulkUpdateRequestDTO(taskIDs: remoteIDs, change: change)
         let endpoint = try await capabilityProvider.supports(.apiV2)
-            ? VikunjaEndpoints.setTaskBulkCompletionV2(dto: dto)
-            : VikunjaEndpoints.setTaskBulkCompletion(dto: dto)
-        let response: TaskBulkCompletionResponseDTO = try await client.send(endpoint)
+            ? VikunjaEndpoints.updateTasksInBulkV2(dto: dto)
+            : VikunjaEndpoints.updateTasksInBulk(dto: dto)
+        let response: TaskBulkUpdateResponseDTO = try await client.send(endpoint)
         // Never let a truncated, duplicate or unrelated response acknowledge
         // mutations which the server has not actually returned to the caller.
         guard response.tasks.count == remoteIDs.count, Set(response.tasks.map(\.id)) == seen else {
-            throw VikunjaError.decoding("Bulk completion response does not match the requested task IDs.")
+            throw VikunjaError.decoding("Bulk update response does not match the requested task IDs.")
         }
         return response.tasks.map(TaskMapper.toDomain)
     }

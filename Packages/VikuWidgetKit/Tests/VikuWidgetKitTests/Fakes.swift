@@ -169,10 +169,10 @@ struct FakeClientFactory: InstanceClientFactoryProtocol {
         taskRepository
     }
 
-    func makeTaskBulkCompletionRepository(
+    func makeTaskBulkUpdateRepository(
         baseURL: URL,
         tokenProvider: @escaping @Sendable () async throws -> String?,
-    ) -> TaskBulkCompletionRepositoryProtocol {
+    ) -> TaskBulkUpdateRepositoryProtocol {
         fatalError("Bulk completion is not exercised by these tests")
     }
 

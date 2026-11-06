@@ -925,7 +925,7 @@ final class AppContainer {
 
     private func offlineTaskRepository(
         for account: InstanceAccount,
-    ) -> any TaskRepositoryProtocol & TaskBulkCompletionRepositoryProtocol {
+    ) -> any TaskRepositoryProtocol & TaskBulkUpdateRepositoryProtocol {
         OfflineTaskRepository(localStore: localStore, accountID: account.id, syncRequester: accountSync(for: account))
     }
 

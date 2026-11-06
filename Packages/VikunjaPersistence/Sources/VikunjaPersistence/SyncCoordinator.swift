@@ -282,7 +282,7 @@ public actor SyncCoordinator {
             labelRepository: labelRepository,
             taskRepository: taskRepository,
             relationRepository: relationRepository,
-            taskBulkCompletionRepository: clientFactory.makeTaskBulkCompletionRepository(
+            taskBulkUpdateRepository: clientFactory.makeTaskBulkUpdateRepository(
                 baseURL: account.baseURL, tokenProvider: resolvedTokenProvider,
             ),
             commentRepository: commentRepository,

@@ -47,7 +47,7 @@ struct TaskBulkCompletionSyncTests {
         SyncEngine(
             localStore: store, projectRepository: FakeProjectRepository(), labelRepository: FakeLabelRepository(),
             taskRepository: remote, relationRepository: FakeTaskRelationRepository(),
-            taskBulkCompletionRepository: remote, accountID: accountID,
+            taskBulkUpdateRepository: remote, accountID: accountID,
         )
     }
 
@@ -122,7 +122,7 @@ struct TaskBulkCompletionSyncTests {
         _ = try await fixture.local.update(task)
         _ = try await fixture.local.setCompletion(taskIDs: fixture.tasks.map(\.id), isDone: true)
         let local = fixture.local
-        fixture.remote.beforeCompletionResponse = {
+        fixture.remote.beforeBulkUpdateResponse = {
             let visible = try await local.fetchTasks(projectID: 1)
             #expect(visible.map(\.isDone) == [true, true])
         }
@@ -169,8 +169,8 @@ struct TaskBulkCompletionSyncTests {
         let remote = fixture.remote
         let ids = fixture.tasks.map(\.id)
         _ = try await local.setCompletion(taskIDs: ids, isDone: true)
-        remote.beforeCompletionResponse = {
-            remote.beforeCompletionResponse = nil
+        remote.beforeBulkUpdateResponse = {
+            remote.beforeBulkUpdateResponse = nil
             _ = try await local.setCompletion(taskIDs: ids, isDone: false)
         }
         try await fixture.engine.drainTaskMutations()
@@ -188,13 +188,13 @@ struct TaskBulkCompletionSyncTests {
         let remote = fixture.remote
         let id = fixture.tasks[0].id
         _ = try await local.setCompletion(taskIDs: fixture.tasks.map(\.id), isDone: true)
-        remote.completionError = VikunjaError.server(message: "Rejected", statusCode: 403)
-        remote.beforeCompletionResponse = {
-            remote.beforeCompletionResponse = nil
+        remote.bulkUpdateError = VikunjaError.server(message: "Rejected", statusCode: 403)
+        remote.beforeBulkUpdateResponse = {
+            remote.beforeBulkUpdateResponse = nil
             _ = try await local.setCompletion(taskIDs: [id], isDone: false)
         }
         try await fixture.engine.drainTaskMutations()
-        remote.completionError = nil
+        remote.bulkUpdateError = nil
         try await fixture.engine.drainTaskMutations()
         #expect(remote.completionCalls.count == 3)
         #expect(remote.completionCalls[1].ids == [fixture.tasks[1].id])
@@ -209,9 +209,9 @@ struct TaskBulkCompletionSyncTests {
         let remote = fixture.remote
         let id = fixture.tasks[0].id
         _ = try await local.setCompletion(taskIDs: fixture.tasks.map(\.id), isDone: true)
-        remote.completionError = VikunjaError.server(message: "Rejected", statusCode: 403)
-        remote.beforeCompletionResponse = {
-            remote.beforeCompletionResponse = nil
+        remote.bulkUpdateError = VikunjaError.server(message: "Rejected", statusCode: 403)
+        remote.beforeBulkUpdateResponse = {
+            remote.beforeBulkUpdateResponse = nil
             var task = try await local.fetchTask(id: id)
             task.isDone = false
             _ = try await local.update(task)
@@ -219,7 +219,7 @@ struct TaskBulkCompletionSyncTests {
         try await fixture.engine.drainTaskMutations()
         try await fixture.engine.drainTaskMutations()
         #expect(try await queue(fixture).count == 1)
-        remote.completionError = nil
+        remote.bulkUpdateError = nil
         try await fixture.engine.drainTaskMutations()
         #expect(remote.completionCalls.last?.ids == [fixture.tasks[1].id])
         #expect(remote.tasks.map(\.isDone) == [false, true])
@@ -232,8 +232,8 @@ struct TaskBulkCompletionSyncTests {
         let remote = fixture.remote
         let id = fixture.tasks[0].id
         _ = try await local.setCompletion(taskIDs: [id], isDone: true)
-        remote.beforeCompletionResponse = {
-            remote.beforeCompletionResponse = nil
+        remote.beforeBulkUpdateResponse = {
+            remote.beforeBulkUpdateResponse = nil
             var task = try await local.fetchTask(id: id)
             task.title = "Changed during upload"
             task.reminders = [TaskReminder(reminder: Date(timeIntervalSince1970: 1_800_000_000))]
@@ -253,14 +253,14 @@ struct TaskBulkCompletionSyncTests {
     @Test func `server rejection preserves every task for retry and exposes failure diagnostics`() async throws {
         let fixture = try await fixture()
         _ = try await fixture.local.setCompletion(taskIDs: fixture.tasks.map(\.id), isDone: true)
-        fixture.remote.completionError = VikunjaError.server(message: "Forbidden", statusCode: 403)
+        fixture.remote.bulkUpdateError = VikunjaError.server(message: "Forbidden", statusCode: 403)
         try await fixture.engine.drainTaskMutations()
         let failed = try await queue(fixture)
         #expect(failed.count == 2)
         #expect(failed.allSatisfy { $0.status == .failed && $0.failureDetails != nil && $0.retryCount == 1 })
         #expect(fixture.remote.updatedTasks.isEmpty)
         #expect(try await fixture.local.fetchTasks(projectID: 1).map(\.isDone) == [true, true])
-        fixture.remote.completionError = nil
+        fixture.remote.bulkUpdateError = nil
         try await fixture.engine.drainTaskMutations()
         #expect(fixture.remote.completionCalls.count == 2)
         #expect(try await queue(fixture).isEmpty)
@@ -270,7 +270,7 @@ struct TaskBulkCompletionSyncTests {
     func `offline and cancelled uploads release claims without losing pending changes`(cancelled: Bool) async throws {
         let fixture = try await fixture()
         _ = try await fixture.local.setCompletion(taskIDs: fixture.tasks.map(\.id), isDone: true)
-        fixture.remote.completionError = cancelled ? CancellationError() : VikunjaError.offline
+        fixture.remote.bulkUpdateError = cancelled ? CancellationError() : VikunjaError.offline
         do {
             try await fixture.engine.drainTaskMutations()
             Issue.record("Expected interrupted upload")
@@ -280,7 +280,7 @@ struct TaskBulkCompletionSyncTests {
         let items = try await queue(fixture)
         #expect(items.count == 2)
         #expect(items.allSatisfy { $0.status == .pending && $0.retryCount == 0 })
-        fixture.remote.completionError = nil
+        fixture.remote.bulkUpdateError = nil
         try await fixture.engine.drainTaskMutations()
         #expect(try await queue(fixture).isEmpty)
     }
@@ -313,7 +313,7 @@ struct TaskBulkCompletionSyncTests {
         let local = fixture.local
         let id = fixture.tasks[0].id
         _ = try await local.setCompletion(taskIDs: fixture.tasks.map(\.id), isDone: true)
-        fixture.remote.beforeCompletionResponse = { try await local.delete(id: id) }
+        fixture.remote.beforeBulkUpdateResponse = { try await local.delete(id: id) }
         try await fixture.engine.drainTaskMutations()
         #expect(try await local.fetchTasks(projectID: 1).count == 1)
         try await fixture.engine.pullTasks()
@@ -328,8 +328,8 @@ struct TaskBulkCompletionSyncTests {
         let engine = fixture.engine
         let remote = fixture.remote
         _ = try await fixture.local.setCompletion(taskIDs: fixture.tasks.map(\.id), isDone: true)
-        remote.beforeCompletionResponse = {
-            remote.beforeCompletionResponse = nil
+        remote.beforeBulkUpdateResponse = {
+            remote.beforeBulkUpdateResponse = nil
             try await engine.drainTaskMutations()
         }
         try await engine.drainTaskMutations()

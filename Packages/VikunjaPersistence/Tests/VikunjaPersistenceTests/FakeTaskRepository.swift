@@ -1,7 +1,7 @@
 import Foundation
 import VikunjaCore
 
-final class FakeTaskRepository: TaskRepositoryProtocol, TaskBulkCompletionRepositoryProtocol, @unchecked Sendable {
+final class FakeTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateRepositoryProtocol, @unchecked Sendable {
     var tasks: [VikunjaTask] = []
     /// Overrides a project's endpoint response. Useful for virtual projects,
     /// whose returned tasks still point at their real owning project.
@@ -13,9 +13,23 @@ final class FakeTaskRepository: TaskRepositoryProtocol, TaskBulkCompletionReposi
     var createError: Error?
     var updateError: Error?
     var updateResponse: VikunjaTask?
-    var completionError: Error?
-    var beforeCompletionResponse: (@Sendable () async throws -> Void)?
-    private(set) var completionCalls: [(ids: [EntityID], isDone: Bool)] = []
+    var bulkUpdateError: Error?
+    var beforeBulkUpdateResponse: (@Sendable () async throws -> Void)?
+    private(set) var bulkUpdateCalls: [(ids: [EntityID], change: TaskBulkChange)] = []
+    var completionCalls: [(ids: [EntityID], isDone: Bool)] {
+        bulkUpdateCalls.compactMap { call in
+            guard case let .completion(isDone) = call.change else { return nil }
+            return (call.ids, isDone)
+        }
+    }
+
+    var dueDateCalls: [(ids: [EntityID], dueDate: Date)] {
+        bulkUpdateCalls.compactMap { call in
+            guard case let .dueDate(dueDate) = call.change else { return nil }
+            return (call.ids, dueDate)
+        }
+    }
+
     var deleteError: Error?
     var searchError: Error?
     private(set) var createdTasks: [VikunjaTask] = []
@@ -87,20 +101,23 @@ final class FakeTaskRepository: TaskRepositoryProtocol, TaskBulkCompletionReposi
         return updated
     }
 
-    func setCompletion(taskIDs: [EntityID], isDone: Bool) async throws -> [VikunjaTask] {
-        completionCalls.append((taskIDs, isDone))
-        if let completionError {
-            try await beforeCompletionResponse?()
-            throw completionError
+    func apply(_ change: TaskBulkChange, toTaskIDs taskIDs: [EntityID]) async throws -> [VikunjaTask] {
+        bulkUpdateCalls.append((taskIDs, change))
+        if let bulkUpdateError {
+            try await beforeBulkUpdateResponse?()
+            throw bulkUpdateError
         }
         var result: [VikunjaTask] = []
         for id in taskIDs {
             guard let index = tasks.firstIndex(where: { $0.id == id }) else { throw VikunjaError.notFound }
-            tasks[index].isDone = isDone
+            switch change {
+            case let .completion(isDone): tasks[index].isDone = isDone
+            case let .dueDate(dueDate): tasks[index].dueDate = dueDate
+            }
             tasks[index].updated = Date()
             result.append(tasks[index])
         }
-        try await beforeCompletionResponse?()
+        try await beforeBulkUpdateResponse?()
         return result
     }
 

@@ -2,13 +2,13 @@ import Foundation
 import GRDB
 import VikunjaCore
 
-private struct CompletionBatch: Sendable {
+private struct TaskBulkBatch: Sendable {
     let items: [MutationQueueRecord]
     let taskIDs: [EntityID]
-    let isDone: Bool
+    let change: TaskBulkChange
 }
 
-private enum CompletionDrainError: Error {
+private enum TaskBulkDrainError: Error {
     case missingRepository
     case invalidPayload
 }
@@ -16,27 +16,23 @@ private enum CompletionDrainError: Error {
 extension SyncEngine {
     /// A process can stop after claiming a batch. Its durable intent remains
     /// retryable; a batch currently running on this engine must stay claimed.
-    func recoverTaskCompletions() async throws {
-        let active = activeCompletionBatches
+    func recoverTaskBulkUpdates() async throws {
+        let active = activeTaskBulkBatches
         try await localStore.write { db in
-            let items = try MutationQueueRecord.filter(Column("accountID") == self.accountID)
-                .filter(Column("operation") == MutationOperation.setCompletion.rawValue)
-                .filter(Column("status") == MutationStatus.inFlight.rawValue).fetchAll(db)
-            for var item in items {
-                let payload = try KanbanLocalMutations.decode(TaskCompletionPayload.self, item: item)
-                if !active.contains(payload.batchID) {
+            let items = try Self.bulkQueueItems(accountID: self.accountID, db: db)
+            for var item in items where item.status == .inFlight {
+                if try !active.contains(TaskBulkIntent(item: item).batchID) {
                     item.status = item.lastError == nil ? .pending : .failed
                     try item.update(db)
                 }
             }
             // A newer intent may arrive while an older batch is in flight.
             // Once released, an obsolete intent must not block its replacement.
-            let completions = try MutationQueueRecord.filter(Column("accountID") == self.accountID)
-                .filter(Column("operation") == MutationOperation.setCompletion.rawValue)
-                .order(Column("id").desc).fetchAll(db)
-            var newestTargets: Set<UUID> = []
-            for item in completions {
-                if !newestTargets.insert(item.targetLocalID).inserted, item.status != .inFlight {
+            // Each kind of change only replaces the same kind for that task.
+            var newest: Set<String> = []
+            for item in items.sorted(by: { ($0.id ?? 0) > ($1.id ?? 0) }) {
+                let key = "\(item.targetLocalID)/\(item.operation.rawValue)"
+                if !newest.insert(key).inserted, item.status != .inFlight {
                     try item.delete(db)
                 }
             }
@@ -44,11 +40,11 @@ extension SyncEngine {
     }
 
     /// Returns true when the entire batch was blocked by a newer server edit.
-    func drainTaskCompletionBatch(_ batchID: UUID) async throws -> Bool {
-        guard activeCompletionBatches.insert(batchID).inserted else { return false }
-        defer { activeCompletionBatches.remove(batchID) }
+    func drainTaskBulkBatch(_ batchID: UUID) async throws -> Bool {
+        guard activeTaskBulkBatches.insert(batchID).inserted else { return false }
+        defer { activeTaskBulkBatches.remove(batchID) }
         let (batch, conflicts) = try await localStore.write { db in
-            try Self.prepareCompletionBatch(batchID, accountID: self.accountID, db: db)
+            try Self.prepareTaskBulkBatch(batchID, accountID: self.accountID, db: db)
         }
         if !conflicts.isEmpty {
             for item in conflicts {
@@ -58,32 +54,30 @@ extension SyncEngine {
         }
         guard let batch else { return false }
         do {
-            guard let taskBulkCompletionRepository else { throw CompletionDrainError.missingRepository }
+            guard let taskBulkUpdateRepository else { throw TaskBulkDrainError.missingRepository }
             try Task.checkCancellation()
-            let tasks = try await taskBulkCompletionRepository.setCompletion(
-                taskIDs: batch.taskIDs, isDone: batch.isDone,
-            )
-            try await acknowledgeCompletionBatch(batch, tasks: tasks)
+            let tasks = try await taskBulkUpdateRepository.apply(batch.change, toTaskIDs: batch.taskIDs)
+            try await acknowledgeTaskBulkBatch(batch, tasks: tasks)
         } catch {
-            try await handleCompletionFailure(error, batch: batch)
+            try await handleTaskBulkFailure(error, batch: batch)
         }
         return false
     }
 
-    private func acknowledgeCompletionBatch(_ batch: CompletionBatch, tasks: [VikunjaTask]) async throws {
+    private func acknowledgeTaskBulkBatch(_ batch: TaskBulkBatch, tasks: [VikunjaTask]) async throws {
         guard tasks.count == batch.taskIDs.count, Set(tasks.map(\.id)) == Set(batch.taskIDs) else {
-            throw VikunjaError.decoding("Bulk completion response does not match the queued task IDs.")
+            throw VikunjaError.decoding("Bulk update response does not match the queued task IDs.")
         }
         let byID = Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, $0) })
         try await localStore.write { db in
             for (item, id) in zip(batch.items, batch.taskIDs) {
-                guard let task = byID[id] else { throw CompletionDrainError.invalidPayload }
+                guard let task = byID[id] else { throw TaskBulkDrainError.invalidPayload }
                 try Self.applyTaskPushResult(task, deleting: item, db: db)
             }
         }
     }
 
-    private func handleCompletionFailure(_ error: any Error, batch: CompletionBatch) async throws {
+    private func handleTaskBulkFailure(_ error: any Error, batch: TaskBulkBatch) async throws {
         if error is CancellationError || (error as? VikunjaError) == .offline {
             try await localStore.write { db in
                 for sent in batch.items {
@@ -100,13 +94,19 @@ extension SyncEngine {
         }
     }
 
-    private static func prepareCompletionBatch(
+    private static func bulkQueueItems(accountID: UUID, db: Database) throws -> [MutationQueueRecord] {
+        try MutationQueueRecord.filter(Column("accountID") == accountID)
+            .filter(MutationOperation.bulkTaskChanges.map(\.rawValue).contains(Column("operation")))
+            .fetchAll(db)
+    }
+
+    private static func prepareTaskBulkBatch(
         _ batchID: UUID, accountID: UUID, db: Database,
-    ) throws -> (CompletionBatch?, [MutationQueueRecord]) {
+    ) throws -> (TaskBulkBatch?, [MutationQueueRecord]) {
         let queue = try MutationQueueRecord.filter(Column("accountID") == accountID).fetchAll(db)
         let items = try queue.filter { item in
-            guard item.entityType == .task, item.operation == .setCompletion else { return false }
-            return try KanbanLocalMutations.decode(TaskCompletionPayload.self, item: item).batchID == batchID
+            guard item.entityType == .task, item.operation.isBulkTaskChange else { return false }
+            return try TaskBulkIntent(item: item).batchID == batchID
         }.sorted { ($0.id ?? 0) < ($1.id ?? 0) }
         guard !items.isEmpty, items.allSatisfy({ $0.status != .inFlight && !$0.needsConflictResolution }) else {
             return (nil, [])
@@ -114,10 +114,10 @@ extension SyncEngine {
         let ids = Set(items.compactMap(\.id))
         var taskIDs: [EntityID] = []
         var hasConflict = false
-        let payload = try KanbanLocalMutations.decode(TaskCompletionPayload.self, item: items[0])
+        let first = try TaskBulkIntent(item: items[0])
         for item in items {
-            let intent = try KanbanLocalMutations.decode(TaskCompletionPayload.self, item: item)
-            guard intent.isDone == payload.isDone else { throw CompletionDrainError.invalidPayload }
+            let intent = try TaskBulkIntent(item: item)
+            guard intent.change == first.change else { throw TaskBulkDrainError.invalidPayload }
             guard let row = try TaskRecord.fetchOne(db, key: item.targetLocalID), row.accountID == accountID,
                   let remoteID = row.remoteID else { return (nil, []) }
             // Preserve FIFO for earlier edits, unresolved conflicts and creates.
@@ -126,7 +126,7 @@ extension SyncEngine {
                     && ($0.operation == .delete || $0.needsConflictResolution
                         || $0.operation == .create
                         || (($0.id ?? 0) < (item.id ?? 0)
-                            && [.update, .setCompletion, .moveBucket].contains($0.operation)))
+                            && ($0.operation.isBulkTaskChange || [.update, .moveBucket].contains($0.operation))))
             }
             if blocked {
                 return (nil, [])
@@ -144,28 +144,30 @@ extension SyncEngine {
             item.status = .inFlight
             try item.update(db)
         }
-        return (CompletionBatch(items: items, taskIDs: taskIDs, isDone: payload.isDone), [])
+        return (TaskBulkBatch(items: items, taskIDs: taskIDs, change: first.change), [])
     }
 
     /// Our own successful write is the new baseline, not a server conflict.
-    /// A completion acknowledgement must also preserve later full task edits.
-    static func rebaseTaskCompletionIntents(
+    /// A bulk acknowledgement must also preserve later full task edits.
+    static func rebaseTaskBulkIntents(
         after sent: MutationQueueRecord, updatedAt: Date?, db: Database,
     ) throws {
         let items = try MutationQueueRecord.filter(Column("accountID") == sent.accountID)
             .filter(Column("targetLocalID") == sent.targetLocalID).fetchAll(db)
         for var item in items where item.id != sent.id && !item.needsConflictResolution && item.status != .inFlight {
-            if item.operation == .setCompletion {
+            if item.operation.isBulkTaskChange {
+                // A full update carries every field a bulk change can set, so
+                // it supersedes older bulk intents for the same task.
                 if sent.operation == .update, (item.id ?? 0) < (sent.id ?? 0) {
                     try item.delete(db)
                     continue
                 }
-                var payload = try KanbanLocalMutations.decode(TaskCompletionPayload.self, item: item)
-                payload.baseUpdatedAt = updatedAt
-                item.payload = try KanbanLocalMutations.encode(payload)
+                var intent = try TaskBulkIntent(item: item)
+                intent.baseUpdatedAt = updatedAt
+                item.payload = try intent.encodedPayload()
                 item.baseUpdatedAt = updatedAt
                 try item.update(db)
-            } else if item.operation == .update, [.setCompletion, .moveBucket].contains(sent.operation) {
+            } else if item.operation == .update, sent.operation.isBulkTaskChange || sent.operation == .moveBucket {
                 var payload = try KanbanLocalMutations.decode(TaskCreateOrUpdatePayload.self, item: item)
                 payload.baseUpdatedAt = updatedAt
                 item.payload = try KanbanLocalMutations.encode(payload)

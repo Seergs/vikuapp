@@ -24,10 +24,10 @@ public protocol InstanceClientFactoryProtocol: Sendable {
         tokenProvider: @escaping @Sendable () async throws -> String?,
     ) -> TaskRepositoryProtocol
 
-    func makeTaskBulkCompletionRepository(
+    func makeTaskBulkUpdateRepository(
         baseURL: URL,
         tokenProvider: @escaping @Sendable () async throws -> String?,
-    ) -> TaskBulkCompletionRepositoryProtocol
+    ) -> TaskBulkUpdateRepositoryProtocol
 
     func makeLabelRepository(
         baseURL: URL,

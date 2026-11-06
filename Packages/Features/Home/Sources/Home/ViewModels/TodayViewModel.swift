@@ -74,7 +74,7 @@ public final class TodayViewModel {
     private let taskLoader: AccountTaskLoader
     private let mutator: TaskListMutator
     private let taskRepository: TaskRepositoryProtocol
-    private let completionRepository: TaskBulkCompletionRepositoryProtocol
+    private let completionRepository: TaskBulkUpdateRepositoryProtocol
     private let projectRepository: ProjectRepositoryProtocol
     private var hasRequestedLabels = false
     private var labelCatalogVersion = 0
@@ -97,7 +97,7 @@ public final class TodayViewModel {
         syncTrigger: SyncTriggering,
         localData: LocalDataObserving,
         taskRepository: TaskRepositoryProtocol,
-        completionRepository: TaskBulkCompletionRepositoryProtocol,
+        completionRepository: TaskBulkUpdateRepositoryProtocol,
         projectRepository: ProjectRepositoryProtocol,
         labelRepository: LabelRepositoryProtocol,
         relationRepository: TaskRelationRepositoryProtocol,

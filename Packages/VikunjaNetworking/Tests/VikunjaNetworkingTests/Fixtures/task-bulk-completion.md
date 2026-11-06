@@ -16,3 +16,8 @@ Source: https://github.com/go-vikunja/vikunja/tree/v2.8.0
 Tests adapt this fixture for pending tasks and malformed responses. Full task
 bodies exercise the existing TaskDTO and TaskMapper, including dates, labels,
 relations, reminders, and the server update timestamp used by synchronization.
+
+`TaskBulkUpdateTests` also adapts this fixture for bulk due-date updates by
+setting each task's `due_date` (and the echoed `fields`/`values`) to the
+requested date. The v2.8.0 handlers accept `due_date` as a bulk field and apply
+it through the same `updateTasks` path as `done`.

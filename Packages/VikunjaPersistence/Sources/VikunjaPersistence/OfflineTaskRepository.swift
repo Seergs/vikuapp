@@ -8,7 +8,7 @@ import VikunjaCore
 /// detection machinery, unlike `OfflineLabelRepository`: Vikunja's task API
 /// exposes `updated`, so `drainTaskUpdate` has a real baseline to compare a
 /// queued edit against.
-public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkCompletionRepositoryProtocol {
+public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateRepositoryProtocol {
     private let localStore: LocalStore
     private let accountID: UUID
     private let syncRequester: SyncRequesting
@@ -121,12 +121,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkCompletionRe
                     .filter(Column("status") != MutationStatus.inFlight.rawValue).deleteAll(db)
             }
             let completionChanged = row.isDone != task.isDone
-            if completionChanged {
-                try MutationQueueRecord.filter(Column("accountID") == self.accountID)
-                    .filter(Column("targetLocalID") == row.localID)
-                    .filter(Column("operation") == MutationOperation.setCompletion.rawValue)
-                    .filter(Column("status") != MutationStatus.inFlight.rawValue).deleteAll(db)
-            }
+            try Self.dropSupersededBulkIntents(for: row, editedTo: task, db: db)
             row.title = task.title
             row.description = task.description
             row.isDone = task.isDone
@@ -167,11 +162,32 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkCompletionRe
         return try await readTask(id: task.id)
     }
 
+    /// A full edit carries the newest value of each changed field, so a
+    /// pending bulk intent for that field is obsolete. In-flight intent stays
+    /// until its acknowledgement.
+    private static func dropSupersededBulkIntents(
+        for row: TaskRecord, editedTo task: VikunjaTask, db: Database,
+    ) throws {
+        var superseded: [MutationOperation] = []
+        if row.isDone != task.isDone {
+            superseded.append(.setCompletion)
+        }
+        if row.dueDate != task.dueDate {
+            superseded.append(.setDueDate)
+        }
+        guard !superseded.isEmpty else { return }
+        try MutationQueueRecord.filter(Column("accountID") == row.accountID)
+            .filter(Column("targetLocalID") == row.localID)
+            .filter(superseded.map(\.rawValue).contains(Column("operation")))
+            .filter(Column("status") != MutationStatus.inFlight.rawValue).deleteAll(db)
+    }
+
     /// Persist the whole selection atomically without waiting for connectivity.
-    /// Separate completion intents leave pending title/date edits intact.
-    public func setCompletion(taskIDs: [EntityID], isDone: Bool) async throws -> [VikunjaTask] {
+    /// Separate bulk intents leave pending title/date edits intact.
+    public func apply(_ change: TaskBulkChange, toTaskIDs taskIDs: [EntityID]) async throws -> [VikunjaTask] {
         guard !taskIDs.isEmpty else { return [] }
         let batchID = UUID()
+        let operation = MutationOperation(bulkChange: change)
         let result = try await localStore.write { db in
             let rows = try Self.accountRows(self.accountID, db: db)
             let hidden = try Self.pendingDeleteTargetLocalIDs(accountID: self.accountID, db: db)
@@ -187,23 +203,17 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkCompletionRe
             }
             let createdAt = Date()
             for var row in selected {
-                let completionChanged = row.isDone != isDone
-                row.isDone = isDone
-                try row.save(db)
-                if completionChanged {
-                    try KanbanLocalMutations.applyCompletion(row, db: db)
-                }
+                try Self.applyLocally(change, to: &row, db: db)
+                // A newer intent of the same kind replaces a pending one.
                 try MutationQueueRecord.filter(Column("accountID") == self.accountID)
                     .filter(Column("targetLocalID") == row.localID)
-                    .filter(Column("operation") == MutationOperation.setCompletion.rawValue)
+                    .filter(Column("operation") == operation.rawValue)
                     .filter(Column("status") != MutationStatus.inFlight.rawValue).deleteAll(db)
-                let payload = TaskCompletionPayload(
-                    batchID: batchID, isDone: isDone, baseUpdatedAt: row.serverUpdatedAt,
-                )
+                let intent = TaskBulkIntent(batchID: batchID, change: change, baseUpdatedAt: row.serverUpdatedAt)
                 var item = try MutationQueueRecord(
-                    id: nil, accountID: self.accountID, entityType: .task, operation: .setCompletion,
+                    id: nil, accountID: self.accountID, entityType: .task, operation: operation,
                     targetLocalID: row.localID,
-                    payload: Self.encode(payload),
+                    payload: intent.encodedPayload(),
                     createdAt: createdAt, retryCount: 0, lastError: nil, status: .pending,
                     needsConflictResolution: false, baseUpdatedAt: row.serverUpdatedAt,
                 )
@@ -217,6 +227,25 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkCompletionRe
         }
         await triggerDrainIfOnline()
         return result
+    }
+
+    /// Changes only the field the bulk change names, plus the cached board
+    /// placement that follows from a completion change.
+    private static func applyLocally(_ change: TaskBulkChange, to row: inout TaskRecord, db: Database) throws {
+        switch change {
+        case let .completion(isDone):
+            let completionChanged = row.isDone != isDone
+            row.isDone = isDone
+            try row.save(db)
+            if completionChanged {
+                try KanbanLocalMutations.applyCompletion(row, db: db)
+            }
+        case let .dueDate(dueDate):
+            // Relative reminders stay as cached until the server's response
+            // replaces them; the server recomputes them from the new date.
+            row.dueDate = dueDate
+            try row.save(db)
+        }
     }
 
     public func delete(id: EntityID) async throws {
@@ -500,7 +529,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkCompletionRe
                 }
             case .removeLabel:
                 labels.removeAll { $0.id == labelID }
-            case .create, .update, .delete, .addRelation, .removeRelation, .moveBucket, .setCompletion:
+            case .create, .update, .delete, .addRelation, .removeRelation, .moveBucket, .setCompletion, .setDueDate:
                 break
             }
         }
@@ -588,7 +617,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkCompletionRe
                 relationsByKind[mutation.kind] = relations
             case .removeRelation:
                 relationsByKind[mutation.kind]?.removeAll { $0.id == otherID }
-            case .create, .update, .delete, .addLabel, .removeLabel, .moveBucket, .setCompletion:
+            case .create, .update, .delete, .addLabel, .removeLabel, .moveBucket, .setCompletion, .setDueDate:
                 break
             }
         }

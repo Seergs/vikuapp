@@ -9,8 +9,8 @@ private let syncLogger = Logger(subsystem: "dev.sergiosuarez.vikunja", category:
 /// server: pulls the server's state in, and drains that account's locally
 /// queued mutations back out.
 public actor SyncEngine {
-    var activeCompletionBatches: Set<UUID> = []
-    let taskBulkCompletionRepository: TaskBulkCompletionRepositoryProtocol?
+    var activeTaskBulkBatches: Set<UUID> = []
+    let taskBulkUpdateRepository: TaskBulkUpdateRepositoryProtocol?
     var activeKanbanMoves: Set<Int64> = []
     var activeKanbanCreations: Set<Int64> = []
     let bucketRepository: BucketRepositoryProtocol?
@@ -37,7 +37,7 @@ public actor SyncEngine {
         labelRepository: LabelRepositoryProtocol,
         taskRepository: TaskRepositoryProtocol,
         relationRepository: TaskRelationRepositoryProtocol,
-        taskBulkCompletionRepository: TaskBulkCompletionRepositoryProtocol? = nil,
+        taskBulkUpdateRepository: TaskBulkUpdateRepositoryProtocol? = nil,
         commentRepository: TaskCommentRepositoryProtocol? = nil,
         filterRepository: FilterRepositoryProtocol? = nil,
         accountID: UUID,
@@ -45,7 +45,7 @@ public actor SyncEngine {
         capabilityProvider: CapabilityProvider = NoopCapabilityProvider(),
         onKanbanCreationRejected: @escaping @Sendable (UUID) async -> Void = { _ in },
     ) {
-        self.taskBulkCompletionRepository = taskBulkCompletionRepository
+        self.taskBulkUpdateRepository = taskBulkUpdateRepository
         self.bucketRepository = bucketRepository
         self.capabilityProvider = capabilityProvider
         self.localStore = localStore
@@ -1019,7 +1019,7 @@ public actor SyncEngine {
             case .create: return try await drainCreate(item)
             case .update: return try await drainUpdate(item)
             case .delete: return try await drainDelete(item)
-            case .addLabel, .removeLabel, .addRelation, .removeRelation, .moveBucket, .setCompletion:
+            case .addLabel, .removeLabel, .addRelation, .removeRelation, .moveBucket, .setCompletion, .setDueDate:
                 // Only ever queued against `entityType: .task` - unreachable
                 // here since `drainProjectMutations()` filters to `.project`.
                 return .skipped
@@ -1178,7 +1178,8 @@ public actor SyncEngine {
                         }
                         try item.delete(db)
                     }
-                case .create, .addLabel, .removeLabel, .addRelation, .removeRelation, .moveBucket, .setCompletion:
+                case .create, .addLabel, .removeLabel, .addRelation, .removeRelation, .moveBucket,
+                     .setCompletion, .setDueDate:
                     throw DrainError.invalidPayload
                 }
             } catch {
@@ -1234,7 +1235,7 @@ public actor SyncEngine {
             case .create: try await drainLabelCreate(item)
             case .update: try await drainLabelUpdate(item)
             case .delete: try await drainLabelDelete(item)
-            case .addLabel, .removeLabel, .addRelation, .removeRelation, .moveBucket, .setCompletion:
+            case .addLabel, .removeLabel, .addRelation, .removeRelation, .moveBucket, .setCompletion, .setDueDate:
                 // Only ever queued against `entityType: .task` - unreachable
                 // here since `drainLabelMutations()` filters to `.label`.
                 break
@@ -1300,7 +1301,7 @@ public actor SyncEngine {
     /// re-pull: a task mutation can be flagged `.conflicted` in
     /// `drainTaskUpdate`, exactly like a project's.
     public func drainTaskMutations() async throws {
-        try await recoverTaskCompletions()
+        try await recoverTaskBulkUpdates()
         try await recoverKanbanCreations()
         try await recoverKanbanMoves()
         let items = try await localStore.read { db in
@@ -1312,7 +1313,7 @@ public actor SyncEngine {
                 .sorted { ($0.id ?? 0) < ($1.id ?? 0) }
         }
         var flaggedNewConflict = false
-        var completedBatches: Set<UUID> = []
+        var drainedBatches: Set<UUID> = []
         for snapshot in items {
             try Task.checkCancellation()
             // A mutation may have been replaced or rebased while an earlier
@@ -1320,10 +1321,10 @@ public actor SyncEngine {
             guard let item = try await localStore.read({ db in
                 try MutationQueueRecord.fetchOne(db, key: snapshot.id)
             }), item.status != .inFlight, !item.needsConflictResolution else { continue }
-            if item.operation == .setCompletion {
-                let payload = try KanbanLocalMutations.decode(TaskCompletionPayload.self, item: item)
-                if completedBatches.insert(payload.batchID).inserted {
-                    if try await drainTaskCompletionBatch(payload.batchID) {
+            if item.operation.isBulkTaskChange {
+                let intent = try TaskBulkIntent(item: item)
+                if drainedBatches.insert(intent.batchID).inserted {
+                    if try await drainTaskBulkBatch(intent.batchID) {
                         flaggedNewConflict = true
                     }
                 }
@@ -1343,7 +1344,7 @@ public actor SyncEngine {
     private func drainTask(_ item: MutationQueueRecord) async throws -> DrainOutcome {
         do {
             switch item.operation {
-            case .setCompletion: return .skipped
+            case .setCompletion, .setDueDate: return .skipped
             case .moveBucket: return try await drainKanbanMove(item)
             case .create: return try await drainTaskCreate(item)
             case .update: return try await drainTaskUpdate(item)
@@ -1390,7 +1391,7 @@ public actor SyncEngine {
             case .create: return try await drainCommentCreate(item, repository: repository)
             case .update: return try await drainCommentUpdate(item, repository: repository)
             case .delete: return try await drainCommentDelete(item, repository: repository)
-            case .addLabel, .removeLabel, .addRelation, .removeRelation, .moveBucket, .setCompletion:
+            case .addLabel, .removeLabel, .addRelation, .removeRelation, .moveBucket, .setCompletion, .setDueDate:
                 // Comment rows only ever queue create/update/delete.
                 return .skipped
             }
@@ -1757,7 +1758,8 @@ public actor SyncEngine {
             row.serverUpdatedAt = task.updated
             let queued = try MutationQueueRecord.filter(Column("targetLocalID") == row.localID).fetchAll(db)
             let hasNewerIntent = queued.contains {
-                $0.id != item.id && [.create, .update, .moveBucket, .delete, .setCompletion].contains($0.operation)
+                $0.id != item.id
+                    && [.create, .update, .moveBucket, .delete, .setCompletion, .setDueDate].contains($0.operation)
             } || queued.first(where: { $0.id == item.id })?.payload != item.payload
             applyReminders = !hasNewerIntent
             if !hasNewerIntent {
@@ -1779,7 +1781,7 @@ public actor SyncEngine {
             )
         }
         try Self.completePush(item, updatedAt: task.updated, db: db)
-        try rebaseTaskCompletionIntents(after: item, updatedAt: task.updated, db: db)
+        try rebaseTaskBulkIntents(after: item, updatedAt: task.updated, db: db)
     }
 
     /// An edit can coalesce into a queue row while its earlier payload is

@@ -393,10 +393,10 @@ private final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @u
         fatalError("unused")
     }
 
-    func makeTaskBulkCompletionRepository(
+    func makeTaskBulkUpdateRepository(
         baseURL: URL,
         tokenProvider: @escaping @Sendable () async throws -> String?,
-    ) -> TaskBulkCompletionRepositoryProtocol {
+    ) -> TaskBulkUpdateRepositoryProtocol {
         fatalError("Bulk completion is not exercised by these tests")
     }
 
