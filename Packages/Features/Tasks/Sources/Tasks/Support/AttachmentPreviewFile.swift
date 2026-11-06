@@ -1,4 +1,6 @@
 import Foundation
+import ImageIO
+import UniformTypeIdentifiers
 
 /// Writes downloaded attachment bytes to a temp file so QuickLook can preview
 /// it — the download is bearer-authed, so its remote URL can't be handed to
@@ -19,5 +21,15 @@ enum AttachmentPreviewFile {
         } catch {
             return nil
         }
+    }
+
+    /// QuickLook picks its viewer from the file extension, and an embedded
+    /// image only comes with its bytes, so the extension is read from them.
+    static func imageFileName(_ baseName: String, for data: Data) -> String {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let typeIdentifier = CGImageSourceGetType(source) as String?,
+              let fileExtension = UTType(typeIdentifier)?.preferredFilenameExtension
+        else { return baseName }
+        return "\(baseName).\(fileExtension)"
     }
 }
