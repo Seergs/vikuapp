@@ -149,6 +149,46 @@ struct ReachabilityMonitorTests {
         await #expect(second.next() != nil)
     }
 
+    @Test
+    func `a burst of path reports always settles on the last one`() async {
+        // Each run reconnects with a quick offline/online burst. Reports that
+        // reached the actor out of order used to leave some runs stuck offline.
+        let runs = 300
+        var stuckOffline = 0
+        for _ in 0 ..< runs {
+            let pathMonitor = FakePathMonitor()
+            let monitor = NWPathReachabilityMonitor(pathMonitor: pathMonitor, queue: .main)
+            pathMonitor.report(isSatisfied: true)
+            pathMonitor.report(isSatisfied: false)
+            pathMonitor.report(isSatisfied: true)
+            try? await Task.sleep(for: .milliseconds(5))
+            if await monitor.isReachable == false {
+                stuckOffline += 1
+            }
+        }
+        #expect(stuckOffline == 0)
+    }
+
+    @Test
+    func `status updates arrive in the order they were reported`() async {
+        let pathMonitor = FakePathMonitor()
+        let monitor = NWPathReachabilityMonitor(pathMonitor: pathMonitor, queue: .main)
+        var iterator = await monitor.reachabilityUpdates().makeAsyncIterator()
+        let reports = [true, false, true, false, false, true]
+
+        for report in reports {
+            pathMonitor.report(isSatisfied: report)
+        }
+
+        var received: [Bool] = []
+        for _ in reports {
+            if let value = await iterator.next() {
+                received.append(value)
+            }
+        }
+        #expect(received == reports)
+    }
+
     @Test func `the legacy status adapter subscribes first and preserves successive reconnects`() async {
         let monitor = RegainedOnlyMonitor()
         var iterator = await monitor.reachabilityUpdates().makeAsyncIterator()

@@ -47,21 +47,35 @@ public actor NWPathReachabilityMonitor: ReachabilityMonitoring {
     private var satisfied: Bool?
     private var continuations: [UUID: AsyncStream<Void>.Continuation] = [:]
     private var statusContinuations: [UUID: AsyncStream<Bool>.Continuation] = [:]
+    /// Carries path reports into the actor in the order `NWPathMonitor`
+    /// delivered them. A separate `Task` per report could reach the actor out
+    /// of order and leave a stale "offline" as the final state.
+    private let pathUpdates: AsyncStream<Bool>.Continuation
 
     public init(queue: DispatchQueue = DispatchQueue(label: "app.viku.reachability")) {
         self.init(pathMonitor: SystemPathMonitor(), queue: queue)
     }
 
     init(pathMonitor: PathMonitor, queue: DispatchQueue) {
+        let (stream, continuation) = AsyncStream.makeStream(of: Bool.self)
         self.pathMonitor = pathMonitor
-        pathMonitor.setUpdateHandler { [weak self] isSatisfied in
-            Task { await self?.handle(isSatisfied: isSatisfied) }
+        self.pathUpdates = continuation
+        pathMonitor.setUpdateHandler { isSatisfied in
+            continuation.yield(isSatisfied)
         }
         pathMonitor.start(queue: queue)
+        // The single consumer applies reports one at a time. It ends when
+        // `deinit` finishes the stream.
+        Task { [weak self] in
+            for await isSatisfied in stream {
+                await self?.handle(isSatisfied: isSatisfied)
+            }
+        }
     }
 
     deinit {
         pathMonitor.cancel()
+        pathUpdates.finish()
     }
 
     public var isReachable: Bool {
