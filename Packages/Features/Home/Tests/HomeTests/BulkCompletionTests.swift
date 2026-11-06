@@ -10,7 +10,7 @@ struct BulkCompletionTests {
         projects.projects = [Project(id: 1, title: "Work")]
         let model = TodayViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
-            taskRepository: repository, completionRepository: repository, projectRepository: projects,
+            taskRepository: repository, bulkUpdateRepository: repository, projectRepository: projects,
             labelRepository: FakeLabelRepository(), relationRepository: FakeTaskRelationRepository(),
             toastPresenter: toast,
             homeSelectionCache: FakeHomeSelectionCaching(

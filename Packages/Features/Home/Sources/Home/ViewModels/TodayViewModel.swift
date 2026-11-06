@@ -13,6 +13,7 @@ import VikuUI
 @Observable
 public final class TodayViewModel {
     public let bulkSelection: TaskBulkSelection
+    public let overdueRescheduler: OverdueRescheduler
     public private(set) var tasks: [VikunjaTask] = []
     /// Looked up per row for the project color dot + name, since a task only
     /// carries its `projectID`.
@@ -74,7 +75,7 @@ public final class TodayViewModel {
     private let taskLoader: AccountTaskLoader
     private let mutator: TaskListMutator
     private let taskRepository: TaskRepositoryProtocol
-    private let completionRepository: TaskBulkUpdateRepositoryProtocol
+    private let bulkUpdateRepository: TaskBulkUpdateRepositoryProtocol
     private let projectRepository: ProjectRepositoryProtocol
     private var hasRequestedLabels = false
     private var labelCatalogVersion = 0
@@ -97,7 +98,7 @@ public final class TodayViewModel {
         syncTrigger: SyncTriggering,
         localData: LocalDataObserving,
         taskRepository: TaskRepositoryProtocol,
-        completionRepository: TaskBulkUpdateRepositoryProtocol,
+        bulkUpdateRepository: TaskBulkUpdateRepositoryProtocol,
         projectRepository: ProjectRepositoryProtocol,
         labelRepository: LabelRepositoryProtocol,
         relationRepository: TaskRelationRepositoryProtocol,
@@ -106,6 +107,7 @@ public final class TodayViewModel {
         homeSelectionCache: HomeSelectionCaching = NoopHomeSelectionCaching(),
     ) {
         self.bulkSelection = TaskBulkSelection(toastPresenter: toastPresenter)
+        self.overdueRescheduler = OverdueRescheduler(toastPresenter: toastPresenter)
         self.synchronization = LocalScreenSync(
             trigger: syncTrigger, localData: localData, toastPresenter: toastPresenter,
         )
@@ -120,7 +122,7 @@ public final class TodayViewModel {
             errorMessage: { ($0 as? VikunjaError)?.displayMessage ?? $0.localizedDescription },
         )
         self.taskRepository = taskRepository
-        self.completionRepository = completionRepository
+        self.bulkUpdateRepository = bulkUpdateRepository
         self.projectRepository = projectRepository
         self.labelRepository = labelRepository
         self.relationRepository = relationRepository
@@ -401,7 +403,7 @@ public final class TodayViewModel {
         guard !completionState.hasPendingChanges else { return }
         await bulkSelection.setCompletion(visibleTasks: visibleTasks, isDone: isDone) { selected in
             loadVersion += 1
-            let updated = try await completionRepository.setCompletion(taskIDs: selected.map(\.id), isDone: isDone)
+            let updated = try await bulkUpdateRepository.setCompletion(taskIDs: selected.map(\.id), isDone: isDone)
             loadVersion += 1
             for task in updated {
                 guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { continue }
@@ -410,6 +412,23 @@ public final class TodayViewModel {
             }
             if isDone {
                 hapticPresenter.play(.success)
+            }
+        }
+    }
+
+    /// Moves every overdue task the list shows to the end of today or
+    /// tomorrow in one bulk write. Waits for pending individual completion
+    /// writes, like bulk completion, and is unavailable while selecting.
+    public func rescheduleOverdue(_ overdueTasks: [VikunjaTask], to shortcut: DueDateShortcut) async {
+        guard !completionState.hasPendingChanges, !bulkSelection.isSelecting else { return }
+        await overdueRescheduler.reschedule(overdueTasks, to: shortcut) { ids, dueDate in
+            loadVersion += 1
+            let updated = try await bulkUpdateRepository.setDueDate(taskIDs: ids, dueDate: dueDate)
+            loadVersion += 1
+            for task in updated {
+                guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { continue }
+                // Local observations may refresh other fields while the write is pending.
+                tasks[index].dueDate = task.dueDate
             }
         }
     }

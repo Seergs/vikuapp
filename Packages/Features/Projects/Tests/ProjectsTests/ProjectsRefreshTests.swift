@@ -202,7 +202,7 @@ struct ProjectsRefreshTests {
         let model = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(), project: repository.projects[0],
             repository: taskRepository,
-            completionRepository: taskRepository,
+            bulkUpdateRepository: taskRepository,
             projectRepository: repository, labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(), filterRepository: FakeFilterRepository(),
             capabilityProvider: FakeCapabilityProvider(), toastPresenter: FakeToastPresenter(),

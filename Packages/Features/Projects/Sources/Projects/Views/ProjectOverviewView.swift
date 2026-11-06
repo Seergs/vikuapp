@@ -49,6 +49,7 @@ struct ProjectOverviewView: View {
     @State private var isShowingDeleteProjectConfirmation = false
     @Environment(\.vikuPalette) private var palette
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var sort: TaskSort {
         TaskSort(field: viewModel.sortField, direction: viewModel.sortDirection)
@@ -110,6 +111,28 @@ struct ProjectOverviewView: View {
         }
     }
 
+    /// An Overdue section also offers to reschedule every task it shows.
+    private func sectionHeader(_ section: ProjectTaskSection) -> some View {
+        HStack(spacing: VikuSpacing.sm) {
+            HStack(spacing: VikuSpacing.xs) {
+                Text(verbatim: section.title)
+                    .fontWeight(.bold)
+                Text(verbatim: "\(section.tasks.count)")
+                    .fontWeight(.regular)
+            }
+            .vikuSectionHeader()
+            if section.isOverdue, !viewModel.bulkSelection.isSelecting {
+                Spacer(minLength: 0)
+                RescheduleOverdueMenu { shortcut in
+                    Task { await viewModel.rescheduleOverdue(section.tasks, to: shortcut) }
+                }
+                .disabled(
+                    viewModel.overdueRescheduler.isRescheduling || viewModel.hasPendingCompletionWrites,
+                )
+            }
+        }
+    }
+
     /// Split out of `body`, which was timing out the type checker once this
     /// screen's modifier chain got long enough — this half carries the
     /// navigation chrome (title, search, toolbar); `body` applies the rest
@@ -121,6 +144,8 @@ struct ProjectOverviewView: View {
             case .list:
                 content
                     .projectsListStyle()
+                    // Animates only the rows a reschedule moves out of Overdue.
+                    .animation(reduceMotion ? nil : .snappy, value: viewModel.overdueRescheduler.completedCount)
                     .scrollContentBackground(.hidden)
                     .refreshable { await viewModel.refresh() }
             case .kanban:
@@ -415,19 +440,13 @@ struct ProjectOverviewView: View {
             .listRowBackground(Color.clear)
         } else {
             ForEach(visible) { section in
-                HStack(spacing: VikuSpacing.xs) {
-                    Text(verbatim: section.title)
-                        .fontWeight(.bold)
-                    Text(verbatim: "\(section.tasks.count)")
-                        .fontWeight(.regular)
-                }
-                .vikuSectionHeader()
-                .padding(.horizontal, VikuSpacing.md)
-                .padding(.top, VikuSpacing.md + VikuSpacing.xs)
-                .padding(.bottom, VikuSpacing.sm)
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
+                sectionHeader(section)
+                    .padding(.horizontal, VikuSpacing.md)
+                    .padding(.top, VikuSpacing.md + VikuSpacing.xs)
+                    .padding(.bottom, VikuSpacing.sm)
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
 
                 ForEach(Array(section.tasks.enumerated()), id: \.element.id) { index, task in
                     // `showsProjectBadge: false` — the project is already this
@@ -974,6 +993,7 @@ private extension TaskSort.Direction {
 private struct ProjectTaskSection: Identifiable {
     let title: String
     let tasks: [VikunjaTask]
+    var isOverdue = false
     var id: String {
         title
     }
@@ -1005,7 +1025,9 @@ private struct ProjectTaskSection: Identifiable {
         let completedTitle = String(localized: "Completed", bundle: .module)
 
         return [
-            overdue.isEmpty ? nil : ProjectTaskSection(title: overdueTitle, tasks: sort.sorted(overdue)),
+            overdue.isEmpty ? nil : ProjectTaskSection(
+                title: overdueTitle, tasks: sort.sorted(overdue), isOverdue: true,
+            ),
             pending.isEmpty ? nil : ProjectTaskSection(title: pendingTitle, tasks: sort.sorted(pending)),
             completed.isEmpty ? nil : ProjectTaskSection(title: completedTitle, tasks: sort.sorted(completed)),
         ].compactMap(\.self)

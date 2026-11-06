@@ -1,5 +1,5 @@
+import Foundation
 @testable import Projects
-import Testing
 import VikunjaCore
 
 final class FakeCapabilityProvider: CapabilityProvider, @unchecked Sendable {
@@ -118,13 +118,13 @@ final class FakeTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateRepository
     var completionError: Error?
     var beforeCompletion: (@Sendable () async throws -> Void)?
     private(set) var completionCalls: [(ids: [EntityID], isDone: Bool)] = []
+    private(set) var dueDateCalls: [(ids: [EntityID], dueDate: Date)] = []
 
     func apply(_ change: TaskBulkChange, toTaskIDs taskIDs: [EntityID]) async throws -> [VikunjaTask] {
-        guard case let .completion(isDone) = change else {
-            Issue.record("Unexpected bulk change \(change)")
-            return []
+        switch change {
+        case let .completion(isDone): completionCalls.append((taskIDs, isDone))
+        case let .dueDate(dueDate): dueDateCalls.append((taskIDs, dueDate))
         }
-        completionCalls.append((taskIDs, isDone))
         try await beforeCompletion?()
         if let completionError {
             throw completionError
@@ -132,7 +132,10 @@ final class FakeTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateRepository
         var result: [VikunjaTask] = []
         for id in taskIDs {
             guard let index = tasks.firstIndex(where: { $0.id == id }) else { throw VikunjaError.notFound }
-            tasks[index].isDone = isDone
+            switch change {
+            case let .completion(isDone): tasks[index].isDone = isDone
+            case let .dueDate(dueDate): tasks[index].dueDate = dueDate
+            }
             result.append(tasks[index])
         }
         return result

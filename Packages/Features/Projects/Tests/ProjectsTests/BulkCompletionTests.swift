@@ -10,7 +10,7 @@ struct BulkCompletionTests {
         projects.projects = [Project(id: 1, title: "Work")]
         let model = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
-            project: Project(id: 1, title: "Work"), repository: repository, completionRepository: repository,
+            project: Project(id: 1, title: "Work"), repository: repository, bulkUpdateRepository: repository,
             projectRepository: projects, labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(), filterRepository: FakeFilterRepository(),
             toastPresenter: toast, taskSortStore: FakeTaskSortStore(),

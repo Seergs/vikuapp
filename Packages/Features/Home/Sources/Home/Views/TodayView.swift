@@ -11,6 +11,7 @@ struct TodayView: View {
     @Bindable var viewModel: TodayViewModel
     @Environment(AppRouter.self) private var router
     @Environment(\.vikuPalette) private var palette
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var filter: TodayFilter = .all
     @State private var searchText = ""
     @State private var taskPendingDelete: VikunjaTask?
@@ -23,6 +24,8 @@ struct TodayView: View {
     var body: some View {
         content
             .todayListStyle()
+            // Animates only the rows a reschedule moves out of Overdue.
+            .animation(reduceMotion ? nil : .snappy, value: viewModel.overdueRescheduler.completedCount)
             .scrollContentBackground(.hidden)
             .background(palette.pageBackground)
             .refreshable { await viewModel.refresh() }
@@ -220,7 +223,7 @@ struct TodayView: View {
             .listRowBackground(Color.clear)
         } else {
             ForEach(visible) { section in
-                sectionHeader(section.title, count: section.tasks.count)
+                sectionHeader(section.title, count: section.tasks.count, overdueTasks: section.overdueTasks)
                 ForEach(Array(section.tasks.enumerated()), id: \.element.id) { index, task in
                     taskRow(task, index: index, count: section.tasks.count)
                 }
@@ -248,7 +251,7 @@ struct TodayView: View {
             .listRowBackground(Color.clear)
         } else {
             ForEach(sections) { section in
-                sectionHeader(section.title, count: section.tasks.count)
+                sectionHeader(section.title, count: section.tasks.count, overdueTasks: section.overdueTasks)
                 ForEach(Array(section.tasks.enumerated()), id: \.element.id) { index, task in
                     taskRow(task, index: index, count: section.tasks.count)
                 }
@@ -272,14 +275,27 @@ struct TodayView: View {
         }
     }
 
-    private func sectionHeader(_ title: String, count: Int) -> some View {
-        HStack(spacing: VikuSpacing.xs) {
-            Text(verbatim: title)
-                .fontWeight(.bold)
-            Text(verbatim: "\(count)")
-                .fontWeight(.regular)
+    /// `overdueTasks` is non-nil only for an Overdue section, which then
+    /// offers to reschedule those tasks.
+    private func sectionHeader(_ title: String, count: Int, overdueTasks: [VikunjaTask]?) -> some View {
+        HStack(spacing: VikuSpacing.sm) {
+            HStack(spacing: VikuSpacing.xs) {
+                Text(verbatim: title)
+                    .fontWeight(.bold)
+                Text(verbatim: "\(count)")
+                    .fontWeight(.regular)
+            }
+            .vikuSectionHeader()
+            if let overdueTasks, !viewModel.bulkSelection.isSelecting {
+                Spacer(minLength: 0)
+                RescheduleOverdueMenu { shortcut in
+                    Task { await viewModel.rescheduleOverdue(overdueTasks, to: shortcut) }
+                }
+                .disabled(
+                    viewModel.overdueRescheduler.isRescheduling || viewModel.hasPendingCompletionWrites,
+                )
+            }
         }
-        .vikuSectionHeader()
         .padding(.horizontal, VikuSpacing.md)
         .padding(.top, VikuSpacing.md + VikuSpacing.xs)
         .padding(.bottom, VikuSpacing.sm)
@@ -438,8 +454,14 @@ private struct TodayFilterChip: View {
 struct TodaySection: Identifiable {
     let title: String
     let tasks: [VikunjaTask]
+    var isOverdue = false
     var id: String {
         title
+    }
+
+    /// The tasks a reschedule applies to, or nil for a non-overdue section.
+    var overdueTasks: [VikunjaTask]? {
+        isOverdue ? tasks : nil
     }
 
     static func sections(
@@ -456,20 +478,18 @@ struct TodaySection: Identifiable {
         let todayTitle = String(localized: "Today", bundle: .module)
         let upcomingTitle = String(localized: "Upcoming", bundle: .module)
 
-        let buckets: [(String, [VikunjaTask])] = switch filter {
-        case .all:
-            [(overdueTitle, digest.overdue), (todayTitle, digest.today), (upcomingTitle, digest.upcoming)]
-        case .overdue:
-            [(overdueTitle, digest.overdue)]
-        case .today:
-            [(todayTitle, digest.today)]
-        case .upcoming:
-            [(upcomingTitle, digest.upcoming)]
+        let overdue = TodaySection(title: overdueTitle, tasks: digest.overdue, isOverdue: true)
+        let today = TodaySection(title: todayTitle, tasks: digest.today)
+        let upcoming = TodaySection(title: upcomingTitle, tasks: digest.upcoming)
+
+        let sections = switch filter {
+        case .all: [overdue, today, upcoming]
+        case .overdue: [overdue]
+        case .today: [today]
+        case .upcoming: [upcoming]
         }
 
-        return buckets.compactMap { title, tasks in
-            tasks.isEmpty ? nil : TodaySection(title: title, tasks: tasks)
-        }
+        return sections.filter { !$0.tasks.isEmpty }
     }
 }
 
@@ -483,8 +503,14 @@ struct TodaySection: Identifiable {
 struct PinnedTaskSection: Identifiable {
     let title: String
     let tasks: [VikunjaTask]
+    var isOverdue = false
     var id: String {
         title
+    }
+
+    /// The tasks a reschedule applies to, or nil for a non-overdue section.
+    var overdueTasks: [VikunjaTask]? {
+        isOverdue ? tasks : nil
     }
 
     static func sections(from tasks: [VikunjaTask], now: Date = Date()) -> [PinnedTaskSection] {
@@ -502,12 +528,10 @@ struct PinnedTaskSection: Identifiable {
         let completedTitle = String(localized: "Completed", bundle: .module)
 
         return [
-            (overdueTitle, overdue),
-            (pendingTitle, pending),
-            (completedTitle, completed),
-        ].compactMap { title, bucket in
-            bucket.isEmpty ? nil : PinnedTaskSection(title: title, tasks: TaskSort.default.sorted(bucket))
-        }
+            PinnedTaskSection(title: overdueTitle, tasks: TaskSort.default.sorted(overdue), isOverdue: true),
+            PinnedTaskSection(title: pendingTitle, tasks: TaskSort.default.sorted(pending)),
+            PinnedTaskSection(title: completedTitle, tasks: TaskSort.default.sorted(completed)),
+        ].filter { !$0.tasks.isEmpty }
     }
 }
 
