@@ -421,6 +421,86 @@
         }
       }
     },
+    "%lld tasks moved to today": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld task moved to today"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld tasks moved to today"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld tarea movida a hoy"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld tareas movidas a hoy"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld tasks moved to tomorrow": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld task moved to tomorrow"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld tasks moved to tomorrow"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld tarea movida a mañana"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld tareas movidas a mañana"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld tasks were not deleted. Try again.": {
       "localizations": {
         "en": {
@@ -683,6 +763,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Copiado a"
+          }
+        }
+      }
+    },
+    "Couldn’t reschedule overdue tasks. Try again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron reprogramar las tareas vencidas. Inténtalo de nuevo."
           }
         }
       }
@@ -1003,6 +1093,16 @@
         }
       }
     },
+    "Move overdue tasks to": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mover tareas vencidas a"
+          }
+        }
+      }
+    },
     "Next Week": {
       "localizations": {
         "es": {
@@ -1211,6 +1311,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reabrir"
+          }
+        }
+      }
+    },
+    "Reschedule": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reprogramar"
           }
         }
       }

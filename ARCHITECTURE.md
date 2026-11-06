@@ -861,7 +861,14 @@ block the batch and use the existing recovery flow.
 Failures remain visible per task in Pending Sync as updates. Rejections retain the
 batch for retry. Offline/cancelled requests release claims without counting a
 failed attempt, and a new engine recovers durable claims left by a stopped process.
-No screen sends a bulk due-date change yet.
+The Overdue sections of Today (digest and pinned project or filter) and the
+project overview show a "Reschedule" menu in their header. It moves every overdue
+task the section currently shows to the end of today or tomorrow
+(`DueDateShortcut`, 11:59:59 PM) in one `setDueDate` write. `OverdueRescheduler`
+in `VikuUI` owns its busy state and feedback, like `TaskBulkSelection`. The menu
+is hidden while selecting tasks and disabled while a reschedule or an individual
+completion write is pending. Local acceptance is immediate, so there is no
+spinner; the moved rows animate out of Overdue unless Reduce Motion is on.
 Home and project lists inject the local bulk-completion protocol separately from
 full task editing. Their shared selection bar offers Complete or Reopen for a
 uniform selection and an explicit choice for mixed selections. One target state
