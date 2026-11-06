@@ -7,6 +7,9 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'Viku',
+      logo: {
+        src: './src/assets/logo.png'
+      },
       sidebar: [
         {
           label: 'Overview', slug: 'docs'
@@ -16,6 +19,12 @@ export default defineConfig({
           items: [{ autogenerate: { "directory": "docs" } }]
         },
       ],
+      social: [
+        { icon: 'github', label: 'GitHub', href: 'https://github.com/seergs/vikuapp' }
+      ],
+      editLink: {
+        baseUrl: 'https://github.com/Seergs/vikuapp/edit/main/website/'
+      }
     }),
   ],
 });
