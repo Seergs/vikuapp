@@ -1,0 +1,116 @@
+{
+  "task_ids": [
+    1,
+    2
+  ],
+  "fields": [
+    "done"
+  ],
+  "values": {
+    "done": true
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Buy coffee",
+      "description": "Whole beans, not ground",
+      "done": true,
+      "due_date": "2026-08-30T00:00:00Z",
+      "priority": 3,
+      "project_id": 4,
+      "labels": [
+        {
+          "id": 10,
+          "title": "home",
+          "hex_color": "ff00ff"
+        }
+      ],
+      "related_tasks": {
+        "subtask": [
+          {
+            "id": 2,
+            "title": "Grind beans",
+            "done": true,
+            "project_id": 4
+          }
+        ],
+        "blocked": [
+          {
+            "id": 3,
+            "title": "Buy grinder",
+            "done": false,
+            "project_id": 4
+          }
+        ],
+        "blocking": [
+          {
+            "id": 5,
+            "title": "Make espresso",
+            "done": false,
+            "project_id": 4
+          }
+        ],
+        "related": [
+          {
+            "id": 6,
+            "title": "Buy filters",
+            "done": false,
+            "project_id": 4
+          }
+        ],
+        "precedes": [
+          {
+            "id": 7,
+            "title": "Clean machine",
+            "done": false,
+            "project_id": 4
+          }
+        ],
+        "follows": [
+          {
+            "id": 8,
+            "title": "Descale machine",
+            "done": true,
+            "project_id": 4
+          }
+        ]
+      },
+      "done_at": "2026-11-06T16:00:00Z",
+      "start_date": "2026-08-25T00:00:00Z",
+      "end_date": "2026-08-29T00:00:00Z",
+      "reminders": [
+        {
+          "reminder": "2026-08-29T09:00:00Z",
+          "relative_period": 0,
+          "relative_to": null
+        }
+      ],
+      "repeat_after": 604800,
+      "repeat_mode": 1,
+      "hex_color": "00ff00",
+      "percent_done": 0.5,
+      "assignees": [
+        {
+          "id": 7,
+          "username": "alex",
+          "extra_field_not_yet_modeled": true
+        }
+      ],
+      "cover_image_attachment_id": 42,
+      "is_favorite": true,
+      "updated": "2026-11-06T16:00:00Z"
+    },
+    {
+      "id": 2,
+      "title": "Water the plants",
+      "description": "",
+      "done": true,
+      "due_date": "0001-01-01T00:00:00Z",
+      "priority": 0,
+      "project_id": 4,
+      "labels": [],
+      "updated": "2026-11-06T16:00:00Z",
+      "done_at": "2026-11-06T16:00:00Z"
+    }
+  ]
+}

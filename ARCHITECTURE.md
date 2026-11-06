@@ -814,3 +814,23 @@ Settings displays the failure reason directly in the operation row. Structured
 diagnostics stay local and disappear with the queued operation, rather than
 forming a sync history. The original server response can contain submitted
 content.
+
+## Bulk task completion transport
+
+`TaskBulkCompletionRepositoryProtocol` is separate from full task replacement.
+Its `setCompletion(taskIDs:isDone:)` operation applies one explicit state and
+returns the server's updated tasks for reconciliation by ID. Empty inputs are
+no-ops and duplicate IDs represent one task. The transport rejects unsynced IDs
+before sending the batch and rejects incomplete or mismatched response task IDs.
+
+`VikunjaTaskBulkCompletionRepository` selects `POST /api/v1/tasks/bulk` or
+`PUT /api/v2/tasks/bulk` through `CapabilityProvider.supports(.apiV2)`. Both use
+`task_ids`, `fields: ["done"]`, and `values: {"done": ...}`. Response decoding
+uses the actual BulkTask object's `tasks` array; v1's Swagger annotation instead
+claims a bare array. The implementation follows the server handlers, not that
+annotation. Server errors propagate without legacy payload or per-task fallbacks.
+
+This stage adds the domain contract and transport only. Factory/composition
+wiring, local completion intents, queue replay, conflict handling, and UI actions
+belong to the subsequent persistence/sync and UI stages. No screen or offline
+repository calls the new endpoint yet.

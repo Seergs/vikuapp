@@ -72,6 +72,10 @@ enum VikunjaEndpoints {
         Endpoint(path: "/api/v1/tasks/\(id)", method: .delete)
     }
 
+    static func setTaskBulkCompletion(dto: TaskBulkCompletionRequestDTO) throws -> Endpoint {
+        try .encoding(path: "/api/v1/tasks/bulk", method: .post, body: dto)
+    }
+
     /// `GET /api/v1/tasks` (not `/tasks/all` — that path was renamed for
     /// consistency with other collection endpoints in
     /// go-vikunja/vikunja#1988; on a server past that change, the old path
