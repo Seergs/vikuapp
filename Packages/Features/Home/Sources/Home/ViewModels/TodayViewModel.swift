@@ -74,6 +74,7 @@ public final class TodayViewModel {
     private let taskLoader: AccountTaskLoader
     private let mutator: TaskListMutator
     private let taskRepository: TaskRepositoryProtocol
+    private let completionRepository: TaskBulkCompletionRepositoryProtocol
     private let projectRepository: ProjectRepositoryProtocol
     private var hasRequestedLabels = false
     private var labelCatalogVersion = 0
@@ -87,10 +88,16 @@ public final class TodayViewModel {
     private var loadVersion = 0
     private var completionState = TaskCompletionState()
 
+    /// Finish an individual local write before allowing a bulk selection.
+    var hasPendingCompletionWrites: Bool {
+        completionState.hasPendingChanges
+    }
+
     public init(
         syncTrigger: SyncTriggering,
         localData: LocalDataObserving,
         taskRepository: TaskRepositoryProtocol,
+        completionRepository: TaskBulkCompletionRepositoryProtocol,
         projectRepository: ProjectRepositoryProtocol,
         labelRepository: LabelRepositoryProtocol,
         relationRepository: TaskRelationRepositoryProtocol,
@@ -113,6 +120,7 @@ public final class TodayViewModel {
             errorMessage: { ($0 as? VikunjaError)?.displayMessage ?? $0.localizedDescription },
         )
         self.taskRepository = taskRepository
+        self.completionRepository = completionRepository
         self.projectRepository = projectRepository
         self.labelRepository = labelRepository
         self.relationRepository = relationRepository
@@ -220,6 +228,7 @@ public final class TodayViewModel {
     /// local flip back if the server rejects it — so a failed request never
     /// leaves the row showing a state the server doesn't actually have.
     public func toggleDone(_ task: VikunjaTask) async {
+        guard !bulkSelection.isSelecting, !bulkSelection.isPerformingAction else { return }
         guard let index = tasks.firstIndex(where: { $0.id == task.id }),
               tasks[index].isDone == task.isDone else { return }
         let original = tasks[index]
@@ -385,6 +394,23 @@ public final class TodayViewModel {
         loadVersion += 1
         if await mutator.delete(task) {
             tasks.removeAll { $0.id == task.id }
+        }
+    }
+
+    public func setSelectedCompletion(isDone: Bool, visibleTasks: [VikunjaTask]) async {
+        guard !completionState.hasPendingChanges else { return }
+        await bulkSelection.setCompletion(visibleTasks: visibleTasks, isDone: isDone) { selected in
+            loadVersion += 1
+            let updated = try await completionRepository.setCompletion(taskIDs: selected.map(\.id), isDone: isDone)
+            loadVersion += 1
+            for task in updated {
+                guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { continue }
+                // Local observations may refresh other fields while the write is pending.
+                tasks[index].isDone = task.isDone
+            }
+            if isDone {
+                hapticPresenter.play(.success)
+            }
         }
     }
 

@@ -201,7 +201,9 @@ struct ProjectsRefreshTests {
         taskRepository.tasks = [task]
         let model = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(), project: repository.projects[0],
-            repository: taskRepository, projectRepository: repository, labelRepository: FakeLabelRepository(),
+            repository: taskRepository,
+            completionRepository: taskRepository,
+            projectRepository: repository, labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(), filterRepository: FakeFilterRepository(),
             capabilityProvider: FakeCapabilityProvider(), toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),

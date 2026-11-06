@@ -430,10 +430,12 @@ final class AppContainer {
     }
 
     func makeTodayViewModel(account: InstanceAccount) -> TodayViewModel {
-        TodayViewModel(
+        let repository = offlineTaskRepository(for: account)
+        return TodayViewModel(
             syncTrigger: accountSync(for: account),
             localData: accountSync(for: account),
-            taskRepository: offlineTaskRepository(for: account),
+            taskRepository: repository,
+            completionRepository: repository,
             projectRepository: offlineProjectRepository(for: account),
             labelRepository: offlineLabelRepository(for: account),
             relationRepository: offlineTaskRelationRepository(for: account),
@@ -504,6 +506,7 @@ final class AppContainer {
             project: node.project,
             subprojects: node.children,
             repository: repository,
+            completionRepository: repository,
             projectRepository: projectRepository,
             labelRepository: labelRepository,
             relationRepository: relationRepository,
@@ -920,7 +923,9 @@ final class AppContainer {
         OfflineLabelRepository(localStore: localStore, accountID: account.id, syncRequester: accountSync(for: account))
     }
 
-    private func offlineTaskRepository(for account: InstanceAccount) -> TaskRepositoryProtocol {
+    private func offlineTaskRepository(
+        for account: InstanceAccount,
+    ) -> any TaskRepositoryProtocol & TaskBulkCompletionRepositoryProtocol {
         OfflineTaskRepository(localStore: localStore, accountID: account.id, syncRequester: accountSync(for: account))
     }
 

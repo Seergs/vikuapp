@@ -341,6 +341,86 @@
         }
       }
     },
+    "%lld tasks marked as completed": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld task marked as completed"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld tasks marked as completed"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld tarea marcada como completada"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld tareas marcadas como completadas"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld tasks marked as pending": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld task marked as pending"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld tasks marked as pending"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld tarea marcada como pendiente"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld tareas marcadas como pendientes"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld tasks were not deleted. Try again.": {
       "localizations": {
         "en": {
@@ -577,6 +657,16 @@
         }
       }
     },
+    "Complete": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Completar"
+          }
+        }
+      }
+    },
     "Copied From": {
       "localizations": {
         "es": {
@@ -593,6 +683,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Copiado a"
+          }
+        }
+      }
+    },
+    "Couldn’t update selected tasks. Try again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron actualizar las tareas seleccionadas. Inténtalo de nuevo."
           }
         }
       }
@@ -873,6 +973,26 @@
         }
       }
     },
+    "Mark as Completed": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marcar como completadas"
+          }
+        }
+      }
+    },
+    "Mark as Pending": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marcar como pendientes"
+          }
+        }
+      }
+    },
     "Minutes": {
       "localizations": {
         "es": {
@@ -1085,6 +1205,16 @@
         }
       }
     },
+    "Reopen": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reabrir"
+          }
+        }
+      }
+    },
     "Save": {
       "localizations": {
         "es": {
@@ -1147,6 +1277,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fecha específica"
+          }
+        }
+      }
+    },
+    "Status": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estado"
           }
         }
       }
@@ -1217,6 +1357,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Unidad"
+          }
+        }
+      }
+    },
+    "Updating…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualizando…"
           }
         }
       }

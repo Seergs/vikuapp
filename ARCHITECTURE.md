@@ -847,4 +847,14 @@ server conflicts still block the batch and use the existing recovery flow.
 Failures remain visible per task in Pending Sync as updates. Rejections retain the
 batch for retry. Offline/cancelled requests release claims without counting a
 failed attempt, and a new engine recovers durable claims left by a stopped process.
-No screen calls the completion action yet; selection UI wiring is the next stage.
+Home and project lists inject the local bulk-completion protocol separately from
+full task editing. Their shared selection bar offers Complete or Reopen for a
+uniform selection and an explicit choice for mixed selections. One target state
+is submitted for every selected task currently shown by the list; hidden tasks
+are excluded. The existing confirmation remains exclusive to deletion.
+
+Completion actions stay disabled during local acceptance, without blocking the
+main thread or showing a spinner. Accepted writes clear selection; local failures
+retain it for retry, while later upload failures use Pending Sync. Observation can
+refresh unrelated fields or remove rows during acceptance; completion responses
+update only the state of identities still present in the view model.
