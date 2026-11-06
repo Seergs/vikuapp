@@ -12,6 +12,7 @@ import VikuUI
 @MainActor
 @Observable
 public final class TodayViewModel {
+    public let bulkSelection: TaskBulkSelection
     public private(set) var tasks: [VikunjaTask] = []
     /// Looked up per row for the project color dot + name, since a task only
     /// carries its `projectID`.
@@ -97,6 +98,7 @@ public final class TodayViewModel {
         hapticPresenter: HapticFeedbackPresenting = NoopHapticFeedback(),
         homeSelectionCache: HomeSelectionCaching = NoopHomeSelectionCaching(),
     ) {
+        self.bulkSelection = TaskBulkSelection(toastPresenter: toastPresenter)
         self.synchronization = LocalScreenSync(
             trigger: syncTrigger, localData: localData, toastPresenter: toastPresenter,
         )
@@ -383,6 +385,17 @@ public final class TodayViewModel {
         loadVersion += 1
         if await mutator.delete(task) {
             tasks.removeAll { $0.id == task.id }
+        }
+    }
+
+    /// Accepted local deletions disappear immediately; rejected items remain selected.
+    public func deleteSelectedTasks(visibleTasks: [VikunjaTask]) async {
+        loadVersion += 1
+        await bulkSelection.delete(visibleTasks: visibleTasks) { task in
+            guard await mutator.delete(task, showsFeedback: false) else { return false }
+            loadVersion += 1
+            tasks.removeAll { $0.id == task.id }
+            return true
         }
     }
 

@@ -10,6 +10,7 @@ import VikuDesignSystem
 import VikuNavigation
 import VikunjaCore
 import VikunjaPersistence
+import VikuUI
 
 /// The app's main navigation shell once a connection exists: a floating,
 /// Liquid Glass tab bar (the default look for `TabView` on iOS 26+) with one
@@ -38,6 +39,7 @@ struct MainTabView: View {
     @Environment(\.vikuPalette) private var palette
 
     @State private var selection: AppTab = .home
+    @State private var isTaskSelectionActive = false
 
     /// Per-row pending-sync lookups for the whole shell. Kept as plain
     /// `@State` (not a shared store) because this shell is itself keyed by
@@ -197,6 +199,7 @@ struct MainTabView: View {
         }
         .environment(\.pendingSyncStatuses, pendingSyncStatuses)
         .environment(\.vikuIsOnline, isOnline)
+        .onPreferenceChange(TaskBulkSelectionActiveKey.self) { isTaskSelectionActive = $0 }
         .tabBarMinimizeBehavior(.onScrollDown)
         .tint(palette.brand)
         // A light selection tick whenever the active tab changes — including a
@@ -288,7 +291,7 @@ struct MainTabView: View {
             QuickAddOverlay(
                 container: container,
                 account: account,
-                showsButton: selection != .settings,
+                showsButton: selection != .settings && !isTaskSelectionActive,
             )
             .padding(.trailing, VikuSpacing.md)
             .padding(.bottom, VikuSpacing.xxl + VikuSpacing.lg)

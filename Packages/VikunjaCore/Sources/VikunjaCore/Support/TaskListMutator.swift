@@ -133,13 +133,17 @@ public struct TaskListMutator {
     /// Deletes `task`. Returns `true` (with a success toast) when the caller
     /// should drop it from the list, `false` (with an error toast) when the
     /// request failed and the row should stay.
-    public func delete(_ task: VikunjaTask) async -> Bool {
+    public func delete(_ task: VikunjaTask, showsFeedback: Bool = true) async -> Bool {
         do {
             try await repository.delete(id: task.id)
-            toastPresenter.show("Task deleted", style: .success)
+            if showsFeedback {
+                toastPresenter.show("Task deleted", style: .success)
+            }
             return true
         } catch {
-            toastPresenter.show(errorMessage(error), style: .error)
+            if showsFeedback {
+                toastPresenter.show(errorMessage(error), style: .error)
+            }
             return false
         }
     }

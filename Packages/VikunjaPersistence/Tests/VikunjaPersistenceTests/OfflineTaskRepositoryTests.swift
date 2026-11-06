@@ -449,6 +449,42 @@ struct OfflineTaskRepositoryTests {
         #expect(queued[0].operation == .delete)
     }
 
+    @Test func `multiple offline deletions survive sync rejection and retry after reconnection`() async throws {
+        let fixture = try await makeRepository(online: true)
+        let first = try await fixture.repository.create(
+            VikunjaTask(id: .local(UUID()), title: "First", projectID: fixture.project),
+        )
+        let second = try await fixture.repository.create(
+            VikunjaTask(id: .local(UUID()), title: "Second", projectID: fixture.project),
+        )
+        await fixture.reachability.setReachable(false)
+        let local = try await fixture.repository.create(
+            VikunjaTask(id: .local(UUID()), title: "Never synced", projectID: fixture.project),
+        )
+        for task in [first, second, local] {
+            try await fixture.repository.delete(id: task.id)
+        }
+        #expect(try await fixture.repository.fetchTasks(projectID: fixture.project).isEmpty)
+        let pending = try await fixture.store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(pending.count == 2)
+        #expect(pending.allSatisfy { $0.operation == .delete && $0.status == .pending })
+        #expect(fixture.network.deletedIDs.isEmpty)
+
+        fixture.network.deleteError = VikunjaError.network("Server unavailable")
+        await fixture.reachability.setReachable(true)
+        await fixture.syncRequester.requestSync()
+        let failed = try await fixture.store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(failed.count == 2)
+        #expect(failed.allSatisfy { $0.operation == .delete && $0.lastError != nil })
+        #expect(try await fixture.repository.fetchTasks(projectID: fixture.project).isEmpty)
+
+        fixture.network.deleteError = nil
+        await fixture.syncRequester.requestSync()
+        #expect(try await fixture.store.read { db in try MutationQueueRecord.fetchAll(db) }.isEmpty)
+        #expect(Set(fixture.network.deletedIDs) == Set([first.id, second.id].compactMap(\.remoteValue)))
+        #expect(try await fixture.repository.fetchTasks(projectID: fixture.project).isEmpty)
+    }
+
     @Test
     func `deleting a synced task while online drains and truly removes the row`() async throws {
         let fixture = try await makeRepository(online: true)

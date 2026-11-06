@@ -28,6 +28,24 @@ struct TodayView: View {
             .refreshable { await viewModel.refresh() }
             .navigationTitle(Text(verbatim: viewModel.title))
             .searchable(text: $searchText, prompt: Text("Search tasks", bundle: .module))
+            .toolbar {
+                if !viewModel.bulkSelection.isSelecting {
+                    ToolbarItem(placement: .primaryAction) {
+                        Menu {
+                            TaskBulkSelectionAction(selection: viewModel.bulkSelection)
+                                .disabled(visibleTasks.isEmpty || viewModel.bulkSelection.isDeleting)
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                        }
+                    }
+                }
+            }
+            .taskBulkSelection(viewModel.bulkSelection, visibleTasks: visibleTasks) {
+                await viewModel.deleteSelectedTasks(visibleTasks: visibleTasks)
+            }
+            .onChange(of: filter) { _, _ in viewModel.bulkSelection.reset() }
+            .onChange(of: searchText) { _, _ in viewModel.bulkSelection.reset() }
+            .onChange(of: viewModel.pinnedSelection?.id) { _, _ in viewModel.bulkSelection.reset() }
             .task { await viewModel.start() }
             .task { await viewModel.observeLocalChanges() }
             .confirmationDialog(
@@ -241,6 +259,14 @@ struct TodayView: View {
         return viewModel.tasks.filter { $0.title.localizedStandardContains(searchText) }
     }
 
+    private var visibleTasks: [VikunjaTask] {
+        if viewModel.pinnedSelection != nil {
+            PinnedTaskSection.sections(from: filteredTasks).flatMap(\.tasks)
+        } else {
+            TodaySection.sections(from: filteredTasks, filter: filter).flatMap(\.tasks)
+        }
+    }
+
     private func sectionHeader(_ title: String, count: Int) -> some View {
         HStack(spacing: VikuSpacing.xs) {
             Text(verbatim: title)
@@ -267,15 +293,22 @@ struct TodayView: View {
         VikuTaskRow(
             task: task,
             project: project,
+            isSelected: viewModel.bulkSelection.isSelecting
+                ? viewModel.bulkSelection.selectedIDs.contains(task.id) : nil,
             onToggle: { Task { await viewModel.toggleDone(task) } },
             onOpen: {
-                if let project {
+                if viewModel.bulkSelection.isSelecting {
+                    viewModel.bulkSelection.toggle(task.id)
+                } else if let project {
                     router.push(.taskDetail(task, project))
                 }
             },
             contextMenu: { taskContextMenu(task) },
         )
-        .vikuCardRow(index: index, count: count)
+        .vikuCardRow(
+            index: index, count: count,
+            isSelected: viewModel.bulkSelection.selectedIDs.contains(task.id),
+        )
     }
 
     @ViewBuilder

@@ -62,36 +62,47 @@ struct ProjectOverviewView: View {
         return viewModel.tasks.filter { $0.title.localizedStandardContains(searchText) }
     }
 
+    private var visibleTasks: [VikunjaTask] {
+        ProjectTaskSection.sections(from: filteredTasks, filter: filter, sort: sort).flatMap(\.tasks)
+    }
+
     /// Pulled out of `body` (which was timing out the type checker once this
     /// screen's modifier chain got long enough) rather than for its own sake.
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        if viewModel.supportsKanban {
-            // Pops in once the capability check resolves rather than
-            // fading, on every SwiftUI version tried — content inside a
-            // `ToolbarItem` is hosted through the bridge to
-            // `UINavigationBar` and doesn't reliably honor `.transition`/
-            // `.animation`, including when the item itself is kept
-            // structurally present and only its inner content is
-            // conditional. Accepted as a platform limitation rather than
-            // chased further.
-            ToolbarItem(placement: .primaryAction) {
-                DisplayModeSwitcher(selection: $displayMode)
+        if !viewModel.bulkSelection.isSelecting {
+            if viewModel.supportsKanban {
+                // Pops in once the capability check resolves rather than
+                // fading, on every SwiftUI version tried — content inside a
+                // `ToolbarItem` is hosted through the bridge to
+                // `UINavigationBar` and doesn't reliably honor `.transition`/
+                // `.animation`, including when the item itself is kept
+                // structurally present and only its inner content is
+                // conditional. Accepted as a platform limitation rather than
+                // chased further.
+                ToolbarItem(placement: .primaryAction) {
+                    DisplayModeSwitcher(selection: $displayMode)
+                }
+                .hidingSharedGlassBackground
             }
-            .hidingSharedGlassBackground
-        }
-        ToolbarItem(placement: .primaryAction) {
-            Menu {
-                ProjectOverviewMenuContent(
-                    sortField: $viewModel.sortField,
-                    sortDirection: $viewModel.sortDirection,
-                    kind: viewModel.project.kind,
-                    onEditProject: { onEditProject(viewModel.project) },
-                    onAddSubproject: { isShowingCreateSubproject = true },
-                    onDeleteProject: { isShowingDeleteProjectConfirmation = true },
-                )
-            } label: {
-                Image(systemName: "ellipsis.circle")
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    if displayMode == .list {
+                        TaskBulkSelectionAction(selection: viewModel.bulkSelection)
+                            .disabled(visibleTasks.isEmpty || viewModel.bulkSelection.isDeleting)
+                        Divider()
+                    }
+                    ProjectOverviewMenuContent(
+                        sortField: $viewModel.sortField,
+                        sortDirection: $viewModel.sortDirection,
+                        kind: viewModel.project.kind,
+                        onEditProject: { onEditProject(viewModel.project) },
+                        onAddSubproject: { isShowingCreateSubproject = true },
+                        onDeleteProject: { isShowingDeleteProjectConfirmation = true },
+                    )
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
             }
         }
     }
@@ -117,6 +128,12 @@ struct ProjectOverviewView: View {
         .navigationTitle(viewModel.project.title)
         .searchable(text: $searchText, prompt: Text("Search tasks", bundle: .module))
         .toolbar { toolbarContent }
+        .taskBulkSelection(viewModel.bulkSelection, visibleTasks: visibleTasks) {
+            await viewModel.deleteSelectedTasks(visibleTasks: visibleTasks)
+        }
+        .onChange(of: filter) { _, _ in viewModel.bulkSelection.reset() }
+        .onChange(of: searchText) { _, _ in viewModel.bulkSelection.reset() }
+        .onChange(of: displayMode) { _, _ in viewModel.bulkSelection.reset() }
         .animation(.easeInOut(duration: 0.25), value: viewModel.isOffline)
     }
 
@@ -415,8 +432,16 @@ struct ProjectOverviewView: View {
                         task: task,
                         project: viewModel.project,
                         showsProjectBadge: false,
+                        isSelected: viewModel.bulkSelection.isSelecting
+                            ? viewModel.bulkSelection.selectedIDs.contains(task.id) : nil,
                         onToggle: { Task { await viewModel.toggleDone(task) } },
-                        onOpen: { onSelectTask(task) },
+                        onOpen: {
+                            if viewModel.bulkSelection.isSelecting {
+                                viewModel.bulkSelection.toggle(task.id)
+                            } else {
+                                onSelectTask(task)
+                            }
+                        },
                         contextMenu: {
                             Button(
                                 task.isDone
@@ -476,7 +501,10 @@ struct ProjectOverviewView: View {
                             .tint(palette.semanticDanger)
                         },
                     )
-                    .vikuCardRow(index: index, count: section.tasks.count)
+                    .vikuCardRow(
+                        index: index, count: section.tasks.count,
+                        isSelected: viewModel.bulkSelection.selectedIDs.contains(task.id),
+                    )
                 }
             }
         }

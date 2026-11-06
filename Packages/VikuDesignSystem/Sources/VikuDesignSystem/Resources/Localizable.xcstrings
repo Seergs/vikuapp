@@ -340,6 +340,26 @@
           }
         }
       }
+    },
+    "Selected" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seleccionada"
+          }
+        }
+      }
+    },
+    "Not selected" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No seleccionada"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

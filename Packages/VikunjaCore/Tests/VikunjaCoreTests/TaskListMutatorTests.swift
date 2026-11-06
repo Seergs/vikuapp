@@ -258,6 +258,23 @@ struct TaskListMutatorTests {
         #expect(toast.shown.last?.style == .error)
     }
 
+    @Test(arguments: [false, true])
+    func `bulk delete reports results without per-task feedback`(fails: Bool) async {
+        let repository = FakeTaskRepository()
+        if fails {
+            repository.deleteError = .network("rejected")
+        }
+        let toast = FakeToastPresenter()
+        let mutator = makeMutator(repository: repository, toast: toast)
+
+        let removed = await mutator.delete(
+            VikunjaTask(id: 7, title: "A", projectID: 1), showsFeedback: false,
+        )
+
+        #expect(removed == !fails)
+        #expect(toast.shown.isEmpty)
+    }
+
     // MARK: move
 
     @Test

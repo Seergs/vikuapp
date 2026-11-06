@@ -34,6 +34,8 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
 
 final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     var tasks: [VikunjaTask] = []
+    var failingDeleteIDs: Set<EntityID> = []
+    private(set) var deletedTaskIDs: [EntityID] = []
     var fetchError: VikunjaError?
     /// Project ids whose `fetchTasks` call fails, independent of `fetchError`
     /// — for testing that one project's failure doesn't take down the whole
@@ -72,6 +74,10 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     }
 
     func delete(id: EntityID) async throws {
+        if failingDeleteIDs.contains(id) {
+            throw VikunjaError.network("rejected")
+        }
+        deletedTaskIDs.append(id)
         tasks.removeAll { $0.id == id }
     }
 
