@@ -23,6 +23,7 @@ public struct KanbanBoardView: View {
     let searchText: String
     let onSelectTask: (VikunjaTask) -> Void
 
+    @State private var dropTarget = KanbanDropTarget()
     @State private var horizontalScrollPosition: Int?
     @Environment(\.vikuPalette) private var palette
 
@@ -36,18 +37,9 @@ public struct KanbanBoardView: View {
         self.onSelectTask = onSelectTask
     }
 
-    private var filteredBuckets: [KanbanBucket] {
-        guard !searchText.isEmpty else { return viewModel.buckets }
-        return viewModel.buckets.map { bucket in
-            var filtered = bucket
-            filtered.tasks = bucket.tasks.filter { $0.title.localizedStandardContains(searchText) }
-            return filtered
-        }
-    }
-
     public var body: some View {
-        // Keep a vertical scroll surface for navigation styling. Each column's
-        // List owns its native pull-to-refresh and card scrolling.
+        // Keep a vertical scroll surface for navigation styling. Each column
+        // owns its pull-to-refresh and card scrolling.
         GeometryReader { geometry in
             ScrollView {
                 content
@@ -56,6 +48,7 @@ public struct KanbanBoardView: View {
             .refreshable { await viewModel.refresh() }
         }
         .background(palette.pageBackground)
+        .onDisappear { dropTarget.reset() }
         .task { await viewModel.start() }
         .task { await viewModel.observeLocalChanges() }
     }
@@ -120,9 +113,11 @@ public struct KanbanBoardView: View {
     private var board: some View {
         ScrollView(.horizontal) {
             HStack(alignment: .top, spacing: VikuSpacing.md) {
-                ForEach(filteredBuckets) { bucket in
+                ForEach(viewModel.buckets) { bucket in
                     KanbanColumnView(
                         bucket: bucket,
+                        searchText: searchText,
+                        dropTarget: $dropTarget,
                         allowsMutations: viewModel.supportsWrites,
                         allowsTaskCreation: viewModel.supportsTaskCreation,
                         onRefresh: { await viewModel.refresh() },
@@ -137,10 +132,9 @@ public struct KanbanBoardView: View {
             }
             .padding(VikuSpacing.md)
             .scrollTargetLayout()
+            .frame(maxHeight: .infinity, alignment: .top)
         }
-        // Keep the visible bucket anchored while SwiftUI temporarily updates
-        // a List's drag presentation. Without an identity anchor, the nested
-        // horizontal scroll can jump back to its leading edge on drag start.
+        // Keep the visible bucket anchored as card content changes during a drag.
         .scrollPosition(id: $horizontalScrollPosition)
         .scrollIndicators(.hidden)
     }

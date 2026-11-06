@@ -38,6 +38,11 @@ public struct VikuPalette: Sendable, Equatable {
     public var semanticSuccess: Color
     public var semanticSuccessText: Color
     public var semanticDanger: Color
+    /// Foreground for a solid danger surface.
+    public var semanticDangerForeground: Color {
+        .white
+    }
+
     public var semanticDangerText: Color
     /// Text of a recognized date in Quick Add, on the field surface.
     public var dateHighlightText: Color

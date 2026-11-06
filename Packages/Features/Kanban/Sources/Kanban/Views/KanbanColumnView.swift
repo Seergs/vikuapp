@@ -2,18 +2,14 @@ import SwiftUI
 import VikuDesignSystem
 import VikunjaCore
 
-/// One bucket's column: a header (title, task count, add-task button), a
-/// vertically scrolling run of draggable cards, and a native
-/// `.dropDestination` that accepts a card dragged from any other column.
-///
-/// Deliberately does not special-case the done bucket — the server/view-model
-/// already handle the completion flip on a successful move (see
-/// `KanbanBoardViewModel.moveTask(_:to:)`), so this column looks exactly like
-/// any other one.
+/// A bucket with a single drop destination. A scroll view keeps native List
+/// insertion placeholders from appearing before capacity is validated.
 struct KanbanColumnView: View {
     private static let width: CGFloat = 300
 
     let bucket: KanbanBucket
+    let searchText: String
+    @Binding var dropTarget: KanbanDropTarget
     let allowsMutations: Bool
     let allowsTaskCreation: Bool
     let onRefresh: () async -> Void
@@ -22,75 +18,116 @@ struct KanbanColumnView: View {
     /// The dropped card's task id. Resolving it to a full `VikunjaTask`
     /// needs every bucket's tasks, not just this column's own, so the lookup
     /// (and the `moveTask` call) happens in `KanbanBoardView`.
-    let onDropTaskID: (EntityID) -> Void
+    let onDropTaskID: @MainActor @Sendable (EntityID) -> Void
     let onAddTask: (String) -> Void
 
-    @State private var isTargeted = false
+    private var isTargeted: Bool {
+        dropTarget.bucketID == bucket.id
+    }
+
     @State private var isAddingTask = false
     @State private var newTaskTitle = ""
     @FocusState private var isNewTaskFieldFocused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.vikuPalette) private var palette
+
+    private var highlightColor: Color {
+        bucket.isDoneBucket ? palette.semanticSuccess : palette.brand
+    }
+
+    private var content: KanbanColumnContent {
+        KanbanColumnContent(bucket: bucket, searchText: searchText)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.sm) {
             header
                 .padding(.top, VikuSpacing.sm)
 
+            if let progress = content.capacityFraction {
+                ProgressView(value: progress)
+                    .progressViewStyle(.linear)
+                    .tint(bucket.isFull ? palette.semanticDanger : palette.brand)
+                    .accessibilityLabel(Text("Column capacity", bundle: .module))
+                    .accessibilityValue(Text(verbatim: "\(bucket.tasks.count)/\(bucket.limit)"))
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: progress)
+                    .padding(.horizontal, VikuSpacing.xs)
+            }
+
             cards
 
-            if isAddingTask, allowsMutations, allowsTaskCreation {
+            if isAddingTask, allowsMutations, allowsTaskCreation, !bucket.isFull {
                 addTaskField
             }
         }
         .padding(VikuSpacing.sm)
         .frame(width: Self.width)
-        .background(isTargeted ? palette.brand.opacity(0.08) : palette.cardBackground)
+        .background(isTargeted ? highlightColor.opacity(0.08) : palette.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: VikuRadius.lg, style: .continuous))
-        .dropDestination(for: String.self) { items, _ in
-            acceptDrop(items)
-        } isTargeted: { isTargeted = $0 }
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: bucket.isFull)
+        .overlay {
+            if isTargeted {
+                RoundedRectangle(cornerRadius: VikuRadius.lg, style: .continuous)
+                    .strokeBorder(highlightColor, style: StrokeStyle(
+                        lineWidth: 1, dash: [VikuSpacing.xs, VikuSpacing.xxs],
+                    ))
+                    .allowsHitTesting(false)
+            }
+        }
+        .onDrop(of: KanbanColumnDropDelegate.contentTypes, delegate: KanbanColumnDropDelegate(
+            bucketID: bucket.id,
+            allowsDrop: allowsMutations && !bucket.isFull,
+            target: $dropTarget,
+            onDropTaskID: onDropTaskID,
+        ))
+        .onChange(of: bucket.isFull) { _, isFull in
+            guard isFull else { return }
+            isAddingTask = false
+            isNewTaskFieldFocused = false
+            dropTarget.update(isTargeted: false, bucketID: bucket.id)
+        }
     }
 
     @ViewBuilder
     private var cards: some View {
-        if bucket.tasks.isEmpty {
-            // An empty List has no native insertion target and intercepts the
-            // column's outer drop area. The column-level destination handles
-            // the empty body, so this surface stays visually transparent.
-            Rectangle()
-                .fill(.clear)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .contentShape(Rectangle())
+        if content.visibleTasks.isEmpty {
+            emptyDropArea
         } else {
-            List {
-                ForEach(bucket.tasks) { task in
-                    card(for: task)
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets())
-                }
-                .dropDestination(for: String.self) { (items: [String], _: Int) in
-                    _ = acceptDrop(items)
+            ScrollView {
+                LazyVStack(spacing: VikuSpacing.sm) {
+                    ForEach(content.visibleTasks) { task in
+                        card(for: task)
+                    }
                 }
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            #if os(iOS)
-            .listRowSpacing(VikuSpacing.sm)
-            #endif
             .refreshable { await onRefresh() }
         }
     }
 
-    private func acceptDrop(_ items: [String]) -> Bool {
-        guard allowsMutations, let value = items.first, let taskID = KanbanDragIdentity.decode(value)
-        else { return false }
-        onDropTaskID(taskID)
-        // SwiftUI can leave a destination's targeted state active after a
-        // successful drop, especially when the source and destination are in
-        // nested Lists. Clear our visual state as part of accepting the drop.
-        isTargeted = false
-        return true
+    private var emptyDropArea: some View {
+        Group {
+            if !bucket.tasks.isEmpty {
+                Text("No matching tasks", bundle: .module)
+            } else if allowsMutations {
+                Text("Drag tasks here", bundle: .module)
+            } else {
+                Text("No tasks", bundle: .module)
+            }
+        }
+        .font(VikuFont.footnote)
+        .foregroundStyle(isTargeted ? highlightColor : palette.textTertiary)
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, VikuSpacing.md)
+        .padding(.vertical, VikuSpacing.xl)
+        .background {
+            RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous)
+                .strokeBorder(
+                    isTargeted ? highlightColor : palette.textTertiary.opacity(0.45),
+                    style: StrokeStyle(lineWidth: 1, lineCap: .round, dash: [VikuSpacing.xs, VikuSpacing.xs]),
+                )
+        }
+        .contentShape(Rectangle())
     }
 
     private var header: some View {
@@ -100,11 +137,7 @@ struct KanbanColumnView: View {
                 .fontWeight(.semibold)
                 .lineLimit(1)
 
-            Text(verbatim: bucket.limit > 0 ? "\(bucket.tasks.count)/\(bucket.limit)" : "\(bucket.tasks.count)")
-                .font(VikuFont.caption)
-                .foregroundStyle(bucket.isFull ? palette.semanticDangerText : palette.textSecondary)
-                .padding(.horizontal, VikuSpacing.xs + VikuSpacing.xxs)
-                .background(palette.fieldBackground, in: Capsule())
+            capacityBadge
 
             Spacer(minLength: VikuSpacing.xs)
 
@@ -124,6 +157,27 @@ struct KanbanColumnView: View {
                 : Text("Create a task in this column", bundle: .module))
         }
         .padding(.horizontal, VikuSpacing.xs)
+    }
+
+    private var capacityBadge: some View {
+        Group {
+            if bucket.isFull {
+                Text("\(bucket.tasks.count)/\(bucket.limit) Full", bundle: .module)
+                    .bold()
+            } else {
+                Text(verbatim: bucket.limit > 0 ? "\(bucket.tasks.count)/\(bucket.limit)" : "\(bucket.tasks.count)")
+            }
+        }
+        .font(VikuFont.caption)
+        .foregroundStyle(bucket.isFull ? palette.semanticDangerForeground : palette.textSecondary)
+        .padding(.horizontal, VikuSpacing.xs + VikuSpacing.xxs)
+        .padding(.vertical, VikuSpacing.xxs)
+        .background(
+            bucket.isFull ? palette.semanticDanger : palette.fieldBackground,
+            in: Capsule(),
+        )
+        .accessibilityValue(Text(verbatim: bucket.limit > 0
+                ? "\(bucket.tasks.count)/\(bucket.limit)" : "\(bucket.tasks.count)"))
     }
 
     @ViewBuilder

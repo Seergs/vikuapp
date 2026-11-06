@@ -138,7 +138,9 @@ public final class KanbanBoardViewModel {
         let source = buckets.first { $0.tasks.contains { $0.id == taskID } }
         let previousDone = source?.tasks.first { $0.id == taskID }?.isDone
         guard supportsWrites, let viewID, source?.id != bucket.id,
-              buckets.contains(where: { $0.id == bucket.id }), pendingActions.insert(taskID).inserted else { return }
+              let current = buckets.first(where: { $0.id == bucket.id }) else { return }
+        guard !current.isFull else { show(VikunjaError.bucketFull); return }
+        guard pendingActions.insert(taskID).inserted else { return }
         defer { pendingActions.remove(taskID) }
         do {
             let moved = try await repository.moveTask(
