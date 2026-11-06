@@ -18,6 +18,9 @@ import VikunjaCore
 /// - `Priority.*` and `SwatchPalette.*`: never depended on the theme in the
 ///   first place.
 public enum VikuColor {
+    /// Subtle elevation for bars above scrolling content. Stays dark in every theme.
+    public static let barShadow = Color.black.opacity(0.12)
+
     /// Kept for `VikuWidgetKit`, see the type's doc comment.
     public static let brandPrimary = VikuPalette.standard.brand
 

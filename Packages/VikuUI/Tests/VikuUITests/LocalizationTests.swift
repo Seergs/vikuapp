@@ -53,6 +53,23 @@ struct LocalizationTests {
     }
 
     @Test(arguments: [
+        "%lld selected", "Delete %lld tasks?", "Delete %lld tasks",
+        "%lld tasks deleted", "%lld tasks were not deleted. Try again.",
+    ])
+    func `bulk task copy includes English and Spanish plurals`(key: String) {
+        for locale in ["en", "es"] {
+            for category in ["one", "other"] {
+                #expect(Self.pluralVariant(key, locale: locale, category: category) != nil)
+            }
+        }
+    }
+
+    @Test(arguments: [
+        ("Select Tasks", "Seleccionar tareas"),
+        ("Select All", "Seleccionar todas"),
+        ("Delete", "Eliminar"),
+        ("Deleting…", "Eliminando…"),
+        ("This action cannot be undone.", "Esta acción no se puede deshacer."),
         ("Try Again", "Reintentar"),
         ("Relation Type", "Tipo de relación"),
         ("Cancel", "Cancelar"),

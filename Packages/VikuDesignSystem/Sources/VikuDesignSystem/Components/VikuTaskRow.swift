@@ -24,6 +24,7 @@ public struct VikuTaskRow<Menu: View>: View {
     private let showsProjectBadge: Bool
     private let inlineLabels: Bool
     private let allowsCompletionChanges: Bool
+    private let isSelected: Bool?
     private let onToggle: () -> Void
     private let onOpen: () -> Void
     @ViewBuilder private let contextMenu: () -> Menu
@@ -46,6 +47,7 @@ public struct VikuTaskRow<Menu: View>: View {
     ///     of the due date, instead of their own wrapped row below. Kanban's
     ///     narrow card passes `true`; every full-width list row leaves it
     ///     `false`.
+    ///   - isSelected: non-nil replaces completion with list selection and disables the context menu.
     ///   - onToggle: completion checkbox tapped.
     ///   - onOpen: the row (anywhere but the checkbox) tapped.
     ///   - contextMenu: the long-press menu contents for this screen.
@@ -55,6 +57,7 @@ public struct VikuTaskRow<Menu: View>: View {
         showsProjectBadge: Bool = true,
         inlineLabels: Bool = false,
         allowsCompletionChanges: Bool = true,
+        isSelected: Bool? = nil,
         onToggle: @escaping () -> Void,
         onOpen: @escaping () -> Void,
         @ViewBuilder contextMenu: @escaping () -> Menu,
@@ -64,6 +67,7 @@ public struct VikuTaskRow<Menu: View>: View {
         self.showsProjectBadge = showsProjectBadge
         self.inlineLabels = inlineLabels
         self.allowsCompletionChanges = allowsCompletionChanges
+        self.isSelected = isSelected
         self.onToggle = onToggle
         self.onOpen = onOpen
         self.contextMenu = contextMenu
@@ -113,9 +117,35 @@ public struct VikuTaskRow<Menu: View>: View {
     }
 
     public var body: some View {
+        if let isSelected {
+            Button(action: onOpen) {
+                rowContent
+            }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(verbatim: task.title))
+            .accessibilityValue(isSelected
+                ? Text("Selected", bundle: .module)
+                : Text("Not selected", bundle: .module))
+            .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+        } else {
+            rowContent
+                .onTapGesture(perform: onOpen)
+                .contextMenu(menuItems: contextMenu)
+        }
+    }
+
+    private var rowContent: some View {
         HStack(alignment: .top, spacing: VikuSpacing.sm + VikuSpacing.xxs) {
-            checkbox
-                .padding(.top, 1)
+            if let isSelected {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(VikuFont.title2)
+                    .foregroundStyle(isSelected ? palette.brand : palette.textSecondary)
+                    .accessibilityHidden(true)
+            } else {
+                checkbox
+                    .padding(.top, 1)
+            }
 
             VStack(alignment: .leading, spacing: VikuSpacing.xs + VikuSpacing.xxs) {
                 HStack(spacing: VikuSpacing.xs) {
@@ -145,8 +175,6 @@ public struct VikuTaskRow<Menu: View>: View {
             }
         }
         .contentShape(Rectangle())
-        .onTapGesture(perform: onOpen)
-        .contextMenu(menuItems: contextMenu)
     }
 
     private var checkbox: some View {

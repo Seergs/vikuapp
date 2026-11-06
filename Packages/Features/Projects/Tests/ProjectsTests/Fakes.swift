@@ -106,6 +106,8 @@ final class FakeFilterRepository: FilterRepositoryProtocol, @unchecked Sendable 
 
 final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     var tasks: [VikunjaTask] = []
+    var failingDeleteIDs: Set<EntityID> = []
+    private(set) var deletedTaskIDs: [EntityID] = []
     var beforeUpdate: (@Sendable () async throws -> Void)?
     var fetchError: VikunjaError?
     var updateError: VikunjaError?
@@ -143,6 +145,10 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     }
 
     func delete(id: EntityID) async throws {
+        if failingDeleteIDs.contains(id) {
+            throw VikunjaError.network("rejected")
+        }
+        deletedTaskIDs.append(id)
         if let deleteError {
             throw deleteError
         }

@@ -15,16 +15,19 @@ public extension View {
     /// - Parameters:
     ///   - index: this row's position within the run.
     ///   - count: the number of rows in the run.
-    func vikuCardRow(index: Int, count: Int) -> some View {
-        modifier(VikuCardRowModifier(index: index, count: count))
+    ///   - isSelected: highlights the entire padded row with the active palette's brand color.
+    func vikuCardRow(index: Int, count: Int, isSelected: Bool = false) -> some View {
+        modifier(VikuCardRowModifier(index: index, count: count, isSelected: isSelected))
     }
 }
 
 private struct VikuCardRowModifier: ViewModifier {
     let index: Int
     let count: Int
+    let isSelected: Bool
 
     @Environment(\.vikuPalette) private var palette
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var isFirst: Bool {
         index == 0
@@ -38,6 +41,10 @@ private struct VikuCardRowModifier: ViewModifier {
         content
             .padding(.horizontal, VikuSpacing.md)
             .padding(.vertical, VikuSpacing.sm)
+            .background {
+                palette.brand.opacity(isSelected ? 0.12 : 0)
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.15), value: isSelected)
+            }
             .background(palette.cardBackground)
             .overlay(alignment: .bottom) {
                 if !isLast {

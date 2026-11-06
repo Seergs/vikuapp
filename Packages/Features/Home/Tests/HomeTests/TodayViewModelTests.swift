@@ -5,6 +5,46 @@ import VikunjaCore
 
 @MainActor
 struct TodayViewModelTests {
+    @Test func `bulk deletion removes accepted tasks retains failures and preserves hidden tasks`() async {
+        let repository = FakeTaskRepository()
+        repository.tasks = [
+            VikunjaTask(id: 1, title: "First", projectID: 1),
+            VikunjaTask(id: 2, title: "Rejected", projectID: 1),
+            VikunjaTask(id: 3, title: "Hidden", projectID: 1),
+        ]
+        repository.failingDeleteIDs = [2]
+        let projects = FakeProjectRepository()
+        projects.projects = [Project(id: 1, title: "Work")]
+        let toast = FakeToastPresenter()
+        let viewModel = TodayViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
+            taskRepository: repository,
+            projectRepository: projects,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            toastPresenter: toast,
+        )
+        await viewModel.load()
+        viewModel.bulkSelection.begin()
+        viewModel.bulkSelection.selectAll(viewModel.tasks)
+        let visible = Array(viewModel.tasks.prefix(2))
+
+        await viewModel.deleteSelectedTasks(visibleTasks: visible)
+
+        #expect(viewModel.tasks.map(\.id) == [2, 3])
+        #expect(viewModel.bulkSelection.selectedIDs == [2])
+        #expect(toast.shownMessages.count == 1)
+        #expect(toast.shownMessages.last?.style == .error)
+
+        repository.failingDeleteIDs = []
+        await viewModel.deleteSelectedTasks(visibleTasks: viewModel.tasks)
+
+        #expect(viewModel.tasks.map(\.id) == [3])
+        #expect(repository.deletedTaskIDs == [1, 2])
+        #expect(!viewModel.bulkSelection.isSelecting)
+        #expect(toast.shownMessages.count == 2)
+    }
+
     @Test
     func `load merges tasks across every project`() async {
         let projectRepository = FakeProjectRepository()

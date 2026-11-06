@@ -12,6 +12,7 @@ import VikuUI
 @MainActor
 @Observable
 public final class ProjectOverviewViewModel {
+    public let bulkSelection: TaskBulkSelection
     public private(set) var project: Project
     /// This project's direct children. Seeded at construction from the
     /// already-built tree (`ProjectsListViewModel.tree(from:)`) so the first
@@ -144,6 +145,7 @@ public final class ProjectOverviewViewModel {
             }
         },
     ) {
+        self.bulkSelection = TaskBulkSelection(toastPresenter: toastPresenter)
         self.synchronization = LocalScreenSync(
             trigger: syncTrigger, localData: localData, toastPresenter: toastPresenter,
         )
@@ -486,6 +488,17 @@ public final class ProjectOverviewViewModel {
         loadVersion += 1
         if await mutator.delete(task) {
             tasks.removeAll { $0.id == task.id }
+        }
+    }
+
+    /// Accepted local deletions disappear immediately; rejected items remain selected.
+    public func deleteSelectedTasks(visibleTasks: [VikunjaTask]) async {
+        loadVersion += 1
+        await bulkSelection.delete(visibleTasks: visibleTasks) { task in
+            guard await mutator.delete(task, showsFeedback: false) else { return false }
+            loadVersion += 1
+            tasks.removeAll { $0.id == task.id }
+            return true
         }
     }
 
