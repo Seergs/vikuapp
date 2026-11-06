@@ -6,8 +6,6 @@ lastUpdated: 2026-11-05
 related: push-notifications, offline-mode
 ---
 
-# Server Version Support
-
 Viku works with any Vikunja instance. It detects what your server actually
 supports at runtime rather than assuming one fixed API shape, and
 automatically uses Vikunja's newer v2 API when your instance offers it

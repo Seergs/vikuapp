@@ -6,8 +6,6 @@ lastUpdated: 2026-11-05
 related: server-version-support
 ---
 
-# Push Notifications
-
 Vikunja doesn't send push notifications to iOS on its own, Apple only hands out those
 credentials to the app's own developers. So when you turn on notifications in Viku, there's a
 small relay involved: Viku Relay, a service we (the Viku developers) run, that sits between
