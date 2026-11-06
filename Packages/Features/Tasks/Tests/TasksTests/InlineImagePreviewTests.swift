@@ -52,6 +52,31 @@ struct InlineImagePreviewTests {
     }
 
     @Test
+    func `a cancelled preview does not open a cached image or show an error`() async throws {
+        let loader = try FakeInlineImageLoader(result: .success(Self.png()))
+        let toast = FakeToastPresenter()
+        let viewModel = makeViewModel(loader: loader, toast: toast)
+        let request = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            return await viewModel.inlineImagePreviewURL(for: Self.image)
+        }
+
+        #expect(await request.value == nil)
+        #expect(toast.shownMessages.isEmpty)
+    }
+
+    @Test
+    func `a cancelled download does not show an error`() async {
+        let toast = FakeToastPresenter()
+        let viewModel = makeViewModel(
+            loader: FakeInlineImageLoader(result: .failure(CancellationError())), toast: toast,
+        )
+
+        #expect(await viewModel.inlineImagePreviewURL(for: Self.image) == nil)
+        #expect(toast.shownMessages.isEmpty)
+    }
+
+    @Test
     func `does nothing without a loader`() async {
         let toast = FakeToastPresenter()
         let viewModel = makeViewModel(loader: nil, toast: toast)

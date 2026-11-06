@@ -737,6 +737,8 @@ public final class TaskDetailViewModel {
         guard let inlineImageLoader else { return nil }
         do {
             let data = try await inlineImageLoader.imageData(for: image.source, variant: .original)
+            // Shared downloads may finish after this screen's request was cancelled.
+            try Task.checkCancellation()
             let baseName = image.alt ?? String(localized: "Image", bundle: .module)
             return AttachmentPreviewFile.write(data, named: AttachmentPreviewFile.imageFileName(baseName, for: data))
         } catch is CancellationError {
