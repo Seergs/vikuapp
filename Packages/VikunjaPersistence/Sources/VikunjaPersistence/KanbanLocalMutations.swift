@@ -41,10 +41,16 @@ enum KanbanLocalMutations {
         guard source.localID != destination.localID else {
             return try (domain(task, db: db), false)
         }
+        let wasDone = task.isDone
         if destination.remoteID == view.doneBucketID {
             task.isDone = true
         } else if source.remoteID == view.doneBucketID {
             task.isDone = false
+        }
+        if wasDone != task.isDone {
+            for item in queue where item.operation == .setCompletion && item.status != .inFlight {
+                try item.delete(db)
+            }
         }
         try task.update(db)
         assignment.bucketLocalID = destination.localID
@@ -160,7 +166,7 @@ enum KanbanLocalMutations {
         }
     }
 
-    /// List/detail completion uses the task update endpoint; no redundant bucket request.
+    /// Completion updates cached placement without a redundant bucket request.
     static func applyCompletion(_ task: TaskRecord, db: Database) throws {
         let views = try KanbanViewRecord.filter(Column("projectLocalID") == task.projectLocalID).fetchAll(db)
         for view in views where supports(view) {

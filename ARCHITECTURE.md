@@ -830,7 +830,21 @@ uses the actual BulkTask object's `tasks` array; v1's Swagger annotation instead
 claims a bare array. The implementation follows the server handlers, not that
 annotation. Server errors propagate without legacy payload or per-task fallbacks.
 
-This stage adds the domain contract and transport only. Factory/composition
-wiring, local completion intents, queue replay, conflict handling, and UI actions
-belong to the subsequent persistence/sync and UI stages. No screen or offline
-repository calls the new endpoint yet.
+`OfflineTaskRepository` also implements this contract. It changes only completion
+and cached board placement, then writes one `setCompletion` queue row per task in
+one transaction. A shared batch ID defines a single atomic bulk request; duplicate
+local/remote aliases select one task. A later local completion replaces pending
+completion intent for that task, while in-flight intent remains until acknowledged.
+
+`SyncCoordinator` obtains the bulk transport through `InstanceClientFactoryProtocol`.
+The task drain resolves offline creations first, preserves ordering with earlier
+edits, and claims each batch before sending it. All response tasks and queue
+acknowledgements commit in one transaction. New edits and deletions arriving during
+the request remain protected; known successful writes rebase subsequent local
+intent. The baseline in the completion payload stays frozen across pulls so real
+server conflicts still block the batch and use the existing recovery flow.
+
+Failures remain visible per task in Pending Sync as updates. Rejections retain the
+batch for retry. Offline/cancelled requests release claims without counting a
+failed attempt, and a new engine recovers durable claims left by a stopped process.
+No screen calls the completion action yet; selection UI wiring is the next stage.

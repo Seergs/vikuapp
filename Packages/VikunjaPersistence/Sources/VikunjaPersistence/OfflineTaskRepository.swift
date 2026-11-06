@@ -8,7 +8,7 @@ import VikunjaCore
 /// detection machinery, unlike `OfflineLabelRepository`: Vikunja's task API
 /// exposes `updated`, so `drainTaskUpdate` has a real baseline to compare a
 /// queued edit against.
-public actor OfflineTaskRepository: TaskRepositoryProtocol {
+public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkCompletionRepositoryProtocol {
     private let localStore: LocalStore
     private let accountID: UUID
     private let syncRequester: SyncRequesting
@@ -121,6 +121,12 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
                     .filter(Column("status") != MutationStatus.inFlight.rawValue).deleteAll(db)
             }
             let completionChanged = row.isDone != task.isDone
+            if completionChanged {
+                try MutationQueueRecord.filter(Column("accountID") == self.accountID)
+                    .filter(Column("targetLocalID") == row.localID)
+                    .filter(Column("operation") == MutationOperation.setCompletion.rawValue)
+                    .filter(Column("status") != MutationStatus.inFlight.rawValue).deleteAll(db)
+            }
             row.title = task.title
             row.description = task.description
             row.isDone = task.isDone
@@ -159,6 +165,58 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
         }
         await triggerDrainIfOnline()
         return try await readTask(id: task.id)
+    }
+
+    /// Persist the whole selection atomically without waiting for connectivity.
+    /// Separate completion intents leave pending title/date edits intact.
+    public func setCompletion(taskIDs: [EntityID], isDone: Bool) async throws -> [VikunjaTask] {
+        guard !taskIDs.isEmpty else { return [] }
+        let batchID = UUID()
+        let result = try await localStore.write { db in
+            let rows = try Self.accountRows(self.accountID, db: db)
+            let hidden = try Self.pendingDeleteTargetLocalIDs(accountID: self.accountID, db: db)
+            var seen: Set<UUID> = []
+            var selected: [TaskRecord] = []
+            for id in taskIDs {
+                guard let row = Self.findRow(matching: id, in: rows), !hidden.contains(row.localID) else {
+                    throw VikunjaError.notFound
+                }
+                if seen.insert(row.localID).inserted {
+                    selected.append(row)
+                }
+            }
+            let createdAt = Date()
+            for var row in selected {
+                let completionChanged = row.isDone != isDone
+                row.isDone = isDone
+                try row.save(db)
+                if completionChanged {
+                    try KanbanLocalMutations.applyCompletion(row, db: db)
+                }
+                try MutationQueueRecord.filter(Column("accountID") == self.accountID)
+                    .filter(Column("targetLocalID") == row.localID)
+                    .filter(Column("operation") == MutationOperation.setCompletion.rawValue)
+                    .filter(Column("status") != MutationStatus.inFlight.rawValue).deleteAll(db)
+                let payload = TaskCompletionPayload(
+                    batchID: batchID, isDone: isDone, baseUpdatedAt: row.serverUpdatedAt,
+                )
+                var item = try MutationQueueRecord(
+                    id: nil, accountID: self.accountID, entityType: .task, operation: .setCompletion,
+                    targetLocalID: row.localID,
+                    payload: Self.encode(payload),
+                    createdAt: createdAt, retryCount: 0, lastError: nil, status: .pending,
+                    needsConflictResolution: false, baseUpdatedAt: row.serverUpdatedAt,
+                )
+                try item.insert(db)
+            }
+            let context = try Self.makeAssemblyContext(accountID: self.accountID, db: db)
+            return try selected.map { row in
+                let updated = try TaskRecord.fetchOne(db, key: row.localID) ?? row
+                return Self.task(from: updated, context: context)
+            }
+        }
+        await triggerDrainIfOnline()
+        return result
     }
 
     public func delete(id: EntityID) async throws {
@@ -442,7 +500,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
                 }
             case .removeLabel:
                 labels.removeAll { $0.id == labelID }
-            case .create, .update, .delete, .addRelation, .removeRelation, .moveBucket:
+            case .create, .update, .delete, .addRelation, .removeRelation, .moveBucket, .setCompletion:
                 break
             }
         }
@@ -530,7 +588,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol {
                 relationsByKind[mutation.kind] = relations
             case .removeRelation:
                 relationsByKind[mutation.kind]?.removeAll { $0.id == otherID }
-            case .create, .update, .delete, .addLabel, .removeLabel, .moveBucket:
+            case .create, .update, .delete, .addLabel, .removeLabel, .moveBucket, .setCompletion:
                 break
             }
         }

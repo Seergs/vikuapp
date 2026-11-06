@@ -62,3 +62,12 @@ struct KanbanCreationDestination: Codable, Equatable, Sendable {
     var viewID: Int
     var bucketID: Int
 }
+
+/// Each task retains its own queue row; a shared batch ID defines one atomic
+/// server request. Local IDs resolve only after pending task creations finish.
+struct TaskCompletionPayload: Codable, Equatable, Sendable {
+    var batchID: UUID
+    var isDone: Bool
+    /// Frozen across pulls; only our own acknowledged writes rebase this value.
+    var baseUpdatedAt: Date?
+}

@@ -393,6 +393,13 @@ private final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @u
         fatalError("unused")
     }
 
+    func makeTaskBulkCompletionRepository(
+        baseURL: URL,
+        tokenProvider: @escaping @Sendable () async throws -> String?,
+    ) -> TaskBulkCompletionRepositoryProtocol {
+        fatalError("Bulk completion is not exercised by these tests")
+    }
+
     func makeLabelRepository(
         baseURL _: URL, tokenProvider _: @escaping @Sendable () async throws -> String?,
     ) -> LabelRepositoryProtocol {
