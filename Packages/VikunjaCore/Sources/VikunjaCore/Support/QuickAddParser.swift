@@ -9,6 +9,8 @@ import Foundation
 ///   A label that does not exist yet is created when the task is saved.
 /// - `p1`-`p4` (Todoist) or `!1`-`!5` (Vikunja) sets a priority.
 /// - A backslash before a sigil escapes it, so `\#` stays a literal `#`.
+/// - With an explicit `dateContext`, one uniquely resolved temporal expression
+///   sets the due date and is removed from the title alongside applied shortcuts.
 ///
 /// Pure and I/O-free: `tokenize` only finds shapes in the text, and `parse`
 /// resolves them against the projects the caller already has. A shortcut only
@@ -59,7 +61,7 @@ public enum QuickAddParser {
     }
 
     public struct Result: Equatable, Sendable {
-        /// The input with applied shortcuts removed and escapes unescaped.
+        /// The input with applied shortcuts/date removed and symbol escapes unescaped.
         public let title: String
         public let tokens: [ResolvedToken]
         /// The project named by the first project token, when it matched exactly one project.
@@ -70,17 +72,26 @@ public enum QuickAddParser {
         public let labelIDs: [Int]
         /// Names of labels to create on save, each once, in input order.
         public let newLabelNames: [String]
+        /// Temporal interpretation of the original input, excluding every shortcut range.
+        public let dateInterpretation: NaturalLanguageDateParser.Result
+
+        /// Only a uniquely resolved date is applied to the task and removed from its title.
+        public var dueDate: Date? {
+            dateInterpretation.resolvedDate?.date
+        }
     }
 
     // MARK: - Parsing
 
     /// Parses `input`. A `nil` syntax means shortcuts are off: nothing is applied,
     /// and the title is only trimmed at its ends, as it was before shortcuts existed.
+    /// Date recognition is opt-in through `dateContext` and is also disabled by a nil syntax.
     public static func parse(
         _ input: String,
         projects: [Project],
         labels: [Label] = [],
         syntax: QuickAddSyntax?,
+        dateContext: NaturalLanguageDateParser.Context? = nil,
     ) -> Result {
         guard let syntax else {
             return Result(
@@ -90,6 +101,7 @@ public enum QuickAddParser {
                 priority: nil,
                 labelIDs: [],
                 newLabelNames: [],
+                dateInterpretation: .init(expressions: []),
             )
         }
         let scan = scan(input, syntax: syntax)
@@ -129,7 +141,13 @@ public enum QuickAddParser {
             }
         }
 
-        let applied = resolved.filter(\.isApplied).map(\.token.range)
+        let dates = dateContext.map {
+            NaturalLanguageDateParser.parse(input, context: $0, protecting: scan.tokens.map(\.range))
+        } ?? .init(expressions: [])
+        var applied = resolved.filter(\.isApplied).map(\.token.range)
+        if dates.resolvedDate != nil, let expression = dates.expressions.first {
+            applied.append(expression.range)
+        }
         let title = buildTitle(input: input, escapes: scan.escapes, removing: applied)
 
         return Result(
@@ -139,6 +157,7 @@ public enum QuickAddParser {
             priority: priority,
             labelIDs: labelIDs,
             newLabelNames: newLabelNames,
+            dateInterpretation: dates,
         )
     }
 

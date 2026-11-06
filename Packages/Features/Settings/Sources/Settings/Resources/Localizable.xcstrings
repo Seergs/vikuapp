@@ -11,12 +11,12 @@
         }
       }
     },
-    "This session only. Dates are not applied.": {
+    "This session only. Show date interpretation details.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Solo durante esta sesión. Las fechas no se aplican."
+            "value": "Solo durante esta sesión. Muestra detalles de las fechas interpretadas."
           }
         }
       }

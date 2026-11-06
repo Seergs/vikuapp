@@ -2,7 +2,7 @@ import SwiftUI
 import VikuDesignSystem
 import VikunjaCore
 
-/// Bounded, scrollable diagnostic presentation. The raw title and task due date remain untouched.
+/// Bounded, scrollable diagnostics for the same temporal interpretation used on save.
 struct QuickAddDatePreview: View {
     static let height = VikuSpacing.xxl * 3
 
@@ -17,7 +17,7 @@ struct QuickAddDatePreview: View {
             VStack(alignment: .leading, spacing: VikuSpacing.sm) {
                 Text("Date preview", bundle: .module)
                     .font(VikuFont.footnote.weight(.semibold))
-                Text("Preview only. Dates are not applied.", bundle: .module)
+                Text("A single valid date is applied when saving.", bundle: .module)
                     .font(VikuFont.caption)
                 Text(verbatim: timeZone.identifier)
                     .font(VikuFont.caption2)

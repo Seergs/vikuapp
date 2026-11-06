@@ -698,8 +698,8 @@ final class AppContainer {
             datePreviewStore: BuildConfig.isDevBuild ? devToolsCenter : nil,
             dateParsingContext: .init(
                 referenceDate: Date(),
-                timeZone: accountTimezoneStore.cachedTimezone(forAccountID: account.id)
-                    .flatMap(TimeZone.init(identifier:)) ?? .current,
+                // Match the app's date pickers and task presentation; freeze the device zone for this sheet.
+                timeZone: .current,
                 languages: [.spanish, .english],
             ),
         )

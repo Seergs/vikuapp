@@ -3,9 +3,10 @@ import Observation
 import VikunjaCore
 import VikuUI
 
-/// Drives the quick-add sheet: title + project + priority only, matching the
-/// design mockup's `AddTaskSheet` (no due date/labels/assignee yet). The sheet
-/// is presented globally from the tab bar's floating action button, so it
+/// Drives the quick-add sheet's title, project, and priority fields, plus
+/// label and due-date shortcuts interpreted from the title. Raw input remains
+/// editable; saving uses the cleaned title and uniquely resolved due instant.
+/// The sheet is presented globally from the tab bar's floating action button, so it
 /// picks its starting project from context: `preselectedProjectID` when the
 /// visible screen is a specific project (see `QuickAddContextTracking`),
 /// otherwise `accountDefaultProjectID` — the user's Vikunja default project,
@@ -55,11 +56,12 @@ public final class QuickAddTaskViewModel {
 
     /// `input` parsed with the user's syntax against the loaded projects and labels.
     public var parsed: QuickAddParser.Result {
-        QuickAddParser.parse(input, projects: projects, labels: labels, syntax: syntax)
+        QuickAddParser.parse(input, projects: projects, labels: labels, syntax: syntax, dateContext: dateParsingContext)
     }
 
-    /// Read-only interpretation for the preview. Never participates in title cleanup or saving.
-    /// Snapshotting context keeps relative dates stable throughout this editing session.
+    /// The app supplies the device zone captured when this sheet opens.
+    /// Snapshotting context keeps relative dates stable throughout this editing session,
+    /// including failed saves and retries. Synchronization receives the resolved instant.
     public let dateParsingContext: NaturalLanguageDateParser.Context
     private let datePreviewStore: QuickAddDatePreviewStoring?
 
@@ -68,23 +70,16 @@ public final class QuickAddTaskViewModel {
     }
 
     public var datePreview: NaturalLanguageDateParser.Result {
-        NaturalLanguageDateParser.parse(
-            input,
-            context: NaturalLanguageDateParser.Context(
-                referenceDate: dateParsingContext.referenceDate,
-                timeZone: dateParsingContext.timeZone,
-                languages: syntax != nil ? dateParsingContext.languages : [],
-            ),
-            protecting: QuickAddParser.tokenize(input, syntax: syntax).map(\.range),
-        )
+        parsed.dateInterpretation
     }
 
-    /// Date styling is independent of the Developer panel and never changes save behavior.
+    /// Date styling and saving share the same interpretation, independently of the Developer panel.
     var titleHighlights: QuickAddTitleHighlights {
-        var spans = parsed.tokens.map {
+        let result = parsed
+        var spans = result.tokens.map {
             QuickAddTitleHighlights.Span(range: $0.token.range, style: .shortcut($0.resolution))
         }
-        let dates = datePreview
+        let dates = result.dateInterpretation
         if dates.resolvedDate != nil, let expression = dates.expressions.first {
             spans.append(.init(range: expression.range, style: .date))
         }
@@ -332,6 +327,7 @@ public final class QuickAddTaskViewModel {
                 VikunjaTask(
                     id: 0,
                     title: shortcut.title,
+                    dueDate: shortcut.dueDate,
                     priority: priority,
                     projectID: projectID,
                 ),

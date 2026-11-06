@@ -4,9 +4,8 @@ import VikuDesignSystem
 import VikunjaCore
 
 /// The quick-add sheet opened from the tab bar's floating action button:
-/// title + project + priority only, matching the design mockup's
-/// `AddTaskSheet` (no due date/labels/assignee yet — see
-/// `QuickAddTaskViewModel`'s doc comment). A compact bottom sheet: a
+/// title + project + priority fields, with date and label shortcuts read
+/// from the title (see `QuickAddTaskViewModel`). A compact bottom sheet: a
 /// `NavigationStack` with an inline title and `Cancel`/`Save` in the toolbar
 /// (the system pins that bar to the top of the sheet, so it can't drift when
 /// the keyboard opens and nudges the sheet to its taller detent), switching

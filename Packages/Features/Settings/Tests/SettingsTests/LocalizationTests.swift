@@ -98,8 +98,8 @@ struct LocalizationTests {
         ("Log Network Requests", "Registrar solicitudes de red"),
         ("Show Quick Add Date Preview", "Mostrar vista previa de fechas en agregado rápido"),
         (
-            "This session only. Dates are not applied.",
-            "Solo durante esta sesión. Las fechas no se aplican.",
+            "This session only. Show date interpretation details.",
+            "Solo durante esta sesión. Muestra detalles de las fechas interpretadas.",
         ),
         ("Preview Onboarding", "Previsualizar onboarding"),
         ("See the first-launch screen again", "Ver otra vez la pantalla de primer inicio"),

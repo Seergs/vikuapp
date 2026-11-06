@@ -275,7 +275,7 @@ struct SettingsView: View {
                             SettingsRowIcon(systemName: "calendar.badge.clock")
                             VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
                                 Text("Show Quick Add Date Preview", bundle: .module)
-                                Text("This session only. Dates are not applied.", bundle: .module)
+                                Text("This session only. Show date interpretation details.", bundle: .module)
                                     .font(VikuFont.footnote)
                                     .foregroundStyle(palette.textTertiary)
                             }

@@ -25,6 +25,8 @@ struct OfflineTaskRepositoryTests {
         let store: LocalStore
         let network: FakeTaskRepository
         let accountID: UUID
+        let syncRequester: TestSyncRequester
+        let reachability: FakeReachabilityMonitor
         /// A project already present locally (as if `pullProjects()` had
         /// already synced it), so `create`/`update`/`fetchTasks` have a real
         /// project to resolve `projectLocalID` against.
@@ -63,12 +65,14 @@ struct OfflineTaskRepositoryTests {
             relationRepository: FakeTaskRelationRepository(), accountID: accountID,
         )
         let reachability = FakeReachabilityMonitor(isReachable: online)
+        let syncRequester = TestSyncRequester(engine: engine, reachability: reachability)
         let repository = OfflineTaskRepository(
             localStore: store, accountID: accountID,
-            syncRequester: TestSyncRequester(engine: engine, reachability: reachability),
+            syncRequester: syncRequester,
         )
         return Fixture(
             repository: repository, store: store, network: network, accountID: accountID,
+            syncRequester: syncRequester, reachability: reachability,
             project: project.remoteID.map(EntityID.remote) ?? .local(project.localID),
         )
     }
@@ -177,6 +181,48 @@ struct OfflineTaskRepositoryTests {
         #expect(queued.count == 1)
         #expect(queued[0].operation == .create)
         #expect(queued[0].status == .pending)
+    }
+
+    @Test func `quick add due instant survives offline creation failed sync and reconnection`() async throws {
+        let fixture = try await makeRepository(online: false)
+        let formatter = ISO8601DateFormatter()
+        let reference = try #require(formatter.date(from: "2026-11-05T12:00:00Z"))
+        let expected = try #require(formatter.date(from: "2026-11-06T23:59:59Z"))
+        let zone = try #require(TimeZone(identifier: "UTC"))
+        let parsed = QuickAddParser.parse(
+            "Buy milk mañana", projects: [], syntax: .todoist,
+            dateContext: .init(referenceDate: reference, timeZone: zone, languages: [.spanish, .english]),
+        )
+        #expect(parsed.dueDate == expected)
+        let created = try await fixture.repository.create(
+            VikunjaTask(id: 0, title: parsed.title, dueDate: parsed.dueDate, projectID: fixture.project),
+        )
+        #expect(created.title == "Buy milk")
+        #expect(created.dueDate == expected)
+        #expect(try await fixture.repository.fetchTask(id: created.id).dueDate == expected)
+        let pending = try await fixture.store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(pending.count == 1)
+        await fixture.syncRequester.requestSync()
+        #expect(fixture.network.createdTasks.isEmpty)
+
+        fixture.network.createError = VikunjaError.network("unavailable")
+        await fixture.reachability.setReachable(true)
+        await fixture.syncRequester.requestSync()
+        let failed = try await fixture.store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(failed.first?.status == .failed)
+        #expect(failed.first?.retryCount == 1)
+        #expect(failed.first?.payload == pending.first?.payload)
+        #expect(try await fixture.repository.fetchTask(id: created.id).dueDate == expected)
+
+        fixture.network.createError = nil
+        await fixture.syncRequester.requestSync()
+        let sent = try #require(fixture.network.createdTasks.first)
+        #expect(sent.title == "Buy milk")
+        #expect(sent.dueDate == expected)
+        #expect(fixture.network.createdTasks.count == 1)
+        let remaining = try await fixture.store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(remaining.isEmpty)
+        #expect(try await fixture.repository.fetchTask(id: created.id).dueDate == expected)
     }
 
     @Test

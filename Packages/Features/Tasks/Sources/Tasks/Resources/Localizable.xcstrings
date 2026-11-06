@@ -511,12 +511,12 @@
         }
       }
     },
-    "Preview only. Dates are not applied.": {
+    "A single valid date is applied when saving.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Solo vista previa. Las fechas no se aplican."
+            "value": "Se aplica una única fecha válida al guardar."
           }
         }
       }
