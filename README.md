@@ -75,10 +75,10 @@ and only shows the ones that are actually available.
 - **Widgets:** Quickly see your daily tasks and a calendar view from your Home screen.
 - **Kanban board:** Switch a project between List and Kanban view, drag tasks between buckets, and add tasks directly into a bucket. Requires a Vikunja instance on 2.4.0+.
 - **Themes:** Multiple color palettes, including light, dark and Warm, with live previews in Settings > Appearance.
+- **Offline Support (early stage):** Browse cached data and keep making changes without a connection; they sync when you're back online. Still early, so expect some bugs.
 
 ### Planned
 
-- Offline Support
 - Native Push Notifications
 
 
