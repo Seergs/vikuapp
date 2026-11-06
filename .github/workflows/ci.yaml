@@ -4,6 +4,9 @@ on:
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - 'website/**'
+      - 'README.md'
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
