@@ -6,8 +6,6 @@ lastUpdated: 2026-11-05
 related: offline-mode
 ---
 
-# Quick-Add Shortcuts
-
 The quick-add sheet can read shortcuts typed straight into the title, so you can
 file a task without opening the project, priority, or label pickers. The feature
 is experimental and off by default. To turn it on, go to **Settings → Experimental
