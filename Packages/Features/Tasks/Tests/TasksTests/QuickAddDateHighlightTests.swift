@@ -46,8 +46,8 @@ struct QuickAddDateHighlightTests {
         #expect(!model.isDatePreviewEnabled)
         #expect(dates(in: model.titleHighlights) == ["mañana"])
         let saved = try #require(await model.save())
-        #expect(saved.title == "Comprar leche mañana")
-        #expect(saved.dueDate == nil)
+        #expect(saved.title == "Comprar leche")
+        #expect(saved.dueDate == model.datePreview.resolvedDate?.date)
     }
 
     @Test(arguments: [QuickAddSyntax.todoist, .vikunja])

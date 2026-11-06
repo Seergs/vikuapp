@@ -12,6 +12,7 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     var searchResults: [VikunjaTask] = []
     var updatedTasks: [VikunjaTask] = []
     var beforeUpdateReturns: (@Sendable () async throws -> Void)?
+    var beforeCreateReturns: (@Sendable () async throws -> Void)?
     var beforeFetchTaskReturns: (@Sendable () async -> Void)?
     var afterDelete: (@Sendable () async -> Void)?
     /// Artificial delay before `fetchTask(id:)` returns — lets tests simulate
@@ -54,6 +55,7 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
         if let createError {
             throw createError
         }
+        try await beforeCreateReturns?()
         // Mirrors the real API: the server assigns the id. Relations/labels
         // aren't accepted in the create body, so they're dropped here too —
         // reminders, unlike those, ride along in the create body (see

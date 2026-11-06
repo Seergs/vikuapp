@@ -1,6 +1,6 @@
 ---
 title: Atajos de creación rápida
-summary: Asigna proyectos, etiquetas y prioridades mientras escribes.
+summary: Asigna fechas, proyectos, etiquetas y prioridades mientras escribes.
 category: basics
 updated: 2026-11-05
 related: offline-mode
@@ -37,3 +37,28 @@ Así funcionan los atajos:
 
 Mientras los atajos estén desactivados, el título se guarda tal como lo escribiste,
 eliminando únicamente los espacios al inicio y al final.
+
+## Fechas de vencimiento
+
+Con cualquiera de las dos sintaxis activada, la creación rápida también reconoce
+fechas en español e inglés, como `mañana`, `tomorrow`, `próximo sábado`,
+`en tres días`, `in two months` y `2027-11-15`. Puedes agregar una hora con
+`mañana a las 18:30` o `tomorrow at 6pm`.
+
+Una única fecha válida aparece resaltada. Al guardar `Comprar leche mañana a las
+6pm`, se crea «Comprar leche» con ese vencimiento. Si no escribes una hora,
+se utiliza 23:59:59 en la zona horaria del dispositivo. Las fechas relativas usan
+la referencia temporal y la zona del dispositivo capturadas al abrir la creación
+rápida. La sincronización sin conexión conserva el instante resuelto, sin volver
+a interpretar las palabras. Cambiar después la zona del dispositivo no mueve el
+vencimiento guardado, aunque su hora local mostrada puede cambiar.
+
+Las expresiones ambiguas, inválidas, incompletas o no compatibles permanecen en el
+título y no asignan un vencimiento. Por ejemplo, `hoy o mañana` no elige ninguno de
+los dos días. Si al quitar la fecha y los demás atajos aplicados no queda un
+título, Guardar se desactiva.
+
+Todavía no se puede descartar una fecha reconocida. Para conservar esa expresión
+literalmente en el título, desactiva Quick Add Magic o edita la tarea después de
+crearla. El interruptor de vista previa de fechas en Desarrollador solo controla el
+panel de diagnóstico; no controla si las fechas se aplican.

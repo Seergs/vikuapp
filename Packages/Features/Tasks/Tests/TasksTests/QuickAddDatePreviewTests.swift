@@ -41,18 +41,19 @@ struct QuickAddDatePreviewTests {
     }
 
     @Test(arguments: [QuickAddSyntax.todoist, .vikunja])
-    func `preview never applies date or removes text`(_ syntax: QuickAddSyntax) async throws {
+    func `saving applies the interpreted date without mutating raw input`(_ syntax: QuickAddSyntax) async throws {
         let tasks = FakeTaskRepository()
         let model = try viewModel(syntax: syntax, tasks: tasks)
         model.input = "Comprar leche mañana a las 18:30"
         let preview = try #require(model.datePreview.resolvedDate)
         #expect(preview.components.day == 6)
         #expect(preview.components.hour == 18)
-        #expect(model.parsed.title == model.input)
+        #expect(model.parsed.title == "Comprar leche")
         #expect(model.canSave)
         let saved = try #require(await model.save())
-        #expect(saved.title == "Comprar leche mañana a las 18:30")
-        #expect(saved.dueDate == nil)
+        #expect(saved.title == "Comprar leche")
+        #expect(saved.dueDate == preview.date)
+        #expect(model.input == "Comprar leche mañana a las 18:30")
         #expect(tasks.tasks.count == 1)
     }
 
@@ -66,9 +67,9 @@ struct QuickAddDatePreviewTests {
         #expect(model.selectedProjectID == 1)
         #expect(model.priority == .urgent)
         let saved = try #require(await model.save())
-        #expect(saved.title == "Leche mañana")
+        #expect(saved.title == "Leche")
         #expect(saved.priority == .urgent)
-        #expect(saved.dueDate == nil)
+        #expect(saved.dueDate == model.datePreview.resolvedDate?.date)
     }
 
     @Test(arguments: [QuickAddSyntax.todoist, .vikunja])
@@ -107,8 +108,8 @@ struct QuickAddDatePreviewTests {
         #expect(model.saveErrorMessage != nil)
         tasks.createError = nil
         let retried = try #require(await model.save())
-        #expect(retried.title == "Leche mañana")
-        #expect(retried.dueDate == nil)
+        #expect(retried.title == "Leche")
+        #expect(retried.dueDate == before.resolvedDate?.date)
     }
 
     @Test(arguments: ["hoy o mañana", "31 de febrero", "cada lunes", "en tres"])
@@ -139,7 +140,7 @@ struct QuickAddDatePreviewTests {
         #expect(!model.canSave)
     }
 
-    @Test func `formats resolution in injected account zone`() throws {
+    @Test func `formats resolution in the explicitly supplied zone`() throws {
         let model = try viewModel(context: context(zone: "Asia/Tokyo"))
         model.input = "tomorrow"
         let result = try #require(model.datePreview.resolvedDate)
@@ -150,15 +151,44 @@ struct QuickAddDatePreviewTests {
         #expect(model.dateParsingContext.timeZone.identifier == "Asia/Tokyo")
     }
 
-    @Test func `attached meridiem is previewed without applying it`() async throws {
+    @Test func `device local end of day matches preview and saved due date`() async throws {
+        let model = try viewModel(context: context(zone: "America/Mexico_City"))
+        model.input = "Comprar leche hoy"
+        let preview = try #require(model.datePreview.resolvedDate)
+        let saved = try #require(await model.save())
+        #expect(saved.title == "Comprar leche")
+        #expect(saved.dueDate == preview.date)
+        #expect(preview.timeZoneIdentifier == "America/Mexico_City")
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = model.dateParsingContext.timeZone
+        let components = try calendar.dateComponents(
+            [.year, .month, .day, .hour, .minute, .second], from: #require(saved.dueDate),
+        )
+        #expect(components == DateComponents(year: 2026, month: 11, day: 5, hour: 23, minute: 59, second: 59))
+    }
+
+    @Test func `default context captures the device zone`() {
+        let model = QuickAddTaskViewModel(
+            preselectedProjectID: 1,
+            taskRepository: FakeTaskRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: FakeToastPresenter(),
+            syntaxStore: FakeQuickAddSyntaxStore(syntax: .todoist),
+        )
+        #expect(model.dateParsingContext.timeZone == TimeZone.current)
+        model.input = "Comprar leche hoy"
+        #expect(model.datePreview.resolvedDate?.timeZoneIdentifier == model.dateParsingContext.timeZone.identifier)
+    }
+
+    @Test func `attached meridiem is applied when saving`() async throws {
         let model = try viewModel()
         model.input = "Leche mañana a las 6pm"
         let result = try #require(model.datePreview.resolvedDate)
         #expect(result.components.hour == 18)
         #expect(result.components.minute == 0)
         let saved = try #require(await model.save())
-        #expect(saved.title == "Leche mañana a las 6pm")
-        #expect(saved.dueDate == nil)
+        #expect(saved.title == "Leche")
+        #expect(saved.dueDate == result.date)
     }
 
     @Test func `zone selection changes interpretation without changing parser rules`() throws {
@@ -178,14 +208,14 @@ struct QuickAddDatePreviewTests {
         #expect(gmtInMexico == DateComponents(hour: 17, minute: 59, second: 59))
     }
 
-    @Test func `preview is hidden by default while interpretation remains read only`() async throws {
+    @Test func `dates apply even when the developer panel is hidden`() async throws {
         let model = try viewModel()
         model.input = "Leche mañana"
         #expect(!model.isDatePreviewEnabled)
         #expect(model.datePreview.status == .resolved)
         let saved = try #require(await model.save())
-        #expect(saved.title == "Leche mañana")
-        #expect(saved.dueDate == nil)
+        #expect(saved.title == "Leche")
+        #expect(saved.dueDate == model.datePreview.resolvedDate?.date)
     }
 
     @Test func `session toggle controls existing model without changing interpretation`() throws {
@@ -213,6 +243,53 @@ struct QuickAddDatePreviewTests {
         model.input = "Leche mañana"
         #expect(!model.isDatePreviewEnabled)
         #expect(model.datePreview.status == .noMatch)
+    }
+
+    @Test(arguments: ["mañana", "tomorrow at 6pm", "2027-11-15", "mañana #Compras p1"])
+    func `recognized date cannot leave an empty task title`(_ input: String) async throws {
+        let tasks = FakeTaskRepository()
+        let projects = FakeProjectRepository()
+        projects.projects = [Project(id: 1, title: "Compras")]
+        let model = try viewModel(tasks: tasks, projects: projects)
+        await model.load()
+        model.input = input
+        #expect(model.datePreview.resolvedDate != nil)
+        #expect(model.parsed.title.isEmpty)
+        #expect(!model.canSave)
+        #expect(await model.save() == nil)
+        #expect(tasks.tasks.isEmpty)
+        #expect(model.input == input)
+    }
+
+    @Test func `adding title after date only input enables saving`() async throws {
+        let model = try viewModel()
+        model.input = "mañana"
+        #expect(!model.canSave)
+        let date = try #require(model.datePreview.resolvedDate?.date)
+        model.input = "Comprar leche mañana"
+        #expect(model.canSave)
+        let saved = try #require(await model.save())
+        #expect(saved.title == "Comprar leche")
+        #expect(saved.dueDate == date)
+    }
+
+    @Test func `cancelled save retains original text and resolved date for retry`() async throws {
+        let tasks = FakeTaskRepository()
+        tasks.beforeCreateReturns = { try Task.checkCancellation() }
+        let model = try viewModel(tasks: tasks)
+        model.input = "Leche mañana"
+        let date = try #require(model.datePreview.resolvedDate?.date)
+        let operation = Task { await model.save() }
+        operation.cancel()
+        #expect(await operation.value == nil)
+        #expect(tasks.tasks.isEmpty)
+        #expect(model.input == "Leche mañana")
+        #expect(model.parsed.dueDate == date)
+        #expect(model.canSave)
+        tasks.beforeCreateReturns = nil
+        let retried = try #require(await model.save())
+        #expect(retried.title == "Leche")
+        #expect(retried.dueDate == date)
     }
 }
 

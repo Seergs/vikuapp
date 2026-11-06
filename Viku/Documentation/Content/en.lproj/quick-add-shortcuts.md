@@ -1,6 +1,6 @@
 ---
 title: Quick-Add Shortcuts
-summary: Set projects, labels, and priorities as you type.
+summary: Set dates, projects, labels, and priorities as you type.
 category: basics
 updated: 2026-11-05
 related: offline-mode
@@ -36,3 +36,25 @@ How shortcuts behave:
 - A project or label name that matches several items, or a project name that matches none, stays in the title and shows a chip so you can see what will happen on save. Pick the project or priority from the sheet's fields and the matching shortcut is written into the title for you.
 
 While shortcuts are off, the title is saved as typed, with only the outer spaces trimmed.
+
+## Due dates
+
+With either dialect enabled, Quick Add also recognizes English and Spanish dates,
+such as `tomorrow`, `mañana`, `next Saturday`, `en tres días`, `in two months`,
+and `2027-11-15`. Add a time with `tomorrow at 6pm` or `mañana a las 18:30`.
+
+A single valid date is highlighted. Saving `Buy milk tomorrow at 6pm` creates
+"Buy milk" with that due date. Without an explicit time, the date is due at
+23:59:59 in the device's time zone. Relative dates use the reference time and
+device zone captured when Quick Add opens; offline synchronization keeps the
+resolved instant rather than interpreting the words again. A later device-zone
+change does not move the saved deadline, although its displayed local time can change.
+
+Ambiguous, invalid, incomplete, or unsupported expressions stay in the title and
+do not set a due date. For example, `today or tomorrow` does not choose either day.
+If removing the date and other applied shortcuts leaves no title, Save is disabled.
+
+Date dismissal is not available yet. To keep a recognized expression as literal
+title text, turn off Quick Add Magic or edit the task after creating it. The
+Developer date-preview switch only controls diagnostics; it does not control
+whether dates are applied.

@@ -1,4 +1,4 @@
-/// Session-only developer control for the read-only Quick Add date panel.
+/// Session-only developer control for the Quick Add date diagnostics panel.
 /// Implementations start hidden and never persist visibility across app launches.
 /// Owned by the composition root and shared by Settings and Quick Add.
 @MainActor
