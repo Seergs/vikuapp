@@ -19,7 +19,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: repository,
+            repository: repository, completionRepository: repository,
             projectRepository: projects,
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -53,7 +53,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: FakeTaskRepository(),
+            repository: FakeTaskRepository(), completionRepository: FakeTaskRepository(),
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -74,7 +74,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: FakeTaskRepository(),
+            repository: FakeTaskRepository(), completionRepository: FakeTaskRepository(),
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -102,7 +102,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: localProjectID, title: "Errands"),
-            repository: taskRepository,
+            repository: taskRepository, completionRepository: taskRepository,
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -128,7 +128,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: -1, title: "Favorites"),
-            repository: FakeTaskRepository(),
+            repository: FakeTaskRepository(), completionRepository: FakeTaskRepository(),
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -151,7 +151,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: -2, title: "Overdue"),
-            repository: FakeTaskRepository(),
+            repository: FakeTaskRepository(), completionRepository: FakeTaskRepository(),
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -175,6 +175,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: projectID, title: "Board"), repository: FakeTaskRepository(),
+            completionRepository: FakeTaskRepository(),
             projectRepository: FakeProjectRepository(), labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(), filterRepository: FakeFilterRepository(),
             capabilityProvider: capabilityProvider, toastPresenter: FakeToastPresenter(),
@@ -200,6 +201,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"), repository: FakeTaskRepository(),
+            completionRepository: FakeTaskRepository(),
             projectRepository: FakeProjectRepository(), labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(), filterRepository: FakeFilterRepository(),
             kanbanRepository: CachedKanbanRepository(), toastPresenter: FakeToastPresenter(),
@@ -214,6 +216,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: projectID, title: "New project"), repository: FakeTaskRepository(),
+            completionRepository: FakeTaskRepository(),
             projectRepository: FakeProjectRepository(), labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(), filterRepository: FakeFilterRepository(),
             kanbanRepository: CachedKanbanRepository(), toastPresenter: FakeToastPresenter(),
@@ -229,7 +232,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 7, title: "Work"),
-            repository: FakeTaskRepository(),
+            repository: FakeTaskRepository(), completionRepository: FakeTaskRepository(),
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -253,7 +256,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 7, title: "Work"),
-            repository: FakeTaskRepository(),
+            repository: FakeTaskRepository(), completionRepository: FakeTaskRepository(),
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -280,7 +283,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: .local(localProjectID), title: "New Project"),
-            repository: FakeTaskRepository(),
+            repository: FakeTaskRepository(), completionRepository: FakeTaskRepository(),
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -303,7 +306,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 7, title: "Work"),
-            repository: FakeTaskRepository(),
+            repository: FakeTaskRepository(), completionRepository: FakeTaskRepository(),
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -331,7 +334,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: repository,
+            repository: repository, completionRepository: repository,
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -355,7 +358,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: repository,
+            repository: repository, completionRepository: repository,
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -378,7 +381,7 @@ struct ProjectOverviewViewModelTests {
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
             subprojects: subprojects,
-            repository: repository,
+            repository: repository, completionRepository: repository,
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -401,7 +404,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work", hexColor: "ff0000"),
-            repository: FakeTaskRepository(),
+            repository: FakeTaskRepository(), completionRepository: FakeTaskRepository(),
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -434,7 +437,7 @@ struct ProjectOverviewViewModelTests {
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
             subprojects: staleSubprojects,
-            repository: FakeTaskRepository(),
+            repository: FakeTaskRepository(), completionRepository: FakeTaskRepository(),
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -453,7 +456,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: FakeTaskRepository(),
+            repository: FakeTaskRepository(), completionRepository: FakeTaskRepository(),
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -486,7 +489,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: repository,
+            repository: repository, completionRepository: repository,
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -518,7 +521,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: repository,
+            repository: repository, completionRepository: repository,
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -544,7 +547,7 @@ struct ProjectOverviewViewModelTests {
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
             subprojects: subprojects,
-            repository: repository,
+            repository: repository, completionRepository: repository,
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -568,7 +571,7 @@ struct ProjectOverviewViewModelTests {
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
             subprojects: subprojects,
-            repository: repository,
+            repository: repository, completionRepository: repository,
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -593,7 +596,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: repository,
+            repository: repository, completionRepository: repository,
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -615,7 +618,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: repository,
+            repository: repository, completionRepository: repository,
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -638,7 +641,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: repository,
+            repository: repository, completionRepository: repository,
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -660,7 +663,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: repository,
+            repository: repository, completionRepository: repository,
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -683,7 +686,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: repository,
+            repository: repository, completionRepository: repository,
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -707,7 +710,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: repository,
+            repository: repository, completionRepository: repository,
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -731,7 +734,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: repository,
+            repository: repository, completionRepository: repository,
             projectRepository: FakeProjectRepository(),
             labelRepository: labelRepository,
             relationRepository: FakeTaskRelationRepository(),
@@ -757,7 +760,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: repository,
+            repository: repository, completionRepository: repository,
             projectRepository: FakeProjectRepository(),
             labelRepository: labelRepository,
             relationRepository: FakeTaskRelationRepository(),
@@ -782,7 +785,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: repository,
+            repository: repository, completionRepository: repository,
             projectRepository: FakeProjectRepository(),
             labelRepository: labelRepository,
             relationRepository: FakeTaskRelationRepository(),
@@ -806,7 +809,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: repository,
+            repository: repository, completionRepository: repository,
             projectRepository: FakeProjectRepository(),
             labelRepository: labelRepository,
             relationRepository: FakeTaskRelationRepository(),
@@ -834,7 +837,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: repository,
+            repository: repository, completionRepository: repository,
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: relationRepository,
@@ -865,7 +868,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: repository,
+            repository: repository, completionRepository: repository,
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: relationRepository,
@@ -897,7 +900,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: repository,
+            repository: repository, completionRepository: repository,
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -923,7 +926,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: repository,
+            repository: repository, completionRepository: repository,
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -947,7 +950,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: repository,
+            repository: repository, completionRepository: repository,
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -976,7 +979,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: repository,
+            repository: repository, completionRepository: repository,
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -1002,7 +1005,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: repository,
+            repository: repository, completionRepository: repository,
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -1029,7 +1032,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: repository,
+            repository: repository, completionRepository: repository,
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -1057,7 +1060,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: repository,
+            repository: repository, completionRepository: repository,
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -1084,7 +1087,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: FakeTaskRepository(),
+            repository: FakeTaskRepository(), completionRepository: FakeTaskRepository(),
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -1105,7 +1108,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: FakeTaskRepository(),
+            repository: FakeTaskRepository(), completionRepository: FakeTaskRepository(),
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -1131,7 +1134,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: -6, title: "Overdue work"),
-            repository: FakeTaskRepository(),
+            repository: FakeTaskRepository(), completionRepository: FakeTaskRepository(),
             projectRepository: projectRepository,
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -1156,7 +1159,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: -6, title: "Overdue work"),
-            repository: FakeTaskRepository(),
+            repository: FakeTaskRepository(), completionRepository: FakeTaskRepository(),
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -1186,7 +1189,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: -6, title: "Overdue work"),
-            repository: FakeTaskRepository(),
+            repository: FakeTaskRepository(), completionRepository: FakeTaskRepository(),
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -1205,7 +1208,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: 1, title: "Work"),
-            repository: FakeTaskRepository(),
+            repository: FakeTaskRepository(), completionRepository: FakeTaskRepository(),
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),
@@ -1226,7 +1229,7 @@ struct ProjectOverviewViewModelTests {
         let viewModel = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             project: Project(id: -6, title: "Overdue work"),
-            repository: FakeTaskRepository(),
+            repository: FakeTaskRepository(), completionRepository: FakeTaskRepository(),
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(),

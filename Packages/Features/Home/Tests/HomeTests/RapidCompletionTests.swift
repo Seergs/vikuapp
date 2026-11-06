@@ -18,7 +18,7 @@ struct RapidCompletionTests {
         repository.tasks = [first, second]
         let model = TodayViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
-            taskRepository: repository, projectRepository: projects,
+            taskRepository: repository, completionRepository: repository, projectRepository: projects,
             labelRepository: FakeLabelRepository(), relationRepository: FakeTaskRelationRepository(),
             toastPresenter: FakeToastPresenter(),
             homeSelectionCache: FakeHomeSelectionCaching(

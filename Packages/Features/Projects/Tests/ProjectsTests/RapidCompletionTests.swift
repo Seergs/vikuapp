@@ -16,7 +16,9 @@ struct RapidCompletionTests {
         repository.tasks = [first, second]
         let model = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(), project: project,
-            repository: repository, projectRepository: projects, labelRepository: FakeLabelRepository(),
+            repository: repository,
+            completionRepository: repository,
+            projectRepository: projects, labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(), filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(), taskSortStore: FakeTaskSortStore(),
         )
@@ -55,7 +57,9 @@ struct RapidCompletionTests {
         repository.tasks = [task]
         let model = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(), project: project,
-            repository: repository, projectRepository: projects, labelRepository: FakeLabelRepository(),
+            repository: repository,
+            completionRepository: repository,
+            projectRepository: projects, labelRepository: FakeLabelRepository(),
             relationRepository: FakeTaskRelationRepository(), filterRepository: FakeFilterRepository(),
             toastPresenter: FakeToastPresenter(), taskSortStore: FakeTaskSortStore(),
         )
@@ -90,7 +94,7 @@ struct RapidCompletionTests {
         repository.tasks = [first, second]
         let model = ProjectOverviewViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
-            project: project, repository: repository, projectRepository: projects,
+            project: project, repository: repository, completionRepository: repository, projectRepository: projects,
             labelRepository: FakeLabelRepository(), relationRepository: FakeTaskRelationRepository(),
             filterRepository: FakeFilterRepository(), toastPresenter: FakeToastPresenter(),
             taskSortStore: FakeTaskSortStore(),

@@ -104,7 +104,7 @@ final class FakeFilterRepository: FilterRepositoryProtocol, @unchecked Sendable 
     }
 }
 
-final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
+final class FakeTaskRepository: TaskRepositoryProtocol, TaskBulkCompletionRepositoryProtocol, @unchecked Sendable {
     var tasks: [VikunjaTask] = []
     var failingDeleteIDs: Set<EntityID> = []
     private(set) var deletedTaskIDs: [EntityID] = []
@@ -113,6 +113,25 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     var updateError: VikunjaError?
     var deleteError: VikunjaError?
     private(set) var updatedTasks: [VikunjaTask] = []
+
+    var completionError: Error?
+    var beforeCompletion: (@Sendable () async throws -> Void)?
+    private(set) var completionCalls: [(ids: [EntityID], isDone: Bool)] = []
+
+    func setCompletion(taskIDs: [EntityID], isDone: Bool) async throws -> [VikunjaTask] {
+        completionCalls.append((taskIDs, isDone))
+        try await beforeCompletion?()
+        if let completionError {
+            throw completionError
+        }
+        var result: [VikunjaTask] = []
+        for id in taskIDs {
+            guard let index = tasks.firstIndex(where: { $0.id == id }) else { throw VikunjaError.notFound }
+            tasks[index].isDone = isDone
+            result.append(tasks[index])
+        }
+        return result
+    }
 
     func fetchTasks(projectID: EntityID) async throws -> [VikunjaTask] {
         if let fetchError {

@@ -55,6 +55,7 @@ struct LocalizationTests {
     @Test(arguments: [
         "%lld selected", "Delete %lld tasks?", "Delete %lld tasks",
         "%lld tasks deleted", "%lld tasks were not deleted. Try again.",
+        "%lld tasks marked as completed", "%lld tasks marked as pending",
     ])
     func `bulk task copy includes English and Spanish plurals`(key: String) {
         for locale in ["en", "es"] {
@@ -65,6 +66,13 @@ struct LocalizationTests {
     }
 
     @Test(arguments: [
+        ("Complete", "Completar"),
+        ("Reopen", "Reabrir"),
+        ("Status", "Estado"),
+        ("Mark as Completed", "Marcar como completadas"),
+        ("Mark as Pending", "Marcar como pendientes"),
+        ("Updating…", "Actualizando…"),
+        ("Couldn’t update selected tasks. Try again.", "No se pudieron actualizar las tareas seleccionadas. Inténtalo de nuevo."),
         ("Select Tasks", "Seleccionar tareas"),
         ("Select All", "Seleccionar todas"),
         ("Delete", "Eliminar"),

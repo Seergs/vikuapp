@@ -33,7 +33,10 @@ struct TodayView: View {
                     ToolbarItem(placement: .primaryAction) {
                         Menu {
                             TaskBulkSelectionAction(selection: viewModel.bulkSelection)
-                                .disabled(visibleTasks.isEmpty || viewModel.bulkSelection.isDeleting)
+                                .disabled(
+                                    visibleTasks.isEmpty || viewModel.bulkSelection.isPerformingAction
+                                        || viewModel.hasPendingCompletionWrites,
+                                )
                         } label: {
                             Image(systemName: "ellipsis.circle")
                         }
@@ -42,6 +45,8 @@ struct TodayView: View {
             }
             .taskBulkSelection(viewModel.bulkSelection, visibleTasks: visibleTasks) {
                 await viewModel.deleteSelectedTasks(visibleTasks: visibleTasks)
+            } onSetCompletion: { isDone in
+                await viewModel.setSelectedCompletion(isDone: isDone, visibleTasks: visibleTasks)
             }
             .onChange(of: filter) { _, _ in viewModel.bulkSelection.reset() }
             .onChange(of: searchText) { _, _ in viewModel.bulkSelection.reset() }

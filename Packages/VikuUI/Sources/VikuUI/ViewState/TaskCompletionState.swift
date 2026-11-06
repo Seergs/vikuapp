@@ -5,6 +5,10 @@ import VikunjaCore
 public struct TaskCompletionState {
     private var pending: [EntityID: VikunjaTask] = [:]
 
+    public var hasPendingChanges: Bool {
+        !pending.isEmpty
+    }
+
     public init() {}
 
     /// Ignore repeated taps while this task's local write is pending. Writes
