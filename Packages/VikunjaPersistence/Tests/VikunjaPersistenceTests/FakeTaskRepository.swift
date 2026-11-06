@@ -1,7 +1,7 @@
 import Foundation
 import VikunjaCore
 
-final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
+final class FakeTaskRepository: TaskRepositoryProtocol, TaskBulkCompletionRepositoryProtocol, @unchecked Sendable {
     var tasks: [VikunjaTask] = []
     /// Overrides a project's endpoint response. Useful for virtual projects,
     /// whose returned tasks still point at their real owning project.
@@ -13,6 +13,9 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     var createError: Error?
     var updateError: Error?
     var updateResponse: VikunjaTask?
+    var completionError: Error?
+    var beforeCompletionResponse: (@Sendable () async throws -> Void)?
+    private(set) var completionCalls: [(ids: [EntityID], isDone: Bool)] = []
     var deleteError: Error?
     var searchError: Error?
     private(set) var createdTasks: [VikunjaTask] = []
@@ -82,6 +85,23 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
             tasks[index] = updated
         }
         return updated
+    }
+
+    func setCompletion(taskIDs: [EntityID], isDone: Bool) async throws -> [VikunjaTask] {
+        completionCalls.append((taskIDs, isDone))
+        if let completionError {
+            try await beforeCompletionResponse?()
+            throw completionError
+        }
+        var result: [VikunjaTask] = []
+        for id in taskIDs {
+            guard let index = tasks.firstIndex(where: { $0.id == id }) else { throw VikunjaError.notFound }
+            tasks[index].isDone = isDone
+            tasks[index].updated = Date()
+            result.append(tasks[index])
+        }
+        try await beforeCompletionResponse?()
+        return result
     }
 
     func delete(id: EntityID) async throws {

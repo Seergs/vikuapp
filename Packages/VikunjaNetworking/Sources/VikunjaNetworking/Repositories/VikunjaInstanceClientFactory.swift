@@ -45,6 +45,16 @@ public struct VikunjaInstanceClientFactory: InstanceClientFactoryProtocol {
         )
     }
 
+    public func makeTaskBulkCompletionRepository(
+        baseURL: URL,
+        tokenProvider: @escaping @Sendable () async throws -> String?,
+    ) -> TaskBulkCompletionRepositoryProtocol {
+        let client = URLSessionAPIClient(baseURL: baseURL, authTokenProvider: tokenProvider)
+        return VikunjaTaskBulkCompletionRepository(
+            client: client, capabilityProvider: VikunjaCapabilityProvider(client: client),
+        )
+    }
+
     public func makeLabelRepository(
         baseURL: URL,
         tokenProvider: @escaping @Sendable () async throws -> String?,

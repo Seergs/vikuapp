@@ -148,6 +148,7 @@ struct KanbanMovementTests {
             labelRepository: FakeLabelRepository(),
             taskRepository: taskRemote,
             relationRepository: FakeTaskRelationRepository(),
+            taskBulkCompletionRepository: taskRemote,
             accountID: accountID,
             bucketRepository: remote,
             capabilityProvider: KanbanCapabilities(),
@@ -187,6 +188,42 @@ struct KanbanMovementTests {
             return nil
         }
         return board.buckets.first { $0.tasks.contains { $0.id == taskID } }?.id
+    }
+
+    @Test func `bulk completion updates cached board placement without a bucket mutation`() async throws {
+        let fixture = try await fixture()
+        _ = try await fixture.tasks.setCompletion(taskIDs: [100], isDone: true)
+        #expect(try await location(fixture) == 22)
+        #expect(try await queue(fixture).map(\.operation) == [.setCompletion])
+        _ = try await fixture.tasks.setCompletion(taskIDs: [100], isDone: false)
+        #expect(try await location(fixture) == 20)
+        #expect(try await queue(fixture).map(\.operation) == [.setCompletion])
+    }
+
+    @Test func `bulk completion during a move wins over its older response`() async throws {
+        let fixture = try await fixture()
+        fixture.taskRemote.tasks = try await [fixture.tasks.fetchTask(id: 100)]
+        _ = try await move(fixture, to: 21)
+        let tasks = fixture.tasks
+        await fixture.remote.setMoveHook {
+            _ = try await tasks.setCompletion(taskIDs: [100], isDone: true)
+        }
+        try await fixture.engine.drainTaskMutations()
+        #expect(try await fixture.tasks.fetchTask(id: 100).isDone)
+        #expect(try await location(fixture) == 22)
+        try await fixture.engine.drainTaskMutations()
+        #expect(fixture.taskRemote.completionCalls.count == 1)
+        #expect(try await queue(fixture).isEmpty)
+    }
+
+    @Test func `a later move out of done supersedes pending bulk completion`() async throws {
+        let fixture = try await fixture()
+        _ = try await fixture.tasks.setCompletion(taskIDs: [100], isDone: true)
+        _ = try await move(fixture, to: 21)
+        #expect(try await fixture.tasks.fetchTask(id: 100).isDone == false)
+        #expect(try await queue(fixture).map(\.operation) == [.moveBucket])
+        try await fixture.engine.drainTaskMutations()
+        #expect(fixture.taskRemote.completionCalls.isEmpty)
     }
 
     @Test func `no op coalescing completion and restart`() async throws {

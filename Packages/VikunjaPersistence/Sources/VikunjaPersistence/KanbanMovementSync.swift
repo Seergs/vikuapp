@@ -273,7 +273,9 @@ extension SyncEngine {
                     assignment.position = try KanbanLocalMutations.nextPosition(destination.localID, db: db)
                     try assignment.update(db)
                 }
-                let hasQueuedUpdate = related.contains { $0.operation == .update && $0.status != .inFlight }
+                let hasQueuedUpdate = related.contains {
+                    [.update, .setCompletion].contains($0.operation) && $0.status != .inFlight
+                }
                 if !hasQueuedUpdate {
                     task.isDone = serverTask.isDone
                     task.dueDate = serverTask.dueDate
@@ -282,14 +284,8 @@ extension SyncEngine {
             task.serverUpdatedAt = serverTask.updated
             try task.update(db)
 
-            for var edit in related where edit.operation == .update && edit.status != .inFlight {
-                var body = try KanbanLocalMutations.decode(TaskCreateOrUpdatePayload.self, item: edit)
-                body.baseUpdatedAt = serverTask.updated
-                edit.baseUpdatedAt = serverTask.updated
-                edit.payload = try KanbanLocalMutations.encode(body)
-                try edit.update(db)
-            }
             try current.delete(db)
+            try Self.rebaseTaskCompletionIntents(after: item, updatedAt: serverTask.updated, db: db)
         }
     }
 
@@ -312,7 +308,10 @@ extension SyncEngine {
                 : (response.isDone ? view?.doneBucketID : view?.defaultBucketID)
             if var row = try TaskRecord.fetchOne(db, key: item.targetLocalID) {
                 row.serverUpdatedAt = response.updated
-                if others.allSatisfy({ ![.create, .update, .moveBucket, .delete].contains($0.operation) }) {
+                let hasNewerIntent = others.contains {
+                    [.create, .update, .moveBucket, .delete, .setCompletion].contains($0.operation)
+                }
+                if !hasNewerIntent {
                     row.isDone = response.isDone
                     row.dueDate = response.dueDate
                     if let view, let bucket = try KanbanBucketRecord.filter(Column("viewLocalID") == view.localID)
@@ -337,14 +336,8 @@ extension SyncEngine {
                     try next.update(db)
                 }
             }
-            for var edit in others where edit.operation == .update && edit.status != .inFlight {
-                var body = try KanbanLocalMutations.decode(TaskCreateOrUpdatePayload.self, item: edit)
-                body.baseUpdatedAt = response.updated
-                edit.baseUpdatedAt = response.updated
-                edit.payload = try KanbanLocalMutations.encode(body)
-                try edit.update(db)
-            }
             try current.delete(db)
+            try Self.rebaseTaskCompletionIntents(after: item, updatedAt: response.updated, db: db)
         }
     }
 }

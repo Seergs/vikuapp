@@ -100,6 +100,13 @@ final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @unchecked
         taskRepository(for: baseURL)
     }
 
+    func makeTaskBulkCompletionRepository(
+        baseURL: URL,
+        tokenProvider: @escaping @Sendable () async throws -> String?,
+    ) -> TaskBulkCompletionRepositoryProtocol {
+        taskRepository(for: baseURL)
+    }
+
     func makeLabelRepository(
         baseURL: URL,
         tokenProvider: @escaping @Sendable () async throws -> String?,
@@ -266,6 +273,34 @@ struct SyncCoordinatorTests {
         await waitUntil { await reachability.hasSubscriber }
         await reachability.finish()
         await coordinator.stop()
+    }
+
+    @Test func `reconnection uploads bulk completion through the account transport factory`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let accountStore = FakeAccountStore()
+        let factory = FakeInstanceClientFactory()
+        let reachability = CoordinatorReachabilityMonitor()
+        let account = try makeAccount(host: "bulk.example.com")
+        try await accountStore.addAccount(account, token: "token")
+        factory.projectRepository(for: account.baseURL).projects = [Project(id: 1, title: "Work")]
+        let remote = factory.taskRepository(for: account.baseURL)
+        remote.tasks = [VikunjaTask(id: 100, title: "Task", projectID: 1, updated: Date())]
+        let coordinator = SyncCoordinator(
+            localStore: store, accountStore: accountStore, clientFactory: factory,
+            reachability: reachability, tokenProvider: { _ in { "token" } },
+        )
+        try await coordinator.refresh(accountID: account.id, scope: .account)
+        await reachability.setReachable(false)
+        let local = OfflineTaskRepository(
+            localStore: store, accountID: account.id, syncRequester: NoopKanbanSyncRequester(),
+        )
+        _ = try await local.setCompletion(taskIDs: [100], isDone: true)
+        #expect(remote.completionCalls.isEmpty)
+        await reachability.setReachable(true)
+        try await coordinator.refresh(accountID: account.id, scope: .account)
+        #expect(remote.completionCalls.count == 1)
+        #expect(remote.tasks.first?.isDone == true)
+        #expect(try await store.pendingSyncOperations(accountID: account.id).isEmpty)
     }
 
     @Test(arguments: [SyncScope.account, .task(.remote(5)), .comments(.remote(5))])
