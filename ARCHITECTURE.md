@@ -493,6 +493,19 @@ comment's body as its rich-text editor's HTML output — `CommentDTO.comment` is
 carried through as-is; rendering it as plain text is a `Features/Tasks`
 concern (`CommentTextFormatter`), not something this layer strips.
 
+Images embedded in a description or comment follow the web editor's storage
+format: an uploaded image is an attachment of the task, stored as
+`<img data-src="{instance}/api/v1/tasks/{id}/attachments/{id}" src="#">`.
+`RichText.parse` turns it into a `.image` block, and `RichTextView` loads it
+through an `InlineImageLoading` set with `.richTextImageLoader(_:)`.
+`InlineImageSource.resolve` (in `VikunjaCore`) decides how: an attachment of
+the account's own instance goes through the authenticated attachment download
+(the `xl` preview inline, the original in QuickLook), any other `https` image
+through `PublicImageFetcher` with no credentials, and everything else
+(`http`, another instance's attachment) is not loaded, so the token never
+leaves its instance. `InlineImageLoader` keeps results in memory only, one
+loader per account in `AppContainer`; images are not available offline.
+
 **c) `Repository` — implements `VikunjaCore`'s protocols**
 
 ```swift
@@ -730,9 +743,10 @@ Open threads:
 - **Subtasks** render read-only on the detail screen (a `TaskRelation` is too
   thin to round-trip through an update without an extra fetch per row) — making
   them togglable/creatable like the other relation kinds is unfinished.
-- **Comment rich text**: comment bodies round-trip as plain text
-  (`CommentTextFormatter` strips the server's stored HTML on the way in, edits
-  send plain text back) — there's no rich-text renderer or editor yet.
+- **Comment rich text**: descriptions and comments render through the
+  read-only `RichTextView` (including embedded images), but editing a comment
+  still sends plain text back, which drops its formatting and images. There's
+  no rich-text editor yet.
 - **`SessionManager`** (a single source of truth for the active account's live
   `APIClient` + `CapabilityProvider`) and **OIDC** are still unbuilt — today
   each `AppContainer` factory builds its own repository per screen from the
