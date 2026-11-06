@@ -5,8 +5,8 @@ import Foundation
 /// Vikunja's web editor stores descriptions and comments as HTML, not
 /// Markdown; this is the one place that knows that HTML's shape. The parser is
 /// forgiving: unrecognized tags are transparent (their children still render),
-/// unclosed tags close at their parent's end, and non-text content (images,
-/// tables) collapses to its text.
+/// unclosed tags close at their parent's end, and tables collapse to their
+/// text. An image becomes its own block, even when it sits inside a paragraph.
 public enum RichText {
     /// Parses `html` into renderable blocks. Returns `[]` for empty or
     /// whitespace-only input (including the editor's `<p></p>` "empty" value).
@@ -33,6 +33,7 @@ public enum RichText {
     /// Visible text for an already parsed document or list item.
     public static func plainText(from blocks: [RichTextBlock]) -> String {
         blocks.map { plainText(for: $0) }
+            .filter { !$0.isEmpty }
             .joined(separator: "\n\n")
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -57,6 +58,8 @@ public enum RichText {
             text
         case .thematicBreak:
             "---"
+        case .image:
+            ""
         }
     }
 
@@ -79,7 +82,7 @@ private extension RichTextBlock {
             items.isEmpty
         case let .blockquote(blocks):
             blocks.allSatisfy(\.isEffectivelyEmpty)
-        case .codeBlock, .thematicBreak:
+        case .codeBlock, .thematicBreak, .image:
             false
         }
     }
@@ -126,6 +129,11 @@ private struct TreeBuilder {
                     index += 1 // a lone <br> between blocks is just spacing
                 } else if name == "hr" {
                     blocks.append(.thematicBreak)
+                    index += 1
+                } else if name == "img" {
+                    if let image = Self.image(from: attributes) {
+                        blocks.append(.image(image))
+                    }
                     index += 1
                 } else if Self.blockTags.contains(name) {
                     blocks.append(contentsOf: parseBlockElement(name, attributes: attributes))
@@ -329,9 +337,10 @@ private struct TreeBuilder {
                 if name == "br" {
                     accumulator.append("\n", styles: styles, link: link)
                     index += 1
-                } else if Self.blockTags.contains(name) {
-                    // A block-level tag started mid-paragraph: stop the inline
-                    // run so `parseBlocks` can pick the block up.
+                } else if Self.blockTags.contains(name) || (name == "img" && Self.image(from: attributes) != nil) {
+                    // A block-level tag (or a loadable image) started
+                    // mid-paragraph: stop the inline run so `parseBlocks` can
+                    // pick the block up.
                     return
                 } else if Self.skippedSubtreeTags.contains(name) {
                     skipSubtree(name, selfClosing: selfClosing)
@@ -346,6 +355,18 @@ private struct TreeBuilder {
                 }
             }
         }
+    }
+
+    /// `nil` for an image with nothing to load (no source, or only the `#`
+    /// placeholder), which then renders as nothing, as before.
+    private static func image(from attributes: [String: String]) -> RichTextImage? {
+        let candidates = [attributes["data-src"], attributes["src"]]
+        guard let source = candidates
+            .compactMap({ $0?.trimmingCharacters(in: .whitespacesAndNewlines) })
+            .first(where: { !$0.isEmpty && $0 != "#" })
+        else { return nil }
+        let alt = attributes["alt"]?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return RichTextImage(source: source, alt: alt?.isEmpty == false ? alt : nil)
     }
 
     private static func inlineStyle(for tag: String) -> RichTextInlineStyle {
