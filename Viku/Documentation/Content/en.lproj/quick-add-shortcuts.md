@@ -1,60 +1,45 @@
 ---
 title: Quick-Add Shortcuts
-summary: Set dates, projects, labels, and priorities as you type.
+summary: Add a task, its project, and a due date as you type.
 category: basics
-updated: 2026-11-05
+updated: 2026-11-06
 related: offline-mode
 ---
 
 # Quick-Add Shortcuts
 
-The quick-add sheet can read shortcuts typed straight into the title, so you can
-file a task without opening the project, priority, or label pickers. The feature
-is experimental and off by default. To turn it on, go to **Settings → Experimental
-→ Quick-Add** and pick a dialect:
+Capture a task and organize it in one line, without opening each field separately.
 
-- **Vikunja** uses the same symbols as Vikunja's own add magic.
-- **Todoist** uses the symbols Todoist users already know.
+## Turn on shortcuts
 
-| Shortcut | Vikunja | Todoist | Effect |
-|---|---|---|---|
-| Project | `+Groceries` | `#Groceries` | Files the task in that project |
-| Label | `*home` | `@home` | Adds the label. Several are allowed. A label that doesn't exist yet is created on save |
-| Priority | `!1` to `!5` | `p1` to `p4` | Sets the priority |
+Open **Settings → Experimental → Quick-Add** and choose **Vikunja** or **Todoist**, whichever feels familiar. This experimental feature is off by default.
 
-For example, with the Vikunja dialect, `Call the plumber +"Home repairs" *urgent !4`
-saves a task titled "Call the plumber" in the "Home repairs" project, with the
-label "urgent" and priority 4.
+## Try a task
 
-How shortcuts behave:
+With **Vikunja**, type:
 
-- Quote names that contain spaces: `+"Home repairs"`.
-- A shortcut counts only at the start of the title or after a space, so `a#b` stays plain text.
-- Put a backslash before a symbol to keep it literal: `\#hashtag`.
-- Names match regardless of case and accents, so `+groceries` finds "Groceries".
-- Applied shortcuts are removed from the title. If you repeat a project or priority, only the first one applies.
-- A project or label name that matches several items, or a project name that matches none, stays in the title and shows a chip so you can see what will happen on save. Pick the project or priority from the sheet's fields and the matching shortcut is written into the title for you.
+`Buy milk tomorrow +Groceries *home`
 
-While shortcuts are off, the title is saved as typed, with only the outer spaces trimmed.
+With **Todoist**, type:
 
-## Due dates
+`Buy milk tomorrow #Groceries @home`
 
-With either dialect enabled, Quick Add also recognizes English and Spanish dates,
-such as `tomorrow`, `mañana`, `next Saturday`, `en tres días`, `in two months`,
-and `2027-11-15`. Add a time with `tomorrow at 6pm` or `mañana a las 18:30`.
+Both create “Buy milk” in your existing “Groceries” project, with the “home” label and a due date of tomorrow. A label that doesn't exist is created when you save.
 
-A single valid date is highlighted. Saving `Buy milk tomorrow at 6pm` creates
-"Buy milk" with that due date. Without an explicit time, the date is due at
-23:59:59 in the device's time zone. Relative dates use the reference time and
-device zone captured when Quick Add opens; offline synchronization keeps the
-resolved instant rather than interpreting the words again. A later device-zone
-change does not move the saved deadline, although its displayed local time can change.
+| Add | Vikunja | Todoist |
+|---|---|---|
+| Project | `+Groceries` | `#Groceries` |
+| Label | `*home` | `@home` |
+| Priority | `!1` to `!5` | `p1` to `p4` |
 
-Ambiguous, invalid, incomplete, or unsupported expressions stay in the title and
-do not set a due date. For example, `today or tomorrow` does not choose either day.
-If removing the date and other applied shortcuts leaves no title, Save is disabled.
+Put names with spaces in quotes, like `+"Home repairs"`.
 
-Date dismissal is not available yet. To keep a recognized expression as literal
-title text, turn off Quick Add Magic or edit the task after creating it. The
-Developer date-preview switch only controls diagnostics; it does not control
-whether dates are applied.
+## Add a date
+
+Try `tomorrow`, `next Saturday`, or `in three days`. English and Spanish dates work with either shortcut style. Include a time with `tomorrow at 6pm`; without a time, the task is due at the end of that day.
+
+## Check before saving
+
+Review the highlighted date and shortcut indicators. Unrecognized or ambiguous text stays in the title, so check the project and due date before saving.
+
+To keep a recognized date as part of the title, turn off shortcuts before writing the task, or edit its title after creating it.

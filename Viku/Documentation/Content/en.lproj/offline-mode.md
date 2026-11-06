@@ -1,62 +1,32 @@
 ---
 title: Using Viku Offline
-summary: Work offline and sync your changes later.
+summary: Keep working, even without a connection.
 category: basics
-updated: 2026-11-05
+updated: 2026-11-06
 related: quick-add-shortcuts, server-version-support
 ---
 
-# Using the app offline
+# Using Viku Offline
 
-You can keep working without an internet connection. The app saves your changes on your device and tries to send them to your Vikunja server when you reconnect.
+Your tasks stay with you when you go offline. Viku saves your changes on your device and tries to sync them when you reconnect.
 
-## Before you go offline
+## Before you go
 
-Sign in and let the app finish loading your data while you have an internet connection. Offline, you can only view information that has already been downloaded to that device.
+Open Viku while connected and let your projects and tasks load. Only information already downloaded to this device is available offline.
 
-## What you can do
+## Keep working
 
-- View downloaded projects and tasks.
-- Create, edit, complete, and delete tasks.
-- Create, edit, reorder, and delete projects.
-- Manage labels, comments, and relationships between tasks.
-- View Favorites and saved filters that have already been downloaded.
-- Rename and delete saved filters.
+You can view downloaded tasks and projects, create new ones, and edit or complete your tasks. You can also manage labels, comments, and task relationships.
 
-Your changes are saved even if you close and reopen the app. Until they sync, they will not appear on the web or your other devices.
+Your changes stay saved when you close the app. They appear on your other devices after syncing.
 
-## What needs a connection
+Signing in, loading new information, and viewing or managing attachments need a connection.
 
-- Signing in for the first time or connecting to another server.
-- Downloading information that is not yet available on your device.
-- Viewing, uploading, or deleting attachments.
-- Receiving changes made on the web or other devices.
+## When you reconnect
 
-## What happens when you reconnect
+Open Viku and give it time to sync. If changes remain pending, check your server connection and review pending sync operations in **Settings**.
 
-The app tries to sync automatically when your connection returns and when you reopen it. It also tries to send changes when you edit something while connected.
+Favorites and saved filters can show older results while offline. After syncing, refresh these lists to see the latest tasks.
 
-Syncing can take time, especially if you have made many changes or your connection is slow. Having internet access does not always mean your server is available. If changes are still pending, open the app with a connection and give it time to finish.
-
-In Settings, you can review pending sync operations and check whether any have encountered a problem.
-
-## Favorites and saved filters
-
-These lists show the tasks downloaded the last time they were refreshed. Offline, the app cannot check again which tasks match a saved filter.
-
-For example:
-
-- If you complete a task offline, it may stay in an “incomplete tasks” filter, even though the task itself shows as completed.
-- If you create a task offline, it will not appear in a saved filter until it has been sent to the server and the list has been refreshed, even if it matches the filter.
-
-Your changes have not been lost. The task keeps your edits; its presence in the list may be out of date.
-
-Once you reconnect, let your changes sync, then refresh the list to get the latest results. A filter that has never been downloaded may not be available offline.
-
-## If something does not sync
-
-Check that you can reach your server, then reopen the app. Review pending operations in Settings if the problem continues.
-
-Editing the same task or project on multiple devices before syncing can cause a conflict. Check any warnings: do not assume both sets of changes have been combined.
-
-Until syncing finishes, keep the app and its data on your device. Uninstalling it may cause you to lose changes that have not yet been sent to the server.
+> [!IMPORTANT]
+> If you edited the same item on another device, check for conflict warnings in Settings. Keep Viku and its data on this device until your changes have synced; uninstalling the app can lose unsent changes.
