@@ -189,13 +189,19 @@ final class FakeTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateRepository
 
 final class FakeLabelRepository: LabelRepositoryProtocol, @unchecked Sendable {
     var labels: [Label] = []
+    var fetchError: VikunjaError?
+    var beforeFetchLabels: (@Sendable () async -> Void)?
     var addedLabelIDs: [(labelID: EntityID, taskID: EntityID)] = []
     var removedLabelIDs: [(labelID: EntityID, taskID: EntityID)] = []
     var addError: VikunjaError?
     var removeError: VikunjaError?
 
     func fetchLabels() async throws -> [Label] {
-        labels
+        await beforeFetchLabels?()
+        if let fetchError {
+            throw fetchError
+        }
+        return labels
     }
 
     func create(_ label: Label) async throws -> Label {

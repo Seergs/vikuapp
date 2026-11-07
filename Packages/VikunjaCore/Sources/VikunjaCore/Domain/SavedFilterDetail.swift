@@ -9,9 +9,9 @@ public struct SavedFilterDetail: Equatable, Sendable {
     public let isFavorite: Bool
     /// The raw filter query this saved filter wraps (e.g. `priority >= 3 &&
     /// done = false`), in Vikunja's own filter syntax - see
-    /// https://vikunja.io/docs/filters. Shown verbatim, never translated:
-    /// it's a query in a DSL the user already knows from Vikunja itself, not
-    /// natural-language UI copy. Empty when the filter has no query set.
+    /// https://vikunja.io/docs/filters. Keep this raw value for API requests;
+    /// use `FilterQueryFormatter` to resolve names for read-only presentation.
+    /// Empty when the filter has no query set.
     public let query: String
 
     public init(id: Int, title: String, description: String, isFavorite: Bool, query: String) {

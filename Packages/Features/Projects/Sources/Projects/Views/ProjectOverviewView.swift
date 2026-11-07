@@ -357,8 +357,8 @@ struct ProjectOverviewView: View {
                 VStack(alignment: .leading, spacing: VikuSpacing.xs) {
                     VikuSavedFilterBadge()
 
-                    if let query = viewModel.savedFilterQuery {
-                        SavedFilterQueryLine(query: query)
+                    if viewModel.savedFilterDisplayQuery != nil {
+                        SavedFilterQueryLine(segments: viewModel.savedFilterDisplaySegments)
                     }
                 }
                 .padding(.horizontal, VikuSpacing.md)
@@ -751,20 +751,33 @@ private struct FilterChip: View {
     }
 }
 
-/// The saved filter's raw query, own line below the "Matches" label so it
+/// The saved filter's display query, own line below the "Matches" label so it
 /// gets the full row width (less truncation than sharing a line with the
 /// label) - starts truncated to one line, tap to expand into a full wrap for
-/// the rare query long enough to still get cut off. The query itself renders
-/// `.verbatim` - it's Vikunja's own filter syntax
+/// the rare query long enough to still get cut off. The query renders as literal
+/// attributed text, highlighting only resolved names. It's Vikunja's own filter syntax
 /// (https://vikunja.io/docs/filters), not natural-language UI copy, so it's
 /// never localized. The label stays small and muted (just chrome); the query
 /// is the actual content, so it gets more contrast and a monospace font to
 /// read as data rather than a continuation of the label's sentence.
 private struct SavedFilterQueryLine: View {
-    let query: String
+    let segments: [FilterQueryFormatter.Segment]
     @State private var isExpanded = false
 
     @Environment(\.vikuPalette) private var palette
+
+    private var attributedQuery: AttributedString {
+        var result = AttributedString()
+        for segment in segments {
+            var text = AttributedString(segment.text)
+            if segment.isResolvedName {
+                text.foregroundColor = palette.brand
+                text.font = VikuFont.caption.monospaced().weight(.semibold)
+            }
+            result.append(text)
+        }
+        return result
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
@@ -772,7 +785,7 @@ private struct SavedFilterQueryLine: View {
                 .font(.caption2)
                 .foregroundStyle(palette.textTertiary)
 
-            Text(verbatim: query)
+            Text(attributedQuery)
                 .font(VikuFont.caption.monospaced())
                 .foregroundStyle(palette.textSecondary)
                 .lineLimit(isExpanded ? nil : 1)
