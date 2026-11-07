@@ -24,6 +24,10 @@
   border-bottom-color: color-mix(in oklch, var(--viku-color-border) 85%, var(--viku-color-bg));
 }
 
+.site-title {
+  color: var(--viku-color-text);
+}
+
 /* Separate the docs layout with spacing, keeping borders inside components. */
 .content-panel + .content-panel {
   border-top: 0;
