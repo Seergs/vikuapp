@@ -449,13 +449,10 @@ struct ProjectOverviewView: View {
                     .listRowBackground(Color.clear)
 
                 ForEach(Array(section.tasks.enumerated()), id: \.element.id) { index, task in
-                    // `showsProjectBadge: false` — the project is already this
-                    // screen's navigation title, so the row only needs its
-                    // color for the checkbox tint.
                     VikuTaskRow(
                         task: task,
-                        project: viewModel.project,
-                        showsProjectBadge: false,
+                        project: viewModel.project(for: task),
+                        showsProjectBadge: viewModel.project.kind == .savedFilter,
                         isSelected: viewModel.bulkSelection.isSelecting
                             ? viewModel.bulkSelection.selectedIDs.contains(task.id) : nil,
                         onToggle: { Task { await viewModel.toggleDone(task) } },

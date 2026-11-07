@@ -107,6 +107,7 @@ final class FakeFilterRepository: FilterRepositoryProtocol, @unchecked Sendable 
 
 final class FakeTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateRepositoryProtocol, @unchecked Sendable {
     var tasks: [VikunjaTask] = []
+    var taskIDsByProjectID: [EntityID: Set<EntityID>] = [:]
     var failingDeleteIDs: Set<EntityID> = []
     private(set) var deletedTaskIDs: [EntityID] = []
     var beforeUpdate: (@Sendable () async throws -> Void)?
@@ -144,6 +145,9 @@ final class FakeTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateRepository
     func fetchTasks(projectID: EntityID) async throws -> [VikunjaTask] {
         if let fetchError {
             throw fetchError
+        }
+        if let ids = taskIDsByProjectID[projectID] {
+            return tasks.filter { ids.contains($0.id) }
         }
         return tasks.filter { $0.projectID == projectID }
     }

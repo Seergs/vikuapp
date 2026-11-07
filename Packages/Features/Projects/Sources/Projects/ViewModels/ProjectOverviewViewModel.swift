@@ -26,6 +26,21 @@ public final class ProjectOverviewViewModel {
     /// revisit to this screen correct, not just fast.
     public private(set) var subprojects: [ProjectNode]
     public private(set) var tasks: [VikunjaTask] = []
+    /// Account-local owners of tasks in a saved filter. Retained if a catalog read fails.
+    public private(set) var projectsByID: [EntityID: Project] = [:]
+
+    public func project(for task: VikunjaTask) -> Project? {
+        if project.kind == .project, project.id == task.projectID {
+            return project
+        }
+        return projectsByID[task.projectID]
+    }
+
+    /// Keep detail and duplication attached to the real owner even when its metadata is unavailable.
+    public func taskProject(for task: VikunjaTask) -> Project {
+        project(for: task) ?? Project(id: task.projectID, title: "")
+    }
+
     public private(set) var loadState: ScreenLoadState<Void> = .idle
     /// Reachability state drives the saved-filter snapshot notice. Regular
     /// projects and Favorites don't need to expose the filter-query caveat.
@@ -259,10 +274,17 @@ public final class ProjectOverviewViewModel {
                 project: fetchedProject, repository: projectRepository,
             )
             let summaries = await Self.fetchSubprojectSummaries(fetchedSubprojects, repository: repository)
-            let query = await loadFilterQuery(for: fetchedProject)
+            let catalog = fetchedProject.kind == .savedFilter
+                ? try? await projectRepository.fetchProjects() : nil
+            let owners = catalog.map { Dictionary(
+                $0.realProjectsOnly().map { ($0.id, $0) },
+                uniquingKeysWith: { _, latest in latest },
+            ) } ?? projectsByID
+            let query = await loadFilterQuery(for: fetchedProject, projects: Array(owners.values))
             await loadRequestedLabels()
             guard version == loadVersion, !Task.isCancelled else { return }
             project = fetchedProject
+            projectsByID = owners
             tasks = completionState.applying(to: fetchedTasks)
             subprojects = fetchedSubprojects
             subprojectTaskSummaries = summaries
@@ -297,19 +319,18 @@ public final class ProjectOverviewViewModel {
         return await capabilityProvider.supports(.apiV2)
     }
 
-    private func loadFilterQuery(for project: Project) async -> (raw: String?, segments: [FilterQueryFormatter.Segment]) {
+    private func loadFilterQuery(for project: Project, projects: [Project]) async -> (raw: String?, segments: [FilterQueryFormatter.Segment]) {
         guard let filterID = project.savedFilterID,
               let query = try? await filterRepository.fetchFilter(id: filterID).query,
               !query.isEmpty else { return (nil, []) }
-        return await (query, resolveFilterNames(query))
+        return await (query, resolveFilterNames(query, projects: projects))
     }
 
     /// Catalog reads use the injected offline repositories. Each catalog can
     /// fail independently without hiding names available in the other one.
-    private func resolveFilterNames(_ query: String) async -> [FilterQueryFormatter.Segment] {
-        async let projects = try? projectRepository.fetchProjects()
+    private func resolveFilterNames(_ query: String, projects: [Project]) async -> [FilterQueryFormatter.Segment] {
         async let labels = try? labelRepository.fetchLabels()
-        let projectTitles = await (projects ?? []).reduce(into: [Int: String]()) { titles, project in
+        let projectTitles = projects.reduce(into: [Int: String]()) { titles, project in
             if let id = project.id.remoteValue {
                 titles[id] = project.title
             }
@@ -637,13 +658,11 @@ public final class ProjectOverviewViewModel {
         }
     }
 
-    /// Builds a `DuplicateTaskViewModel` for `task`, seeded with this
-    /// screen's own `project` — every task in `tasks` belongs to it, mirroring
-    /// `TaskDetailViewModel.makeDuplicateTaskViewModel()`.
+    /// Builds a duplicate using the task's owner rather than a saved filter's pseudo-project.
     public func makeDuplicateTaskViewModel(for task: VikunjaTask) -> DuplicateTaskViewModel {
         DuplicateTaskViewModel(
             source: task,
-            sourceProject: project,
+            sourceProject: taskProject(for: task),
             taskRepository: repository,
             labelRepository: labelRepository,
             relationRepository: relationRepository,
