@@ -144,6 +144,8 @@ struct ProjectOverviewView: View {
             case .list:
                 content
                     .projectsListStyle()
+                    // Let the last task scroll above the tab bar and global quick-add overlay.
+                    .contentMargins(.bottom, VikuSpacing.xxl * 2, for: .scrollContent)
                     // Animates only the rows a reschedule moves out of Overdue.
                     .animation(reduceMotion ? nil : .snappy, value: viewModel.overdueRescheduler.completedCount)
                     .scrollContentBackground(.hidden)
