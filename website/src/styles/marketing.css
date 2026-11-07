@@ -1,0 +1,42 @@
+/* Loaded by MarketingLayout only; never resets Starlight's UI. */
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--viku-color-bg); color: var(--viku-color-text); font-family: var(--viku-font-sans); -webkit-font-smoothing: antialiased; line-height: 1.5; }
+button, select, input { font: inherit; }
+a { color: var(--viku-color-link); text-underline-offset: 0.2em; }
+a:hover { text-decoration: underline; }
+:focus-visible { outline: 3px solid var(--viku-color-link); outline-offset: 4px; }
+::selection { background: var(--viku-color-accent-soft); }
+[hidden] { display: none !important; }
+.container { width: min(100%, var(--viku-content-width)); margin-inline: auto; padding-inline: var(--viku-space-5); }
+.site-header { position: sticky; top: 0; z-index: 10; border-bottom: 1px solid var(--viku-color-border); background: color-mix(in oklch, var(--viku-color-bg) 85%, transparent); backdrop-filter: blur(20px) saturate(180%); }
+.nav-inner, .brand, nav, .footer-inner, .footer-links { display: flex; align-items: center; gap: var(--viku-space-4); }
+.nav-inner { min-height: 4.25rem; justify-content: space-between; }
+.brand { gap: var(--viku-space-2); color: var(--viku-color-text); font-weight: 700; text-decoration: none; }
+nav > a:not(.beta-link) { font-size: 0.9375rem; color: var(--viku-color-link); text-decoration: none; }
+.site-footer { border-top: 1px solid var(--viku-color-border); padding-block: var(--viku-space-5); font-size: var(--viku-text-sm); color: var(--viku-color-text-muted); }
+.footer-inner { justify-content: space-between; flex-wrap: wrap; }
+.footer-links { flex-wrap: wrap; }
+.site-footer a { color: var(--viku-color-link); }
+.theme-picker { display: flex; align-items: center; gap: var(--viku-space-2); }
+.theme-select-control { position: relative; display: inline-flex; align-items: center; color: var(--viku-color-text); }
+.theme-select-control svg { position: absolute; inset-inline-end: var(--viku-space-3); pointer-events: none; }
+.theme-picker select { appearance: none; color: var(--viku-color-text); background: var(--viku-color-surface); border: 1px solid var(--viku-color-border); border-radius: var(--viku-radius-sm); padding: var(--viku-space-2) var(--viku-space-3); padding-inline-end: calc(var(--viku-space-4) + var(--viku-space-5)); }
+.skip-link { position: fixed; left: var(--viku-space-4); top: var(--viku-space-4); transform: translateY(-200%); z-index: 20; padding: var(--viku-space-3); background: var(--viku-color-surface); }
+.skip-link:focus { transform: none; }
+h1, h2, h3, p { margin: 0; }
+h1, h2 { text-wrap: balance; }
+h2 { font-size: var(--viku-text-title); line-height: 1.05; letter-spacing: -0.03em; }
+p { text-wrap: pretty; }
+.section { padding-block: var(--viku-space-section); }
+.section-copy > p { margin-top: var(--viku-space-5); color: var(--viku-color-text-secondary); font-size: var(--viku-text-lg); max-width: 29rem; }
+.section-copy > a { display: inline-block; margin-top: var(--viku-space-5); font-weight: 500; }
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: var(--viku-space-8); align-items: center; }
+.panel { background: var(--viku-color-surface); border-radius: var(--viku-radius-lg); box-shadow: var(--viku-shadow-card); overflow: hidden; }
+.eyebrow { color: var(--viku-color-text-muted); font-size: var(--viku-text-sm); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: var(--viku-space-2); }
+.caption { font-size: var(--viku-text-sm); color: var(--viku-color-text-muted); margin-top: var(--viku-space-3); }
+@media (max-width: 46rem) {
+  .split { grid-template-columns: 1fr; gap: var(--viku-space-7); }
+  .nav-inner { gap: var(--viku-space-2); }
+  nav { gap: var(--viku-space-3); }
+  .privacy-nav { display: none; }
+}

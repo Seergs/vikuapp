@@ -1,0 +1,20 @@
+---
+import { site } from '../../data/site';
+interface Props { compact?: boolean }
+const { compact = false } = Astro.props;
+---
+<a class:list={['beta-link', { compact }]} href={site.testFlight}>
+  {compact ? 'Join the beta' : 'Join the TestFlight beta'}
+</a>
+<style>
+  .beta-link {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-height: 3.125rem; padding: var(--viku-space-3) var(--viku-space-5);
+    border-radius: var(--viku-radius-md); background: var(--viku-color-action);
+    color: var(--viku-color-on-action); font-weight: 600; text-decoration: none;
+    transition: transform var(--viku-duration-fast) var(--viku-ease);
+  }
+  .beta-link:hover { filter: brightness(0.92); }
+  .beta-link:active { transform: scale(0.97); }
+  .compact { min-height: 2.75rem; padding: var(--viku-space-2) var(--viku-space-4); border-radius: var(--viku-radius-pill); font-size: 0.875rem; }
+</style>

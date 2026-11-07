@@ -1,0 +1,18 @@
+---
+import MarketingLayout from '../layouts/MarketingLayout.astro';
+import { site } from '../data/site';
+---
+<MarketingLayout title="Privacy — Viku" description="Privacy information for the Viku beta. The full privacy policy is being prepared.">
+  <section class="section container privacy-content">
+    <p class="eyebrow">Viku beta</p>
+    <h1>Privacy</h1>
+    <p>The full website privacy policy is being prepared. This page is a placeholder while we finish the website.</p>
+    <p>For an explanation of the optional notification relay and the information it receives, read <a href="/docs/push-notifications/">the push notification guide</a>.</p>
+    <p>Questions? Contact <a href={`mailto:${site.email}`}>{site.email}</a>.</p>
+  </section>
+</MarketingLayout>
+<style>
+  .privacy-content { max-width: 46rem; min-height: 65vh; }
+  h1 { font-size: var(--viku-text-title); line-height: 1.1; }
+  .privacy-content > p:not(.eyebrow) { margin-top: var(--viku-space-5); color: var(--viku-color-text-secondary); }
+</style>

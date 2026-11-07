@@ -1,26 +1,153 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width" />
-    <meta
-      name="description"
-      content="Viku, a native iOS client for Vikunja."
-    />
-    <title>Viku — Vikunja for iOS</title>
-  </head>
-  <body>
-    <header>
-      <a href="/">Viku</a>
-      <nav aria-label="Main navigation">
-        <a href="/docs/">Documentation</a>
-      </nav>
-    </header>
-    <main>
-      <h1>Your Vikunja tasks, at home on iOS.</h1>
-      <p>A native client for your own Vikunja instance.</p>
-      <a href="/docs/">Get started</a>
-    </main>
-  </body>
-</html>
+---
+import MarketingLayout from '../layouts/MarketingLayout.astro';
+import AppIcon from '../components/ui/AppIcon.astro';
+import BetaLink from '../components/ui/BetaLink.astro';
+import ProjectDemo from '../components/landing/ProjectDemo.astro';
+import ServerIcon from '../components/ui/ServerIcon.astro';
+import QuickAddIcon from '../components/ui/QuickAddIcon.astro';
+---
+<MarketingLayout title="Viku - Vikunja for iPhone" description="Your Vikunja tasks, at home on iPhone. Connect to your own server, work offline, and get optional push notifications. Join the Viku TestFlight beta.">
+  <section class="hero">
+    <div class="container hero-inner">
+      <AppIcon size={104} />
+      <h1>Vikunja, on iPhone.<br /><span>Finally.</span></h1>
+      <p class="hero-description">Your server. Your tasks. A modern, native app that feels right at home on iPhone.</p>
+      <div class="hero-actions"><BetaLink /><a href="/docs/">See how it connects <span aria-hidden="true">›</span></a></div>
+      <p class="caption">Available in beta · Requires iOS 26.2 or later</p>
+      <!-- TODO: Replace this reserved frame with a real app screenshot. -->
+      <div class="phone-frame" role="img" aria-label="App screenshot coming soon">
+        <div class="camera" aria-hidden="true"></div>
+        <div class="screenshot-placeholder"><AppIcon size={56} /><span>A closer look, soon.</span><span class="caption">App screenshot coming soon</span></div>
+      </div>
+    </div>
+  </section>
 
+  <section class="section">
+    <div class="container split">
+      <div class="section-copy"><h2>Your server is<br />the server.</h2><p>Viku connects directly to your Vikunja instance. Sign in with an API token or OIDC, and keep work and home in the same app.</p><a href="/docs/server-version-support/">Check server compatibility <span aria-hidden="true">›</span></a></div>
+      <div>
+        <p class="eyebrow">Connections</p>
+        <div class="panel connections" aria-label="Example connections">
+          <div class="connection"><span class="server-icon" aria-hidden="true"><ServerIcon /></span><div><strong>Team Server</strong><small>tasks.example.com · API token</small></div><span class="connected" aria-label="Active connection">✓</span></div>
+          <div class="connection"><span class="server-icon muted" aria-hidden="true"><ServerIcon /></span><div><strong>Home Server</strong><small>vikunja.home.example · OIDC</small></div></div>
+          <div class="connection add-connection"><span aria-hidden="true">＋</span><span>All your instances. One app.</span></div>
+        </div>
+        <p class="caption">Example connections · Credentials are stored in the iOS Keychain.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section views-section">
+    <div class="container">
+      <div class="section-copy centered"><h2>A list to think.<br />A board to do.</h2><p>See the details or see the bigger picture. Organize your projects the way you work.</p></div>
+      <ProjectDemo />
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container split">
+      <div class="quick-add panel" aria-label="Quick Add example using Vikunja shortcuts">
+        <p class="quick-title">Buy paint <mark class="date">tomorrow</mark> <mark class="priority">!4</mark> <mark class="project">+Moving</mark></p>
+        <p class="caption">Add a description</p>
+        <div class="chips">
+          <span class="date"><QuickAddIcon name="date" />Tomorrow</span>
+          <span class="priority"><QuickAddIcon name="priority" />High</span>
+          <span class="project"><QuickAddIcon name="project" />Moving</span>
+          <span class="label-chip" role="img" aria-label="No label selected"><QuickAddIcon name="label" /></span>
+          <span class="send-icon" aria-hidden="true"><QuickAddIcon name="create" size={22} /></span>
+        </div>
+      </div>
+      <div class="section-copy"><p class="eyebrow">Experimental · Opt in from Settings</p><h2>Type it.<br />Make it a task.</h2><p>Add a date, priority, project, and labels as you type. Quick Add recognizes shortcuts in your preferred Vikunja or Todoist dialect.</p><a href="/docs/quick-add-shortcuts/">Explore Quick Add shortcuts <span aria-hidden="true">›</span></a></div>
+    </div>
+  </section>
+
+  <section class="section push-section">
+    <div class="container split">
+      <div class="section-copy"><h2>Your tasks.<br /><span>A little more timely.</span></h2><p>Reminders, assignments, and comments on your lock screen. Enable optional push notifications, and Viku sets up the webhooks on your instance.</p><a href="/docs/push-notifications/">How Viku Relay works <span aria-hidden="true">›</span></a></div>
+      <div class="notifications" aria-label="Example notifications">
+        <div class="notification"><AppIcon size={38} /><div><div class="notification-title"><strong>Navigation prototype</strong><small>now</small></div><p>Alex: Let's try this with a few more people.</p></div></div>
+        <div class="notification"><AppIcon size={38} /><div><div class="notification-title"><strong>Prepare the demo</strong><small>12 min ago</small></div><p>Reminder · Due today at 2:00 PM</p></div></div>
+        <div class="notification"><AppIcon size={38} /><div><div class="notification-title"><strong>Plan the next release</strong><small>1 h ago</small></div><p>Sam assigned this task to you.</p></div></div>
+        <p class="notification-note">Illustrative notifications · Delivered through Viku Relay and Apple Push Notification service.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container split">
+      <div class="section-copy"><h2>No signal.<br />Keep going.</h2><p>Work with downloaded tasks and projects, even when your server is out of reach. Supported changes stay on your device and sync when you reconnect.</p><a href="/docs/offline-mode/">What works offline <span aria-hidden="true">›</span></a></div>
+      <div class="offline panel">
+        <div class="sync-heading"><span class="sync-dot" aria-hidden="true"></span><div><strong>3 changes waiting for a connection</strong><p class="caption">Ready to sync when your server is reachable.</p></div></div>
+        <div class="sync-rows"><p>Completed “Go for a run” <span>8:02</span></p><p>Created “Buy paint” <span>8:05</span></p><p>Updated “Plan the move” <span>8:11</span></p></div>
+        <p class="caption">Illustrative sync status · Attachments require a connection.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section closing">
+    <div class="container"><AppIcon size={72} /><h2>Your Vikunja.<br />Now in your pocket.</h2><p>Help shape Viku. Try the beta on TestFlight.</p><BetaLink /><p class="caption">Have a question? <a href="mailto:hola@viku.dev">Say hello.</a></p></div>
+  </section>
+</MarketingLayout>
+<style>
+  .hero { border-bottom: 1px solid var(--viku-color-border); overflow: hidden; }
+  .hero-inner { display: flex; flex-direction: column; align-items: center; text-align: center; padding-top: var(--viku-space-8); }
+  h1 { font-size: var(--viku-text-display); line-height: 1.02; letter-spacing: -0.035em; margin-top: var(--viku-space-6); }
+  h1 span { color: var(--viku-color-text-muted); }
+  .hero-description { max-width: 35rem; margin-top: var(--viku-space-5); font-size: 1.25rem; color: var(--viku-color-text-secondary); }
+  .hero-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--viku-space-5); margin-top: var(--viku-space-6); }
+  .hero-actions > a { font-weight: 500; }
+  .phone-frame { position: relative; width: min(20rem, calc(100% - 1.5rem)); height: 30rem; margin-top: var(--viku-space-8); border: 0.625rem solid var(--viku-color-text); border-bottom: 0; border-radius: 2.75rem 2.75rem 0 0; background: var(--viku-color-surface); box-shadow: var(--viku-shadow-sheet); }
+  .camera { width: 6.5rem; height: 1.75rem; border-radius: var(--viku-radius-pill); position: absolute; top: var(--viku-space-3); left: 50%; transform: translateX(-50%); background: var(--viku-color-text); }
+  .screenshot-placeholder { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--viku-space-4); color: var(--viku-color-text-secondary); }
+  .screenshot-placeholder .caption { margin: 0; }
+  .connection { display: flex; align-items: center; gap: var(--viku-space-3); padding: var(--viku-space-4); }
+  .connection + .connection { border-top: 1px solid var(--viku-color-border); }
+  .connection > div { min-width: 0; }
+  .connection strong { font-weight: 600; }
+  .connection small { display: block; overflow-wrap: anywhere; color: var(--viku-color-text-muted); margin-top: var(--viku-space-1); }
+  .server-icon { display: grid; place-items: center; width: 2.25rem; height: 2.25rem; flex-shrink: 0; background: var(--viku-color-accent-soft); color: var(--viku-color-link); border-radius: var(--viku-radius-sm); font-size: 1.5rem; }
+  .server-icon.muted { background: var(--viku-color-subtle); color: var(--viku-color-text-secondary); }
+  .connected { margin-left: auto; color: var(--viku-color-link); }
+  .add-connection { color: var(--viku-color-link); font-weight: 500; }
+  .add-connection > :first-child { width: 2.25rem; text-align: center; }
+  .views-section { background: var(--viku-color-band); border-block: 1px solid var(--viku-color-border); }
+  .centered { text-align: center; }
+  .centered > p { margin-inline: auto; max-width: 34rem; }
+  .quick-add { padding: var(--viku-space-5); box-shadow: var(--viku-shadow-sheet); }
+  .quick-title { font-size: var(--viku-text-lg); font-weight: 500; line-height: 1.8; }
+  .date { --quick-accent: var(--viku-color-date); }
+  .priority { --quick-accent: var(--viku-color-priority-high-text); }
+  .project { --quick-accent: var(--viku-color-project); }
+  mark, .chips > span { color: var(--quick-accent); background: color-mix(in oklch, var(--quick-accent) 14%, var(--viku-color-surface)); border-radius: var(--viku-radius-sm); }
+  mark { padding: 0.125rem var(--viku-space-2); box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+  .chips { display: flex; align-items: center; gap: var(--viku-space-2); flex-wrap: wrap; margin-top: var(--viku-space-5); font-size: var(--viku-text-sm); font-weight: 600; }
+  .chips > span { display: inline-flex; align-items: center; justify-content: center; gap: var(--viku-space-2); padding: var(--viku-space-2) var(--viku-space-3); border-radius: var(--viku-radius-pill); }
+  .chips .label-chip { color: var(--viku-color-text-secondary); background: var(--viku-color-subtle); padding-inline: var(--viku-space-2); }
+  .chips .send-icon { position: relative; margin-left: auto; color: var(--viku-color-on-action); background: var(--viku-color-action); }
+  /* Keep the existing glyph's footprint so only the arrow grows, not its background. */
+  .chips .send-icon::before { content: '↑'; visibility: hidden; }
+  .chips .send-icon :global(svg) { position: absolute; inset: 0; margin: auto; }
+  .push-section { background: var(--viku-color-feature-bg); color: var(--viku-color-feature-text); }
+  .push-section .section-copy > p, .push-section h2 span { color: var(--viku-color-feature-muted); }
+  .push-section a { color: var(--viku-blue-light); }
+  .notifications { display: flex; flex-direction: column; gap: var(--viku-space-3); }
+  .notification { display: flex; align-items: center; gap: var(--viku-space-3); padding: var(--viku-space-4); border-radius: var(--viku-radius-xl); background: rgb(255 255 255 / 14%); }
+  .notification:nth-child(2) { transform: scale(0.98); opacity: 0.92; background: rgb(255 255 255 / 10%); }
+  .notification:nth-child(3) { transform: scale(0.96); opacity: 0.8; background: rgb(255 255 255 / 7%); }
+  .notification > div { flex: 1; min-width: 0; }
+  .notification-title { display: flex; justify-content: space-between; gap: var(--viku-space-2); font-size: 0.9375rem; }
+  .notification-title small { flex-shrink: 0; color: var(--viku-color-feature-muted); }
+  .notification p { font-size: 0.9375rem; margin-top: var(--viku-space-1); }
+  .notification-note { font-size: var(--viku-text-sm); color: var(--viku-color-feature-muted); padding-inline: var(--viku-space-4); }
+  .offline { padding: var(--viku-space-4); }
+  .sync-heading { display: flex; align-items: start; gap: var(--viku-space-3); }
+  .sync-heading .caption { margin-top: var(--viku-space-1); }
+  .sync-dot { width: 0.625rem; height: 0.625rem; margin-top: var(--viku-space-2); border-radius: 50%; flex-shrink: 0; background: var(--viku-color-warning); }
+  .sync-rows { margin-top: var(--viku-space-4); border-radius: var(--viku-radius-sm); background: var(--viku-color-bg); }
+  .sync-rows p { display: flex; justify-content: space-between; gap: var(--viku-space-3); padding: var(--viku-space-3); font-size: 0.875rem; }
+  .sync-rows p + p { border-top: 1px solid var(--viku-color-border); }
+  .sync-rows span { color: var(--viku-color-text-muted); }
+  .closing { border-top: 1px solid var(--viku-color-border); text-align: center; }
+  .closing > div { display: flex; flex-direction: column; align-items: center; gap: var(--viku-space-5); }
+  .closing > div > p { color: var(--viku-color-text-secondary); }
+</style>

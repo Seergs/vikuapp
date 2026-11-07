@@ -1,0 +1,17 @@
+---
+interface Props {
+  name: 'date' | 'priority' | 'project' | 'label' | 'create';
+  size?: number;
+}
+const { name, size = 16 } = Astro.props;
+---
+<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+  {name === 'date' && <><rect x="3" y="5" width="18" height="16" rx="3" /><path d="M3 10h18M8 3v4M16 3v4" /></>}
+  {name === 'priority' && <path d="M6 3v18M6 4h11l-2.5 3.5L17 11H6" />}
+  {name === 'project' && <path d="M3 7a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />}
+  {name === 'label' && <><path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1.4 1.4 0 0 1 0 2l-6.2 6.2a1.4 1.4 0 0 1-2 0Z" /><circle cx="8" cy="8" r="1.5" /></>}
+  {name === 'create' && <path d="M12 20V4M5 11l7-7 7 7" stroke-width="2.4" />}
+</svg>
+<style>
+  svg { display: block; flex-shrink: 0; }
+</style>

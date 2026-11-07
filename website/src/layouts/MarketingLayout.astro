@@ -1,0 +1,75 @@
+---
+import '../styles/tokens.css';
+import '../styles/marketing.css';
+import AppIcon from '../components/ui/AppIcon.astro';
+import BetaLink from '../components/ui/BetaLink.astro';
+import { site } from '../data/site';
+interface Props { title: string; description: string }
+const { title, description } = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="/favicon.png" />
+    <title>{title}</title>
+    <script is:inline>
+      // Match Starlight's preference key. Storage may be unavailable in private contexts.
+      try {
+        const theme = localStorage.getItem('starlight-theme');
+        if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+      } catch {}
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header">
+      <div class="container nav-inner">
+        <a class="brand" href="/" aria-label="Viku home"><AppIcon size={28} /><span>Viku</span></a>
+        <nav aria-label="Main navigation">
+          <a href="/docs/">Docs</a>
+          <a class="privacy-nav" href="/privacy/">Privacy</a>
+          <BetaLink compact />
+        </nav>
+      </div>
+    </header>
+    <main id="main-content"><slot /></main>
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <span>© {new Date().getFullYear()} {site.name} · <a href={site.url}>viku.dev</a></span>
+        <div class="footer-links">
+          <a href="/docs/">Docs</a><a href="/privacy/">Privacy</a><a href={`mailto:${site.email}`}>{site.email}</a>
+          <label class="theme-picker" hidden>Theme
+            <span class="theme-select-control">
+              <select id="theme-select" aria-label="Color theme">
+                <option value="auto">System</option><option value="light">Light</option><option value="dark">Dark</option>
+              </select>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6" /></svg>
+            </span>
+          </label>
+        </div>
+      </div>
+    </footer>
+    <script>
+      const select = document.querySelector<HTMLSelectElement>('#theme-select');
+      if (select) {
+        select.closest<HTMLElement>('label')!.hidden = false;
+        try { select.value = localStorage.getItem('starlight-theme') || 'auto'; } catch {}
+        select.addEventListener('change', () => {
+          const theme = select.value;
+          if (theme === 'auto') delete document.documentElement.dataset.theme;
+          else document.documentElement.dataset.theme = theme;
+          try {
+            if (theme === 'auto') localStorage.removeItem('starlight-theme');
+            else localStorage.setItem('starlight-theme', theme);
+          } catch {}
+        });
+      }
+    </script>
+  </body>
+</html>
