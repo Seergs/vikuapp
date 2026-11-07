@@ -1,3 +1,17 @@
+.sl-markdown-content h2:not(:where(.not-content *)) {
+  font-size: calc(var(--sl-text-h2) * 0.85);
+}
+
+.sl-markdown-content h3:not(:where(.not-content *)) {
+  font-size: calc(var(--sl-text-h3) * 0.85);
+}
+
+.sl-markdown-content h4:not(:where(.not-content *)) {
+  font-size: var(--viku-text-base);
+  color: var(--viku-color-text-muted);
+  text-transform: uppercase;
+}
+
 .sl-markdown-content a:not(:where(.not-content *)) {
   color: var(--viku-blue);
   text-decoration: none;
