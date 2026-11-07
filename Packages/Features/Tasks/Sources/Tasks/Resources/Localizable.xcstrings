@@ -291,6 +291,16 @@
         }
       }
     },
+    "Edited": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editado"
+          }
+        }
+      }
+    },
     "Edit Comment": {
       "localizations": {
         "es": {
