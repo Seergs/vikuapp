@@ -39,12 +39,19 @@ public final class ProjectOverviewViewModel {
 
     private var hasKanbanSupport = false
     private var hasReachability = false
-    /// This saved filter's raw query (e.g. `priority >= 3 && done = false`),
-    /// shown read-only under its badge. `nil` for a real project or
+    /// This saved filter's raw query (e.g. `priority >= 3 && done = false`).
+    /// `nil` for a real project or
     /// Favorites, and also `nil` if the fetch fails or the filter has no
     /// query set - either way the query line just doesn't render, no error
     /// banner for what's a nice-to-have display. See `SavedFilterDetail`.
     public private(set) var savedFilterQuery: String?
+    /// Read-only presentation resolved from account-local catalogs. Missing
+    /// projects or labels retain their IDs; the raw query is never rewritten.
+    public var savedFilterDisplayQuery: String? {
+        savedFilterQuery == nil ? nil : savedFilterDisplaySegments.map(\.text).joined()
+    }
+
+    public private(set) var savedFilterDisplaySegments: [FilterQueryFormatter.Segment] = []
     /// Each subproject's own task completion count, keyed by project id, for
     /// the "Subprojects" cards. Fetched alongside this project's own tasks
     /// since `ProjectNode` only carries project metadata, not tasks.
@@ -249,20 +256,18 @@ public final class ProjectOverviewViewModel {
             let fetchedProject = try await projectRepository.fetchProject(id: project.id)
             let fetchedTasks = try await repository.fetchTasks(projectID: fetchedProject.id)
             let fetchedSubprojects = try await Self.fetchSubprojects(
-                parentID: fetchedProject.id, repository: projectRepository,
+                project: fetchedProject, repository: projectRepository,
             )
             let summaries = await Self.fetchSubprojectSummaries(fetchedSubprojects, repository: repository)
-            var query: String?
-            if let filterID = fetchedProject.savedFilterID {
-                query = try? await filterRepository.fetchFilter(id: filterID).query
-            }
+            let query = await loadFilterQuery(for: fetchedProject)
             await loadRequestedLabels()
-            guard version == loadVersion else { return }
+            guard version == loadVersion, !Task.isCancelled else { return }
             project = fetchedProject
             tasks = completionState.applying(to: fetchedTasks)
             subprojects = fetchedSubprojects
             subprojectTaskSummaries = summaries
-            savedFilterQuery = query?.isEmpty == false ? query : nil
+            savedFilterQuery = query.raw
+            savedFilterDisplaySegments = query.segments
             loadState = .loaded
         } catch let error as VikunjaError {
             guard version == loadVersion else { return }
@@ -292,16 +297,46 @@ public final class ProjectOverviewViewModel {
         return await capabilityProvider.supports(.apiV2)
     }
 
+    private func loadFilterQuery(for project: Project) async -> (raw: String?, segments: [FilterQueryFormatter.Segment]) {
+        guard let filterID = project.savedFilterID,
+              let query = try? await filterRepository.fetchFilter(id: filterID).query,
+              !query.isEmpty else { return (nil, []) }
+        return await (query, resolveFilterNames(query))
+    }
+
+    /// Catalog reads use the injected offline repositories. Each catalog can
+    /// fail independently without hiding names available in the other one.
+    private func resolveFilterNames(_ query: String) async -> [FilterQueryFormatter.Segment] {
+        async let projects = try? projectRepository.fetchProjects()
+        async let labels = try? labelRepository.fetchLabels()
+        let projectTitles = await (projects ?? []).reduce(into: [Int: String]()) { titles, project in
+            if let id = project.id.remoteValue {
+                titles[id] = project.title
+            }
+        }
+        let labelTitles = await (labels ?? []).reduce(into: [Int: String]()) { titles, label in
+            if let id = label.id.remoteValue {
+                titles[id] = label.title
+            }
+        }
+        return FilterQueryFormatter.displaySegments(
+            query, labelTitle: { labelTitles[$0] }, projectTitle: { projectTitles[$0] },
+        )
+    }
+
     /// This project's current direct children, straight from the server —
     /// mirrors `ProjectsListViewModel.tree(from:)`'s own filtering (drop
     /// archived, order by position) but only one level deep, since this
     /// screen only ever shows direct children as "Subprojects" cards.
     private static func fetchSubprojects(
-        parentID: EntityID,
+        project: Project,
         repository: ProjectRepositoryProtocol,
     ) async throws -> [ProjectNode] {
-        try await repository.fetchProjects()
-            .filter { !$0.isArchived && $0.parentProjectID == parentID }
+        // Virtual projects cannot have children. A filter's catalog is only
+        // needed for names, so its failure must not fail the whole screen.
+        guard project.kind == .project else { return [] }
+        return try await repository.fetchProjects()
+            .filter { !$0.isArchived && $0.parentProjectID == project.id }
             .sorted { $0.position < $1.position }
             .map { ProjectNode(project: $0) }
     }
