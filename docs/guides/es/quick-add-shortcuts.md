@@ -1,17 +1,17 @@
 ---
-title: Atajos de creación rápida
+title: Quick Add Magic
 summary: Asigna fechas, proyectos, etiquetas y prioridades mientras escribes.
 category: basics
-updated: 2026-11-05
+updated: 2026-11-07
 related: offline-mode
 ---
 
-# Atajos de creación rápida
+# Quick Add Magic
 
 La pantalla de creación rápida reconoce atajos escritos directamente en el título,
 para que puedas asignar un proyecto, una prioridad o etiquetas sin abrir sus
-selectores. La función es experimental y está desactivada de forma predeterminada.
-Para activarla, ve a **Ajustes → Experimental → Creación rápida** y elige una sintaxis:
+selectores. Los atajos están desactivados de forma predeterminada.
+Para activarla, ve a **Ajustes → General → Quick Add Magic** y elige una sintaxis:
 
 - **Vikunja** utiliza los mismos símbolos que la creación rápida de Vikunja.
 - **Todoist** utiliza los símbolos que ya conocen los usuarios de Todoist.

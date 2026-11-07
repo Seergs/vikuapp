@@ -1347,12 +1347,22 @@
         }
       }
     },
-    "Quick-Add" : {
+    "Quick Add Magic" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Creación rápida"
+            "value" : "Quick Add Magic"
+          }
+        }
+      }
+    },
+    "Quick Add Magic guide" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guía de Quick Add Magic"
           }
         }
       }

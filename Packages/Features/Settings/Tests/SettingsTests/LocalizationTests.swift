@@ -93,6 +93,8 @@ struct LocalizationTests {
         ),
         ("Version, links, and privacy", "Versión, enlaces y privacidad"),
         ("General", "General"),
+        ("Quick Add Magic", "Quick Add Magic"),
+        ("Quick Add Magic guide", "Guía de Quick Add Magic"),
         ("Overdue and due-today tasks", "Tareas vencidas y de hoy"),
         ("Show DEV Badge", "Mostrar insignia DEV"),
         ("Log Network Requests", "Registrar solicitudes de red"),
