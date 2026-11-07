@@ -73,11 +73,12 @@ public struct ProjectsRootView: View {
         .navigationDestination(for: ProjectsRoute.self) { route in
             switch route {
             case let .projectOverview(node):
+                let overviewViewModel = cachedOverviewViewModel(for: node)
                 ProjectOverviewView(
-                    viewModel: cachedOverviewViewModel(for: node),
+                    viewModel: overviewViewModel,
                     kanbanViewModel: cachedKanbanBoardViewModel(for: node.project),
                     onSelectSubproject: { router.push(ProjectsRoute.projectOverview($0)) },
-                    onSelectTask: { task in router.push(.taskDetail(task, node.project)) },
+                    onSelectTask: { task in router.push(.taskDetail(task, overviewViewModel.taskProject(for: task))) },
                     onEditProject: { editingProject = $0; editingProjectID = $0.id },
                     onDuplicated: { router.push(.taskDetail($0, $1)) },
                     makeCreateProjectViewModel: makeCreateProjectViewModel,
