@@ -146,6 +146,7 @@ struct OfflineTaskCommentRepositoryTests {
 
         #expect(localID(of: created.id) != nil)
         #expect(created.author.username == "me")
+        #expect(!created.isEdited)
         #expect(fixture.network.addedComments.isEmpty)
         let rows = try await fixture.store.read { db in try TaskCommentRecord.fetchAll(db) }
         #expect(rows.count == 1)
@@ -205,6 +206,23 @@ struct OfflineTaskCommentRepositoryTests {
             TaskCommentCreatePayload.self, from: Data((queued[0].payload ?? "").utf8),
         )
         #expect(payload.text == "Second")
+    }
+
+    @Test
+    func `offline edit preserves the edited indicator when reloading cached comments`() async throws {
+        let fixture = try await makeRepository(online: false)
+        let task = try await seedTask(in: fixture, remoteID: 5)
+        try await seedComment(in: fixture, taskLocalID: task.localID, remoteID: 21)
+
+        let updated = try await fixture.repository.updateComment(
+            .remote(21), text: "Edited offline", onTask: .local(task.localID),
+        )
+        let cached = try await fixture.repository.fetchComments(taskID: .local(task.localID))
+
+        #expect(updated.isEdited)
+        #expect(cached.count == 1)
+        #expect(cached.first?.isEdited == true)
+        #expect(fixture.network.updatedComments.isEmpty)
     }
 
     @Test

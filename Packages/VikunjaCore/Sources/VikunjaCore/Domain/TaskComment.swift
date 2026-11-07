@@ -8,6 +8,11 @@ public struct TaskComment: Identifiable, Equatable, Sendable {
     public var created: Date
     public var updated: Date
 
+    /// Both server responses and pending local edits preserve these timestamps.
+    public var isEdited: Bool {
+        updated > created
+    }
+
     public init(id: EntityID, comment: String, author: User, created: Date, updated: Date) {
         self.id = id
         self.comment = comment

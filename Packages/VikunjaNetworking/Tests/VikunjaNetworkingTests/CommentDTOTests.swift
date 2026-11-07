@@ -21,6 +21,8 @@ struct CommentDTOTests {
 
         #expect(comments[0].id == 1)
         #expect(comments[0].author.username == "alex")
+        #expect(!comments[0].isEdited)
+        #expect(comments[1].isEdited)
         #expect(comments[1].updated > comments[1].created)
     }
 

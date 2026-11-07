@@ -116,8 +116,13 @@ private struct CommentRow: View {
                         .font(.system(size: 13.5, weight: .bold))
                         .foregroundStyle(Color.primary)
                     Text(verbatim: RelativeTimeFormatter.string(for: comment.created))
-                        .font(.system(size: 12))
+                        .font(VikuFont.caption)
                         .foregroundStyle(palette.textTertiary)
+                    if comment.isEdited {
+                        Text("Edited", bundle: .module)
+                            .font(VikuFont.caption)
+                            .foregroundStyle(palette.textTertiary)
+                    }
                 }
                 RichTextView(html: comment.comment, baseFont: VikuFont.subheadline)
                     .foregroundStyle(palette.textSecondary)
