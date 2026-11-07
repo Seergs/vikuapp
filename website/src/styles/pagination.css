@@ -1,0 +1,52 @@
+/* Style Starlight's native pagination without replacing its links or layout. */
+.pagination-links {
+  gap: var(--viku-space-3);
+}
+
+.pagination-links a {
+  gap: var(--viku-space-2);
+  padding: var(--viku-space-3) var(--viku-space-4);
+  border-color: transparent;
+  border-radius: var(--viku-radius-lg);
+  background: var(--viku-color-surface);
+  box-shadow: var(--viku-shadow-card);
+  color: var(--viku-color-text-muted);
+  font-size: var(--viku-text-sm);
+  text-decoration: none;
+  transition: background-color var(--viku-duration-fast) var(--viku-ease);
+}
+
+.pagination-links .link-title {
+  display: inline-block;
+  margin-block-start: var(--viku-space-1);
+  color: var(--viku-blue);
+  font-size: var(--viku-text-base);
+  font-weight: 600;
+}
+
+.pagination-links svg {
+  width: var(--viku-space-4);
+  height: var(--viku-space-4);
+  color: var(--viku-blue);
+}
+
+.pagination-links a:hover {
+  border-color: transparent;
+}
+
+@media (hover: hover) {
+  .pagination-links a:hover {
+    background: color-mix(in oklch, var(--viku-blue) 6%, var(--viku-color-surface));
+  }
+}
+
+.pagination-links a:focus-visible {
+  outline: 2px solid var(--viku-color-link);
+  outline-offset: var(--viku-space-1);
+}
+
+@media (forced-colors: active) {
+  .pagination-links a {
+    border-color: LinkText;
+  }
+}

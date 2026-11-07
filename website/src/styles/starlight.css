@@ -1,4 +1,6 @@
 @import './tokens.css';
+@import './markdown.css';
+@import './pagination.css';
 
 /* Docs consume the same semantic roles as the landing page. */
 :root, :root[data-theme='light'], :root[data-theme='dark'] {

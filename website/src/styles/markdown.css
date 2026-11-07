@@ -1,0 +1,121 @@
+.sl-markdown-content h2:not(:where(.not-content *)) {
+  font-size: calc(var(--sl-text-h2) * 0.85);
+}
+
+.sl-markdown-content h3:not(:where(.not-content *)) {
+  font-size: calc(var(--sl-text-h3) * 0.85);
+}
+
+.sl-markdown-content h4:not(:where(.not-content *)) {
+  font-size: var(--viku-text-base);
+  color: var(--viku-color-text-muted);
+  text-transform: uppercase;
+}
+
+.sl-markdown-content a:not(:where(.not-content *)) {
+  color: var(--viku-blue);
+  text-decoration: none;
+}
+
+.sl-markdown-content small {
+  color: var(--viku-color-text-muted);
+}
+
+.sl-markdown-content .starlight-aside__content {
+  font-size: var(--viku-text-compact);
+  margin-inline-start: calc(var(--viku-space-6) + var(--viku-space-2));
+}
+
+.sl-markdown-content .starlight-aside__title {
+  font-size: var(--viku-text-compact);
+  gap: var(--viku-space-2);
+}
+
+.sl-markdown-content .starlight-aside {
+  border-inline-start: 0;
+  border-radius: var(--viku-radius-md);
+  background-color: color-mix(in oklch, var(--callout-icon-bg) 6%, var(--viku-color-bg));
+}
+
+.sl-markdown-content .starlight-aside--note {
+  --callout-icon-bg: var(--viku-color-icon-bg-blue);
+}
+
+.sl-markdown-content .starlight-aside--tip {
+  --callout-icon-bg: var(--viku-color-icon-bg-purple);
+}
+
+.sl-markdown-content .starlight-aside--caution {
+  --callout-icon-bg: var(--viku-color-icon-bg-orange);
+}
+
+.sl-markdown-content .starlight-aside--danger {
+  --callout-icon-bg: var(--viku-color-icon-bg-red);
+}
+
+.sl-markdown-content .starlight-aside__icon {
+  box-sizing: border-box;
+  flex-shrink: 0;
+  width: var(--viku-space-6);
+  height: var(--viku-space-6);
+  padding: var(--viku-space-2);
+  border-radius: var(--viku-radius-sm);
+  background: var(--callout-icon-bg);
+  color: var(--viku-color-on-action);
+}
+
+/* Keep native list numbering, including start/value attributes and nested lists.
+   Exclude Starlight components and the generated footnote reference list. */
+.sl-markdown-content ol:not(:where(.not-content *, .footnotes *)) {
+  padding: 0;
+  background: var(--viku-color-surface);
+  border-radius: var(--viku-radius-lg);
+  box-shadow: var(--viku-shadow-card);
+  list-style-type: decimal;
+}
+
+.sl-markdown-content ol > li:not(:where(.not-content *, .footnotes *)) {
+  position: relative;
+  min-block-size: calc(var(--viku-space-6) + 2 * var(--viku-space-2));
+  padding: var(--viku-space-2) var(--viku-space-4);
+  padding-inline-start: calc(var(--viku-space-4) + var(--viku-space-6) + var(--viku-space-3));
+  color: var(--viku-color-text);
+}
+
+/* Keep list-item semantics instead of removing the native list style. */
+.sl-markdown-content ol > li:not(:where(.not-content *, .footnotes *))::marker {
+  font-size: 0;
+}
+
+.sl-markdown-content ol > li:not(:where(.not-content *, .footnotes *))::before {
+  content: counter(list-item);
+  position: absolute;
+  inset-block-start: var(--viku-space-2);
+  inset-inline-start: var(--viku-space-4);
+  display: grid;
+  place-items: center;
+  inline-size: var(--viku-space-6);
+  block-size: var(--viku-space-6);
+  color: var(--viku-color-link);
+  font-size: var(--viku-text-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-markdown-content ol > li + li:not(:where(.not-content *, .footnotes *)) {
+  margin-block-start: 0;
+  border-block-start: 1px solid color-mix(in oklch, var(--viku-color-border) 45%, var(--viku-color-surface));
+}
+
+.sl-markdown-content ol > li > :first-child:not(:where(.not-content *, .footnotes *)) {
+  margin-block-start: 0;
+}
+
+.sl-markdown-content ol > li > :last-child:not(:where(.not-content *, .footnotes *)) {
+  margin-block-end: 0;
+}
+
+.sl-markdown-content :is(ol, ul) ol:not(:where(.not-content *, .footnotes *)) {
+  margin-block-start: var(--viku-space-3);
+  box-shadow: none;
+}
