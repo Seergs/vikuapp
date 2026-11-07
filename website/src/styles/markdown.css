@@ -1,3 +1,8 @@
+.sl-markdown-content a:not(:where(.not-content *)) {
+  color: var(--viku-blue);
+  text-decoration: none;
+}
+
 .sl-markdown-content small {
   color: var(--viku-color-text-muted);
 }
