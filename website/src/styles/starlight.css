@@ -24,6 +24,23 @@
   border-bottom-color: color-mix(in oklch, var(--viku-color-border) 85%, var(--viku-color-bg));
 }
 
+/* Keep Starlight's solid background as the fallback when blur is unavailable. */
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .page > .header {
+    background-color: color-mix(in oklch, var(--viku-color-bg) 65%, transparent);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    backdrop-filter: blur(20px) saturate(150%);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+  .page > .header {
+    background-color: var(--viku-color-bg);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
 .site-title {
   color: var(--viku-color-text);
 }
