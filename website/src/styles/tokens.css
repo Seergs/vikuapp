@@ -1,0 +1,117 @@
+/* Shared website primitives and semantic roles. No Starlight or page selectors. */
+:root {
+  --viku-blue: #196aff;
+  --viku-blue-dark: #0a3fa8;
+  --viku-blue-light: #8cbdff;
+  --viku-blue-on-dark: #4f9bff;
+  --viku-orange: #ff9f43;
+  --viku-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --viku-font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
+  --viku-text-sm: 0.8125rem;
+  --viku-text-base: 1rem;
+  --viku-text-lg: 1.1875rem;
+  --viku-text-title: clamp(2.125rem, 4.2vw, 3.25rem);
+  --viku-text-display: clamp(2.875rem, 6.6vw, 5rem);
+  --viku-space-1: 0.25rem;
+  --viku-space-2: 0.5rem;
+  --viku-space-3: 0.75rem;
+  --viku-space-4: 1rem;
+  --viku-space-5: 1.5rem;
+  --viku-space-6: 2rem;
+  --viku-space-7: 3rem;
+  --viku-space-8: 4.5rem;
+  --viku-space-section: clamp(4rem, 8vw, 7rem);
+  --viku-radius-sm: 0.625rem;
+  --viku-radius-md: 0.875rem;
+  --viku-radius-lg: 1.125rem;
+  --viku-radius-xl: 1.5rem;
+  --viku-radius-pill: 999px;
+  --viku-duration-fast: 120ms;
+  --viku-duration-normal: 200ms;
+  --viku-ease: ease;
+  --viku-content-width: 67.5rem;
+  --viku-color-on-action: #fff;
+  --viku-color-action: var(--viku-blue);
+  --viku-color-feature-bg: oklch(30% 0.12 262);
+  --viku-color-feature-text: #fff;
+  --viku-color-feature-muted: #d5dff3;
+  --viku-color-bg: oklch(97% 0.004 260);
+  --viku-color-surface: #fff;
+  --viku-color-band: #fff;
+  --viku-color-text: oklch(20% 0.015 260);
+  --viku-color-text-secondary: oklch(46% 0.015 260);
+  --viku-color-text-muted: oklch(50% 0.012 260);
+  --viku-color-border: oklch(88% 0.006 260);
+  --viku-color-subtle: oklch(94% 0.006 260);
+  --viku-color-link: var(--viku-blue);
+  --viku-color-accent-soft: #e4edff;
+  --viku-color-label-design: #7843ab;
+  --viku-color-label-client: #237544;
+  --viku-color-label-research: #8b6213;
+  --viku-color-date: var(--viku-color-link);
+  --viku-color-project: #237544;
+  --viku-color-priority-high-text: #a3461c;
+  --viku-color-priority-urgent: #df202e;
+  --viku-color-priority-high: #e85e00;
+  --viku-color-priority-medium: var(--viku-blue);
+  --viku-color-priority-low: #79818d;
+  --viku-color-success: #237544;
+  --viku-color-warning: #a3461c;
+  --viku-shadow-card: 0 1px 2px rgb(0 0 0 / 4%);
+  --viku-shadow-sheet: 0 24px 60px oklch(30% 0.05 260 / 16%);
+  color-scheme: light;
+}
+
+/* Auto theme also works without JavaScript. Explicit choices use data-theme. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --viku-color-bg: oklch(16% 0.008 260);
+    --viku-color-surface: oklch(22% 0.01 260);
+    --viku-color-band: oklch(13% 0.008 260);
+    --viku-color-text: oklch(96% 0.004 260);
+    --viku-color-text-secondary: oklch(76% 0.01 260);
+    --viku-color-text-muted: oklch(70% 0.01 260);
+    --viku-color-border: oklch(36% 0.01 260);
+    --viku-color-subtle: oklch(30% 0.012 260);
+    --viku-color-link: var(--viku-blue-on-dark);
+    --viku-color-accent-soft: #1d3355;
+    --viku-color-label-design: #d2a6f5;
+    --viku-color-label-client: #86d6a4;
+    --viku-color-label-research: #e8c773;
+    --viku-color-project: #86d6a4;
+    --viku-color-priority-high-text: #ffb487;
+    --viku-color-success: #86d6a4;
+    --viku-color-warning: #ffb487;
+    --viku-shadow-card: none;
+    --viku-shadow-sheet: 0 20px 50px rgb(0 0 0 / 35%);
+    color-scheme: dark;
+  }
+}
+:root[data-theme='dark'] {
+  --viku-color-bg: oklch(16% 0.008 260);
+  --viku-color-surface: oklch(22% 0.01 260);
+  --viku-color-band: oklch(13% 0.008 260);
+  --viku-color-text: oklch(96% 0.004 260);
+  --viku-color-text-secondary: oklch(76% 0.01 260);
+  --viku-color-text-muted: oklch(70% 0.01 260);
+  --viku-color-border: oklch(36% 0.01 260);
+  --viku-color-subtle: oklch(30% 0.012 260);
+  --viku-color-link: var(--viku-blue-on-dark);
+  --viku-color-accent-soft: #1d3355;
+  --viku-color-label-design: #d2a6f5;
+  --viku-color-label-client: #86d6a4;
+  --viku-color-label-research: #e8c773;
+  --viku-color-project: #86d6a4;
+  --viku-color-priority-high-text: #ffb487;
+  --viku-color-success: #86d6a4;
+  --viku-color-warning: #ffb487;
+  --viku-shadow-card: none;
+  --viku-shadow-sheet: 0 20px 50px rgb(0 0 0 / 35%);
+  color-scheme: dark;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --viku-duration-fast: 0ms;
+    --viku-duration-normal: 0ms;
+  }
+}

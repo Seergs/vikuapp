@@ -1,0 +1,12 @@
+---
+import { Image } from 'astro:assets';
+import logo from '../../assets/logo.png';
+interface Props { size?: number }
+const { size = 72 } = Astro.props;
+// Supply Retina candidates without upscaling the source or tracking generated files.
+const widths = [...new Set([size, Math.min(size * 2, logo.width), Math.min(size * 3, logo.width)])];
+---
+<Image src={logo} alt="" width={size} height={size} widths={widths} sizes={`${size}px`} quality={100} class="app-icon" />
+<style>
+  .app-icon { display: block; flex-shrink: 0; border-radius: 23%; }
+</style>

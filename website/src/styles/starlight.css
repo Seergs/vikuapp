@@ -1,0 +1,21 @@
+@import './tokens.css';
+
+/* Adapter only: docs consume the same semantic roles as the landing page. */
+:root, :root[data-theme='light'], :root[data-theme='dark'] {
+  --sl-font: var(--viku-font-sans);
+  --sl-font-mono: var(--viku-font-mono);
+  --sl-color-white: var(--viku-color-text);
+  --sl-color-text: var(--viku-color-text-secondary);
+  --sl-color-text-accent: var(--viku-color-link);
+  --sl-color-bg: var(--viku-color-bg);
+  --sl-color-bg-nav: var(--viku-color-bg);
+  --sl-color-bg-sidebar: var(--viku-color-bg);
+  --sl-color-bg-inline-code: var(--viku-color-subtle);
+  --sl-color-hairline: var(--viku-color-border);
+  --sl-color-hairline-light: var(--viku-color-border);
+  --sl-color-accent: var(--viku-color-link);
+  --sl-color-accent-high: var(--viku-color-link);
+  --sl-color-accent-low: var(--viku-color-accent-soft);
+  --sl-color-bg-accent: var(--viku-color-action);
+  --sl-color-text-invert: var(--viku-color-on-action);
+}

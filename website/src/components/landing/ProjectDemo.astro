@@ -1,0 +1,97 @@
+---
+const tasks = [
+  { id: 'navigation', title: 'Prototype the navigation', due: 'Today, 5:00 PM', labels: ['Design', 'Research'], priority: 'urgent', column: 'progress', done: false },
+  { id: 'review', title: 'Review with the team', due: 'Tomorrow', labels: ['Client'], priority: 'high', column: 'progress', done: false },
+  { id: 'empty', title: 'Polish empty states', due: 'No due date', labels: ['Design'], priority: 'high', column: 'todo', done: false },
+  { id: 'dark', title: 'Refine dark mode', due: 'Thursday', labels: ['Research'], priority: 'medium', column: 'todo', done: false },
+  { id: 'system', title: 'Define the design system', due: 'Yesterday', labels: ['Design'], priority: 'low', column: 'done', done: true },
+];
+const labelTones: Record<string, string> = { Design: 'design', Client: 'client', Research: 'research' };
+const columns = [
+  { id: 'todo', title: 'To do' }, { id: 'progress', title: 'In progress' }, { id: 'done', title: 'Done' },
+];
+---
+<div class="project-demo" data-project-demo>
+  <div class="view-switch" role="group" aria-label="Project view" hidden>
+    <button type="button" data-view="list" aria-pressed="true" aria-controls="demo-list">☰ List</button>
+    <button type="button" data-view="board" aria-pressed="false" aria-controls="demo-board">▥ Board</button>
+  </div>
+  <div class="demo-stage">
+    <div id="demo-list" class="list-view">
+      <div class="project-label"><span>App redesign</span><span data-pending-count aria-live="polite">4 remaining</span></div>
+      <div class="panel">
+        {tasks.map((task) => (
+          <label class="task-row">
+            <input type="checkbox" checked={task.done} data-task={task.id} aria-label={`Complete ${task.title}`} />
+            <span class="task-content"><span class="task-title">{task.title}</span>
+              <span class="task-meta"><span>{task.due}</span>{task.labels.map(label => <span class:list={["tag", `label-${labelTones[label]}`]}>{label}</span>)}</span>
+            </span>
+            <span class:list={['priority-dot', `priority-${task.priority}`]} role="img" aria-label={`${task.priority} priority`} />
+          </label>
+        ))}
+      </div>
+    </div>
+    <div id="demo-board" class="board-view" hidden>
+      {columns.map((column) => (
+        <section class="board-column" aria-label={column.title}>
+          <h3>{column.title} <span>{tasks.filter(t => t.column === column.id).length}</span></h3>
+          {tasks.filter(t => t.column === column.id).map((task) => (
+            <label class="task-row board-card">
+              <input type="checkbox" checked={task.done} data-task={task.id} aria-label={`Complete ${task.title}`} />
+              <span class="task-content"><span class="task-title">{task.title}</span>
+                <span class="task-meta"><span>{task.due}</span>{task.labels.map(label => <span class:list={["tag", `label-${labelTones[label]}`]}>{label}</span>)}</span>
+              </span>
+              <span class:list={['priority-dot', `priority-${task.priority}`]} role="img" aria-label={`${task.priority} priority`} />
+            </label>
+          ))}
+        </section>
+      ))}
+    </div>
+  </div>
+  <p class="caption">Interactive example · Try completing a task. Your Vikunja data stays untouched.</p>
+</div>
+<script>
+  import { initializeProjectDemo } from './project-demo';
+  document.querySelectorAll<HTMLElement>('[data-project-demo]').forEach(initializeProjectDemo);
+</script>
+<style>
+  .project-demo { margin-top: var(--viku-space-6); }
+  .view-switch { display: flex; width: fit-content; margin: 0 auto var(--viku-space-5); gap: var(--viku-space-1); padding: var(--viku-space-1); border-radius: var(--viku-radius-pill); background: var(--viku-color-subtle); }
+  .view-switch button { cursor: pointer; border: 0; border-radius: var(--viku-radius-pill); min-height: 2.75rem; padding: var(--viku-space-2) var(--viku-space-4); background: transparent; color: var(--viku-color-text-secondary); font-weight: 600; }
+  .view-switch button[aria-pressed='true'] { background: var(--viku-color-surface); color: var(--viku-color-text); box-shadow: var(--viku-shadow-card); }
+  /* Reserve the taller view's space so switching never moves the next section. */
+  .demo-stage { display: grid; align-items: start; text-align: left; }
+  .list-view, .board-view { grid-area: 1 / 1; }
+  .list-view { max-width: 35rem; width: 100%; margin-inline: auto; }
+  .board-view { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--viku-space-3); }
+  .demo-stage [hidden] { display: grid !important; visibility: hidden; pointer-events: none; }
+  .project-label { display: flex; justify-content: space-between; gap: var(--viku-space-3); margin-bottom: var(--viku-space-2); padding-inline: var(--viku-space-4); color: var(--viku-color-text-muted); font-size: var(--viku-text-sm); }
+  .project-label > :first-child { text-transform: uppercase; font-weight: 600; }
+  .task-row { display: flex; gap: var(--viku-space-3); padding: var(--viku-space-4); align-items: start; cursor: pointer; }
+  .task-row + .task-row { border-top: 1px solid var(--viku-color-border); }
+  input { appearance: none; width: 1.5rem; height: 1.5rem; flex-shrink: 0; border: 2px solid var(--viku-color-link); border-radius: 50%; margin: 0; cursor: pointer; display: grid; place-content: center; }
+  input:checked { background: var(--viku-color-action); border-color: var(--viku-color-action); }
+  input:checked::after { content: '✓'; font-weight: 700; font-size: 1rem; color: var(--viku-color-on-action); }
+  input:checked + .task-content .task-title { text-decoration: line-through; color: var(--viku-color-text-muted); }
+  .task-content { min-width: 0; flex: 1; }
+  .task-title { display: block; font-weight: 500; transition: color var(--viku-duration-fast) var(--viku-ease); }
+  .task-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--viku-space-2); margin-top: var(--viku-space-1); font-size: var(--viku-text-sm); color: var(--viku-color-text-secondary); }
+  .label-design { --label-color: var(--viku-color-label-design); }
+  .label-client { --label-color: var(--viku-color-label-client); }
+  .label-research { --label-color: var(--viku-color-label-research); }
+  .priority-urgent { --priority-color: var(--viku-color-priority-urgent); }
+  .priority-high { --priority-color: var(--viku-color-priority-high); }
+  .priority-medium { --priority-color: var(--viku-color-priority-medium); }
+  .priority-low { --priority-color: var(--viku-color-priority-low); }
+  .priority-dot { width: 0.5rem; height: 0.5rem; margin-top: var(--viku-space-2); flex-shrink: 0; border-radius: 50%; background: var(--priority-color); }
+  .tag { color: var(--label-color); background: color-mix(in oklch, var(--label-color) 14%, var(--viku-color-surface)); border-radius: var(--viku-radius-pill); padding: 0.125rem var(--viku-space-2); font-weight: 600; }
+  .board-column { padding: var(--viku-space-2); border-radius: var(--viku-radius-lg); background: var(--viku-color-subtle); }
+  h3 { padding: var(--viku-space-2); font-size: 0.875rem; }
+  h3 span { color: var(--viku-color-text-muted); margin-left: var(--viku-space-2); font-weight: 400; }
+  .board-card { background: var(--viku-color-surface); border-radius: var(--viku-radius-md); margin-top: var(--viku-space-2); border: 0 !important; }
+  .caption { text-align: center; }
+  @media (max-width: 46rem) {
+    .board-view { grid-template-columns: 1fr; }
+    .board-column { width: 100%; }
+  }
+</style>

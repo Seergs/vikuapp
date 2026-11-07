@@ -1,12 +1,15 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import { site } from './src/data/site';
 
 // https://astro.build/config
 export default defineConfig({
+  site: site.url,
   integrations: [
     starlight({
       title: 'Viku',
+      customCss: ['./src/styles/starlight.css'],
       logo: {
         src: './src/assets/logo.png'
       },
