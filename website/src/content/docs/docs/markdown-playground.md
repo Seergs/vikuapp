@@ -118,19 +118,19 @@ This deliberately long line checks horizontal scrolling inside a code block with
 
 ## Callouts
 
-:::note
+:::note{icon="document"}
 This is a note with **bold text**, `inline code`, and a [documentation link](/docs/).
 :::
 
-:::tip[Helpful tip]
+:::tip[Helpful tip]{icon="star"}
 Use the theme selector to compare this page in light and dark mode.
 :::
 
-:::caution[Example warning]
+:::caution[Example warning]{icon="warning"}
 This is placeholder content. Do not treat the sample commands as configuration instructions.
 :::
 
-:::danger[Example danger message]
+:::danger[Example danger message]{icon="error"}
 A stronger callout can include a short list:
 
 - Explain the consequence clearly.

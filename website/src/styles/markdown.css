@@ -1,3 +1,46 @@
+.sl-markdown-content .starlight-aside__content {
+  font-size: var(--viku-text-compact);
+  margin-inline-start: calc(var(--viku-space-6) + var(--viku-space-2));
+}
+
+.sl-markdown-content .starlight-aside__title {
+  font-size: var(--viku-text-compact);
+  gap: var(--viku-space-2);
+}
+
+.sl-markdown-content .starlight-aside {
+  border-inline-start: 0;
+  border-radius: var(--viku-radius-md);
+  background-color: color-mix(in oklch, var(--callout-icon-bg) 6%, var(--viku-color-bg));
+}
+
+.sl-markdown-content .starlight-aside--note {
+  --callout-icon-bg: var(--viku-color-icon-bg-blue);
+}
+
+.sl-markdown-content .starlight-aside--tip {
+  --callout-icon-bg: var(--viku-color-icon-bg-purple);
+}
+
+.sl-markdown-content .starlight-aside--caution {
+  --callout-icon-bg: var(--viku-color-icon-bg-orange);
+}
+
+.sl-markdown-content .starlight-aside--danger {
+  --callout-icon-bg: var(--viku-color-icon-bg-red);
+}
+
+.sl-markdown-content .starlight-aside__icon {
+  box-sizing: border-box;
+  flex-shrink: 0;
+  width: var(--viku-space-6);
+  height: var(--viku-space-6);
+  padding: var(--viku-space-2);
+  border-radius: var(--viku-radius-sm);
+  background: var(--callout-icon-bg);
+  color: var(--viku-color-on-action);
+}
+
 /* Keep native list numbering, including start/value attributes and nested lists.
    Exclude Starlight components and the generated footnote reference list. */
 .sl-markdown-content ol:not(:where(.not-content *, .footnotes *)) {
