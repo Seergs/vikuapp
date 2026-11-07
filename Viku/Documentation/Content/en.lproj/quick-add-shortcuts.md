@@ -1,18 +1,18 @@
 ---
-title: Quick-Add Shortcuts
+title: Quick Add Magic
 summary: Add a task, its project, and a due date as you type.
 category: basics
-updated: 2026-11-06
+updated: 2026-11-07
 related: offline-mode
 ---
 
-# Quick-Add Shortcuts
+# Quick Add Magic
 
 Capture a task and organize it in one line, without opening each field separately.
 
 ## Turn on shortcuts
 
-Open **Settings → Experimental → Quick-Add** and choose **Vikunja** or **Todoist**, whichever feels familiar. This experimental feature is off by default.
+Open **Settings → General → Quick Add Magic** and choose **Vikunja** or **Todoist**, whichever feels familiar. Shortcuts are off by default.
 
 ## Try a task
 

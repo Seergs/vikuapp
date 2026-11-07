@@ -82,8 +82,34 @@ struct SettingsView: View {
                         }
                     }
                 }
+
+                Picker(selection: quickAddSyntaxBinding) {
+                    Text("Off", bundle: .module).tag(QuickAddSyntax?.none)
+                    ForEach(QuickAddSyntax.allCases, id: \.self) { syntax in
+                        Text(verbatim: syntax.displayName).tag(QuickAddSyntax?.some(syntax))
+                    }
+                } label: {
+                    HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
+                        SettingsRowIcon(systemName: "number")
+                        Text("Quick Add Magic", bundle: .module)
+                    }
+                }
             } header: {
                 Text("General", bundle: .module)
+            } footer: {
+                VStack(alignment: .leading, spacing: VikuSpacing.xs) {
+                    Text(
+                        "Shortcuts for new tasks. Todoist: #Project, @label, p1-p4. Vikunja: +Project, *label, !1-!5.",
+                        bundle: .module,
+                    )
+                    Button {
+                        appRouter.push(.documentationArticle("quick-add-shortcuts"))
+                    } label: {
+                        Text("Quick Add Magic guide", bundle: .module)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(palette.brand)
+                }
             }
             .listRowBackground(palette.cardBackground)
             // Widens the gap to "This connection" below — confirmed good
@@ -181,44 +207,10 @@ struct SettingsView: View {
             } footer: {
                 Text("Only applies to \(activeAccountName). Each connection has its own.", bundle: .module)
             }
-            // Widens the gap to "Experimental" below — confirmed good with
-            // this override in place; unaffected by the avatar row now
-            // sharing this same Section (that only changed the no-longer-
-            // relevant boundary above, between "This connection" and
-            // Manage Labels, which doesn't exist anymore).
+            // Keep section spacing consistent with General above.
             #if os(iOS)
             .listSectionSpacing(.custom(VikuSpacing.xl))
             #endif
-
-            Section {
-                Picker(selection: quickAddSyntaxBinding) {
-                    Text("Off", bundle: .module).tag(QuickAddSyntax?.none)
-                    ForEach(QuickAddSyntax.allCases, id: \.self) { syntax in
-                        Text(verbatim: syntax.displayName).tag(QuickAddSyntax?.some(syntax))
-                    }
-                } label: {
-                    HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
-                        SettingsRowIcon(systemName: "number")
-                        Text("Quick-Add", bundle: .module)
-                    }
-                }
-            } header: {
-                // Features still being tried out live here, separate from the
-                // stable settings above. Future experimental features go in this section.
-                VStack(alignment: .leading, spacing: VikuSpacing.xs) {
-                    Text("Experimental", bundle: .module)
-                    Text("Features still being tested. They may change or be removed.", bundle: .module)
-                        .font(VikuFont.footnote)
-                        .foregroundStyle(palette.textSecondary)
-                        .textCase(nil)
-                }
-            } footer: {
-                Text(
-                    "Shortcuts for new tasks. Todoist: #Project, @label, p1-p4. Vikunja: +Project, *label, !1-!5.",
-                    bundle: .module,
-                )
-            }
-            .listRowBackground(palette.cardBackground)
 
             Section {
                 SettingsNavigationRow(

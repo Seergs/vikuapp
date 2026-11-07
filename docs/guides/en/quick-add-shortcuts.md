@@ -1,17 +1,17 @@
 ---
-title: Quick-Add Shortcuts
+title: Quick Add Magic
 summary: Set dates, projects, labels, and priorities as you type.
 category: basics
-updated: 2026-11-05
+updated: 2026-11-07
 related: offline-mode
 ---
 
-# Quick-Add Shortcuts
+# Quick Add Magic
 
 The quick-add sheet can read shortcuts typed straight into the title, so you can
-file a task without opening the project, priority, or label pickers. The feature
-is experimental and off by default. To turn it on, go to **Settings → Experimental
-→ Quick-Add** and pick a dialect:
+file a task without opening the project, priority, or label pickers. Shortcuts
+are off by default. To turn it on, go to **Settings → General
+→ Quick Add Magic** and pick a dialect:
 
 - **Vikunja** uses the same symbols as Vikunja's own add magic.
 - **Todoist** uses the symbols Todoist users already know.

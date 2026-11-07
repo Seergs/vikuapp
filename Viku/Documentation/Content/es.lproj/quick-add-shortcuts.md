@@ -1,18 +1,18 @@
 ---
-title: Atajos de creación rápida
+title: Quick Add Magic
 summary: Añade una tarea, su proyecto y su fecha mientras escribes.
 category: basics
-updated: 2026-11-06
+updated: 2026-11-07
 related: offline-mode
 ---
 
-# Atajos de creación rápida
+# Quick Add Magic
 
 Captura y organiza una tarea en una sola línea, sin abrir cada campo por separado.
 
 ## Activa los atajos
 
-Abre **Ajustes → Experimental → Creación rápida** y elige **Vikunja** o **Todoist**, según cuál te resulte familiar. Esta función es experimental y está desactivada de forma predeterminada.
+Abre **Ajustes → General → Quick Add Magic** y elige **Vikunja** o **Todoist**, según cuál te resulte familiar. Los atajos están desactivados de forma predeterminada.
 
 ## Prueba con una tarea
 
