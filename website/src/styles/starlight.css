@@ -20,6 +20,10 @@
   --sl-color-text-invert: var(--viku-color-on-action);
 }
 
+.page > .header {
+  border-bottom-color: color-mix(in oklch, var(--viku-color-border) 85%, var(--viku-color-bg));
+}
+
 /* Separate the docs layout with spacing, keeping borders inside components. */
 .content-panel + .content-panel {
   border-top: 0;
