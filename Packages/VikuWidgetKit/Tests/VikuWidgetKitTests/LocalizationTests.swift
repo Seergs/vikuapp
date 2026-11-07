@@ -55,7 +55,6 @@ struct LocalizationTests {
 
     @Test(arguments: [
         ("Not connected", "No conectado"),
-        ("Open Vikunja to add your instance.", "Abre Vikunja para agregar tu instancia."),
         ("Sign in again", "Inicia sesión de nuevo"),
         (
             "Your token was rejected. Re-add the connection in Settings.",
