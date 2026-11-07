@@ -1,11 +1,16 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import { satteri } from '@astrojs/markdown-satteri';
+import { tableCards } from './src/plugins/table-cards.mjs';
 import { site } from './src/data/site';
 
 // https://astro.build/config
 export default defineConfig({
   site: site.url,
+  markdown: {
+    processor: satteri({ hastPlugins: [tableCards] }),
+  },
   integrations: [
     starlight({
       title: 'Viku',
