@@ -1,3 +1,7 @@
+.sl-markdown-content small {
+  color: var(--viku-color-text-muted);
+}
+
 .sl-markdown-content .starlight-aside__content {
   font-size: var(--viku-text-compact);
   margin-inline-start: calc(var(--viku-space-6) + var(--viku-space-2));

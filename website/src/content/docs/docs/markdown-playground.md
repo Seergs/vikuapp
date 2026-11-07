@@ -17,6 +17,12 @@ A second paragraph helps check the spacing between blocks. Documentation should 
 
 Special characters and escaped Markdown: &amp;, &lt;example&gt;, \*literal asterisks\*, and \`literal backticks\`.
 
+## Small text
+
+This is a regular paragraph for comparing text sizes.
+
+<small>This is small text, suitable for a secondary note or clarification beneath the main content.</small>
+
 ## Heading hierarchy
 
 The page title provides the only level-one heading. Article sections start at level two.
