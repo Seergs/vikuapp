@@ -1,5 +1,8 @@
 ---
 title: Server Version Support
+sidebar:
+  attrs:
+    data-viku-icon: server
 summary: Learn which Vikunja server versions are supported.
 category: setup
 lastUpdated: 2026-11-05

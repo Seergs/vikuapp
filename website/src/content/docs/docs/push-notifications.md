@@ -1,5 +1,8 @@
 ---
 title: Push Notifications
+sidebar:
+  attrs:
+    data-viku-icon: notifications
 summary: Set up notifications and understand how they work.
 category: setup
 lastUpdated: 2026-11-05

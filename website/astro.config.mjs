@@ -10,12 +10,15 @@ export default defineConfig({
     starlight({
       title: 'Viku',
       customCss: ['./src/styles/starlight.css'],
+      components: {
+        Sidebar: './src/components/docs/Sidebar.astro',
+      },
       logo: {
         src: './src/assets/logo.png'
       },
       sidebar: [
         {
-          label: 'Overview', slug: 'docs'
+          label: 'Overview', slug: 'docs', attrs: { 'data-viku-icon': 'overview' }
         },
         {
           label: 'Guides',
