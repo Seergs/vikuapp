@@ -68,7 +68,7 @@ struct KanbanLifecycleTests {
         sync.onRefresh = nil
     }
 
-    @Test func `missing offline snapshot remains failed until refresh recovers with empty board`() async {
+    @Test func `missing offline snapshot stays unavailable until refresh recovers with empty board`() async {
         let repository = FakeBucketRepository()
         repository.hasSnapshot = false
         let sync = TestScreenSync()
@@ -76,6 +76,48 @@ struct KanbanLifecycleTests {
         let viewModel = model(repository, sync: sync)
         await viewModel.start()
         #expect(!viewModel.hasSnapshot)
+        #expect(viewModel.loadState == .loaded)
+        await viewModel.load()
+        #expect(viewModel.loadState == .loaded)
+        sync.refreshError = nil
+        sync.onRefresh = { repository.hasSnapshot = true }
+        await viewModel.refresh()
+        #expect(viewModel.hasSnapshot)
+        #expect(viewModel.buckets.isEmpty)
+        #expect(viewModel.loadState == .loaded)
+        sync.onRefresh = nil
+    }
+
+    @Test func `cache invalidations cannot end the initial download presentation`() async {
+        let repository = FakeBucketRepository()
+        repository.hasSnapshot = false
+        let sync = TestScreenSync()
+        let viewModel = model(repository, sync: sync)
+        await viewModel.load()
+        #expect(viewModel.isLoading)
+        sync.onRefresh = {
+            #expect(viewModel.isRefreshing)
+            await viewModel.load()
+            await viewModel.load()
+            #expect(viewModel.isLoading)
+            #expect(!viewModel.hasSnapshot)
+            repository.hasSnapshot = true
+            repository.buckets = [KanbanBucket(id: 1, title: "Downloaded")]
+        }
+        await viewModel.start()
+        #expect(viewModel.loadState == .loaded)
+        #expect(viewModel.buckets.first?.title == "Downloaded")
+        #expect(!viewModel.isRefreshing)
+        sync.onRefresh = nil
+    }
+
+    @Test func `initial network failure stays retryable across cache invalidations`() async {
+        let repository = FakeBucketRepository()
+        repository.hasSnapshot = false
+        let sync = TestScreenSync()
+        sync.refreshError = .network("Server unreachable")
+        let viewModel = model(repository, sync: sync)
+        await viewModel.start()
         #expect(viewModel.loadState.failureMessage != nil)
         await viewModel.load()
         #expect(viewModel.loadState.failureMessage != nil)
@@ -83,8 +125,54 @@ struct KanbanLifecycleTests {
         sync.onRefresh = { repository.hasSnapshot = true }
         await viewModel.refresh()
         #expect(viewModel.hasSnapshot)
-        #expect(viewModel.buckets.isEmpty)
         #expect(viewModel.loadState == .loaded)
+        sync.onRefresh = nil
+    }
+
+    @Test func `online refresh without a board shows an error instead of offline instructions`() async {
+        let repository = FakeBucketRepository()
+        repository.hasSnapshot = false
+        let viewModel = model(repository, sync: TestScreenSync())
+        await viewModel.start()
+        #expect(!viewModel.hasSnapshot)
+        #expect(!viewModel.isRefreshing)
+        #expect(viewModel.loadState.failureMessage != nil)
+        await viewModel.load()
+        #expect(viewModel.loadState.failureMessage != nil)
+    }
+
+    @Test func `failed refresh preserves cached columns and pending local tasks`() async {
+        let repository = FakeBucketRepository()
+        let pending = VikunjaTask(id: .local(UUID()), title: "Pending", projectID: 1)
+        repository.buckets = [KanbanBucket(id: 1, title: "Cached", tasks: [pending])]
+        let sync = TestScreenSync()
+        sync.refreshError = .network("Server unreachable")
+        let toast = FakeToastPresenter()
+        let viewModel = model(repository, sync: sync, toast: toast)
+        await viewModel.start()
+        #expect(viewModel.loadState == .loaded)
+        #expect(viewModel.buckets.first?.tasks == [pending])
+        #expect(toast.shownMessages.map(\.style) == [.error])
+    }
+
+    @Test func `cancelled initial refresh can be started again`() async {
+        let repository = FakeBucketRepository()
+        repository.hasSnapshot = false
+        let sync = TestScreenSync()
+        sync.onRefresh = { throw CancellationError() }
+        let toast = FakeToastPresenter()
+        let viewModel = model(repository, sync: sync, toast: toast)
+        await viewModel.start()
+        #expect(!viewModel.isRefreshing)
+        #expect(!viewModel.isLoading)
+        await viewModel.load()
+        #expect(!viewModel.isLoading)
+        #expect(toast.shownMessages.isEmpty)
+        sync.onRefresh = { repository.hasSnapshot = true }
+        await viewModel.start()
+        #expect(viewModel.hasSnapshot)
+        #expect(viewModel.loadState == .loaded)
+        sync.onRefresh = nil
     }
 
     @Test func `unsynced project waits and unsupported board rejects local writes`() async {

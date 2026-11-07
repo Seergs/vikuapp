@@ -27,6 +27,8 @@ public final class KanbanBoardViewModel {
     private let synchronization: LocalScreenSync
     private let toastPresenter: ToastPresenting
     private let hapticPresenter: HapticFeedbackPresenting
+    // Local cache reads must not settle an in-flight download.
+    private var missingSnapshotState: ScreenLoadState<Void>?
     private var loadVersion = 0
     private var isStarting = false
     private var isObserving = false
@@ -67,7 +69,7 @@ public final class KanbanBoardViewModel {
     public func load() async {
         loadVersion += 1
         let version = loadVersion
-        if !hasSnapshot, loadState.failureMessage == nil {
+        if !hasSnapshot, missingSnapshotState == nil {
             loadState = .loading
         }
         do {
@@ -80,8 +82,10 @@ public final class KanbanBoardViewModel {
                 supportsWrites = false
                 supportsTaskCreation = false
                 buckets = []
-                if loadState.failureMessage == nil {
+                if needsProjectSync {
                     loadState = .loaded
+                } else {
+                    loadState = isRefreshing ? .loading : (missingSnapshotState ?? .loading)
                 }
             case let .available(board):
                 needsProjectSync = false
@@ -98,7 +102,9 @@ public final class KanbanBoardViewModel {
             if hasSnapshot {
                 show(error)
             } else {
-                loadState = .failure(message(error))
+                let failure: ScreenLoadState<Void> = .failure(message(error))
+                missingSnapshotState = failure
+                loadState = failure
             }
         }
     }
@@ -109,14 +115,19 @@ public final class KanbanBoardViewModel {
         if !hasSnapshot {
             loadState = .loading
         }
-        defer { isRefreshing = false }
+        defer {
+            isRefreshing = false
+            if !hasSnapshot, !needsProjectSync, loadState == .loading {
+                let settledState = missingSnapshotState ?? .idle
+                missingSnapshotState = settledState
+                loadState = settledState
+            }
+        }
         do {
             try await trigger.refresh(scope: .kanban(projectID: project.id))
             guard !Task.isCancelled else { return }
-            // Permit recovery from an initial failure even when the downloaded board is empty.
-            if !hasSnapshot {
-                loadState = .idle
-            }
+            // An online response without a board is not an offline-cache miss.
+            missingSnapshotState = .failure(message(VikunjaError.notFound))
             await load()
         } catch is CancellationError {
         } catch {
@@ -125,7 +136,9 @@ public final class KanbanBoardViewModel {
             if hasSnapshot {
                 show(error)
             } else {
-                loadState = .failure(message(error))
+                missingSnapshotState = (error as? VikunjaError) == .offline
+                    ? .loaded : .failure(message(error))
+                loadState = missingSnapshotState ?? .idle
             }
         }
     }

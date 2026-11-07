@@ -23,6 +23,8 @@ public struct KanbanBoardView: View {
     let searchText: String
     let onSelectTask: (VikunjaTask) -> Void
 
+    @State private var loadingPresentation = KanbanLoadingPresentation()
+    @State private var presentationOrigin = ContinuousClock.now
     @State private var dropTarget = KanbanDropTarget()
     @State private var horizontalScrollPosition: Int?
     @Environment(\.vikuPalette) private var palette
@@ -48,16 +50,33 @@ public struct KanbanBoardView: View {
             .refreshable { await viewModel.refresh() }
         }
         .background(palette.pageBackground)
-        .onDisappear { dropTarget.reset() }
+        .onDisappear {
+            dropTarget.reset()
+            loadingPresentation = KanbanLoadingPresentation()
+        }
+        .task(id: isInitialLoading) {
+            let clock = ContinuousClock()
+            while !Task.isCancelled {
+                let delay = loadingPresentation.update(
+                    isLoading: isInitialLoading, at: presentationOrigin.duration(to: clock.now),
+                )
+                guard let delay else { return }
+                do { try await clock.sleep(for: delay) } catch { return }
+            }
+        }
         .task { await viewModel.start() }
         .task { await viewModel.observeLocalChanges() }
+    }
+
+    private var isInitialLoading: Bool {
+        !viewModel.hasSnapshot && viewModel.isLoading
     }
 
     private var content: some View {
         VStack(spacing: VikuSpacing.sm) {
             HStack {
                 Spacer()
-                if viewModel.isRefreshing, viewModel.hasSnapshot {
+                if viewModel.isRefreshing, viewModel.hasSnapshot, !loadingPresentation.isVisible {
                     ProgressView()
                 }
                 Button { Task { await viewModel.refresh() } } label: {
@@ -66,38 +85,50 @@ public struct KanbanBoardView: View {
                 .disabled(viewModel.isRefreshing || viewModel.needsProjectSync)
             }
             .padding(.horizontal, VikuSpacing.md)
-            switch viewModel.loadState {
-            case .idle, .loading:
-                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
-            case let .failure(message):
+            if isInitialLoading || loadingPresentation.isVisible {
+                ProgressView()
+                    .opacity(loadingPresentation.isVisible ? 1 : 0)
+                    .accessibilityHidden(!loadingPresentation.isVisible)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                loadedContent
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var loadedContent: some View {
+        switch viewModel.loadState {
+        case .idle, .loading:
+            Spacer().frame(maxWidth: .infinity, maxHeight: .infinity)
+        case let .failure(message):
+            VikuStatusView(
+                systemImage: "exclamationmark.triangle.fill",
+                title: String(localized: "Couldn't load this board", bundle: .module),
+                message: message,
+                retry: { Task { await viewModel.refresh() } },
+            )
+        case .loaded:
+            if !viewModel.hasSnapshot {
                 VikuStatusView(
-                    systemImage: "exclamationmark.triangle.fill",
-                    title: String(localized: "Couldn't load this board", bundle: .module),
-                    message: message,
-                    retry: { Task { await viewModel.refresh() } },
+                    systemImage: "icloud.and.arrow.down",
+                    title: String(localized: "Board unavailable", bundle: .module),
+                    message: unavailableMessage,
                 )
-            case .loaded:
-                if !viewModel.hasSnapshot {
-                    VikuStatusView(
-                        systemImage: "icloud.and.arrow.down",
-                        title: String(localized: "Board unavailable", bundle: .module),
-                        message: unavailableMessage,
-                    )
-                } else if viewModel.buckets.isEmpty {
-                    VikuStatusView(
-                        systemImage: "rectangle.split.3x1",
-                        title: String(localized: "This board is empty", bundle: .module),
-                        message: String(localized: "Refresh to check for columns.", bundle: .module),
-                    )
-                } else {
-                    if !viewModel.supportsWrites {
-                        Text("This board uses server rules. Use Vikunja's web app to make changes.", bundle: .module)
-                            .font(VikuFont.footnote)
-                            .foregroundStyle(palette.textSecondary)
-                            .padding(.horizontal, VikuSpacing.md)
-                    }
-                    board
+            } else if viewModel.buckets.isEmpty {
+                VikuStatusView(
+                    systemImage: "rectangle.split.3x1",
+                    title: String(localized: "This board is empty", bundle: .module),
+                    message: String(localized: "Refresh to check for columns.", bundle: .module),
+                )
+            } else {
+                if !viewModel.supportsWrites {
+                    Text("This board uses server rules. Use Vikunja's web app to make changes.", bundle: .module)
+                        .font(VikuFont.footnote)
+                        .foregroundStyle(palette.textSecondary)
+                        .padding(.horizontal, VikuSpacing.md)
                 }
+                board
             }
         }
     }
