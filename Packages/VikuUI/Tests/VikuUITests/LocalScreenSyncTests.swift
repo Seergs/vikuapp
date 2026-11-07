@@ -44,6 +44,9 @@ struct LocalScreenSyncTests {
         #expect(failures.isEmpty)
         #expect(sync.initialFailureMessage == nil)
         #expect(!sync.isPreparingInitialSnapshot)
+        #expect(!sync.isRefreshing)
+        #expect(sync.isOffline)
+        #expect(sync.lastRefreshFailureMessage == VikunjaError.offline.displayMessage)
     }
 
     @Test
@@ -87,5 +90,8 @@ struct LocalScreenSyncTests {
         #expect(toast.shownMessages.count == 1)
         #expect(toast.shownMessages.first?.message == VikunjaError.unauthorized.displayMessage)
         #expect(toast.shownMessages.first?.style == .error)
+        #expect(!sync.isRefreshing)
+        #expect(!sync.isOffline)
+        #expect(sync.lastRefreshFailureMessage == VikunjaError.unauthorized.displayMessage)
     }
 }

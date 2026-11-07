@@ -21,7 +21,9 @@ struct CommentsSection: View {
         ) {
             CommentsList(
                 comments: viewModel.comments,
-                loadState: viewModel.commentsLoadState,
+                notice: viewModel.commentsNotice,
+                canRetry: viewModel.canRetryCommentsDownload,
+                onRetry: { Task { await viewModel.retryCommentsDownload() } },
                 onSubmit: { text in
                     Task { await viewModel.addComment(text) }
                 },
@@ -35,7 +37,9 @@ struct CommentsSection: View {
 
 private struct CommentsList: View {
     let comments: [TaskComment]
-    let loadState: ScreenLoadState<Void>
+    let notice: String?
+    let canRetry: Bool
+    let onRetry: () -> Void
     let onSubmit: (String) -> Void
     let onEdit: (TaskComment) -> Void
     let onDelete: (TaskComment) -> Void
@@ -44,20 +48,25 @@ private struct CommentsList: View {
 
     @Environment(\.vikuPalette) private var palette
 
-    private var emptyStateMessage: String {
-        if case let .failure(message) = loadState {
-            return message
-        }
-        return String(localized: "No comments yet.", bundle: .module)
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: VikuSpacing.md - VikuSpacing.xxs) {
-            if comments.isEmpty {
-                Text(verbatim: emptyStateMessage)
+            if let notice {
+                Text(verbatim: notice)
                     .font(VikuFont.subheadline)
                     .foregroundStyle(palette.textTertiary)
-            } else {
+                if canRetry {
+                    Button(action: onRetry) {
+                        Text("Retry", bundle: .module)
+                    }
+                    .font(VikuFont.subheadline)
+                }
+            }
+
+            if comments.isEmpty, notice == nil {
+                Text("No comments yet.", bundle: .module)
+                    .font(VikuFont.subheadline)
+                    .foregroundStyle(palette.textTertiary)
+            } else if !comments.isEmpty {
                 VStack(alignment: .leading, spacing: VikuSpacing.md - VikuSpacing.xxs) {
                     ForEach(comments) { comment in
                         CommentRow(

@@ -19,6 +19,7 @@ struct OfflineTaskCommentRepositoryTests {
     private struct Fixture {
         let repository: OfflineTaskCommentRepository
         let store: LocalStore
+        let storeDirectory: URL
         let network: FakeTaskCommentRepository
         let projectLocalID: UUID
         let accountID: UUID
@@ -42,7 +43,8 @@ struct OfflineTaskCommentRepositoryTests {
         network: FakeTaskCommentRepository = FakeTaskCommentRepository(),
         currentUser: User? = User(id: 9, username: "me"),
     ) async throws -> Fixture {
-        let store = try LocalStore(directory: temporaryDirectory())
+        let directory = temporaryDirectory()
+        let store = try LocalStore(directory: directory)
         let engine = SyncEngine(
             localStore: store,
             projectRepository: FakeProjectRepository(),
@@ -68,7 +70,7 @@ struct OfflineTaskCommentRepositoryTests {
         )
         try await store.write { db in try projectRow.insert(db) }
         return Fixture(
-            repository: repository, store: store, network: network,
+            repository: repository, store: store, storeDirectory: directory, network: network,
             projectLocalID: projectRow.localID, accountID: accountID, engine: engine,
         )
     }
@@ -97,6 +99,122 @@ struct OfflineTaskCommentRepositoryTests {
         )
         try await fixture.store.write { db in try row.insert(db) }
         return row
+    }
+
+    @Test
+    func `failure saving coverage rolls back downloaded comments too`() async throws {
+        let fixture = try await makeRepository(online: false)
+        _ = try await seedTask(in: fixture, remoteID: 5)
+        fixture.network.comments = [TaskComment(
+            id: 21, comment: "Remote", author: User(id: 1, username: "me"), created: Date(), updated: Date(),
+        )]
+        try await fixture.store.write { db in
+            try db.execute(sql: """
+            CREATE TRIGGER reject_comment_coverage BEFORE INSERT ON taskCommentSync
+            BEGIN SELECT RAISE(ABORT, 'Simulated disk failure'); END;
+            """)
+        }
+        await #expect(throws: (any Error).self) { try await fixture.engine.pullComments(taskID: .remote(5)) }
+        let snapshot = try await fixture.repository.fetchCommentSnapshot(taskID: .remote(5))
+        #expect(snapshot.comments.isEmpty)
+        #expect(snapshot.lastSuccessfulDownloadAt == nil)
+    }
+
+    @Test
+    func `local task coverage changes when the task is assigned a server identity`() async throws {
+        let fixture = try await makeRepository(online: false)
+        let task = try await seedTask(in: fixture, remoteID: nil)
+        let local = try await fixture.repository.fetchCommentSnapshot(taskID: .local(task.localID))
+        #expect(local.isLocalOnly)
+        #expect(local.lastSuccessfulDownloadAt == nil)
+        try await fixture.store.write { db in
+            var synced = task
+            synced.remoteID = 5
+            try synced.update(db)
+        }
+        let synced = try await fixture.repository.fetchCommentSnapshot(taskID: .local(task.localID))
+        #expect(!synced.isLocalOnly)
+        #expect(synced.lastSuccessfulDownloadAt == nil)
+    }
+
+    @Test
+    func `empty conversations are unknown until a successful download and remain known after reopening`() async throws {
+        let fixture = try await makeRepository(online: false)
+        let task = try await seedTask(in: fixture, remoteID: 5)
+        let unknown = try await fixture.repository.fetchCommentSnapshot(taskID: .remote(5))
+        #expect(unknown.comments.isEmpty)
+        #expect(unknown.lastSuccessfulDownloadAt == nil)
+        #expect(fixture.network.fetchedTaskIDs.isEmpty)
+
+        try await fixture.engine.pullComments(taskID: .local(task.localID))
+        let downloaded = try await fixture.repository.fetchCommentSnapshot(taskID: .remote(5))
+        #expect(downloaded.comments.isEmpty)
+        #expect(downloaded.lastSuccessfulDownloadAt != nil)
+
+        let reopenedStore = try LocalStore(directory: fixture.storeDirectory)
+        let reopened = OfflineTaskCommentRepository(
+            localStore: reopenedStore, accountID: fixture.accountID, syncRequester: NoopKanbanSyncRequester(),
+        )
+        let persisted = try await reopened.fetchCommentSnapshot(taskID: .remote(5))
+        #expect(persisted.lastSuccessfulDownloadAt == downloaded.lastSuccessfulDownloadAt)
+    }
+
+    @Test
+    func `failed and cancelled downloads do not establish or erase coverage`() async throws {
+        let fixture = try await makeRepository(online: false)
+        let task = try await seedTask(in: fixture, remoteID: 5)
+        fixture.network.fetchError = .timeout
+        await #expect(throws: VikunjaError.timeout) {
+            try await fixture.engine.pullComments(taskID: .local(task.localID))
+        }
+        #expect(try await fixture.repository.fetchCommentSnapshot(taskID: .remote(5)).lastSuccessfulDownloadAt == nil)
+        fixture.network.fetchError = nil
+        try await fixture.engine.pullComments(taskID: .remote(5))
+        let original = try await fixture.repository.fetchCommentSnapshot(taskID: .remote(5))
+        let originalDate = original.lastSuccessfulDownloadAt
+        fixture.network.fetchError = .timeout
+        await #expect(throws: VikunjaError.timeout) { try await fixture.engine.pullComments(taskID: .remote(5)) }
+        let afterFailure = try await fixture.repository.fetchCommentSnapshot(taskID: .remote(5))
+        #expect(afterFailure.lastSuccessfulDownloadAt == originalDate)
+        fixture.network.fetchError = nil
+        let cancelled = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            try await fixture.engine.pullComments(taskID: .remote(5))
+        }
+        await #expect(throws: (any Error).self) { try await cancelled.value }
+        let afterCancellation = try await fixture.repository.fetchCommentSnapshot(taskID: .remote(5))
+        #expect(afterCancellation.lastSuccessfulDownloadAt == originalDate)
+    }
+
+    @Test
+    func `legacy and offline created comments do not imply complete coverage`() async throws {
+        let fixture = try await makeRepository(online: false)
+        let task = try await seedTask(in: fixture, remoteID: 5)
+        try await seedComment(in: fixture, taskLocalID: task.localID, remoteID: 21)
+        _ = try await fixture.repository.addComment("Pending", toTask: .remote(5))
+        let snapshot = try await fixture.repository.fetchCommentSnapshot(taskID: .remote(5))
+        #expect(snapshot.comments.count == 2)
+        #expect(snapshot.lastSuccessfulDownloadAt == nil)
+        try await fixture.engine.pullComments(taskID: .remote(5))
+        let refreshed = try await fixture.repository.fetchCommentSnapshot(taskID: .remote(5))
+        #expect(refreshed.comments.map(\.comment) == ["Pending"])
+        #expect(refreshed.lastSuccessfulDownloadAt != nil)
+    }
+
+    @Test
+    func `coverage belongs to one task and account and cascades on deletion`() async throws {
+        let fixture = try await makeRepository(online: false)
+        let task = try await seedTask(in: fixture, remoteID: 5)
+        _ = try await seedTask(in: fixture, remoteID: 6)
+        try await fixture.engine.pullComments(taskID: .remote(5))
+        #expect(try await fixture.repository.fetchCommentSnapshot(taskID: .remote(6)).lastSuccessfulDownloadAt == nil)
+        let other = OfflineTaskCommentRepository(
+            localStore: fixture.store, accountID: UUID(), syncRequester: NoopKanbanSyncRequester(),
+        )
+        await #expect(throws: VikunjaError.notFound) { try await other.fetchCommentSnapshot(taskID: .remote(5)) }
+        try await fixture.store.write { db in try task.delete(db) }
+        let remaining = try await fixture.store.read { db in try TaskCommentSyncRecord.fetchAll(db) }
+        #expect(remaining.isEmpty)
     }
 
     @Test

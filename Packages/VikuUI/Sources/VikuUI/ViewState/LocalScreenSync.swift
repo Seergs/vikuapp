@@ -8,6 +8,13 @@ import VikunjaCore
 @Observable
 public final class LocalScreenSync {
     public private(set) var isPreparingInitialSnapshot = false
+    public var isRefreshing: Bool {
+        refreshCount > 0
+    }
+
+    public private(set) var isOffline = false
+    public private(set) var lastRefreshFailureMessage: String?
+    private var refreshCount = 0
     public private(set) var initialFailureMessage: String?
     private let trigger: SyncTriggering
     private let localData: LocalDataObserving
@@ -28,7 +35,11 @@ public final class LocalScreenSync {
         reload: () async -> Void,
         onInitialFailure: (String) -> Void,
     ) async {
-        defer { isPreparingInitialSnapshot = false }
+        beginRefresh()
+        defer {
+            refreshCount -= 1
+            isPreparingInitialSnapshot = false
+        }
         do {
             isPreparingInitialSnapshot = try await !hasInitialSnapshot()
             await reload()
@@ -46,6 +57,7 @@ public final class LocalScreenSync {
         } catch is CancellationError {
         } catch {
             guard !Task.isCancelled else { return }
+            recordRefreshFailure(error)
             let message = message(for: error)
             if isPreparingInitialSnapshot {
                 initialFailureMessage = message
@@ -71,6 +83,8 @@ public final class LocalScreenSync {
 
     @discardableResult
     public func refresh(scope: SyncScope = .account, reload: () async -> Void) async -> Bool {
+        beginRefresh()
+        defer { refreshCount -= 1 }
         var canLoadOnlineResources = true
         do {
             try await trigger.refresh(scope: scope)
@@ -79,12 +93,24 @@ public final class LocalScreenSync {
             return false
         } catch {
             guard !Task.isCancelled else { return false }
+            recordRefreshFailure(error)
             canLoadOnlineResources = (error as? VikunjaError) != .offline
             toastPresenter.show(message(for: error), style: style(for: error))
         }
         guard !Task.isCancelled else { return false }
         await reload()
         return canLoadOnlineResources
+    }
+
+    private func beginRefresh() {
+        refreshCount += 1
+        isOffline = false
+        lastRefreshFailureMessage = nil
+    }
+
+    private func recordRefreshFailure(_ error: any Error) {
+        isOffline = (error as? VikunjaError) == .offline
+        lastRefreshFailureMessage = message(for: error)
     }
 
     private func style(for error: any Error) -> ToastStyle {

@@ -726,8 +726,7 @@ public actor SyncEngine {
     }
 
     /// Refreshes one task's cached comment thread from the server. Called
-    /// on demand by `OfflineTaskCommentRepository.fetchComments` rather than
-    /// from `SyncCoordinator`'s periodic pass: comments are a per-task
+    /// on demand through `SyncCoordinator` rather than its periodic pass: comments are a per-task
     /// resource, and pulling every cached task's thread would turn one sync
     /// into tens or hundreds of requests.
     ///
@@ -748,9 +747,12 @@ public actor SyncEngine {
         guard let taskRow, let taskRemoteID = taskRow.remoteID else { return }
 
         let remoteComments = try await commentRepository.fetchComments(taskID: .remote(taskRemoteID))
+        try Task.checkCancellation()
+        let downloadedAt = Date()
         let fetchedRemoteIDs = Set(remoteComments.compactMap(\.id.remoteValue))
 
         try await localStore.write { db in
+            try Task.checkCancellation()
             let localRows = try TaskCommentRecord.fetchAll(db)
                 .filter { $0.accountID == self.accountID && $0.taskLocalID == taskRow.localID }
             let pendingItems = try MutationQueueRecord.fetchAll(db).filter {
@@ -785,6 +787,11 @@ public actor SyncEngine {
                 guard !protectedLocalIDs.contains(row.localID), !hiddenRemoteIDs.contains(remoteID) else { continue }
                 try row.delete(db)
             }
+            try Task.checkCancellation()
+            try TaskCommentSyncRecord(
+                accountID: self.accountID, taskLocalID: taskRow.localID,
+                lastSuccessfulDownloadAt: downloadedAt,
+            ).save(db)
         }
     }
 

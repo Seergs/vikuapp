@@ -33,8 +33,11 @@ extension VikunjaEndpoints {
         Endpoint(path: "/api/v2/projects/\(id)", method: .delete)
     }
 
-    static func commentsV2(taskID: Int) -> Endpoint {
-        Endpoint(path: "/api/v2/tasks/\(taskID)/comments")
+    static func commentsV2(taskID: Int, page: Int? = nil) -> Endpoint {
+        Endpoint(
+            path: "/api/v2/tasks/\(taskID)/comments",
+            queryItems: page.map { [URLQueryItem(name: "page", value: String($0))] } ?? [],
+        )
     }
 
     static func commentV2(taskID: Int, commentID: Int) -> Endpoint {

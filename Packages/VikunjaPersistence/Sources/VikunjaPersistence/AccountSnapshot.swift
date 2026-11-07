@@ -6,6 +6,7 @@ struct AccountSnapshot: Equatable, Sendable {
     let projects: [ProjectRecord]
     let tasks: [TaskRecord]
     let labels: [LabelRecord]
+    let commentSyncStates: [TaskCommentSyncRecord]
     let comments: [TaskCommentRecord]
     let filters: [SavedFilterRecord]
     let reminders: [TaskReminderRecord]
@@ -28,6 +29,7 @@ struct AccountSnapshot: Equatable, Sendable {
         self.projects = try ProjectRecord.filter(Column("accountID") == accountID).fetchAll(db)
         self.tasks = try TaskRecord.filter(Column("accountID") == accountID).fetchAll(db)
         self.labels = try LabelRecord.filter(Column("accountID") == accountID).fetchAll(db)
+        self.commentSyncStates = try TaskCommentSyncRecord.filter(Column("accountID") == accountID).fetchAll(db)
         self.comments = try TaskCommentRecord.filter(Column("accountID") == accountID).fetchAll(db)
         self.filters = try SavedFilterRecord.filter(Column("accountID") == accountID).fetchAll(db)
         self.reminders = try TaskReminderRecord.filter(Column("accountID") == accountID).fetchAll(db)
@@ -65,6 +67,7 @@ struct AccountSnapshot: Equatable, Sendable {
         try insert(labels, db: db)
         try insert(filters, db: db)
         try insert(comments, db: db)
+        try insert(commentSyncStates, db: db)
         try insert(reminders, db: db)
         try insert(memberships, db: db)
         try insert(relations, db: db)

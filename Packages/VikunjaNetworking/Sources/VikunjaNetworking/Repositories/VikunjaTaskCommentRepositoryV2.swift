@@ -21,7 +21,17 @@ public final class VikunjaTaskCommentRepositoryV2: TaskCommentRepositoryProtocol
         let envelope: APIv2Envelope<CommentDTO> = try await client.send(
             VikunjaEndpoints.commentsV2(taskID: resolvedTaskID),
         )
-        return envelope.items.map(CommentMapper.toDomain)
+        var dtos = envelope.items
+        if envelope.totalPages > 1 {
+            for page in 2 ... envelope.totalPages {
+                try Task.checkCancellation()
+                let nextPage: APIv2Envelope<CommentDTO> = try await client.send(
+                    VikunjaEndpoints.commentsV2(taskID: resolvedTaskID, page: page),
+                )
+                dtos += nextPage.items
+            }
+        }
+        return dtos.map(CommentMapper.toDomain)
     }
 
     public func addComment(_ text: String, toTask taskID: EntityID) async throws -> TaskComment {

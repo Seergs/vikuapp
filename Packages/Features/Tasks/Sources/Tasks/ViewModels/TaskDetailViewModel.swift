@@ -36,6 +36,45 @@ public final class TaskDetailViewModel {
     /// kicks both off together, but keeping them separate means a comments
     /// failure doesn't block the rest of the screen from showing.
     public private(set) var comments: [TaskComment] = []
+    public private(set) var commentsLastSuccessfulDownloadAt: Date?
+    private var commentsAreLocalOnly = false
+
+    /// Download coverage and transient refresh state are independent of local comments.
+    public var commentsNotice: String? {
+        if commentsAreLocalOnly {
+            return nil
+        }
+        if synchronization.isRefreshing || commentsLoadState == .loading {
+            return commentsLastSuccessfulDownloadAt == nil
+                ? String(localized: "Loading comments…", bundle: .module) : nil
+        }
+        if case let .failure(message) = commentsLoadState {
+            return message
+        }
+        if synchronization.isOffline {
+            return commentsLastSuccessfulDownloadAt == nil
+                ? String(localized: "Connect to download this task's comments.", bundle: .module)
+                : String(
+                    localized: "You're offline. There may be comments you haven't downloaded yet.", bundle: .module,
+                )
+        }
+        if synchronization.lastRefreshFailureMessage != nil {
+            return String(localized: "Couldn't update comments. Try again.", bundle: .module)
+        }
+        if commentsLastSuccessfulDownloadAt == nil {
+            return String(localized: "This task's comments haven't been downloaded yet.", bundle: .module)
+        }
+        return nil
+    }
+
+    public var canRetryCommentsDownload: Bool {
+        guard !commentsAreLocalOnly, !synchronization.isRefreshing, commentsLoadState != .loading else { return false }
+        if case .failure = commentsLoadState {
+            return true
+        }
+        return commentsLastSuccessfulDownloadAt == nil || synchronization.lastRefreshFailureMessage != nil
+    }
+
     public private(set) var commentsLoadState: ScreenLoadState<Void> = .idle
     /// This task's file attachments, in Vikunja's order (oldest first).
     /// Loaded via `loadAttachments()` on its own load state — same reasoning
@@ -598,23 +637,23 @@ public final class TaskDetailViewModel {
             commentsLoadState = .loading
         }
         do {
-            let fetched = try await commentRepository.fetchComments(taskID: task.id)
+            let snapshot = try await commentRepository.fetchCommentSnapshot(taskID: task.id)
+            try Task.checkCancellation()
             guard token == commentsWriteToken else { return }
-            comments = fetched
+            comments = snapshot.comments
+            commentsLastSuccessfulDownloadAt = snapshot.lastSuccessfulDownloadAt
+            commentsAreLocalOnly = snapshot.isLocalOnly
             commentsLoadState = .loaded
-        } catch let error as VikunjaError {
+        } catch is CancellationError {
             guard token == commentsWriteToken else { return }
-            if hadContent {
-                toastPresenter.show(error.displayMessage, style: .error)
-            } else {
-                commentsLoadState = .failure(error.displayMessage)
-            }
+            commentsLoadState = hadContent ? .loaded : .idle
         } catch {
             guard token == commentsWriteToken else { return }
+            let message = (error as? VikunjaError)?.displayMessage ?? error.localizedDescription
             if hadContent {
-                toastPresenter.show(error.localizedDescription, style: .error)
+                toastPresenter.show(message, style: .error)
             } else {
-                commentsLoadState = .failure(error.localizedDescription)
+                commentsLoadState = .failure(message)
             }
         }
     }
@@ -955,6 +994,11 @@ public final class TaskDetailViewModel {
 
     public func observeLocalChanges() async {
         await synchronization.observe { await load(); await loadComments() }
+    }
+
+    public func retryCommentsDownload() async {
+        guard canRetryCommentsDownload else { return }
+        await synchronization.refresh(scope: .comments(task.id), reload: { await loadComments() })
     }
 
     public func refresh() async {

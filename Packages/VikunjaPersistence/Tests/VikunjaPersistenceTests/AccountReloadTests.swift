@@ -57,6 +57,21 @@ struct AccountReloadTests {
         }
     }
 
+    @Test func `reload downloads and preserves coverage of previously empty conversations`() async throws {
+        let fixture = try await Fixture()
+        try await fixture.coordinator.refresh(accountID: fixture.account.id, scope: .comments(.remote(1)))
+        let before = try await fixture.snapshot()
+        #expect(before.comments.isEmpty)
+        #expect(before.commentSyncStates.count == 1)
+        try await fixture.coordinator.reloadFromServer(accountID: fixture.account.id)
+        let after = try await fixture.snapshot()
+        #expect(after.comments.isEmpty)
+        #expect(after.commentSyncStates.count == 1)
+        #expect(after.commentSyncStates.first?.taskLocalID == before.commentSyncStates.first?.taskLocalID)
+        let fetchedIDs = fixture.factory.commentRepository(for: fixture.account.baseURL).fetchedTaskIDs
+        #expect(fetchedIDs == [.remote(1), .remote(1)])
+    }
+
     @Test func `successful reload restores server truth without uploading pending changes`() async throws {
         let fixture = try await Fixture()
         let projects = OfflineProjectRepository(
