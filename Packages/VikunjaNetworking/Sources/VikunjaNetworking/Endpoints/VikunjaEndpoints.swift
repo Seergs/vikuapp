@@ -145,8 +145,11 @@ enum VikunjaEndpoints {
         Endpoint(path: "/api/v1/tasks/\(taskID)/relations/\(kind.rawValue)/\(otherTaskID)", method: .delete)
     }
 
-    static func comments(taskID: Int) -> Endpoint {
-        Endpoint(path: "/api/v1/tasks/\(taskID)/comments")
+    static func comments(taskID: Int, page: Int? = nil) -> Endpoint {
+        Endpoint(
+            path: "/api/v1/tasks/\(taskID)/comments",
+            queryItems: page.map { [URLQueryItem(name: "page", value: String($0))] } ?? [],
+        )
     }
 
     static func createComment(taskID: Int, text: String) throws -> Endpoint {

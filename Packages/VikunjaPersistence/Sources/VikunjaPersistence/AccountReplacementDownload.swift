@@ -17,6 +17,7 @@ extension SyncEngine {
         // Restore already cached boards and threads, including a thread whose last
         // visible comment was deleted locally. Other detail resources remain demand-loaded.
         var threadIDs = Set(original.comments.map(\.taskLocalID))
+        threadIDs.formUnion(original.commentSyncStates.map(\.taskLocalID))
         for item in original.mutations where item.entityType == .comment {
             if let payload = item.payload?.data(using: .utf8),
                let target = try? JSONDecoder().decode(CommentTarget.self, from: payload) {

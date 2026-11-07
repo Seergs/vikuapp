@@ -898,3 +898,21 @@ main thread or showing a spinner. Accepted writes clear selection; local failure
 retain it for retry, while later upload failures use Pending Sync. Observation can
 refresh unrelated fields or remove rows during acceptance; completion responses
 update only the state of identities still present in the view model.
+
+## Comment download coverage
+
+Comments remain demand-loaded when opening task details. `TaskCommentSnapshot`
+returns cached comments and the last successful complete download date in one
+local read. `taskCommentSync` stores that coverage per account and task, including
+empty conversations. Both API adapters read every comment page before returning;
+a later-page failure leaves the previous cache and coverage untouched. Unsynced local tasks explicitly report that they have no
+remote conversation yet, so their details never ask to download one. Pull reconciliation and coverage commit atomically; failed
+or cancelled pulls and local writes never establish coverage. Existing caches
+start with unknown coverage until the next successful download.
+
+Task details distinguish unknown coverage, confirmed empty conversations, loading,
+and failed refreshes. Offline reads preserve local comments and explain whether
+the conversation has been downloaded. Retry uses the existing scoped refresh;
+there is no automatic comment prefetch. Account recovery downloads previously
+covered conversations, including empty ones, and replaces their metadata with the
+rest of the account snapshot. Deleting a task cascades its coverage record.

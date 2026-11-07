@@ -260,6 +260,15 @@ final class FakeTaskRelationRepository: TaskRelationRepositoryProtocol, @uncheck
 
 final class FakeTaskCommentRepository: TaskCommentRepositoryProtocol, @unchecked Sendable {
     var comments: [TaskComment] = []
+    var isLocalOnly = false
+    var lastSuccessfulDownloadAt: Date? = Date(timeIntervalSince1970: 1_700_000_000)
+
+    func fetchCommentSnapshot(taskID: EntityID) async throws -> TaskCommentSnapshot {
+        let downloadedAt = lastSuccessfulDownloadAt
+        let comments = try await fetchComments(taskID: taskID)
+        return TaskCommentSnapshot(comments: comments, lastSuccessfulDownloadAt: downloadedAt, isLocalOnly: isLocalOnly)
+    }
+
     var fetchError: VikunjaError?
     var addError: VikunjaError?
     var updateError: VikunjaError?

@@ -1,3 +1,4 @@
+import Foundation
 import VikunjaCore
 
 public final class VikunjaTaskCommentRepository: TaskCommentRepositoryProtocol {
@@ -11,7 +12,20 @@ public final class VikunjaTaskCommentRepository: TaskCommentRepositoryProtocol {
         guard let resolvedTaskID = taskID.remoteValue else {
             preconditionFailure("VikunjaTaskCommentRepository.fetchComments: the task must be synced first")
         }
-        let dtos: [CommentDTO] = try await client.send(VikunjaEndpoints.comments(taskID: resolvedTaskID))
+        let (firstPage, response): ([CommentDTO], HTTPURLResponse) = try await client.sendWithResponse(
+            VikunjaEndpoints.comments(taskID: resolvedTaskID),
+        )
+        var dtos = firstPage
+        let totalPages = Int(response.value(forHTTPHeaderField: "x-pagination-total-pages") ?? "1") ?? 1
+        if totalPages > 1 {
+            for page in 2 ... totalPages {
+                try Task.checkCancellation()
+                let nextPage: [CommentDTO] = try await client.send(
+                    VikunjaEndpoints.comments(taskID: resolvedTaskID, page: page),
+                )
+                dtos += nextPage
+            }
+        }
         return dtos.map(CommentMapper.toDomain)
     }
 

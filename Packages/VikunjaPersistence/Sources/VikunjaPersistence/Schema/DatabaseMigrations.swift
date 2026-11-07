@@ -28,6 +28,15 @@ enum DatabaseMigrations {
                 table.add(column: "failureDetails", .text)
             }
         }
+        migrator.registerMigration("createTaskCommentSync") { db in
+            try db.create(table: "taskCommentSync") { table in
+                table.column("accountID", .text).notNull().indexed()
+                table.column("taskLocalID", .text).notNull()
+                    .references("task", column: "localID", onDelete: .cascade)
+                table.column("lastSuccessfulDownloadAt", .datetime).notNull()
+                table.primaryKey(["accountID", "taskLocalID"])
+            }
+        }
     }
 
     private static func createProject(_ db: Database) throws {

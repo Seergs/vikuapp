@@ -32,12 +32,28 @@ public actor OfflineTaskCommentRepository: TaskCommentRepositoryProtocol {
     }
 
     public func fetchComments(taskID: EntityID) async throws -> [TaskComment] {
-        let taskRow = try await localStore.read { db in
-            try Self.findTaskRow(matching: taskID, accountID: self.accountID, db: db)
-        }
-        guard let taskRow else { throw VikunjaError.notFound }
+        try await fetchCommentSnapshot(taskID: taskID).comments
+    }
 
-        return try await readComments(taskLocalID: taskRow.localID)
+    public func fetchCommentSnapshot(taskID: EntityID) async throws -> TaskCommentSnapshot {
+        try await localStore.read { db in
+            guard let task = try Self.findTaskRow(matching: taskID, accountID: self.accountID, db: db) else {
+                throw VikunjaError.notFound
+            }
+            let comments = try Self.accountRows(self.accountID, db: db)
+                .filter { $0.taskLocalID == task.localID }
+                .sorted {
+                    $0.created == $1.created ? $0.localID.uuidString < $1.localID.uuidString : $0.created < $1.created
+                }
+                .map(Self.comment(from:))
+            let coverage = try TaskCommentSyncRecord
+                .filter(Column("accountID") == self.accountID && Column("taskLocalID") == task.localID)
+                .fetchOne(db)
+            return TaskCommentSnapshot(
+                comments: comments, lastSuccessfulDownloadAt: coverage?.lastSuccessfulDownloadAt,
+                isLocalOnly: task.remoteID == nil,
+            )
+        }
     }
 
     public func addComment(_ text: String, toTask taskID: EntityID) async throws -> TaskComment {
@@ -144,17 +160,6 @@ public actor OfflineTaskCommentRepository: TaskCommentRepositoryProtocol {
 
     private func triggerDrainIfOnline() async {
         await syncRequester.requestSync()
-    }
-
-    private func readComments(taskLocalID: UUID) async throws -> [TaskComment] {
-        try await localStore.read { db in
-            try Self.accountRows(self.accountID, db: db)
-                .filter { $0.taskLocalID == taskLocalID }
-                .sorted {
-                    $0.created == $1.created ? $0.localID.uuidString < $1.localID.uuidString : $0.created < $1.created
-                }
-                .map(Self.comment(from:))
-        }
     }
 
     private func readComment(id: EntityID) async throws -> TaskComment {
