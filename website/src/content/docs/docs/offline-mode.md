@@ -1,5 +1,8 @@
 ---
 title: Using Viku Offline
+sidebar:
+  attrs:
+    data-viku-icon: offline
 summary: Work offline and sync your changes later.
 category: basics
 lastUpdated: 2026-11-05

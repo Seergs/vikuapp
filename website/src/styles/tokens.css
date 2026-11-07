@@ -5,6 +5,12 @@
   --viku-blue-light: #8cbdff;
   --viku-blue-on-dark: #4f9bff;
   --viku-orange: #ff9f43;
+  /* Filled icon tiles keep white glyphs in both themes. */
+  --viku-color-icon-bg-blue: var(--viku-blue);
+  --viku-color-icon-bg-orange: #b95b00;
+  --viku-color-icon-bg-purple: #7843ab;
+  --viku-color-icon-bg-green: #237544;
+  --viku-color-icon-bg-gray: #596273;
   --viku-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --viku-font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
   --viku-text-sm: 0.8125rem;
@@ -44,6 +50,8 @@
   --viku-color-border: oklch(88% 0.006 260);
   --viku-color-subtle: oklch(94% 0.006 260);
   --viku-color-link: var(--viku-blue);
+  --viku-color-link-selected: var(--viku-blue);
+  --viku-color-bg-selected: color-mix(in oklch, var(--viku-blue) 10%, var(--viku-color-surface));
   --viku-color-accent-soft: #e4edff;
   --viku-color-label-design: #7843ab;
   --viku-color-label-client: #237544;

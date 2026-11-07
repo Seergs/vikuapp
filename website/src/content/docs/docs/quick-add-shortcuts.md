@@ -1,5 +1,8 @@
 ---
 title: Quick-Add Shortcuts
+sidebar:
+  attrs:
+    data-viku-icon: shortcuts
 summary: Set dates, projects, labels, and priorities as you type.
 category: basics
 lastUpdated: 2026-11-05
