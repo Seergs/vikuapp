@@ -35,7 +35,7 @@ struct TodayWidgetView: View {
             TodayWidgetMessage(
                 systemImage: "link.circle",
                 title: String(localized: "Not connected", bundle: .module),
-                message: String(localized: "Open Vikunja to add your instance.", bundle: .module),
+                message: String(localized: "Open Viku to add your instance.", bundle: .module),
             )
         case .needsAuth:
             TodayWidgetMessage(

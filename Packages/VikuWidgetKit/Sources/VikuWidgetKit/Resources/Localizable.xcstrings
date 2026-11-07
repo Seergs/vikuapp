@@ -181,16 +181,6 @@
         }
       }
     },
-    "Open Vikunja to add your instance." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Abre Vikunja para agregar tu instancia."
-          }
-        }
-      }
-    },
     "Opens Viku's quick-add sheet to jot down a new task." : {
       "localizations" : {
         "es" : {
