@@ -1,6 +1,6 @@
 @import './tokens.css';
 
-/* Adapter only: docs consume the same semantic roles as the landing page. */
+/* Docs consume the same semantic roles as the landing page. */
 :root, :root[data-theme='light'], :root[data-theme='dark'] {
   --sl-font: var(--viku-font-sans);
   --sl-font-mono: var(--viku-font-mono);
@@ -18,4 +18,25 @@
   --sl-color-accent-low: var(--viku-color-accent-soft);
   --sl-color-bg-accent: var(--viku-color-action);
   --sl-color-text-invert: var(--viku-color-on-action);
+}
+
+.page > .header {
+  border-bottom-color: color-mix(in oklch, var(--viku-color-border) 85%, var(--viku-color-bg));
+}
+
+.site-title {
+  color: var(--viku-color-text);
+}
+
+/* Separate the docs layout with spacing, keeping borders inside components. */
+.content-panel + .content-panel {
+  border-top: 0;
+}
+
+.sidebar-pane {
+  border-inline-end: 0;
+}
+
+.right-sidebar {
+  border-inline-start: 0;
 }
