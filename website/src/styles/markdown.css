@@ -1,3 +1,36 @@
+.sl-markdown-content .viku-table-card {
+  overflow-x: auto;
+  background: var(--viku-color-surface);
+  border-radius: var(--viku-radius-lg);
+  box-shadow: var(--viku-shadow-card);
+}
+
+.sl-markdown-content .viku-table-card:focus-visible {
+  outline: 2px solid var(--viku-color-link);
+  outline-offset: var(--viku-space-1);
+}
+
+.sl-markdown-content .viku-table-card > table {
+  display: table;
+  width: 100%;
+  margin: 0;
+}
+
+.sl-markdown-content .viku-table-card :is(th, td) {
+  padding: var(--viku-space-2) var(--viku-space-4);
+  border-bottom-color: color-mix(in oklch, var(--viku-color-border) 45%, var(--viku-color-surface));
+}
+
+.sl-markdown-content .viku-table-card tbody > tr:last-child > td {
+  border-bottom: 0;
+}
+
+.sl-markdown-content .viku-table-card th {
+  font-size: var(--viku-text-sm);
+  color: var(--viku-color-text-muted);
+  text-transform: uppercase;
+}
+
 .sl-markdown-content h2:not(:where(.not-content *)) {
   font-size: calc(var(--sl-text-h2) * 0.85);
 }
