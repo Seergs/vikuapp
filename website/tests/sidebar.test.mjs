@@ -4,7 +4,7 @@ import { readFile, access } from 'node:fs/promises';
 import { Window } from 'happy-dom';
 
 const dist = new URL('../dist/', import.meta.url);
-const routes = ['docs', ...['offline-mode', 'push-notifications', 'quick-add-shortcuts', 'server-version-support'].map(slug => `docs/${slug}`)];
+const routes = ['docs', ...['offline-mode', 'push-notifications', 'quick-add-shortcuts', 'server-version-support', 'markdown-playground'].map(slug => `docs/${slug}`)];
 
 test('docs sidebar preserves real links and selects only the current page on every route', async () => {
   for (const route of routes) {

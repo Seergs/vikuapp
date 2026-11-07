@@ -1,0 +1,55 @@
+/* Keep native list numbering, including start/value attributes and nested lists.
+   Exclude Starlight components and the generated footnote reference list. */
+.sl-markdown-content ol:not(:where(.not-content *, .footnotes *)) {
+  padding: 0;
+  background: var(--viku-color-surface);
+  border-radius: var(--viku-radius-lg);
+  box-shadow: var(--viku-shadow-card);
+  list-style-type: decimal;
+}
+
+.sl-markdown-content ol > li:not(:where(.not-content *, .footnotes *)) {
+  position: relative;
+  min-block-size: calc(var(--viku-space-6) + 2 * var(--viku-space-2));
+  padding: var(--viku-space-2) var(--viku-space-4);
+  padding-inline-start: calc(var(--viku-space-4) + var(--viku-space-6) + var(--viku-space-3));
+  color: var(--viku-color-text);
+}
+
+/* Keep list-item semantics instead of removing the native list style. */
+.sl-markdown-content ol > li:not(:where(.not-content *, .footnotes *))::marker {
+  font-size: 0;
+}
+
+.sl-markdown-content ol > li:not(:where(.not-content *, .footnotes *))::before {
+  content: counter(list-item);
+  position: absolute;
+  inset-block-start: var(--viku-space-2);
+  inset-inline-start: var(--viku-space-4);
+  display: grid;
+  place-items: center;
+  inline-size: var(--viku-space-6);
+  block-size: var(--viku-space-6);
+  color: var(--viku-color-link);
+  font-size: var(--viku-text-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-markdown-content ol > li + li:not(:where(.not-content *, .footnotes *)) {
+  margin-block-start: 0;
+  border-block-start: 1px solid color-mix(in oklch, var(--viku-color-border) 45%, var(--viku-color-surface));
+}
+
+.sl-markdown-content ol > li > :first-child:not(:where(.not-content *, .footnotes *)) {
+  margin-block-start: 0;
+}
+
+.sl-markdown-content ol > li > :last-child:not(:where(.not-content *, .footnotes *)) {
+  margin-block-end: 0;
+}
+
+.sl-markdown-content :is(ol, ul) ol:not(:where(.not-content *, .footnotes *)) {
+  margin-block-start: var(--viku-space-3);
+  box-shadow: none;
+}
