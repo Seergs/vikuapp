@@ -1,3 +1,39 @@
+.sl-markdown-content details:not(:where(.not-content *)) {
+  padding: var(--viku-space-4);
+  border: 0;
+  border-radius: var(--viku-radius-lg);
+  background: var(--viku-color-surface);
+  box-shadow: var(--viku-shadow-card);
+}
+
+.sl-markdown-content details > summary:not(:where(.not-content *)) {
+  position: relative;
+  display: block;
+  margin: 0;
+  padding: 0;
+  padding-inline-end: calc(var(--viku-space-5) + var(--viku-space-3));
+  color: var(--viku-color-text);
+}
+
+/* Reposition Starlight's existing marker, retaining its rotation and motion rules. */
+.sl-markdown-content details > summary:not(:where(.not-content *))::before {
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block-start: calc((1lh - var(--sl-details-marker-size)) / 2);
+  margin: 0;
+  color: var(--viku-color-text-muted);
+}
+
+.sl-markdown-content details[open] > summary:not(:where(.not-content *)) {
+  margin-block-end: var(--viku-space-4);
+}
+
+.sl-markdown-content details > summary:focus-visible:not(:where(.not-content *)) {
+  outline: 2px solid var(--viku-color-link);
+  outline-offset: var(--viku-space-1);
+  border-radius: var(--viku-radius-sm);
+}
+
 .sl-markdown-content .viku-table-card {
   overflow-x: auto;
   background: var(--viku-color-surface);
