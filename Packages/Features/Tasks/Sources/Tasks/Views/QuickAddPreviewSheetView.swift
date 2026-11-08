@@ -192,14 +192,21 @@ public struct QuickAddPreviewSheetView: View {
 
     private var projectButton: some View {
         Button { isShowingProjectPicker = true } label: {
-            HStack(spacing: VikuSpacing.xs) {
-                shortcutIcon("folder", label: String(localized: "Project", bundle: .module))
-                if let project = viewModel.selectedProject ?? viewModel.displayProject {
+            if let project = viewModel.selectedProject ?? viewModel.displayProject {
+                HStack(spacing: VikuSpacing.xs) {
+                    Image(systemName: "folder")
+                        .font(VikuFont.body)
                     Text(verbatim: project.title)
                         .font(VikuFont.footnote)
-                        .foregroundStyle(palette.textSecondary)
+                        .fontWeight(.bold)
                         .lineLimit(1)
                 }
+                .foregroundStyle(Color(vikuHex: project.hexColor) ?? palette.brand)
+                .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xs)
+                .frame(height: VikuSpacing.xl + VikuSpacing.xs)
+                .background((Color(vikuHex: project.hexColor) ?? palette.brand).opacity(0.1), in: Capsule())
+            } else {
+                shortcutIcon("folder", label: String(localized: "Project", bundle: .module))
             }
         }
         .buttonStyle(.plain)
@@ -210,7 +217,7 @@ public struct QuickAddPreviewSheetView: View {
 
     private var priorityMenu: some View {
         Menu {
-            ForEach(VikunjaTask.Priority.allCases, id: \.self) { priority in
+            ForEach(VikunjaTask.Priority.selectable, id: \.self) { priority in
                 Button {
                     viewModel.pickPriority(priority)
                 } label: {
@@ -222,13 +229,23 @@ public struct QuickAddPreviewSheetView: View {
                 }
             }
         } label: {
-            HStack(spacing: VikuSpacing.xs) {
-                shortcutIcon("flag", label: String(localized: "Priority", bundle: .module))
-                if viewModel.priority != .unset {
+            if viewModel.priority != .unset {
+                HStack(spacing: VikuSpacing.xs) {
+                    Image(systemName: "flag")
+                        .font(VikuFont.body)
                     Text(verbatim: viewModel.priority.localizedMenuLabel)
                         .font(VikuFont.footnote)
-                        .foregroundStyle(VikuColor.Priority.dot(for: viewModel.priority) ?? palette.textSecondary)
+                        .fontWeight(.bold)
                 }
+                .foregroundStyle(VikuColor.Priority.dot(for: viewModel.priority) ?? palette.brand)
+                .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xs)
+                .frame(height: VikuSpacing.xl + VikuSpacing.xs)
+                .background(
+                    (VikuColor.Priority.dot(for: viewModel.priority) ?? palette.brand).opacity(0.1),
+                    in: Capsule(),
+                )
+            } else {
+                shortcutIcon("flag", label: String(localized: "Priority", bundle: .module))
             }
         }
         .accessibilityLabel(Text("Priority", bundle: .module))
