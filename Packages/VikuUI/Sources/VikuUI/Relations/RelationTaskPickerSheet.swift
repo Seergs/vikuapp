@@ -17,6 +17,10 @@ public struct RelationTaskPickerSheet: View {
     let onAppear: () async -> Void
     let onSearch: (String) async -> Void
     let onSelect: (VikunjaTask) -> Void
+    /// Fired with the trimmed search text when the user taps the "Create as
+    /// new task" row. `nil` hides that row entirely, so callers that don't
+    /// support inline creation yet see no change.
+    let onCreateNew: ((String) -> Void)?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.vikuPalette) private var palette
     @State private var query = ""
@@ -28,6 +32,7 @@ public struct RelationTaskPickerSheet: View {
         onAppear: @escaping () async -> Void,
         onSearch: @escaping (String) async -> Void,
         onSelect: @escaping (VikunjaTask) -> Void,
+        onCreateNew: ((String) -> Void)? = nil,
     ) {
         self.kind = kind
         self.results = results
@@ -35,40 +40,58 @@ public struct RelationTaskPickerSheet: View {
         self.onAppear = onAppear
         self.onSearch = onSearch
         self.onSelect = onSelect
+        self.onCreateNew = onCreateNew
+    }
+
+    private var trimmedQuery: String {
+        query.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private var isSearching: Bool {
-        !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !trimmedQuery.isEmpty
+    }
+
+    /// Shown once the user has typed something to create — there's nothing
+    /// to prefill a new task's title with otherwise, so the empty-query
+    /// suggestions list behaves exactly as it did before this row existed.
+    private var showsCreateRow: Bool {
+        onCreateNew != nil && isSearching
     }
 
     public var body: some View {
         NavigationStack {
-            Group {
-                if results.isEmpty {
-                    VStack {
-                        Spacer()
-                        Text(
-                            isSearching
-                                ? String(localized: "No results", bundle: .module)
-                                : String(localized: "No other tasks in this project", bundle: .module),
-                        )
-                        .font(VikuFont.subheadline)
-                        .foregroundStyle(palette.textTertiary)
-                        Spacer()
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    List(results) { candidate in
-                        Button {
-                            onSelect(candidate)
-                        } label: {
-                            RelationCandidateRow(
-                                task: candidate,
-                                projectTitle: projectTitle(candidate),
+            VStack(spacing: 0) {
+                Group {
+                    if results.isEmpty {
+                        VStack {
+                            Spacer()
+                            Text(
+                                isSearching
+                                    ? String(localized: "No results", bundle: .module)
+                                    : String(localized: "No other tasks in this project", bundle: .module),
                             )
+                            .font(VikuFont.subheadline)
+                            .foregroundStyle(palette.textTertiary)
+                            Spacer()
                         }
-                        .buttonStyle(.plain)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        List(results) { candidate in
+                            Button {
+                                onSelect(candidate)
+                            } label: {
+                                RelationCandidateRow(
+                                    task: candidate,
+                                    projectTitle: projectTitle(candidate),
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
+                }
+                if showsCreateRow {
+                    Divider()
+                    createNewRow
                 }
             }
             .searchable(text: $query, prompt: Text("Search tasks...", bundle: .module))
@@ -88,6 +111,26 @@ public struct RelationTaskPickerSheet: View {
         .presentationDetents([.fraction(0.75), .large])
         .presentationDragIndicator(.visible)
         .task { await onAppear() }
+    }
+
+    private var createNewRow: some View {
+        Button {
+            onCreateNew?(trimmedQuery)
+        } label: {
+            HStack(spacing: VikuSpacing.sm) {
+                Image(systemName: "plus.circle")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(palette.brand)
+                Text(String(localized: "Create \"\(trimmedQuery)\" as new task", bundle: .module))
+                    .font(VikuFont.subheadline)
+                    .foregroundStyle(palette.brand)
+                Spacer()
+            }
+            .padding(.horizontal, VikuSpacing.md)
+            .padding(.vertical, VikuSpacing.sm + VikuSpacing.xxs)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 

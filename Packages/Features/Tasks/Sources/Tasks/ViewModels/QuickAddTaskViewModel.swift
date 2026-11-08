@@ -403,6 +403,16 @@ public final class QuickAddTaskViewModel {
         }
     }
 
+    /// Set when this sheet was opened to create the other side of a relation
+    /// (see `TaskDetailViewModel.makeQuickAddTaskViewModel`) — drives the
+    /// context banner in `QuickAddSheetView`. `nil` for every other caller.
+    public let relationContext: QuickAddRelationContext?
+    /// Fired once the task is created (after label attachment), to link it
+    /// back to whatever `relationContext` names. Its return value picks
+    /// `save()`'s combined toast message. `nil` for every caller that isn't
+    /// creating a relation inline.
+    private let onTaskCreated: (@MainActor (VikunjaTask) async -> Bool)?
+
     /// Labels can be used when there is a repository and its labels have loaded.
     private var labelsAvailable: Bool {
         labelRepository != nil && labelsLoadState == .loaded
@@ -424,6 +434,10 @@ public final class QuickAddTaskViewModel {
     ///   - defaultProjectCache: the on-device display cache `displayProject`
     ///     reads from and `load()` rewrites. `nil` for tests that don't care
     ///     about the optimistic display (it just leaves `displayProject` nil).
+    ///   - relationContext: set when this sheet creates the other side of a
+    ///     relation inline, to drive the context banner.
+    ///   - onTaskCreated: fired after creation to link the new task back to
+    ///     `relationContext`'s task. `nil` for every other caller.
     public init(
         preselectedProjectID: EntityID? = nil,
         preselectedProject: Project? = nil,
@@ -439,6 +453,8 @@ public final class QuickAddTaskViewModel {
         dateParsingContext: NaturalLanguageDateParser.Context = .init(
             referenceDate: Date(), timeZone: .current, languages: [.spanish, .english],
         ),
+        relationContext: QuickAddRelationContext? = nil,
+        onTaskCreated: (@MainActor (VikunjaTask) async -> Bool)? = nil,
     ) {
         self.preselectedProjectID = preselectedProjectID
         self.preselectedProject = preselectedProject?.id == preselectedProjectID ? preselectedProject : nil
@@ -454,6 +470,8 @@ public final class QuickAddTaskViewModel {
         self.cachedDefaultProject = defaultProjectCache?.cachedDefaultProject()
         self.dateParsingContext = dateParsingContext
         self.datePreviewStore = datePreviewStore
+        self.relationContext = relationContext
+        self.onTaskCreated = onTaskCreated
     }
 
     public func load() async {
@@ -546,7 +564,16 @@ public final class QuickAddTaskViewModel {
             // `canSave`'s doc comment) - the toast just isn't tappable in
             // that edge case rather than guessing at a `Project` value.
             let action = projects.first { $0.id == projectID }.map { ToastAction.taskDetail(created, $0) }
-            if failedAttachments == 0 {
+            if let onTaskCreated {
+                let linked = await onTaskCreated(created)
+                toastPresenter.show(
+                    linked
+                        ? String(localized: "Task created and linked", bundle: .module)
+                        : String(localized: "Task created, but couldn't be linked", bundle: .module),
+                    style: linked ? .success : .error,
+                    action: action,
+                )
+            } else if failedAttachments == 0 {
                 toastPresenter.show(String(localized: "Task created", bundle: .module), style: .success, action: action)
             } else {
                 toastPresenter.show(

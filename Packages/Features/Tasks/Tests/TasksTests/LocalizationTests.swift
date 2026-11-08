@@ -140,6 +140,11 @@ struct LocalizationTests {
             "No sonarán en este iPhone: los recordatorios están desactivados para este proyecto. "
                 + "Puedes activarlos en Configuración.",
         ),
+        ("Subtask of: %@", "Subtarea de: %@"),
+        ("%@: %@", "%@: %@"),
+        ("Will be linked automatically on save", "Se vinculará automáticamente al guardar"),
+        ("Task created and linked", "Tarea creada y vinculada"),
+        ("Task created, but couldn't be linked", "Tarea creada, pero no se pudo vincular"),
     ])
     func `key resolves to its Spanish translation`(key: String, expected: String) {
         #expect(Self.es(key) == expected)

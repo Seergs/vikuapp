@@ -142,6 +142,13 @@ public final class TaskDetailViewModel {
     /// unavailable.
     public let inlineImageLoader: (any InlineImageLoading)?
     private var cachedRelatedTaskIDs: Set<EntityID> = []
+    /// Passed through to `makeQuickAddTaskViewModel`'s `QuickAddTaskViewModel`
+    /// so an inline-created relation gets the same `#Project`/`p1` shortcut
+    /// parsing and live project-screen refresh as the tab bar's own
+    /// quick-add. Optional so tests and any caller that doesn't care can
+    /// skip both — in which case the inline sheet just has shortcuts off.
+    private let syntaxStore: QuickAddSyntaxStore?
+    private let taskChangeBroadcaster: TaskChangeBroadcasting?
 
     /// Bumped at the start of every operation that will eventually write
     /// `task` back — `load()`, `persist(previous:)`, `toggleLabel(_:)`,
@@ -204,6 +211,8 @@ public final class TaskDetailViewModel {
         notificationSettingsStore: NotificationSettingsStore? = nil,
         accountID: InstanceAccount.ID? = nil,
         inlineImageLoader: (any InlineImageLoading)? = nil,
+        syntaxStore: QuickAddSyntaxStore? = nil,
+        taskChangeBroadcaster: TaskChangeBroadcasting? = nil,
     ) {
         self.synchronization = LocalScreenSync(
             trigger: syncTrigger, localData: localData, toastPresenter: toastPresenter,
@@ -222,6 +231,8 @@ public final class TaskDetailViewModel {
         self.notificationSettingsStore = notificationSettingsStore
         self.accountID = accountID
         self.inlineImageLoader = inlineImageLoader
+        self.syntaxStore = syntaxStore
+        self.taskChangeBroadcaster = taskChangeBroadcaster
         updateRelatedTaskIDsCache()
     }
 
@@ -425,17 +436,27 @@ public final class TaskDetailViewModel {
     /// display fields (title/isDone/projectID) come from wherever the caller
     /// found the other task (e.g. a search/picker), since Vikunja's
     /// create-relation response only echoes ids, not those fields.
-    public func addRelation(_ relation: TaskRelation, kind: RelationKind) async {
+    /// `showsToast` is `false` for the inline-create flow
+    /// (`makeQuickAddTaskViewModel`), which shows its own combined
+    /// creation+linking toast instead. Returns whether the link stuck, so
+    /// that caller can tell its own toast apart; every other caller ignores it.
+    @discardableResult
+    public func addRelation(_ relation: TaskRelation, kind: RelationKind, showsToast: Bool = true) async -> Bool {
         let previous = task
         taskWriteToken += 1
         let token = taskWriteToken
         insertRelation(relation, kind: kind)
         do {
             try await relationRepository.addRelation(kind: kind, otherTaskID: relation.id, toTask: task.id)
-            toastPresenter.show(String(localized: "Relation added", bundle: .module), style: .success)
+            if showsToast {
+                toastPresenter.show(String(localized: "Relation added", bundle: .module), style: .success)
+            }
+            return true
         } catch {
-            guard token == taskWriteToken else { return }
-            task = previous
+            if token == taskWriteToken {
+                task = previous
+            }
+            return false
         }
     }
 
@@ -622,6 +643,40 @@ public final class TaskDetailViewModel {
             toastPresenter: toastPresenter,
             hapticPresenter: hapticPresenter,
         )
+    }
+
+    /// Builds a `QuickAddTaskViewModel` for creating the other side of a
+    /// relation inline, from the "add relation"/"add subtask" picker, reusing
+    /// this view model's own repositories — same reasoning as
+    /// `makeDuplicateTaskViewModel()`. `prefilledTitle` is whatever the user
+    /// had already typed into the picker's search field; `relationKind` is
+    /// `.subtask` from the Subtasks section's own "Add" button, or whichever
+    /// kind `RelationKindPickerSheet` returned for the generic Relations
+    /// flow. The returned view model's `onTaskCreated` links the newly
+    /// created task back to this one via `addRelation`, suppressing that
+    /// call's own toast since the quick-add sheet shows one combined message.
+    public func makeQuickAddTaskViewModel(prefilledTitle: String, relationKind: RelationKind) -> QuickAddTaskViewModel {
+        let viewModel = QuickAddTaskViewModel(
+            preselectedProjectID: project.id,
+            preselectedProject: project,
+            taskRepository: repository,
+            projectRepository: projectRepository,
+            toastPresenter: toastPresenter,
+            taskChangeBroadcaster: taskChangeBroadcaster,
+            syntaxStore: syntaxStore,
+            labelRepository: labelRepository,
+            relationContext: QuickAddRelationContext(kind: relationKind, parentTaskTitle: task.title),
+            onTaskCreated: { [weak self] created in
+                guard let self else { return false }
+                let relation = TaskRelation(
+                    id: created.id, title: created.title,
+                    isDone: created.isDone, projectID: created.projectID,
+                )
+                return await addRelation(relation, kind: relationKind, showsToast: false)
+            },
+        )
+        viewModel.input = prefilledTitle
+        return viewModel
     }
 
     /// Loads this task's comments. Failures surface into `commentsLoadState`

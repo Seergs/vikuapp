@@ -1774,6 +1774,16 @@
           }
         }
       }
+    },
+    "Create \"%@\" as new task": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crear \"%@\" como tarea nueva"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

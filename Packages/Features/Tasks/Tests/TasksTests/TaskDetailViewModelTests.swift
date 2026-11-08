@@ -838,6 +838,106 @@ struct TaskDetailViewModelTests {
     }
 
     @Test
+    func `make quick add task view model preselects the tasks project and prefills the title`() {
+        let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
+            task: VikunjaTask(id: 1, title: "Write report", projectID: 4),
+            project: Project(id: 4, title: "Work"),
+            repository: FakeTaskRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            commentRepository: FakeTaskCommentRepository(),
+            attachmentRepository: FakeTaskAttachmentRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: FakeToastPresenter(),
+        )
+
+        let quickAddViewModel = viewModel.makeQuickAddTaskViewModel(prefilledTitle: "Buy milk", relationKind: .subtask)
+
+        #expect(quickAddViewModel.input == "Buy milk")
+        #expect(quickAddViewModel.displayProject?.id == 4)
+        #expect(quickAddViewModel.relationContext?.kind == .subtask)
+    }
+
+    @Test
+    func `make quick add task view model wires the syntax store so shortcuts still parse`() {
+        let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
+            task: VikunjaTask(id: 1, title: "Write report", projectID: 4),
+            project: Project(id: 4, title: "Work"),
+            repository: FakeTaskRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            commentRepository: FakeTaskCommentRepository(),
+            attachmentRepository: FakeTaskAttachmentRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: FakeToastPresenter(),
+            syntaxStore: FakeQuickAddSyntaxStore(syntax: .vikunja),
+        )
+        let quickAddViewModel = viewModel.makeQuickAddTaskViewModel(prefilledTitle: "Buy milk", relationKind: .subtask)
+
+        quickAddViewModel.input = "Buy milk !4"
+
+        #expect(quickAddViewModel.priority == .urgent)
+        #expect(quickAddViewModel.parsed.title == "Buy milk")
+    }
+
+    @Test
+    func `make quick add task view model links the created task on save`() async {
+        let relationRepository = FakeTaskRelationRepository()
+        let toastPresenter = FakeToastPresenter()
+        let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
+            task: VikunjaTask(id: 1, title: "Write report", projectID: 4),
+            project: Project(id: 4, title: "Work"),
+            repository: FakeTaskRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: relationRepository,
+            commentRepository: FakeTaskCommentRepository(),
+            attachmentRepository: FakeTaskAttachmentRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: toastPresenter,
+        )
+        let quickAddViewModel = viewModel.makeQuickAddTaskViewModel(prefilledTitle: "Buy milk", relationKind: .subtask)
+
+        await quickAddViewModel.load()
+        let created = await quickAddViewModel.save()
+
+        #expect(created?.title == "Buy milk")
+        #expect(viewModel.task.subtasks.map(\.title) == ["Buy milk"])
+        #expect(relationRepository.addedRelations.map(\.kind) == [.subtask])
+        #expect(toastPresenter.shownMessages.map(\.message) == ["Task created and linked"])
+    }
+
+    @Test
+    func `make quick add task view model shows A failure toast when linking fails`() async {
+        let relationRepository = FakeTaskRelationRepository()
+        relationRepository.addError = .network("offline")
+        let toastPresenter = FakeToastPresenter()
+        let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
+            task: VikunjaTask(id: 1, title: "Write report", projectID: 4),
+            project: Project(id: 4, title: "Work"),
+            repository: FakeTaskRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: relationRepository,
+            commentRepository: FakeTaskCommentRepository(),
+            attachmentRepository: FakeTaskAttachmentRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: toastPresenter,
+        )
+        let quickAddViewModel = viewModel.makeQuickAddTaskViewModel(prefilledTitle: "Buy milk", relationKind: .subtask)
+
+        await quickAddViewModel.load()
+        let created = await quickAddViewModel.save()
+
+        #expect(created?.title == "Buy milk")
+        #expect(viewModel.task.subtasks.isEmpty)
+        #expect(toastPresenter.shownMessages.map(\.message) == ["Task created, but couldn't be linked"])
+        #expect(toastPresenter.shownMessages.map(\.style) == [.error])
+    }
+
+    @Test
     func `remove relation drops from the named field and persists the removal`() async {
         let relationRepository = FakeTaskRelationRepository()
         let subtask = TaskRelation(id: 2, title: "Outline", projectID: 1)

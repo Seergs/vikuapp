@@ -23,6 +23,7 @@ public struct QuickAddSheetView: View {
     @State private var saveSucceeded = false
     @State private var titleFieldHeight: CGFloat = 25
     @State private var suggestionRowHeight: CGFloat = VikuSpacing.lg
+    @State private var relationBannerHeight: CGFloat = 0
 
     public init(viewModel: QuickAddTaskViewModel) {
         self.viewModel = viewModel
@@ -71,12 +72,20 @@ public struct QuickAddSheetView: View {
         if viewModel.isDatePreviewEnabled {
             height += QuickAddDatePreview.height + VikuSpacing.lg
         }
+        if viewModel.relationContext != nil {
+            height += relationBannerHeight + VikuSpacing.lg
+        }
         return height
     }
 
     public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: VikuSpacing.lg) {
+                if let relationContext = viewModel.relationContext {
+                    RelationContextBanner(relationContext: relationContext)
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { relationBannerHeight = $0 }
+                }
+
                 VStack(alignment: .leading, spacing: VikuSpacing.sm) {
                     titleField
                         .disabled(isSubmitting)
@@ -526,5 +535,39 @@ public struct QuickAddSheetView: View {
         if saveSucceeded, !savingPresentation.isVisible {
             dismiss()
         }
+    }
+}
+
+/// Shown above the title field when this sheet was opened to create the
+/// other side of a relation inline (`TaskDetailViewModel.makeQuickAddTaskViewModel`),
+/// so the task being created never looks like a plain, unrelated quick-add.
+private struct RelationContextBanner: View {
+    let relationContext: QuickAddRelationContext
+
+    @Environment(\.vikuPalette) private var palette
+
+    var body: some View {
+        HStack(alignment: .top, spacing: VikuSpacing.sm - VikuSpacing.xxs) {
+            Image(systemName: "link")
+                .font(VikuFont.footnote.weight(.semibold))
+                .foregroundStyle(palette.brand)
+            VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
+                Text(verbatim: relationContext.bannerText)
+                    .font(VikuFont.footnote)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(palette.brand)
+                Text("Will be linked automatically on save", bundle: .module)
+                    .font(VikuFont.caption)
+                    .foregroundStyle(palette.brand.opacity(0.8))
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
+        .padding(.vertical, VikuSpacing.sm)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            palette.brand.opacity(0.12),
+            in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous),
+        )
     }
 }
