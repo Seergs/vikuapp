@@ -64,6 +64,8 @@ struct TaskDTO: Codable {
     /// other fields in this group) since the sync engine's conflict
     /// detection needs it, mirroring `ProjectDTO.updated`.
     var updated: Date?
+    /// Only meaningful when downloaded through a view. Never written by task mutations.
+    var position: Double?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -75,6 +77,7 @@ struct TaskDTO: Codable {
         case reminders
         case assignees
         case updated
+        case position
         case dueDate = "due_date"
         case projectId = "project_id"
         case relatedTasks = "related_tasks"

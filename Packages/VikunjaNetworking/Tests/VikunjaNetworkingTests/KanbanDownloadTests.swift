@@ -51,10 +51,13 @@ struct KanbanDownloadTests {
         var object = try #require(JSONSerialization.jsonObject(with: raw) as? [String: Any])
         var buckets = try #require(object["items"] as? [[String: Any]])
         buckets[0]["count"] = 2
+        var tasks = try #require(buckets[0]["tasks"] as? [[String: Any]])
+        tasks[0]["position"] = 65536.5
+        buckets[0]["tasks"] = tasks
         object["items"] = buckets
         let first = try JSONSerialization.data(withJSONObject: object)
-        var tasks = try #require(buckets[0]["tasks"] as? [[String: Any]])
-        tasks[0]["id"] = 101
+        tasks[0]["id"] = 102
+        tasks[0]["position"] = 131_072.25
         buckets[0]["tasks"] = tasks
         buckets[1]["tasks"] = []
         object["items"] = buckets
@@ -66,8 +69,25 @@ struct KanbanDownloadTests {
         #expect(board.defaultBucketID == 20)
         #expect(board.doneBucketID == 22)
         #expect(board.filterQuery.isEmpty)
-        #expect(board.buckets[0].tasks.map(\.id) == [.remote(100), .remote(101)])
+        #expect(board.buckets[0].tasks.map(\.id) == [.remote(100), .remote(102)])
+        #expect(board.taskPositions == [100: 65536.5, 102: 131_072.25])
         #expect(await client.bucketRequests == 2)
+    }
+
+    @Test(arguments: [nil, 0.0, -1.0])
+    func `missing or sentinel positions do not become authoritative`(position: Double?) async throws {
+        var object = try #require(JSONSerialization.jsonObject(with: fixture("buckets-with-tasks")) as? [String: Any])
+        var buckets = try #require(object["items"] as? [[String: Any]])
+        var tasks = try #require(buckets[0]["tasks"] as? [[String: Any]])
+        tasks[0]["position"] = position
+        buckets[0]["tasks"] = tasks
+        object["items"] = buckets
+        let client = try KanbanFixtureClient(
+            views: fixture("project-views"), pages: [JSONSerialization.data(withJSONObject: object)],
+        )
+        let board = try await VikunjaBucketRepository(client: client).downloadBoard(projectID: 6, viewID: 11)
+        #expect(board.taskPositions.isEmpty)
+        #expect(board.buckets[0].tasks.map(\.id) == [.remote(100)])
     }
 
     @Test func `later page failure and truncated pages are not successful downloads`() async throws {

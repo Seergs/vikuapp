@@ -12,6 +12,7 @@ private actor MovingKanbanRemote: BucketRepositoryProtocol {
         updated: Date(timeIntervalSince1970: 1_700_000_000),
     )]
     var placements = [100: 20]
+    var positions: [Int: Double] = [100: 200]
     var availableBuckets = [20, 21, 22]
     var moveHook: (@Sendable () async throws -> Void)?
     var createHook: (@Sendable () async throws -> Void)?
@@ -20,6 +21,14 @@ private actor MovingKanbanRemote: BucketRepositoryProtocol {
     var recurring = false
     private(set) var moved: [Int] = []
     private(set) var created: [Int] = []
+
+    func populateDestinationColumns() {
+        for (id, bucket, position) in [(101, 21, 100.0), (102, 21, 300.0), (103, 22, 100.0), (104, 22, 300.0)] {
+            tasks[id] = VikunjaTask(id: .remote(id), title: "Neighbor", isDone: bucket == 22, projectID: 1)
+            placements[id] = bucket
+            positions[id] = position
+        }
+    }
 
     func setMoveHook(_ hook: (@Sendable () async throws -> Void)?) {
         moveHook = hook
@@ -66,6 +75,7 @@ private actor MovingKanbanRemote: BucketRepositoryProtocol {
             defaultBucketID: 20,
             doneBucketID: 22,
             buckets: buckets,
+            taskPositions: positions,
         )
         try await readHook?()
         return result
@@ -80,6 +90,7 @@ private actor MovingKanbanRemote: BucketRepositoryProtocol {
         let result = VikunjaTask(id: .remote(500), title: task.title, isDone: task.isDone, projectID: task.projectID)
         placements[500] = bucketID
         tasks[500] = result
+        positions[500] = 400 // The authoritative download may correct provisional creation order.
         try await createHook?()
         return result
     }
@@ -188,6 +199,58 @@ struct KanbanMovementTests {
             return nil
         }
         return board.buckets.first { $0.tasks.contains { $0.id == taskID } }?.id
+    }
+
+    private func order(_ fixture: Fixture, bucketID: Int) async throws -> [EntityID] {
+        guard case let .available(board) = try await fixture.board.fetchBoard(projectID: .remote(1), viewID: 10) else {
+            Issue.record("Missing board"); return []
+        }
+        return board.buckets.first { $0.id == bucketID }?.tasks.map(\.id) ?? []
+    }
+
+    @Test func `moving into a populated column keeps view order before and after acknowledgement`() async throws {
+        let fixture = try await fixture()
+        await fixture.remote.populateDestinationColumns()
+        try await fixture.engine.pullKanban(projectID: .remote(1))
+        try await move(fixture, to: 21)
+        let expected: [EntityID] = [.remote(101), .remote(100), .remote(102)]
+        #expect(try await order(fixture, bucketID: 21) == expected)
+        try await fixture.engine.drainTaskMutations()
+        #expect(try await queue(fixture).isEmpty)
+        // Movement responses contain no authoritative position; they must not append the task.
+        #expect(try await order(fixture, bucketID: 21) == expected)
+        try await fixture.engine.pullKanban(projectID: .remote(1))
+        #expect(try await order(fixture, bucketID: 21) == expected)
+    }
+
+    @Test func `offline creations appear newest first above downloaded tasks`() async throws {
+        let fixture = try await fixture()
+        let first = try await fixture.board.createTask(title: "First", projectID: 1, viewID: 10, bucketID: 20)
+        let second = try await fixture.board.createTask(title: "Second", projectID: 1, viewID: 10, bucketID: 20)
+        let expected: [EntityID] = [second.id, first.id, .remote(100)]
+        #expect(try await order(fixture, bucketID: 20) == expected)
+        try await fixture.engine.pullKanban(projectID: .remote(1))
+        #expect(try await order(fixture, bucketID: 20) == expected)
+    }
+
+    @Test func `creation acknowledgement keeps provisional order until server download`() async throws {
+        let fixture = try await fixture()
+        let created = try await fixture.board.createTask(title: "New", projectID: 1, viewID: 10, bucketID: 20)
+        #expect(try await order(fixture, bucketID: 20) == [created.id, .remote(100)])
+        try await fixture.engine.drainTaskMutations()
+        #expect(try await order(fixture, bucketID: 20) == [.remote(500), .remote(100)])
+        try await fixture.engine.pullKanban(projectID: .remote(1))
+        #expect(try await order(fixture, bucketID: 20) == [.remote(100), .remote(500)])
+    }
+
+    @Test func `completion preserves view position in a populated done column`() async throws {
+        let fixture = try await fixture()
+        await fixture.remote.populateDestinationColumns()
+        try await fixture.engine.pullKanban(projectID: .remote(1))
+        _ = try await fixture.tasks.setCompletion(taskIDs: [100], isDone: true)
+        #expect(try await order(fixture, bucketID: 22) == [.remote(103), .remote(100), .remote(104)])
+        _ = try await fixture.tasks.setCompletion(taskIDs: [100], isDone: false)
+        #expect(try await order(fixture, bucketID: 20) == [.remote(100)])
     }
 
     @Test func `bulk completion updates cached board placement without a bucket mutation`() async throws {

@@ -270,7 +270,6 @@ extension SyncEngine {
                 if var assignment = try KanbanAssignmentRecord.filter(Column("viewLocalID") == view.localID)
                     .filter(Column("taskLocalID") == task.localID).fetchOne(db) {
                     assignment.bucketLocalID = destination.localID
-                    assignment.position = try KanbanLocalMutations.nextPosition(destination.localID, db: db)
                     try assignment.update(db)
                 }
                 let hasQueuedUpdate = related.contains {
@@ -316,14 +315,7 @@ extension SyncEngine {
                     row.dueDate = response.dueDate
                     if let view, let bucket = try KanbanBucketRecord.filter(Column("viewLocalID") == view.localID)
                         .filter(Column("remoteID") == actualBucket).fetchOne(db) {
-                        try KanbanAssignmentRecord(
-                            accountID: self.accountID,
-                            projectLocalID: row.projectLocalID,
-                            viewLocalID: view.localID,
-                            bucketLocalID: bucket.localID,
-                            taskLocalID: row.localID,
-                            position: KanbanLocalMutations.nextPosition(bucket.localID, db: db),
-                        ).save(db)
+                        try KanbanLocalMutations.place(row, in: bucket, db: db)
                     }
                 }
                 try row.update(db)

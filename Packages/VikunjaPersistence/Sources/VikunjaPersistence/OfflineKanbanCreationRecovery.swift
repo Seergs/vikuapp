@@ -68,11 +68,7 @@ public struct OfflineKanbanCreationRecovery: KanbanCreationRecovering {
             item.retryCount = 0
             try item.update(db)
             try task.update(db)
-            try KanbanAssignmentRecord(
-                accountID: accountID, projectLocalID: project.localID, viewLocalID: view.localID,
-                bucketLocalID: bucket.localID, taskLocalID: task.localID,
-                position: KanbanLocalMutations.nextPosition(bucket.localID, db: db),
-            ).save(db)
+            try KanbanLocalMutations.place(task, in: bucket, db: db)
         }
         await syncRequester.requestSync()
     }

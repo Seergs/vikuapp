@@ -72,8 +72,7 @@ public struct OfflineKanbanBoardRepository: KanbanBoardRepositoryProtocol {
                 projectLocalID: project.localID,
                 serverUpdatedAt: nil,
             ).insert(db)
-            let position = try KanbanAssignmentRecord.filter(Column("bucketLocalID") == bucket.localID)
-                .fetchAll(db).map(\.position).max().map { $0 + 1 } ?? 0
+            let position = try KanbanLocalMutations.firstPosition(view.localID, db: db)
             try KanbanAssignmentRecord(
                 accountID: accountID,
                 projectLocalID: project.localID,

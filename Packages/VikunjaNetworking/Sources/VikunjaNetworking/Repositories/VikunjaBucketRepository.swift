@@ -77,6 +77,11 @@ final class VikunjaBucketRepository: BucketRepositoryProtocol {
         return KanbanDownload(
             viewID: view.id, mode: view.bucketConfigurationMode ?? "none", filterQuery: filterQuery,
             defaultBucketID: view.defaultBucketId, doneBucketID: view.doneBucketId, buckets: buckets,
+            taskPositions: tasks.values.flatMap(\.self).reduce(into: [Int: Double]()) { positions, task in
+                // Zero is the server's sentinel for a task without a view position.
+                guard let position = task.position, position.isFinite, position > 0 else { return }
+                positions[task.id] = position
+            },
         )
     }
 

@@ -54,7 +54,6 @@ enum KanbanLocalMutations {
         }
         try task.update(db)
         assignment.bucketLocalID = destination.localID
-        assignment.position = try nextPosition(destination.localID, db: db)
         try assignment.update(db)
         try enqueueMove(KanbanMovePayload(
             projectLocalID: project.localID,
@@ -78,9 +77,26 @@ enum KanbanLocalMutations {
         )
     }
 
-    static func nextPosition(_ bucketID: UUID, db: Database) throws -> Double {
-        try KanbanAssignmentRecord.filter(Column("bucketLocalID") == bucketID).fetchAll(db)
-            .map(\.position).max().map { $0 + 1 } ?? 0
+    /// New local tasks sort before the entire view. These negative positions are
+    /// provisional and are replaced by a complete server download after sync.
+    static func firstPosition(_ viewID: UUID, db: Database) throws -> Double {
+        let minimum = try KanbanAssignmentRecord.filter(Column("viewLocalID") == viewID).fetchAll(db)
+            .map(\.position).min() ?? 0
+        return min(0, minimum) - 1
+    }
+
+    /// Bucket changes and generic task acknowledgements do not change view order.
+    static func place(_ task: TaskRecord, in bucket: KanbanBucketRecord, db: Database) throws {
+        let existing = try KanbanAssignmentRecord.filter(Column("viewLocalID") == bucket.viewLocalID)
+            .filter(Column("taskLocalID") == task.localID).fetchOne(db)
+        try KanbanAssignmentRecord(
+            accountID: task.accountID,
+            projectLocalID: task.projectLocalID,
+            viewLocalID: bucket.viewLocalID,
+            bucketLocalID: bucket.localID,
+            taskLocalID: task.localID,
+            position: existing?.position ?? firstPosition(bucket.viewLocalID, db: db),
+        ).save(db)
     }
 
     static func encode(_ payload: some Encodable) throws -> String {
@@ -174,15 +190,7 @@ enum KanbanLocalMutations {
                 .order(Column("position"), Column("remoteID")).fetchAll(db)
             let target = task.isDone ? view.doneBucketID : (view.defaultBucketID ?? buckets.first?.remoteID)
             guard let bucket = buckets.first(where: { $0.remoteID == target }) else { continue }
-            let assignment = try KanbanAssignmentRecord(
-                accountID: task.accountID,
-                projectLocalID: task.projectLocalID,
-                viewLocalID: view.localID,
-                bucketLocalID: bucket.localID,
-                taskLocalID: task.localID,
-                position: nextPosition(bucket.localID, db: db),
-            )
-            try assignment.save(db)
+            try place(task, in: bucket, db: db)
             let queue = try MutationQueueRecord.filter(Column("accountID") == task.accountID)
                 .filter(Column("targetLocalID") == task.localID).fetchAll(db)
             for var item in queue where item.status != .inFlight {
