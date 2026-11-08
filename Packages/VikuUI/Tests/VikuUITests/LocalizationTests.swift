@@ -68,6 +68,8 @@ struct LocalizationTests {
 
     @Test(arguments: [
         ("Complete", "Completar"),
+        ("Search labels...", "Buscar etiquetas..."),
+        ("No labels found", "No se encontraron etiquetas"),
         ("Reschedule", "Reprogramar"),
         ("Move overdue tasks to", "Mover tareas vencidas a"),
         ("Couldn’t reschedule overdue tasks. Try again.", "No se pudieron reprogramar las tareas vencidas. Inténtalo de nuevo."),

@@ -14,6 +14,7 @@ public struct QuickAddPreviewSheetView: View {
     @FocusState private var isFocused: Bool
     @State private var isShowingProjectPicker = false
     @State private var isShowingDueDatePicker = false
+    @State private var isShowingLabelPicker = false
     @State private var savingPresentation = QuickAddSavingPresentation()
     @State private var presentationOrigin = ContinuousClock.now
     @State private var saveTask: Task<Void, Never>?
@@ -98,6 +99,7 @@ public struct QuickAddPreviewSheetView: View {
             DueDatePickerSheet(initialDate: viewModel.dueDate) { viewModel.pickDueDate($0) }
                 .environment(\.timeZone, viewModel.dateParsingContext.timeZone)
         }
+        .sheet(isPresented: $isShowingLabelPicker) { labelsPicker }
         .task {
             isFocused = true
             await viewModel.load()
@@ -163,7 +165,7 @@ public struct QuickAddPreviewSheetView: View {
                     dueDateButton
                     priorityMenu
                     shortcutIcon("bell", label: String(localized: "Reminders", bundle: .module))
-                    shortcutIcon("tag", label: String(localized: "Labels", bundle: .module))
+                    labelsButton
                     shortcutIcon("ellipsis", label: String(localized: "More Options", bundle: .module))
                 }
             }
@@ -254,6 +256,64 @@ public struct QuickAddPreviewSheetView: View {
             ))
         } else {
             Text("None", bundle: .module)
+        }
+    }
+
+    private var labelsButton: some View {
+        Button { isShowingLabelPicker = true } label: {
+            if let first = viewModel.selectedLabels.first {
+                HStack(spacing: VikuSpacing.xs) {
+                    Image(systemName: "tag")
+                        .font(VikuFont.body)
+                    Text(verbatim: first.title)
+                        .lineLimit(1)
+                    if viewModel.selectedLabels.count > 1 {
+                        Text("+\(viewModel.selectedLabels.count - 1)", bundle: .module)
+                    }
+                }
+                .font(VikuFont.footnote)
+                .fontWeight(.bold)
+                .foregroundStyle(Color(vikuMutedHex: first.hexColor) ?? palette.brand)
+                .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xs)
+                .frame(height: VikuSpacing.xl + VikuSpacing.xs)
+                .background((Color(vikuMutedHex: first.hexColor) ?? palette.brand).opacity(0.1), in: Capsule())
+            } else {
+                shortcutIcon("tag", label: String(localized: "Labels", bundle: .module))
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(!viewModel.canPickLabels)
+        .accessibilityLabel(Text("Labels", bundle: .module))
+        .accessibilityValue(Text(verbatim: viewModel.selectedLabels.map(\.title).joined(separator: ", ")))
+    }
+
+    private var labelsPicker: some View {
+        LabelPickerSheet(
+            taskLabels: viewModel.selectedLabels,
+            allLabels: viewModel.labelCatalog.labels,
+            labelAliases: viewModel.labelCatalog.aliases,
+            onLoad: { await viewModel.loadLabels() },
+            onToggle: { viewModel.toggleLabel($0) },
+        )
+        .safeAreaInset(edge: .bottom) {
+            if viewModel.labelsLoadState != .loaded || viewModel.labelCatalog.labels.isEmpty {
+                VStack(alignment: .leading, spacing: VikuSpacing.sm) {
+                    switch viewModel.labelsLoadState {
+                    case let .failure(message):
+                        Text(verbatim: message)
+                        Button(String(localized: "Retry", bundle: .module)) {
+                            Task { await viewModel.loadLabels() }
+                        }
+                    case .idle, .loading:
+                        Text("Loading labels...", bundle: .module)
+                    case .loaded:
+                        Text("No labels available", bundle: .module)
+                    }
+                }
+                .font(VikuFont.footnote)
+                .foregroundStyle(palette.textSecondary)
+                .padding(VikuSpacing.md)
+            }
         }
     }
 

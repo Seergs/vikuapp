@@ -19,7 +19,7 @@ public struct LabelPickerSheet: View {
     let labelAliases: [EntityID: EntityID]
     let onLoad: () async -> Void
     let onToggle: (VikunjaCore.Label) -> Void
-    let onCreate: (String, String) async -> VikunjaCore.Label?
+    let onCreate: ((String, String) async -> VikunjaCore.Label?)?
     @Environment(\.dismiss) private var dismiss
     @State private var state: LabelPickerState
     @State private var pickedColor = VikuColor.SwatchPalette.labelSwatches[0]
@@ -30,7 +30,7 @@ public struct LabelPickerSheet: View {
         labelAliases: [EntityID: EntityID] = [:],
         onLoad: @escaping () async -> Void,
         onToggle: @escaping (VikunjaCore.Label) -> Void,
-        onCreate: @escaping (String, String) async -> VikunjaCore.Label?,
+        onCreate: ((String, String) async -> VikunjaCore.Label?)? = nil,
     ) {
         _state = State(initialValue: LabelPickerState(taskLabels: taskLabels))
         self.taskLabels = taskLabels
@@ -79,7 +79,13 @@ public struct LabelPickerSheet: View {
                         }
                     }
 
-                    if !trimmedQuery.isEmpty, !hasExactMatch || state.ordering.isCreating {
+                    if onCreate == nil, !trimmedQuery.isEmpty, items.isEmpty {
+                        Text("No labels found", bundle: .module)
+                            .font(VikuFont.footnote)
+                            .padding(VikuSpacing.md)
+                    }
+
+                    if let onCreate, !trimmedQuery.isEmpty, !hasExactMatch || state.ordering.isCreating {
                         CreateLabelCard(
                             title: trimmedQuery, pickedColor: $pickedColor, isCreating: state.ordering.isCreating,
                         ) {
@@ -100,7 +106,9 @@ public struct LabelPickerSheet: View {
             }
             .searchable(
                 text: $state.query, isPresented: $state.isSearchPresented,
-                prompt: Text("Search or create label...", bundle: .module),
+                prompt: onCreate == nil
+                    ? Text("Search labels...", bundle: .module)
+                    : Text("Search or create label...", bundle: .module),
             )
             .navigationTitle(Text("Labels", bundle: .module))
             #if os(iOS)
