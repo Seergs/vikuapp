@@ -136,6 +136,16 @@ struct TaskDTOTests {
         #expect(merged.labels?.first?.title == "home")
     }
 
+    @Test func `task writes omit view positions`() throws {
+        var current = try loadTaskDTO()
+        current.position = 65536
+        let task = TaskMapper.toDomain(current)
+        for dto in [TaskMapper.toDTO(task), TaskMapper.merge(task, onto: current)] {
+            let object = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(dto)) as? [String: Any])
+            #expect(object["position"] == nil)
+        }
+    }
+
     @Test
     func `create DTO omits labels but carries reminders`() throws {
         let dto = try loadTaskDTO()

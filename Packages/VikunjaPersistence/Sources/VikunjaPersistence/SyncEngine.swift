@@ -165,6 +165,7 @@ public actor SyncEngine {
         view.lastCompletePullAt = Date()
         try view.save(db)
         let assignments = try KanbanAssignmentRecord.filter(Column("viewLocalID") == view.localID).fetchAll(db)
+        let cachedPositions = Dictionary(uniqueKeysWithValues: assignments.map { ($0.taskLocalID, $0.position) })
         let preserved = assignments.filter { protected.contains($0.taskLocalID) && !deleted.contains($0.taskLocalID) }
         try KanbanAssignmentRecord.filter(Column("viewLocalID") == view.localID)
             .filter(!preserved.map(\.taskLocalID).contains(Column("taskLocalID"))).deleteAll(db)
@@ -184,7 +185,7 @@ public actor SyncEngine {
                     viewLocalID: view.localID,
                     bucketLocalID: row.localID,
                     taskLocalID: localID,
-                    position: Double(position),
+                    position: download.taskPositions[id] ?? cachedPositions[localID] ?? Double(position),
                 ).insert(db)
             }
         }

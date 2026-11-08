@@ -83,7 +83,9 @@ struct KanbanCapabilities: CapabilityProvider {
 }
 
 struct KanbanSyncTests {
-    private func board(_ tasks: [VikunjaTask], bucketID: Int = 20, viewID: Int = 10) -> KanbanDownload {
+    private func board(
+        _ tasks: [VikunjaTask], bucketID: Int = 20, viewID: Int = 10, positions: [Int: Double] = [:],
+    ) -> KanbanDownload {
         KanbanDownload(
             viewID: viewID,
             mode: "manual",
@@ -91,6 +93,7 @@ struct KanbanSyncTests {
             defaultBucketID: bucketID,
             doneBucketID: nil,
             buckets: [KanbanBucket(id: bucketID, title: "Todo", tasks: tasks)],
+            taskPositions: positions,
         )
     }
 
@@ -154,6 +157,44 @@ struct KanbanSyncTests {
         }
         #expect(empty.buckets[0].tasks.isEmpty)
         #expect(try await store.read { try TaskRecord.fetchCount($0) } == 1)
+    }
+
+    @Test func `legacy cache stays readable and adopts server positions on complete refresh`() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let store = try LocalStore(directory: directory)
+        let accountID = UUID()
+        _ = try await project(store, accountID: accountID)
+        let tasks = [
+            VikunjaTask(id: 100, title: "First in old cache", projectID: 1),
+            VikunjaTask(id: 101, title: "Second in old cache", projectID: 1),
+        ]
+        let remote = KanbanDownloadFake(board(tasks))
+        let sync = engine(store, accountID: accountID, remote: remote)
+        try await sync.pullKanban(projectID: .remote(1))
+        // Reopen the existing store: no schema change or cache invalidation is required.
+        let reopened = try LocalStore(directory: directory)
+        let repository = OfflineKanbanBoardRepository(
+            localStore: reopened, accountID: accountID, syncRequester: NoopKanbanSyncRequester(),
+        )
+        guard case let .available(legacy) = try await repository.fetchBoard(projectID: 1, viewID: 10) else {
+            Issue.record("Missing legacy board"); return
+        }
+        #expect(legacy.buckets[0].tasks.map(\.id) == [.remote(100), .remote(101)])
+        await remote.set(board(tasks, positions: [100: 900.5, 101: 300.25]))
+        try await sync.pullKanban(projectID: 1)
+        guard case let .available(refreshed) = try await repository.fetchBoard(projectID: 1, viewID: 10) else {
+            Issue.record("Missing refreshed board"); return
+        }
+        #expect(refreshed.buckets[0].tasks.map(\.id) == [.remote(101), .remote(100)])
+        #expect(try await store.read { try KanbanAssignmentRecord.fetchAll($0).map(\.position).sorted() }
+            == [300.25, 900.5])
+        // An unpositioned response must not replace known view positions with indices.
+        await remote.set(board(tasks))
+        try await sync.pullKanban(projectID: 1)
+        guard case let .available(unpositioned) = try await repository.fetchBoard(projectID: 1, viewID: 10) else {
+            Issue.record("Missing cached board"); return
+        }
+        #expect(unpositioned.buckets[0].tasks.map(\.id) == [.remote(101), .remote(100)])
     }
 
     @Test func `pending edits placements and deletes are preserved`() async throws {

@@ -767,6 +767,18 @@ Open threads:
   re-fetched from the server.
 
 
+## Kanban task ordering
+
+Project board downloads carry task positions scoped to the downloaded view in
+`KanbanDownload.taskPositions`; canonical tasks do not carry board order. Cached
+assignments retain those positions across bucket movements, completion changes,
+and generic task acknowledgements. New local tasks receive provisional positions
+above the view's existing tasks. After sync, a complete board download adopts
+server positions and may visibly reorder those tasks. Existing caches remain
+readable with provisional ordering until refresh; missing positions preserve
+cached values, with response order as the fallback for previously uncached tasks.
+The existing pending-action and atomic-download safeguards still apply.
+
 ## Online saved-filter Kanban
 
 Project boards use `OfflineKanbanBoardRepository`. Saved-filter boards use
