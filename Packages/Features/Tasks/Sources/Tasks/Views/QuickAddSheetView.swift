@@ -10,6 +10,7 @@ public struct QuickAddSheetView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.vikuPalette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.displayScale) private var displayScale
     @FocusState private var isFocused: Bool
     @State private var isShowingProjectPicker = false
     @State private var isShowingDueDatePicker = false
@@ -29,6 +30,28 @@ public struct QuickAddSheetView: View {
 
     private var isSubmitting: Bool {
         viewModel.isSaving || savingPresentation.isVisible || saveSucceeded || saveTask != nil
+    }
+
+    private var sheetCornerRadius: CGFloat {
+        VikuRadius.lg + VikuSpacing.sm
+    }
+
+    /// The native presentation background includes the drag-indicator area.
+    /// A top-edge hairline separates dark surfaces where a shadow disappears.
+    private var sheetBackground: some View {
+        palette.cardBackground
+            .overlay {
+                UnevenRoundedRectangle(
+                    topLeadingRadius: sheetCornerRadius,
+                    topTrailingRadius: sheetCornerRadius,
+                )
+                .strokeBorder(palette.textSecondary.opacity(0.16), lineWidth: 1 / displayScale)
+                .mask(alignment: .top) {
+                    Rectangle().frame(height: sheetCornerRadius + 1 / displayScale)
+                }
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            }
     }
 
     private var detentHeight: CGFloat {
@@ -87,10 +110,11 @@ public struct QuickAddSheetView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollDismissesKeyboard(.interactively)
-        .background(palette.pageBackground)
+        .background(palette.cardBackground)
+        .presentationBackground { sheetBackground }
         .presentationDetents([.height(detentHeight)])
         .presentationDragIndicator(.visible)
-        .presentationCornerRadius(VikuRadius.lg + VikuSpacing.sm)
+        .presentationCornerRadius(sheetCornerRadius)
         .interactiveDismissDisabled(isSubmitting)
         .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.86), value: titleFieldHeight)
         .sheet(isPresented: $isShowingProjectPicker) {
