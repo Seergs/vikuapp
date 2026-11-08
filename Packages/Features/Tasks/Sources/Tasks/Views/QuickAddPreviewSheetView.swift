@@ -22,6 +22,7 @@ public struct QuickAddPreviewSheetView: View {
     @State private var saveTask: Task<Void, Never>?
     @State private var saveSucceeded = false
     @State private var titleFieldHeight: CGFloat = 25
+    @State private var suggestionRowHeight: CGFloat = VikuSpacing.lg
 
     public init(viewModel: QuickAddTaskViewModel) {
         self.viewModel = viewModel
@@ -33,6 +34,9 @@ public struct QuickAddPreviewSheetView: View {
 
     private var detentHeight: CGFloat {
         var height: CGFloat = 180 + max(0, titleFieldHeight - 25)
+        if viewModel.suggestions.isEmpty {
+            height -= suggestionRowHeight + VikuSpacing.sm
+        }
         if viewModel.saveErrorMessage != nil {
             height += 66
         }
@@ -168,22 +172,21 @@ public struct QuickAddPreviewSheetView: View {
         #endif
     }
 
+    @ViewBuilder
     private var suggestions: some View {
-        // TODO: Gate on Quick Add Magic and use examples for its selected dialect.
-        // Deferred deliberately while migrating the existing creation flow.
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: VikuSpacing.xs) {
-                Text("Try", bundle: .module)
-                suggestionPill(String(localized: "tomorrow", bundle: .module))
-                suggestionPill(String(localized: "#work", bundle: .module))
-                suggestionPill(String(localized: "!high", bundle: .module))
-                suggestionPill(String(localized: "@design", bundle: .module))
+        if !viewModel.suggestions.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: VikuSpacing.xs) {
+                    Text("Try", bundle: .module)
+                    ForEach(viewModel.suggestions, id: \.self) { suggestion in
+                        suggestionPill(suggestion)
+                    }
+                }
+                .font(VikuFont.footnote)
+                .foregroundStyle(palette.textTertiary)
             }
-            .font(VikuFont.footnote)
-            .foregroundStyle(palette.textTertiary)
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { suggestionRowHeight = $0 }
         }
-        .opacity(viewModel.input.isEmpty ? 1 : 0)
-        .accessibilityHidden(!viewModel.input.isEmpty)
     }
 
     private var actions: some View {

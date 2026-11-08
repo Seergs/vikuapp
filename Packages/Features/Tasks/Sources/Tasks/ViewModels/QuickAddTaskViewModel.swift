@@ -287,6 +287,18 @@ public final class QuickAddTaskViewModel {
         syntaxStore?.syntax
     }
 
+    /// Illustrative examples, using the same dialect and priority mapping as
+    /// parsing and picker edits. They never create or select actual entities.
+    public var suggestions: [String] {
+        guard input.isEmpty, let syntax else { return [] }
+        return [
+            String(localized: "tomorrow", bundle: .module),
+            QuickAddParser.settingProject(String(localized: "work", bundle: .module), in: "", syntax: syntax),
+            QuickAddParser.settingPriority(.high, in: "", syntax: syntax),
+            "\(syntax.labelSigil)\(String(localized: "design", bundle: .module))",
+        ]
+    }
+
     private let taskRepository: TaskRepositoryProtocol
     private let projectRepository: ProjectRepositoryProtocol
     private let toastPresenter: ToastPresenting

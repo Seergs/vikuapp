@@ -1,6 +1,38 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "work": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "work"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "trabajo"
+          }
+        }
+      }
+    },
+    "design": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "design"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "diseño"
+          }
+        }
+      }
+    },
     "Remove Due Date": {
       "localizations": {
         "en": {
@@ -189,54 +221,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "mañana"
-          }
-        }
-      }
-    },
-    "#work": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "#work"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "#trabajo"
-          }
-        }
-      }
-    },
-    "!high": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "!high"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "!alta"
-          }
-        }
-      }
-    },
-    "@design": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "@design"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "@diseño"
           }
         }
       }
