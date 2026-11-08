@@ -377,17 +377,11 @@ struct ProjectOverviewView: View {
             ProjectProgressHeader(project: viewModel.project, tasks: viewModel.tasks)
                 .padding(.horizontal, VikuSpacing.md)
 
-            // Favorites and saved filters are pseudo-projects with no row in
-            // the real `projects` table, so they can't own a subproject —
-            // the whole block (button or list) is hidden rather than
-            // offering an "Add Subproject" that would fail server-side.
+            // Only real projects can own subprojects. Creation remains in
+            // the project menu, so this section only shows existing children.
             if viewModel.project.kind == .project {
                 let visibleSubprojects = viewModel.subprojectsWithPendingTasks
-                if viewModel.subprojects.isEmpty {
-                    AddSubprojectButton { isShowingCreateSubproject = true }
-                        .padding(.horizontal, VikuSpacing.md)
-                        .padding(.top, VikuSpacing.xs)
-                } else if !visibleSubprojects.isEmpty {
+                if !visibleSubprojects.isEmpty {
                     VStack(alignment: .leading, spacing: VikuSpacing.sm) {
                         HStack(spacing: VikuSpacing.xs) {
                             Text("Subprojects", bundle: .module)
@@ -410,10 +404,7 @@ struct ProjectOverviewView: View {
                     // for the gap after "X/Y tasks completed" specifically.
                     .padding(.top, VikuSpacing.xs)
                 }
-                // Else: this project has subprojects, but none with pending
-                // tasks (all brand new or all completed) — hide the block
-                // entirely, including the "Add Subproject" button, rather
-                // than showing an empty "Subprojects" row.
+                // Hide the row when no subprojects have pending tasks.
             }
 
             ProjectTaskFilterRow(selection: $filter)
@@ -655,30 +646,6 @@ private struct SubprojectCard: View {
             // under only a `minWidth` would try to grow unbounded instead.
             .frame(width: 220, alignment: .leading)
             .background(palette.cardBackground, in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-/// The empty-state affordance shown where the "Subprojects" row would
-/// otherwise go, once this project has at least one child: a plain,
-/// left-aligned, borderless link rather than a boxed call-to-action.
-private struct AddSubprojectButton: View {
-    let action: () -> Void
-
-    @Environment(\.vikuPalette) private var palette
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: VikuSpacing.xs) {
-                Image(systemName: "plus")
-                    .font(.system(size: 11, weight: .semibold))
-                Text("Add Subproject", bundle: .module)
-                    .font(VikuFont.footnote)
-                    .fontWeight(.semibold)
-            }
-            .foregroundStyle(palette.brand)
-            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
