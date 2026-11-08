@@ -1,6 +1,54 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Remove due date and reminder?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove due date and reminder?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Quitar la fecha límite y el recordatorio?"
+          }
+        }
+      }
+    },
+    "Remove Both": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove Both"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar ambos"
+          }
+        }
+      }
+    },
+    "This reminder depends on the due date. Removing the due date will remove both.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This reminder depends on the due date. Removing the due date will remove both."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este recordatorio depende de la fecha límite. Si quitas la fecha límite, se quitarán ambos."
+          }
+        }
+      }
+    },
     "+%lld": {
       "localizations": {
         "en": {

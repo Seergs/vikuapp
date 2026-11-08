@@ -27,6 +27,13 @@ public final class QuickAddTaskViewModel {
     /// into `selectedProjectID` / `priority`, the same state the pickers edit.
     public var input: String = "" {
         didSet {
+            if !isApplyingDueDate, hasRelativeReminder, dueDate == nil,
+               (parseInput(oldValue).dueDate ?? pickedDueDate) != nil {
+                pendingDueDateRemoval = .input(input)
+                input = oldValue
+                isConfirmingDueDateRemoval = true
+                return
+            }
             // A newly typed, uniquely resolved date supersedes a picker choice.
             // Ordinary title/project/priority edits leave that choice intact.
             if parsed.dueDate != nil {
@@ -34,10 +41,58 @@ public final class QuickAddTaskViewModel {
             }
             syncShortcutsToPicker()
             labelSelectionOrder = selectedLabels.map(\.id)
+            updateRelativeReminder()
         }
     }
 
     private var pickedDueDate: Date?
+    private var isApplyingDueDate = false
+    private enum DueDateRemoval {
+        case picker
+        case input(String)
+    }
+
+    private var pendingDueDateRemoval: DueDateRemoval?
+    public private(set) var reminder: TaskReminder?
+    public private(set) var isConfirmingDueDateRemoval = false
+
+    private var hasRelativeReminder: Bool {
+        reminder?.relativeTo == .dueDate
+    }
+
+    /// Quick Add supports one reminder. A new picker choice replaces it;
+    /// relative reminders always have a valid due-date anchor in this draft.
+    public func setReminder(_ value: TaskReminder?) {
+        if let relation = value?.relativeTo {
+            guard relation == .dueDate, dueDate != nil else { return }
+        }
+        cancelDueDateRemoval()
+        reminder = value
+        updateRelativeReminder()
+    }
+
+    public func confirmDueDateRemoval() {
+        guard let pending = pendingDueDateRemoval else { return }
+        cancelDueDateRemoval()
+        reminder = nil
+        switch pending {
+        case .picker: applyDueDate(nil)
+        case let .input(proposed): input = proposed
+        }
+    }
+
+    public func cancelDueDateRemoval() {
+        pendingDueDateRemoval = nil
+        isConfirmingDueDateRemoval = false
+    }
+
+    private func updateRelativeReminder() {
+        guard hasRelativeReminder, let dueDate, var value = reminder else { return }
+        // Resolve the unsaved draft locally; Vikunja remains authoritative
+        // once the task exists and its dates are changed by synchronization.
+        value.reminder = dueDate.addingTimeInterval(TimeInterval(value.relativePeriod))
+        reminder = value
+    }
 
     /// The single date used by both the chip and task creation. Picker dates
     /// remain exact instants; they are never formatted and parsed back from text.
@@ -49,6 +104,18 @@ public final class QuickAddTaskViewModel {
     /// input, keeping all other text and shortcuts. Unresolved/literal phrases
     /// stay untouched. A later typed date can take over again.
     public func pickDueDate(_ date: Date?) {
+        if date == nil, dueDate != nil, hasRelativeReminder {
+            pendingDueDateRemoval = .picker
+            isConfirmingDueDateRemoval = true
+            return
+        }
+        cancelDueDateRemoval()
+        applyDueDate(date)
+    }
+
+    private func applyDueDate(_ date: Date?) {
+        isApplyingDueDate = true
+        defer { isApplyingDueDate = false }
         let interpretation = parsed.dateInterpretation
         if interpretation.resolvedDate != nil, let expression = interpretation.expressions.first {
             var range = expression.range
@@ -61,6 +128,7 @@ public final class QuickAddTaskViewModel {
             input = updated.trimmingCharacters(in: .whitespacesAndNewlines)
         }
         pickedDueDate = date
+        updateRelativeReminder()
     }
 
     /// The project the task is saved to: the picker's value, or the last matched shortcut.
@@ -90,7 +158,11 @@ public final class QuickAddTaskViewModel {
 
     /// `input` parsed with the user's syntax against the loaded projects and labels.
     public var parsed: QuickAddParser.Result {
-        QuickAddParser.parse(input, projects: projects, labels: labels, syntax: syntax, dateContext: dateParsingContext)
+        parseInput(input)
+    }
+
+    private func parseInput(_ value: String) -> QuickAddParser.Result {
+        QuickAddParser.parse(value, projects: projects, labels: labels, syntax: syntax, dateContext: dateParsingContext)
     }
 
     /// The app supplies the device zone captured when this sheet opens.
@@ -148,7 +220,7 @@ public final class QuickAddTaskViewModel {
     }
 
     public var canSave: Bool {
-        !parsed.title.isEmpty && selectedProjectID != nil && !isSaving
+        !parsed.title.isEmpty && selectedProjectID != nil && !isSaving && !isConfirmingDueDateRemoval
     }
 
     public var selectedProject: Project? {
@@ -410,6 +482,7 @@ public final class QuickAddTaskViewModel {
         guard canSave, let projectID = selectedProjectID else { return nil }
         let shortcut = parsed
         let selectedDueDate = dueDate
+        let selectedReminders = reminder.map { [$0] } ?? []
         let selectedLabelIDs = selectedLabels.map(\.id)
         let usesLabels = shortcut.tokens.contains { $0.token.kind == .label }
         if usesLabels || !selectedLabelIDs.isEmpty, !labelsAvailable {
@@ -432,6 +505,7 @@ public final class QuickAddTaskViewModel {
                     dueDate: selectedDueDate,
                     priority: priority,
                     projectID: projectID,
+                    reminders: selectedReminders,
                 ),
             )
             var seen: Set<EntityID> = []

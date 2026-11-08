@@ -15,6 +15,8 @@ public struct QuickAddPreviewSheetView: View {
     @State private var isShowingProjectPicker = false
     @State private var isShowingDueDatePicker = false
     @State private var isShowingLabelPicker = false
+    @State private var isShowingReminderPicker = false
+    @State private var isShowingDueDateRemovalConfirmation = false
     @State private var savingPresentation = QuickAddSavingPresentation()
     @State private var presentationOrigin = ContinuousClock.now
     @State private var saveTask: Task<Void, Never>?
@@ -95,11 +97,38 @@ public struct QuickAddPreviewSheetView: View {
                 selectedProjectID: viewModel.selectedProjectID,
             ) { viewModel.pickProject($0) }
         }
-        .sheet(isPresented: $isShowingDueDatePicker) {
+        .sheet(isPresented: $isShowingDueDatePicker, onDismiss: presentDueDateRemovalIfNeeded) {
             DueDatePickerSheet(initialDate: viewModel.dueDate) { viewModel.pickDueDate($0) }
                 .environment(\.timeZone, viewModel.dateParsingContext.timeZone)
         }
+        .sheet(isPresented: $isShowingReminderPicker) {
+            ReminderPickerSheet(
+                initialReminder: viewModel.reminder,
+                dueDate: viewModel.dueDate,
+                onSave: { viewModel.setReminder($0) },
+                onDelete: viewModel.reminder.map { _ in { viewModel.setReminder(nil) } },
+            )
+            .environment(\.timeZone, viewModel.dateParsingContext.timeZone)
+        }
         .sheet(isPresented: $isShowingLabelPicker) { labelsPicker }
+        .alert(
+            String(localized: "Remove due date and reminder?", bundle: .module),
+            isPresented: $isShowingDueDateRemovalConfirmation,
+        ) {
+            Button(String(localized: "Remove Both", bundle: .module), role: .destructive) {
+                viewModel.confirmDueDateRemoval()
+            }
+            Button(String(localized: "Cancel", bundle: .module), role: .cancel) {
+                viewModel.cancelDueDateRemoval()
+            }
+        } message: {
+            Text("This reminder depends on the due date. Removing the due date will remove both.", bundle: .module)
+        }
+        .onChange(of: viewModel.isConfirmingDueDateRemoval) { _, isPending in
+            if isPending, !isShowingDueDatePicker {
+                presentDueDateRemovalIfNeeded()
+            }
+        }
         .task {
             isFocused = true
             await viewModel.load()
@@ -164,12 +193,11 @@ public struct QuickAddPreviewSheetView: View {
                     projectButton
                     dueDateButton
                     priorityMenu
-                    shortcutIcon("bell", label: String(localized: "Reminders", bundle: .module))
+                    reminderButton
                     labelsButton
-                    shortcutIcon("ellipsis", label: String(localized: "More Options", bundle: .module))
                 }
             }
-            .disabled(isSubmitting)
+            .disabled(isSubmitting || viewModel.isConfirmingDueDateRemoval)
 
             Button {
                 guard !isSubmitting, viewModel.canSave else { return }
@@ -256,6 +284,40 @@ public struct QuickAddPreviewSheetView: View {
             ))
         } else {
             Text("None", bundle: .module)
+        }
+    }
+
+    private var reminderButton: some View {
+        Button { isShowingReminderPicker = true } label: {
+            if let reminder = viewModel.reminder {
+                HStack(spacing: VikuSpacing.xs) {
+                    Image(systemName: "bell")
+                        .font(VikuFont.body)
+                    Text(verbatim: ReminderFormatter.compactLabel(for: reminder))
+                        .font(VikuFont.footnote)
+                        .fontWeight(.bold)
+                        .lineLimit(1)
+                }
+                .foregroundStyle(palette.brand)
+                .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xs)
+                .frame(height: VikuSpacing.xl + VikuSpacing.xs)
+                .background(palette.brand.opacity(0.1), in: Capsule())
+            } else {
+                shortcutIcon("bell", label: String(localized: "Reminders", bundle: .module))
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("Reminders", bundle: .module))
+        .accessibilityValue(Text(verbatim: viewModel.reminder.map {
+            [ReminderFormatter.label(for: $0), ReminderFormatter.preciseLabel(for: $0)].joined(separator: ", ")
+        } ?? ""))
+    }
+
+    private func presentDueDateRemovalIfNeeded() {
+        // A date picker dismisses after requesting removal. Wait for its
+        // onDismiss before presenting a second modal on the parent sheet.
+        if viewModel.isConfirmingDueDateRemoval {
+            isShowingDueDateRemovalConfirmation = true
         }
     }
 
