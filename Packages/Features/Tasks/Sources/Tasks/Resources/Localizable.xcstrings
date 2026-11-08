@@ -1,6 +1,70 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Remove Due Date": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove Due Date"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar fecha límite"
+          }
+        }
+      }
+    },
+    "Remove Labels": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove Labels"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar etiquetas"
+          }
+        }
+      }
+    },
+    "Remove Reminder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove Reminder"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar recordatorio"
+          }
+        }
+      }
+    },
+    "Remove Priority": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove Priority"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar prioridad"
+          }
+        }
+      }
+    },
     "Remove due date and reminder?": {
       "localizations": {
         "en": {

@@ -58,6 +58,10 @@ struct LocalizationTests {
         ("Mark as Not Done", "Marcar como no hecha"),
         ("Mark as Done", "Marcar como hecha"),
         ("Due Date", "Fecha límite"),
+        ("Remove Due Date", "Quitar fecha límite"),
+        ("Remove Labels", "Quitar etiquetas"),
+        ("Remove Reminder", "Quitar recordatorio"),
+        ("Remove Priority", "Quitar prioridad"),
         ("Remove due date and reminder?", "¿Quitar la fecha límite y el recordatorio?"),
         ("Remove Both", "Quitar ambos"),
         (

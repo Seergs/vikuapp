@@ -251,28 +251,28 @@ public struct QuickAddPreviewSheetView: View {
         .accessibilityValue(Text(verbatim: (viewModel.selectedProject ?? viewModel.displayProject)?.title ?? ""))
     }
 
+    @ViewBuilder
     private var dueDateButton: some View {
-        Button { isShowingDueDatePicker = true } label: {
-            if let dueDate = viewModel.dueDate {
-                HStack(spacing: VikuSpacing.xs) {
-                    Image(systemName: "calendar")
-                        .font(VikuFont.body)
-                    Text(verbatim: DueDateFormatter.compact(dueDate))
-                        .font(VikuFont.footnote)
-                        .fontWeight(.bold)
-                        .lineLimit(1)
-                }
-                .foregroundStyle(palette.brand)
-                .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xs)
-                .frame(height: VikuSpacing.xl + VikuSpacing.xs)
-                .background(palette.brand.opacity(0.1), in: Capsule())
-            } else {
+        if let dueDate = viewModel.dueDate {
+            removableChip(
+                color: palette.brand,
+                removeLabel: String(localized: "Remove Due Date", bundle: .module),
+                remove: { viewModel.pickDueDate(nil) },
+                content: {
+                    Button { isShowingDueDatePicker = true } label: {
+                        selectionChipLabel("calendar", title: DueDateFormatter.compact(dueDate))
+                    }
+                    .accessibilityLabel(Text("Due Date", bundle: .module))
+                    .accessibilityValue(dueDateAccessibilityValue)
+                },
+            )
+        } else {
+            Button { isShowingDueDatePicker = true } label: {
                 shortcutIcon("calendar", label: String(localized: "Due Date", bundle: .module))
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("Due Date", bundle: .module))
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Text("Due Date", bundle: .module))
-        .accessibilityValue(dueDateAccessibilityValue)
     }
 
     private var dueDateAccessibilityValue: Text {
@@ -287,30 +287,30 @@ public struct QuickAddPreviewSheetView: View {
         }
     }
 
+    @ViewBuilder
     private var reminderButton: some View {
-        Button { isShowingReminderPicker = true } label: {
-            if let reminder = viewModel.reminder {
-                HStack(spacing: VikuSpacing.xs) {
-                    Image(systemName: "bell")
-                        .font(VikuFont.body)
-                    Text(verbatim: ReminderFormatter.compactLabel(for: reminder))
-                        .font(VikuFont.footnote)
-                        .fontWeight(.bold)
-                        .lineLimit(1)
-                }
-                .foregroundStyle(palette.brand)
-                .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xs)
-                .frame(height: VikuSpacing.xl + VikuSpacing.xs)
-                .background(palette.brand.opacity(0.1), in: Capsule())
-            } else {
+        if let reminder = viewModel.reminder {
+            removableChip(
+                color: palette.brand,
+                removeLabel: String(localized: "Remove Reminder", bundle: .module),
+                remove: { viewModel.setReminder(nil) },
+                content: {
+                    Button { isShowingReminderPicker = true } label: {
+                        selectionChipLabel("bell", title: ReminderFormatter.compactLabel(for: reminder))
+                    }
+                    .accessibilityLabel(Text("Reminders", bundle: .module))
+                    .accessibilityValue(Text(verbatim: [
+                        ReminderFormatter.label(for: reminder), ReminderFormatter.preciseLabel(for: reminder),
+                    ].joined(separator: ", ")))
+                },
+            )
+        } else {
+            Button { isShowingReminderPicker = true } label: {
                 shortcutIcon("bell", label: String(localized: "Reminders", bundle: .module))
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("Reminders", bundle: .module))
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Text("Reminders", bundle: .module))
-        .accessibilityValue(Text(verbatim: viewModel.reminder.map {
-            [ReminderFormatter.label(for: $0), ReminderFormatter.preciseLabel(for: $0)].joined(separator: ", ")
-        } ?? ""))
     }
 
     private func presentDueDateRemovalIfNeeded() {
@@ -321,32 +321,32 @@ public struct QuickAddPreviewSheetView: View {
         }
     }
 
+    @ViewBuilder
     private var labelsButton: some View {
-        Button { isShowingLabelPicker = true } label: {
-            if let first = viewModel.selectedLabels.first {
-                HStack(spacing: VikuSpacing.xs) {
-                    Image(systemName: "tag")
-                        .font(VikuFont.body)
-                    Text(verbatim: first.title)
-                        .lineLimit(1)
-                    if viewModel.selectedLabels.count > 1 {
-                        Text("+\(viewModel.selectedLabels.count - 1)", bundle: .module)
+        if let first = viewModel.selectedLabels.first {
+            removableChip(
+                color: Color(vikuMutedHex: first.hexColor) ?? palette.brand,
+                removeLabel: String(localized: "Remove Labels", bundle: .module),
+                remove: { viewModel.clearLabels() },
+                content: {
+                    Button { isShowingLabelPicker = true } label: {
+                        selectionChipLabel(
+                            "tag", title: first.title,
+                            additionalCount: viewModel.selectedLabels.count - 1,
+                        )
                     }
-                }
-                .font(VikuFont.footnote)
-                .fontWeight(.bold)
-                .foregroundStyle(Color(vikuMutedHex: first.hexColor) ?? palette.brand)
-                .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xs)
-                .frame(height: VikuSpacing.xl + VikuSpacing.xs)
-                .background((Color(vikuMutedHex: first.hexColor) ?? palette.brand).opacity(0.1), in: Capsule())
-            } else {
+                    .accessibilityLabel(Text("Labels", bundle: .module))
+                    .accessibilityValue(Text(verbatim: viewModel.selectedLabels.map(\.title).joined(separator: ", ")))
+                },
+            )
+        } else {
+            Button { isShowingLabelPicker = true } label: {
                 shortcutIcon("tag", label: String(localized: "Labels", bundle: .module))
             }
+            .buttonStyle(.plain)
+            .disabled(!viewModel.canPickLabels)
+            .accessibilityLabel(Text("Labels", bundle: .module))
         }
-        .buttonStyle(.plain)
-        .disabled(!viewModel.canPickLabels)
-        .accessibilityLabel(Text("Labels", bundle: .module))
-        .accessibilityValue(Text(verbatim: viewModel.selectedLabels.map(\.title).joined(separator: ", ")))
     }
 
     private var labelsPicker: some View {
@@ -379,7 +379,23 @@ public struct QuickAddPreviewSheetView: View {
         }
     }
 
+    @ViewBuilder
     private var priorityMenu: some View {
+        if viewModel.priority != .unset {
+            removableChip(
+                color: VikuColor.Priority.dot(for: viewModel.priority) ?? palette.brand,
+                removeLabel: String(localized: "Remove Priority", bundle: .module),
+                remove: { viewModel.pickPriority(.unset) },
+                content: {
+                    priorityPicker
+                },
+            )
+        } else {
+            priorityPicker
+        }
+    }
+
+    private var priorityPicker: some View {
         Menu {
             ForEach(VikunjaTask.Priority.selectable, id: \.self) { priority in
                 Button {
@@ -394,26 +410,58 @@ public struct QuickAddPreviewSheetView: View {
             }
         } label: {
             if viewModel.priority != .unset {
-                HStack(spacing: VikuSpacing.xs) {
-                    Image(systemName: "flag")
-                        .font(VikuFont.body)
-                    Text(verbatim: viewModel.priority.localizedMenuLabel)
-                        .font(VikuFont.footnote)
-                        .fontWeight(.bold)
-                }
-                .foregroundStyle(VikuColor.Priority.dot(for: viewModel.priority) ?? palette.brand)
-                .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xs)
-                .frame(height: VikuSpacing.xl + VikuSpacing.xs)
-                .background(
-                    (VikuColor.Priority.dot(for: viewModel.priority) ?? palette.brand).opacity(0.1),
-                    in: Capsule(),
-                )
+                selectionChipLabel("flag", title: viewModel.priority.localizedMenuLabel)
             } else {
                 shortcutIcon("flag", label: String(localized: "Priority", bundle: .module))
             }
         }
         .accessibilityLabel(Text("Priority", bundle: .module))
         .accessibilityValue(Text(verbatim: viewModel.priority.localizedMenuLabel))
+    }
+
+    /// Sibling controls keep removing separate from opening the picker/menu.
+    /// The capsule stays compact while each action has a full-height hit area.
+    private func removableChip(
+        color: Color,
+        removeLabel: String,
+        remove: @escaping () -> Void,
+        @ViewBuilder content: () -> some View,
+    ) -> some View {
+        HStack(spacing: 0) {
+            content()
+            Button(action: remove) {
+                Image(systemName: "xmark")
+                    .font(VikuFont.caption.weight(.semibold))
+                    .frame(width: VikuSpacing.xl, height: VikuSpacing.xxl - VikuSpacing.xs)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel(Text(verbatim: removeLabel))
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(color)
+        .background {
+            Capsule()
+                .fill(color.opacity(0.1))
+                .frame(height: VikuSpacing.xl + VikuSpacing.xs)
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private func selectionChipLabel(_ icon: String, title: String, additionalCount: Int = 0) -> some View {
+        HStack(spacing: VikuSpacing.xs) {
+            Image(systemName: icon)
+                .font(VikuFont.body)
+            Text(verbatim: title)
+                .lineLimit(1)
+            if additionalCount > 0 {
+                Text("+\(additionalCount)", bundle: .module)
+            }
+        }
+        .font(VikuFont.footnote)
+        .fontWeight(.bold)
+        .padding(.leading, VikuSpacing.sm + VikuSpacing.xs)
+        .frame(minHeight: VikuSpacing.xxl - VikuSpacing.xs)
+        .contentShape(Rectangle())
     }
 
     private func suggestionPill(_ text: String) -> some View {

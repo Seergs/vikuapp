@@ -215,6 +215,12 @@ public final class QuickAddTaskViewModel {
     /// The user picked a priority chip. Writes it into the text as a `p`/`!` shortcut.
     public func pickPriority(_ value: VikunjaTask.Priority) {
         priority = value
+        if value == .unset {
+            // Remove later priority tokens too, so none can become active
+            // after the first shortcut is removed.
+            removeShortcutRanges(parsed.tokens.filter { $0.token.kind == .priority }.map(\.token.range))
+            return
+        }
         guard let syntax else { return }
         input = QuickAddParser.settingPriority(value, in: input, syntax: syntax)
     }
@@ -339,6 +345,19 @@ public final class QuickAddTaskViewModel {
                   labelCatalog.canonicalID(for: value.id) == canonical.id else { return nil }
             return item.token.range
         }
+        removeShortcutRanges(ranges)
+    }
+
+    /// The aggregate labels chip clears its entire draft selection, including
+    /// applied label shortcuts and new-label intents, without deleting labels.
+    public func clearLabels() {
+        let ranges = parsed.tokens.filter { $0.token.kind == .label && $0.isApplied }.map(\.token.range)
+        pickedLabels = []
+        labelSelectionOrder = []
+        removeShortcutRanges(ranges)
+    }
+
+    private func removeShortcutRanges(_ ranges: [Range<String.Index>]) {
         guard !ranges.isEmpty else {
             labelSelectionOrder = selectedLabels.map(\.id)
             return
