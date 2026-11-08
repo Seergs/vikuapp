@@ -183,7 +183,6 @@ struct MainTabView: View {
                         makeHomeSelectionSettingsViewModel: {
                             container.makeHomeSelectionSettingsViewModel(account: account)
                         },
-                        quickAddRedesignEnabled: quickAddRedesignBinding,
                     )
                     .appDestinations(container: container, account: account)
                 }
@@ -297,17 +296,6 @@ struct MainTabView: View {
             .padding(.trailing, VikuSpacing.md)
             .padding(.bottom, VikuSpacing.xxl + VikuSpacing.lg)
         }
-    }
-
-    private var quickAddRedesignBinding: Binding<Bool> {
-        #if DEBUG
-        Binding(
-            get: { container.devToolsCenter.isQuickAddRedesignEnabled },
-            set: { container.devToolsCenter.isQuickAddRedesignEnabled = $0 },
-        )
-        #else
-        .constant(false)
-        #endif
     }
 
     /// Consumes the account's pending-sync snapshots until this shell goes
@@ -426,15 +414,7 @@ private struct QuickAddOverlay: View {
             }
         }
         .sheet(item: $presented) { presented in
-            #if DEBUG
-            if BuildConfig.isDevBuild, container.devToolsCenter.isQuickAddRedesignEnabled {
-                QuickAddPreviewSheetView(viewModel: presented.viewModel)
-            } else {
-                QuickAddSheetView(viewModel: presented.viewModel)
-            }
-            #else
             QuickAddSheetView(viewModel: presented.viewModel)
-            #endif
         }
         // A `viku://quick-add` deep link opens the same sheet. Handled
         // here, not in `MainTabView`, so reading the router doesn't rebuild

@@ -1,239 +1,506 @@
-import Foundation
 import SwiftUI
 import VikuDesignSystem
 import VikunjaCore
+import VikuUI
 
-/// The quick-add sheet opened from the tab bar's floating action button:
-/// title + project + priority fields, with date and label shortcuts read
-/// from the title (see `QuickAddTaskViewModel`). A compact bottom sheet: a
-/// `NavigationStack` with an inline title and `Cancel`/`Save` in the toolbar
-/// (the system pins that bar to the top of the sheet, so it can't drift when
-/// the keyboard opens and nudges the sheet to its taller detent), switching
-/// between two fixed `presentationDetents` heights (see `compactHeight`/
-/// `expandedHeight`) so it only grows when the error banner or a shortcut
-/// chip needs the room. Content is anchored to the top rather than
-/// centered, so the extra space at the taller detent pools below the fields
-/// instead of above the title.
-/// Presented as a plain `.sheet` by whichever screen owns the FAB.
+/// The quick-add sheet shared by the floating button and external entry points.
+/// Picker selections edit the draft; creating the task uses the offline repository.
 public struct QuickAddSheetView: View {
-    @Bindable var viewModel: QuickAddTaskViewModel
+    @Bindable private var viewModel: QuickAddTaskViewModel
     @Environment(\.dismiss) private var dismiss
     @Environment(\.vikuPalette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @FocusState private var isFocused: Bool
     @State private var isShowingProjectPicker = false
-    @FocusState private var isTitleFocused: Bool
-    @State private var titleFieldHeight: CGFloat = QuickAddSheetView.titleFieldSingleLineHeight
-
-    /// A single detent sized to the current content, not a two-detent set:
-    /// when a sheet offers more than one detent and the keyboard appears,
-    /// iOS jumps it to the *largest* one — which left a big gap between the
-    /// priority chips and the keyboard. One height, grown only when the
-    /// error banner or the shortcut chip needs the room, keeps the sheet
-    /// exactly as tall as its content — never leaving dead space either
-    /// above the project field (a slot reserved even when empty) or below
-    /// the priority row (a slot baked in permanently). The added amount
-    /// matches `QuickAddShortcutChips.height` plus the one extra
-    /// `VikuSpacing.md` gap its insertion adds to the VStack, so the row's
-    /// own appearance and the sheet's resize move by the same amount and in
-    /// the same beat — see that type's doc comment for why this animates
-    /// cleanly despite being driven by two different systems (SwiftUI's
-    /// layout and the sheet's own UIKit-bridged resize).
-    private var detentHeight: CGFloat {
-        var height = viewModel.saveErrorMessage != nil ? Self.expandedHeight : Self.compactHeight
-        // The title field wraps up to `ShortcutTitleField.maxVisibleLines` instead of
-        // scrolling at one line, so the sheet grows to match, bounded by that same cap.
-        height += max(0, titleFieldHeight - Self.titleFieldSingleLineHeight)
-        if viewModel.isDatePreviewEnabled {
-            height += QuickAddDatePreview.height + VikuSpacing.md
-        }
-        guard QuickAddShortcutChips.hasChip(in: viewModel.shortcutChips) else { return height }
-        return height + QuickAddShortcutChips.height + VikuSpacing.md
-    }
+    @State private var isShowingDueDatePicker = false
+    @State private var isShowingLabelPicker = false
+    @State private var isShowingReminderPicker = false
+    @State private var isShowingDueDateRemovalConfirmation = false
+    @State private var savingPresentation = QuickAddSavingPresentation()
+    @State private var presentationOrigin = ContinuousClock.now
+    @State private var saveTask: Task<Void, Never>?
+    @State private var saveSucceeded = false
+    @State private var titleFieldHeight: CGFloat = 25
+    @State private var suggestionRowHeight: CGFloat = VikuSpacing.lg
 
     public init(viewModel: QuickAddTaskViewModel) {
         self.viewModel = viewModel
     }
 
-    public var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: VikuSpacing.md) {
-                    titleField
-                        .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
-                        .padding(.vertical, VikuSpacing.sm + VikuSpacing.xxs)
-                        .background(
-                            palette.fieldBackground,
-                            in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous),
-                        )
+    private var isSubmitting: Bool {
+        viewModel.isSaving || savingPresentation.isVisible || saveSucceeded || saveTask != nil
+    }
 
-                    QuickAddShortcutChips(input: viewModel.input, tokens: viewModel.shortcutChips)
-
-                    projectSection
-
-                    PriorityChipRow(selection: Binding(
-                        get: { viewModel.priority },
-                        set: { viewModel.pickPriority($0) },
-                    ))
-
-                    if let message = viewModel.saveErrorMessage {
-                        SaveErrorBanner(message: message)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
-
-                    if viewModel.isDatePreviewEnabled {
-                        QuickAddDatePreview(
-                            result: viewModel.datePreview,
-                            timeZone: viewModel.dateParsingContext.timeZone,
-                        )
-                    }
-                }
-                .padding(.horizontal, VikuSpacing.md)
-                .padding(.top, VikuSpacing.md)
-            }
-            .scrollDismissesKeyboard(.interactively)
-            // Anchored to the top: when the keyboard nudges the sheet up to
-            // its taller detent, the slack falls below the priority chips
-            // instead of being split above and below a vertically-centered
-            // block (which pushed the title away from the toolbar).
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            // Without this, the sheet falls back to the system's own
-            // material background instead of the active theme's canvas —
-            // invisible for themes whose `pageBackground` is close to that
-            // system gray, but a visible mismatch against `fieldBackground`
-            // for a saturated one (e.g. `vaporwave`'s indigo page behind a
-            // violet field).
-            .background(palette.pageBackground)
-            // A spring rather than `.easeInOut`: closer to the curve the
-            // system itself uses to animate a sheet's own detent resize, so
-            // our content's own transition doesn't visibly race against it.
-            // Deliberately not applied to `shortcutChips`: animating that
-            // row's insertion reflows `projectSection` underneath it at the
-            // same time the sheet's own detent resize is animating, and the
-            // two never looked like one smooth motion no matter how the
-            // spring was tuned, so this one row just pops instead.
-            .animation(
-                reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.86),
-                value: viewModel.saveErrorMessage,
-            )
-            .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.86), value: titleFieldHeight)
-            .navigationTitle(Text("New Task", bundle: .module))
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "Cancel", bundle: .module)) { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    if viewModel.isSaving {
-                        ProgressView()
-                    } else {
-                        Button(String(localized: "Save", bundle: .module)) {
-                            Task {
-                                if await viewModel.save() != nil {
-                                    dismiss()
-                                }
-                            }
-                        }
-                        .fontWeight(.bold)
-                        .disabled(!viewModel.canSave)
-                    }
-                }
-            }
+    private var detentHeight: CGFloat {
+        var height: CGFloat = 180 + max(0, titleFieldHeight - 25)
+        if viewModel.suggestions.isEmpty {
+            height -= suggestionRowHeight + VikuSpacing.sm
         }
+        if viewModel.saveErrorMessage != nil {
+            height += 66
+        }
+        if case .failure = viewModel.loadState {
+            height += 66
+        }
+        if QuickAddShortcutChips.hasChip(in: viewModel.shortcutChips) {
+            height += QuickAddShortcutChips.height + VikuSpacing.lg
+        }
+        if viewModel.isDatePreviewEnabled {
+            height += QuickAddDatePreview.height + VikuSpacing.lg
+        }
+        return height
+    }
+
+    public var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: VikuSpacing.lg) {
+                VStack(alignment: .leading, spacing: VikuSpacing.sm) {
+                    titleField
+                        .disabled(isSubmitting)
+                    suggestions
+                }
+
+                QuickAddShortcutChips(input: viewModel.input, tokens: viewModel.shortcutChips)
+                actions
+
+                if case let .failure(message) = viewModel.loadState {
+                    VStack(alignment: .leading, spacing: VikuSpacing.sm) {
+                        Text(verbatim: message)
+                            .font(VikuFont.footnote)
+                            .foregroundStyle(palette.textSecondary)
+                        Button(String(localized: "Retry", bundle: .module)) {
+                            Task { await viewModel.load() }
+                        }
+                        .disabled(isSubmitting)
+                    }
+                }
+                if let message = viewModel.saveErrorMessage {
+                    SaveErrorBanner(message: message)
+                }
+                if viewModel.isDatePreviewEnabled {
+                    QuickAddDatePreview(result: viewModel.datePreview, timeZone: viewModel.dateParsingContext.timeZone)
+                }
+            }
+            .padding(.horizontal, VikuSpacing.md)
+            .padding(.top, VikuSpacing.lg)
+            .padding(.bottom, VikuSpacing.sm)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .background(palette.pageBackground)
         .presentationDetents([.height(detentHeight)])
+        .presentationDragIndicator(.visible)
         .presentationCornerRadius(VikuRadius.lg + VikuSpacing.sm)
+        .interactiveDismissDisabled(isSubmitting)
+        .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.86), value: titleFieldHeight)
         .sheet(isPresented: $isShowingProjectPicker) {
             ProjectPickerSheet(
                 title: String(localized: "Choose Project", bundle: .module),
                 projects: viewModel.projects,
                 selectedProjectID: viewModel.selectedProjectID,
-            ) { project in
-                viewModel.pickProject(project)
+            ) { viewModel.pickProject($0) }
+        }
+        .sheet(isPresented: $isShowingDueDatePicker, onDismiss: presentDueDateRemovalIfNeeded) {
+            DueDatePickerSheet(initialDate: viewModel.dueDate) { viewModel.pickDueDate($0) }
+                .environment(\.timeZone, viewModel.dateParsingContext.timeZone)
+        }
+        .sheet(isPresented: $isShowingReminderPicker) {
+            ReminderPickerSheet(
+                initialReminder: viewModel.reminder,
+                dueDate: viewModel.dueDate,
+                onSave: { viewModel.setReminder($0) },
+                onDelete: viewModel.reminder.map { _ in { viewModel.setReminder(nil) } },
+            )
+            .environment(\.timeZone, viewModel.dateParsingContext.timeZone)
+        }
+        .sheet(isPresented: $isShowingLabelPicker) { labelsPicker }
+        .alert(
+            String(localized: "Remove due date and reminder?", bundle: .module),
+            isPresented: $isShowingDueDateRemovalConfirmation,
+        ) {
+            Button(String(localized: "Remove Both", bundle: .module), role: .destructive) {
+                viewModel.confirmDueDateRemoval()
+            }
+            Button(String(localized: "Cancel", bundle: .module), role: .cancel) {
+                viewModel.cancelDueDateRemoval()
+            }
+        } message: {
+            Text("This reminder depends on the due date. Removing the due date will remove both.", bundle: .module)
+        }
+        .onChange(of: viewModel.isConfirmingDueDateRemoval) { _, isPending in
+            if isPending, !isShowingDueDatePicker {
+                presentDueDateRemovalIfNeeded()
             }
         }
         .task {
-            isTitleFocused = true
+            isFocused = true
             await viewModel.load()
         }
+        .task(id: viewModel.isSaving) { await updateSavingPresentation() }
+        .onChange(of: saveSucceeded) { _, _ in dismissAfterSaveIfReady() }
+        .onDisappear { saveTask?.cancel() }
     }
 
-    /// On iOS the title is a `UITextView` so the shortcuts can be colored
-    /// as the user types. Elsewhere it stays a plain `TextField`.
     @ViewBuilder
     private var titleField: some View {
         #if os(iOS)
-        ZStack(alignment: .leading) {
+        ZStack(alignment: .topLeading) {
             ShortcutTitleField(
                 text: $viewModel.input,
                 highlights: viewModel.titleHighlights,
                 focusOnAppear: true,
+                textStyle: .title3,
             )
-            .onGeometryChange(for: CGFloat.self) { proxy in
-                proxy.size.height
-            } action: { height in
-                titleFieldHeight = max(Self.titleFieldSingleLineHeight, height)
-            }
             if viewModel.input.isEmpty {
-                Text("Task title", bundle: .module)
-                    .font(VikuFont.body)
+                Text("What needs to be done?", bundle: .module)
+                    .font(VikuFont.title3)
                     .foregroundStyle(palette.textTertiary)
                     .allowsHitTesting(false)
             }
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { titleFieldHeight = $0 }
+        .accessibilityLabel(Text("What needs to be done?", bundle: .module))
         #else
-        TextField(String(localized: "Task title", bundle: .module), text: $viewModel.input)
-            .font(VikuFont.body)
-            .focused($isTitleFocused)
-            .submitLabel(.done)
+        TextField(String(localized: "What needs to be done?", bundle: .module), text: $viewModel.input, axis: .vertical)
+            .textFieldStyle(.plain)
+            .font(VikuFont.title3)
+            .foregroundStyle(palette.textPrimary)
+            .lineLimit(1 ... 3)
+            .focused($isFocused)
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { titleFieldHeight = $0 }
         #endif
     }
 
     @ViewBuilder
-    private var projectSection: some View {
-        switch viewModel.loadState {
-        case let .failure(message):
-            Text(verbatim: message)
+    private var suggestions: some View {
+        if !viewModel.suggestions.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: VikuSpacing.xs) {
+                    Text("Try", bundle: .module)
+                    ForEach(viewModel.suggestions, id: \.self) { suggestion in
+                        suggestionPill(suggestion)
+                    }
+                }
+                .font(VikuFont.footnote)
+                .foregroundStyle(palette.textTertiary)
+            }
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { suggestionRowHeight = $0 }
+        }
+    }
+
+    private var actions: some View {
+        HStack(spacing: VikuSpacing.md) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: VikuSpacing.sm) {
+                    projectButton
+                    dueDateButton
+                    priorityMenu
+                    reminderButton
+                    labelsButton
+                }
+            }
+            .disabled(isSubmitting || viewModel.isConfirmingDueDateRemoval)
+
+            Button {
+                guard !isSubmitting, viewModel.canSave else { return }
+                saveTask = Task {
+                    saveSucceeded = await viewModel.save() != nil
+                    saveTask = nil
+                    dismissAfterSaveIfReady()
+                }
+            } label: {
+                ZStack {
+                    Image(systemName: "arrow.up")
+                        .opacity(savingPresentation.isVisible ? 0 : 1)
+                    if savingPresentation.isVisible {
+                        ProgressView().tint(palette.brandForeground)
+                    }
+                }
+                .font(VikuFont.headline)
+                .foregroundStyle(palette.brandForeground)
+                .frame(width: VikuSpacing.xxl, height: VikuSpacing.xxl)
+                .background(palette.brand, in: Circle())
+                .opacity(viewModel.canSave || isSubmitting ? 1 : 0.45)
+            }
+            .buttonStyle(.plain)
+            .disabled(!viewModel.canSave || isSubmitting)
+            .accessibilityLabel(Text("Create Task", bundle: .module))
+        }
+    }
+
+    private var projectButton: some View {
+        Button { isShowingProjectPicker = true } label: {
+            if let project = viewModel.selectedProject ?? viewModel.displayProject {
+                HStack(spacing: VikuSpacing.xs) {
+                    Image(systemName: "folder")
+                        .font(VikuFont.body)
+                    Text(verbatim: project.title)
+                        .font(VikuFont.footnote)
+                        .fontWeight(.bold)
+                        .lineLimit(1)
+                }
+                .foregroundStyle(Color(vikuHex: project.hexColor) ?? palette.brand)
+                .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xs)
+                .frame(height: VikuSpacing.xl + VikuSpacing.xs)
+                .background((Color(vikuHex: project.hexColor) ?? palette.brand).opacity(0.1), in: Capsule())
+            } else {
+                shortcutIcon("folder", label: String(localized: "Project", bundle: .module))
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(viewModel.projects.isEmpty)
+        .accessibilityLabel(Text("Choose Project", bundle: .module))
+        .accessibilityValue(Text(verbatim: (viewModel.selectedProject ?? viewModel.displayProject)?.title ?? ""))
+    }
+
+    @ViewBuilder
+    private var dueDateButton: some View {
+        if let dueDate = viewModel.dueDate {
+            removableChip(
+                color: palette.brand,
+                removeLabel: String(localized: "Remove Due Date", bundle: .module),
+                remove: { viewModel.pickDueDate(nil) },
+                content: {
+                    Button { isShowingDueDatePicker = true } label: {
+                        selectionChipLabel("calendar", title: DueDateFormatter.compact(dueDate))
+                    }
+                    .accessibilityLabel(Text("Due Date", bundle: .module))
+                    .accessibilityValue(dueDateAccessibilityValue)
+                },
+            )
+        } else {
+            Button { isShowingDueDatePicker = true } label: {
+                shortcutIcon("calendar", label: String(localized: "Due Date", bundle: .module))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("Due Date", bundle: .module))
+        }
+    }
+
+    private var dueDateAccessibilityValue: Text {
+        if let date = viewModel.dueDate {
+            Text(date, format: Date.FormatStyle(
+                date: .abbreviated,
+                time: .shortened,
+                timeZone: viewModel.dateParsingContext.timeZone,
+            ))
+        } else {
+            Text("None", bundle: .module)
+        }
+    }
+
+    @ViewBuilder
+    private var reminderButton: some View {
+        if let reminder = viewModel.reminder {
+            removableChip(
+                color: palette.brand,
+                removeLabel: String(localized: "Remove Reminder", bundle: .module),
+                remove: { viewModel.setReminder(nil) },
+                content: {
+                    Button { isShowingReminderPicker = true } label: {
+                        selectionChipLabel("bell", title: ReminderFormatter.compactLabel(for: reminder))
+                    }
+                    .accessibilityLabel(Text("Reminders", bundle: .module))
+                    .accessibilityValue(Text(verbatim: [
+                        ReminderFormatter.label(for: reminder), ReminderFormatter.preciseLabel(for: reminder),
+                    ].joined(separator: ", ")))
+                },
+            )
+        } else {
+            Button { isShowingReminderPicker = true } label: {
+                shortcutIcon("bell", label: String(localized: "Reminders", bundle: .module))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("Reminders", bundle: .module))
+        }
+    }
+
+    private func presentDueDateRemovalIfNeeded() {
+        // A date picker dismisses after requesting removal. Wait for its
+        // onDismiss before presenting a second modal on the parent sheet.
+        if viewModel.isConfirmingDueDateRemoval {
+            isShowingDueDateRemovalConfirmation = true
+        }
+    }
+
+    @ViewBuilder
+    private var labelsButton: some View {
+        if let first = viewModel.selectedLabels.first {
+            removableChip(
+                color: Color(vikuMutedHex: first.hexColor) ?? palette.brand,
+                removeLabel: String(localized: "Remove Labels", bundle: .module),
+                remove: { viewModel.clearLabels() },
+                content: {
+                    Button { isShowingLabelPicker = true } label: {
+                        selectionChipLabel(
+                            "tag", title: first.title,
+                            additionalCount: viewModel.selectedLabels.count - 1,
+                        )
+                    }
+                    .accessibilityLabel(Text("Labels", bundle: .module))
+                    .accessibilityValue(Text(verbatim: viewModel.selectedLabels.map(\.title).joined(separator: ", ")))
+                },
+            )
+        } else {
+            Button { isShowingLabelPicker = true } label: {
+                shortcutIcon("tag", label: String(localized: "Labels", bundle: .module))
+            }
+            .buttonStyle(.plain)
+            .disabled(!viewModel.canPickLabels)
+            .accessibilityLabel(Text("Labels", bundle: .module))
+        }
+    }
+
+    private var labelsPicker: some View {
+        LabelPickerSheet(
+            taskLabels: viewModel.selectedLabels,
+            allLabels: viewModel.labelCatalog.labels,
+            labelAliases: viewModel.labelCatalog.aliases,
+            onLoad: { await viewModel.loadLabels() },
+            onToggle: { viewModel.toggleLabel($0) },
+        )
+        .safeAreaInset(edge: .bottom) {
+            if viewModel.labelsLoadState != .loaded || viewModel.labelCatalog.labels.isEmpty {
+                VStack(alignment: .leading, spacing: VikuSpacing.sm) {
+                    switch viewModel.labelsLoadState {
+                    case let .failure(message):
+                        Text(verbatim: message)
+                        Button(String(localized: "Retry", bundle: .module)) {
+                            Task { await viewModel.loadLabels() }
+                        }
+                    case .idle, .loading:
+                        Text("Loading labels...", bundle: .module)
+                    case .loaded:
+                        Text("No labels available", bundle: .module)
+                    }
+                }
                 .font(VikuFont.footnote)
                 .foregroundStyle(palette.textSecondary)
-        case .loading, .idle:
-            // The default project rarely changes, so there's usually a
-            // cached one to show here instead of a spinner (see
-            // `QuickAddTaskViewModel.displayProject`). Only a preselected
-            // project, or a first-ever launch with nothing cached yet, falls
-            // through to the spinner.
-            if let project = viewModel.displayProject {
-                projectField(project)
+                .padding(VikuSpacing.md)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var priorityMenu: some View {
+        if viewModel.priority != .unset {
+            removableChip(
+                color: VikuColor.Priority.dot(for: viewModel.priority) ?? palette.brand,
+                removeLabel: String(localized: "Remove Priority", bundle: .module),
+                remove: { viewModel.pickPriority(.unset) },
+                content: {
+                    priorityPicker
+                },
+            )
+        } else {
+            priorityPicker
+        }
+    }
+
+    private var priorityPicker: some View {
+        Menu {
+            ForEach(VikunjaTask.Priority.selectable, id: \.self) { priority in
+                Button {
+                    viewModel.pickPriority(priority)
+                } label: {
+                    if viewModel.priority == priority {
+                        Label { Text(verbatim: priority.localizedMenuLabel) } icon: { Image(systemName: "checkmark") }
+                    } else {
+                        Text(verbatim: priority.localizedMenuLabel)
+                    }
+                }
+            }
+        } label: {
+            if viewModel.priority != .unset {
+                selectionChipLabel("flag", title: viewModel.priority.localizedMenuLabel)
             } else {
-                ProgressView()
+                shortcutIcon("flag", label: String(localized: "Priority", bundle: .module))
             }
-        case .loaded:
-            projectField(viewModel.selectedProject)
+        }
+        .accessibilityLabel(Text("Priority", bundle: .module))
+        .accessibilityValue(Text(verbatim: viewModel.priority.localizedMenuLabel))
+    }
+
+    /// Sibling controls keep removing separate from opening the picker/menu.
+    /// The capsule stays compact while each action has a full-height hit area.
+    private func removableChip(
+        color: Color,
+        removeLabel: String,
+        remove: @escaping () -> Void,
+        @ViewBuilder content: () -> some View,
+    ) -> some View {
+        HStack(spacing: 0) {
+            content()
+            Button(action: remove) {
+                Image(systemName: "xmark")
+                    .font(VikuFont.caption.weight(.semibold))
+                    .frame(width: VikuSpacing.xl, height: VikuSpacing.xxl - VikuSpacing.xs)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel(Text(verbatim: removeLabel))
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(color)
+        .background {
+            Capsule()
+                .fill(color.opacity(0.1))
+                .frame(height: VikuSpacing.xl + VikuSpacing.xs)
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private func selectionChipLabel(_ icon: String, title: String, additionalCount: Int = 0) -> some View {
+        HStack(spacing: VikuSpacing.xs) {
+            Image(systemName: icon)
+                .font(VikuFont.body)
+            Text(verbatim: title)
+                .lineLimit(1)
+            if additionalCount > 0 {
+                Text("+\(additionalCount)", bundle: .module)
+            }
+        }
+        .font(VikuFont.footnote)
+        .fontWeight(.bold)
+        .padding(.leading, VikuSpacing.sm + VikuSpacing.xs)
+        .frame(minHeight: VikuSpacing.xxl - VikuSpacing.xs)
+        .contentShape(Rectangle())
+    }
+
+    private func suggestionPill(_ text: String) -> some View {
+        Text(verbatim: text)
+            .monospaced()
+            .padding(.horizontal, VikuSpacing.sm)
+            .padding(.vertical, VikuSpacing.xs)
+            .background(palette.fieldBackground, in: Capsule())
+    }
+
+    private func shortcutIcon(_ systemName: String, label: String) -> some View {
+        Image(systemName: systemName)
+            .font(VikuFont.body)
+            .foregroundStyle(palette.textSecondary)
+            .frame(width: VikuSpacing.xl + VikuSpacing.xs, height: VikuSpacing.xl + VikuSpacing.xs)
+            .background(palette.fieldBackground, in: Circle())
+            .accessibilityLabel(Text(verbatim: label))
+    }
+
+    private func updateSavingPresentation() async {
+        let clock = ContinuousClock()
+        while !Task.isCancelled {
+            let delay = savingPresentation.update(
+                isSaving: viewModel.isSaving,
+                at: presentationOrigin.duration(to: clock.now),
+            )
+            guard let delay else {
+                dismissAfterSaveIfReady()
+                return
+            }
+            do { try await clock.sleep(for: delay) } catch { return }
         }
     }
 
-    private func projectField(_ project: Project?) -> some View {
-        VStack(alignment: .leading, spacing: VikuSpacing.sm - VikuSpacing.xxs) {
-            FieldLabel(String(localized: "Project", bundle: .module))
-            ProjectField(project: project) {
-                isShowingProjectPicker = true
-            }
+    private func dismissAfterSaveIfReady() {
+        if saveSucceeded, !savingPresentation.isVisible {
+            dismiss()
         }
     }
-
-    /// Fixed, hand-measured heights rather than a live content measurement:
-    /// a `.sheet` proposes its current detent's height back to its own
-    /// content as a ceiling, so `GeometryReader`/`onGeometryChange`/
-    /// `.fixedSize` just report that already-capped size back — a feedback
-    /// loop that can never settle. `compactHeight` fits the title/project/
-    /// priority rows above the keyboard with no slack; `expandedHeight` adds
-    /// room for the error banner. Neither includes the shortcut chip row:
-    /// `detentHeight` adds that on top only while one is showing.
-    private static let compactHeight: CGFloat = 300
-    private static let expandedHeight: CGFloat = 366
-
-    /// The title field's height at one line, i.e. what `compactHeight`/
-    /// `expandedHeight` already assume. `detentHeight` only adds the amount
-    /// the field grows beyond this baseline as it wraps onto more lines.
-    private static let titleFieldSingleLineHeight: CGFloat = 22
 }

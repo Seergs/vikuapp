@@ -8,15 +8,13 @@ import VikunjaCore
 /// Todoist and Fantastical, the title's tint (or lack of one, for text that
 /// matched nothing) is the only signal; piling a second, separate "error"
 /// element on top of that tint read as an alarm for something that isn't
-/// actually a failure (the text is simply kept literal). Applied projects,
-/// priorities and existing labels need no chip either, for the same reason.
+/// actually a failure (the text is simply kept literal). Applied values are
+/// also reflected in the sheet's editable metadata chips.
 ///
 /// Inserts/removes itself (`QuickAddSheetView.detentHeight` grows the sheet
 /// to match, by the same `height` reused there) rather than reserving a
-/// permanent slot: a slot that's always there, even empty, left dead space
-/// either between the title and project fields (while sized to fit no chip)
-/// or below the priority row (while sized to always fit one). Pops in
-/// un-animated on purpose — see `QuickAddSheetView`'s comment on why.
+/// permanent slot. Insertion is unanimated so content reflow does not compete
+/// with the native sheet resize.
 struct QuickAddShortcutChips: View {
     /// `QuickAddSheetView.detentHeight` grows the sheet by exactly this much
     /// whenever `hasChip(in:)` is true for the current tokens, so the row's

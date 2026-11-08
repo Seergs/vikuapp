@@ -350,6 +350,14 @@ the tab bar — neither suppressible nor corner-anchorable — so it can't match
 the mockup's bare floating button. It presents `Features/Tasks`'
 `QuickAddSheetView`.
 
+Quick Add has one production layout in every build configuration: a title input,
+project/priority/date/label/reminder chips, and an arrow button to create the task.
+Picker choices edit the draft until creation is accepted by the local repository.
+The draft supports one reminder; removing its linked due date requires confirmation
+to remove both, while removing the reminder alone keeps the due date. Absolute
+reminders remain independent. Quick Add Magic controls text interpretation and
+the localized dialect examples shown only while the input is empty.
+
 The FAB stays global (one instance on the tab shell) but the sheet defaults
 its project from context. `AppContainer` owns a `QuickAddContext` (an
 `@Observable` conforming to `VikunjaCore`'s `QuickAddContextTracking`, injected

@@ -24,7 +24,6 @@ struct SettingsView: View {
     let devBadgeStore: DevBadgeVisibilityStoring
     let networkLoggingStore: NetworkRequestLoggingStoring
     let datePreviewStore: QuickAddDatePreviewStoring
-    @Binding var quickAddRedesignEnabled: Bool
     let whatsNewSeenVersionStore: WhatsNewSeenVersionStoring
     let onPreviewOnboarding: () -> Void
     let router: AppRouter
@@ -237,18 +236,6 @@ struct SettingsView: View {
             if isDevBuild {
                 Section {
                     #if DEBUG
-                    Toggle(isOn: $quickAddRedesignEnabled) {
-                        HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
-                            SettingsRowIcon(systemName: "square.and.pencil")
-                            VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
-                                Text("Preview New Quick Add", bundle: .module)
-                                Text("This session only. Preview the input-only sheet.", bundle: .module)
-                                    .font(VikuFont.footnote)
-                                    .foregroundStyle(palette.textTertiary)
-                            }
-                        }
-                    }
-
                     Button(role: .destructive) {
                         Task { await pendingSyncViewModel.clearQueue() }
                     } label: {
