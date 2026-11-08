@@ -26,7 +26,40 @@ public final class QuickAddTaskViewModel {
     /// are parsed by `QuickAddParser`. A matched project or priority is copied
     /// into `selectedProjectID` / `priority`, the same state the pickers edit.
     public var input: String = "" {
-        didSet { syncShortcutsToPicker() }
+        didSet {
+            // A newly typed, uniquely resolved date supersedes a picker choice.
+            // Ordinary title/project/priority edits leave that choice intact.
+            if parsed.dueDate != nil {
+                pickedDueDate = nil
+            }
+            syncShortcutsToPicker()
+        }
+    }
+
+    private var pickedDueDate: Date?
+
+    /// The single date used by both the chip and task creation. Picker dates
+    /// remain exact instants; they are never formatted and parsed back from text.
+    public var dueDate: Date? {
+        parsed.dueDate ?? pickedDueDate
+    }
+
+    /// A picker choice (including removal) replaces an applied date in the
+    /// input, keeping all other text and shortcuts. Unresolved/literal phrases
+    /// stay untouched. A later typed date can take over again.
+    public func pickDueDate(_ date: Date?) {
+        let interpretation = parsed.dateInterpretation
+        if interpretation.resolvedDate != nil, let expression = interpretation.expressions.first {
+            var range = expression.range
+            if range.lowerBound > input.startIndex,
+               input[input.index(before: range.lowerBound)].isWhitespace {
+                range = input.index(before: range.lowerBound) ..< range.upperBound
+            }
+            var updated = input
+            updated.removeSubrange(range)
+            input = updated.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        pickedDueDate = date
     }
 
     /// The project the task is saved to: the picker's value, or the last matched shortcut.
@@ -309,6 +342,7 @@ public final class QuickAddTaskViewModel {
     public func save() async -> VikunjaTask? {
         guard canSave, let projectID = selectedProjectID else { return nil }
         let shortcut = parsed
+        let selectedDueDate = dueDate
         let usesLabels = shortcut.tokens.contains { $0.token.kind == .label }
         if usesLabels, !labelsAvailable {
             saveErrorMessage = String(
@@ -327,7 +361,7 @@ public final class QuickAddTaskViewModel {
                 VikunjaTask(
                     id: 0,
                     title: shortcut.title,
-                    dueDate: shortcut.dueDate,
+                    dueDate: selectedDueDate,
                     priority: priority,
                     projectID: projectID,
                 ),

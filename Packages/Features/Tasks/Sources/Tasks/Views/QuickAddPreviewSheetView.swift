@@ -2,6 +2,7 @@
 import SwiftUI
 import VikuDesignSystem
 import VikunjaCore
+import VikuUI
 
 /// The new layout uses the same editing and offline creation flow as the
 /// original sheet. The debug switch keeps both available during migration.
@@ -12,6 +13,7 @@ public struct QuickAddPreviewSheetView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState private var isFocused: Bool
     @State private var isShowingProjectPicker = false
+    @State private var isShowingDueDatePicker = false
     @State private var savingPresentation = QuickAddSavingPresentation()
     @State private var presentationOrigin = ContinuousClock.now
     @State private var saveTask: Task<Void, Never>?
@@ -92,6 +94,10 @@ public struct QuickAddPreviewSheetView: View {
                 selectedProjectID: viewModel.selectedProjectID,
             ) { viewModel.pickProject($0) }
         }
+        .sheet(isPresented: $isShowingDueDatePicker) {
+            DueDatePickerSheet(initialDate: viewModel.dueDate) { viewModel.pickDueDate($0) }
+                .environment(\.timeZone, viewModel.dateParsingContext.timeZone)
+        }
         .task {
             isFocused = true
             await viewModel.load()
@@ -154,7 +160,7 @@ public struct QuickAddPreviewSheetView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: VikuSpacing.sm) {
                     projectButton
-                    shortcutIcon("calendar", label: String(localized: "Due Date", bundle: .module))
+                    dueDateButton
                     priorityMenu
                     shortcutIcon("bell", label: String(localized: "Reminders", bundle: .module))
                     shortcutIcon("tag", label: String(localized: "Labels", bundle: .module))
@@ -213,6 +219,42 @@ public struct QuickAddPreviewSheetView: View {
         .disabled(viewModel.projects.isEmpty)
         .accessibilityLabel(Text("Choose Project", bundle: .module))
         .accessibilityValue(Text(verbatim: (viewModel.selectedProject ?? viewModel.displayProject)?.title ?? ""))
+    }
+
+    private var dueDateButton: some View {
+        Button { isShowingDueDatePicker = true } label: {
+            if let dueDate = viewModel.dueDate {
+                HStack(spacing: VikuSpacing.xs) {
+                    Image(systemName: "calendar")
+                        .font(VikuFont.body)
+                    Text(verbatim: DueDateFormatter.compact(dueDate))
+                        .font(VikuFont.footnote)
+                        .fontWeight(.bold)
+                        .lineLimit(1)
+                }
+                .foregroundStyle(palette.brand)
+                .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xs)
+                .frame(height: VikuSpacing.xl + VikuSpacing.xs)
+                .background(palette.brand.opacity(0.1), in: Capsule())
+            } else {
+                shortcutIcon("calendar", label: String(localized: "Due Date", bundle: .module))
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("Due Date", bundle: .module))
+        .accessibilityValue(dueDateAccessibilityValue)
+    }
+
+    private var dueDateAccessibilityValue: Text {
+        if let date = viewModel.dueDate {
+            Text(date, format: Date.FormatStyle(
+                date: .abbreviated,
+                time: .shortened,
+                timeZone: viewModel.dateParsingContext.timeZone,
+            ))
+        } else {
+            Text("None", bundle: .module)
+        }
     }
 
     private var priorityMenu: some View {
