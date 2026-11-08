@@ -33,9 +33,17 @@ How shortcuts behave:
 - Put a backslash before a symbol to keep it literal: `\#hashtag`.
 - Names match regardless of case and accents, so `+groceries` finds "Groceries".
 - Applied shortcuts are removed from the title. If you repeat a project or priority, only the first one applies.
-- A project or label name that matches several items, or a project name that matches none, stays in the title and shows a chip so you can see what will happen on save. Pick the project or priority from the sheet's fields and the matching shortcut is written into the title for you.
+- A project or label name that matches several items, or a project name that matches none, stays in the title; only resolved shortcuts are highlighted. Pick the project or priority from the sheet's chips and the matching shortcut is written into the title for you.
 
 While shortcuts are off, the title is saved as typed, with only the outer spaces trimmed.
+
+## Pickers and draft selections
+
+The project, priority, due-date, label, and reminder chips work even when Magic is off. Tap a chip to edit its selection and the up-arrow button to create the task. Existing labels can be selected together; their chip shows the first selection and a count of the rest. Creating a label from the picker is not offered yet; new labels written as shortcuts still follow the save behavior described above.
+
+A selected chip has a × to clear its value, except for the project. The labels × clears all selected labels and applied label shortcuts. A calendar choice replaces the recognized date expression in the input; a later recognized date typed into the input takes over again. Suggestions appear only with Magic enabled and an empty title, using that dialect's symbols.
+
+Quick Add accepts one reminder, either at a specific date/time or relative to the due date. Changing the due date recalculates the relative reminder. Removing a linked due date, through the picker or input, asks to remove both; cancelling preserves the date, reminder, and original input. Removing a reminder alone needs no confirmation and keeps the due date. Specific-date reminders are independent of the due date. These choices stay in the draft until task creation is accepted locally, including offline.
 
 ## Due dates
 
@@ -52,9 +60,8 @@ change does not move the saved deadline, although its displayed local time can c
 
 Ambiguous, invalid, incomplete, or unsupported expressions stay in the title and
 do not set a due date. For example, `today or tomorrow` does not choose either day.
-If removing the date and other applied shortcuts leaves no title, Save is disabled.
+If removing the date and other applied shortcuts leaves no title, the create button is disabled.
 
-Date dismissal is not available yet. To keep a recognized expression as literal
-title text, turn off Quick Add Magic or edit the task after creating it. The
+To keep a recognized expression as literal title text, turn off Quick Add Magic or edit the task after creating it. The
 Developer date-preview switch only controls diagnostics; it does not control
 whether dates are applied.

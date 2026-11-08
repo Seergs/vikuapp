@@ -6,6 +6,33 @@ import VikunjaCore
 /// `ReminderPickerSheet` (so the sheet's own summary matches) and
 /// `Features/Tasks`' reminders section.
 public enum ReminderFormatter {
+    /// Short chip copy. Keep `label(for:)` and `preciseLabel(for:)` for
+    /// editing and accessibility, where the anchor and full date matter.
+    public static func compactLabel(for reminder: TaskReminder, relativeTo reference: Date = Date()) -> String {
+        guard let anchor = reminder.relativeTo else {
+            let day = DueDateFormatter.compact(reminder.reminder, relativeTo: reference)
+            let time = reminder.reminder.formatted(date: .omitted, time: .shortened)
+            return String(localized: "\(day), \(time)", bundle: .module)
+        }
+        let offset = ReminderOffset.decompose(seconds: reminder.relativePeriod)
+        guard offset.quantity > 0 else {
+            return anchor == .dueDate
+                ? String(localized: "At due date", bundle: .module)
+                : label(for: reminder)
+        }
+        let quantity = offset.quantity
+        return switch (offset.unit, offset.direction) {
+        case (.minutes, .before): String(localized: "\(quantity) min before", bundle: .module)
+        case (.minutes, .after): String(localized: "\(quantity) min after", bundle: .module)
+        case (.hours, .before): String(localized: "\(quantity) h before", bundle: .module)
+        case (.hours, .after): String(localized: "\(quantity) h after", bundle: .module)
+        case (.days, .before): String(localized: "\(quantity) days before", bundle: .module)
+        case (.days, .after): String(localized: "\(quantity) days after", bundle: .module)
+        case (.weeks, .before): String(localized: "\(quantity) wk before", bundle: .module)
+        case (.weeks, .after): String(localized: "\(quantity) wk after", bundle: .module)
+        }
+    }
+
     public static func label(for reminder: TaskReminder) -> String {
         guard let relativeTo = reminder.relativeTo else {
             return DueDateFormatter.dueLabel(reminder.reminder)

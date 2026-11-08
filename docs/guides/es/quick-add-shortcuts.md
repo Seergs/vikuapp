@@ -33,10 +33,18 @@ Así funcionan los atajos:
 - Escribe una barra invertida antes de un símbolo para conservarlo literalmente: `\#hashtag`.
 - Los nombres coinciden sin distinguir mayúsculas ni acentos; `+compras` encuentra «Compras».
 - Los atajos aplicados se eliminan del título. Si repites un proyecto o una prioridad, solo se aplica el primero.
-- Un nombre de proyecto o etiqueta que coincide con varios elementos, o un proyecto que no coincide con ninguno, permanece en el título y muestra un indicador para que sepas qué sucederá al guardar. Selecciona el proyecto o la prioridad en los campos de la pantalla y el atajo correspondiente se escribirá en el título.
+- Un nombre de proyecto o etiqueta que coincide con varios elementos, o un proyecto que no coincide con ninguno, permanece en el título; solo se resaltan los atajos resueltos. Selecciona el proyecto o la prioridad en los chips y el atajo correspondiente se escribirá en el título.
 
 Mientras los atajos estén desactivados, el título se guarda tal como lo escribiste,
 eliminando únicamente los espacios al inicio y al final.
+
+## Selectores y selección del borrador
+
+Los chips de proyecto, prioridad, fecha límite, etiquetas y recordatorio funcionan incluso con Magic desactivado. Toca un chip para editarlo y la flecha hacia arriba para crear la tarea. Puedes seleccionar varias etiquetas existentes; su chip muestra la primera y un contador de las demás. Todavía no se pueden crear etiquetas desde el selector; las etiquetas nuevas escritas como atajos conservan el comportamiento de guardado descrito arriba.
+
+Cada chip seleccionado tiene una × para quitar su valor, excepto el proyecto. La × de etiquetas limpia todas las etiquetas seleccionadas y sus atajos aplicados. Elegir una fecha en el calendario reemplaza la expresión reconocida en el input; una nueva fecha reconocida escrita después vuelve a prevalecer. Las sugerencias solo aparecen con Magic activado y el título vacío, usando los símbolos de esa sintaxis.
+
+La creación rápida admite un recordatorio, con fecha y hora específicas o relativo a la fecha límite. Cambiar la fecha límite recalcula el recordatorio relativo. Quitar una fecha vinculada, desde el selector o el input, pide quitar ambos; cancelar conserva la fecha, el recordatorio y el texto original. Quitar solo el recordatorio no pide confirmación y conserva la fecha límite. Los recordatorios de fecha específica son independientes de la fecha límite. Estas selecciones permanecen en el borrador hasta que la creación de la tarea se acepta localmente, también sin conexión.
 
 ## Fechas de vencimiento
 
@@ -56,9 +64,8 @@ vencimiento guardado, aunque su hora local mostrada puede cambiar.
 Las expresiones ambiguas, inválidas, incompletas o no compatibles permanecen en el
 título y no asignan un vencimiento. Por ejemplo, `hoy o mañana` no elige ninguno de
 los dos días. Si al quitar la fecha y los demás atajos aplicados no queda un
-título, Guardar se desactiva.
+título, el botón de crear se desactiva.
 
-Todavía no se puede descartar una fecha reconocida. Para conservar esa expresión
-literalmente en el título, desactiva Quick Add Magic o edita la tarea después de
+Para conservar una expresión reconocida literalmente en el título, desactiva Quick Add Magic o edita la tarea después de
 crearla. El interruptor de vista previa de fechas en Desarrollador solo controla el
 panel de diagnóstico; no controla si las fechas se aplican.

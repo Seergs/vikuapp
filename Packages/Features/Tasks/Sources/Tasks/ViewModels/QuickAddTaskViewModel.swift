@@ -26,7 +26,109 @@ public final class QuickAddTaskViewModel {
     /// are parsed by `QuickAddParser`. A matched project or priority is copied
     /// into `selectedProjectID` / `priority`, the same state the pickers edit.
     public var input: String = "" {
-        didSet { syncShortcutsToPicker() }
+        didSet {
+            if !isApplyingDueDate, hasRelativeReminder, dueDate == nil,
+               (parseInput(oldValue).dueDate ?? pickedDueDate) != nil {
+                pendingDueDateRemoval = .input(input)
+                input = oldValue
+                isConfirmingDueDateRemoval = true
+                return
+            }
+            // A newly typed, uniquely resolved date supersedes a picker choice.
+            // Ordinary title/project/priority edits leave that choice intact.
+            if parsed.dueDate != nil {
+                pickedDueDate = nil
+            }
+            syncShortcutsToPicker()
+            labelSelectionOrder = selectedLabels.map(\.id)
+            updateRelativeReminder()
+        }
+    }
+
+    private var pickedDueDate: Date?
+    private var isApplyingDueDate = false
+    private enum DueDateRemoval {
+        case picker
+        case input(String)
+    }
+
+    private var pendingDueDateRemoval: DueDateRemoval?
+    public private(set) var reminder: TaskReminder?
+    public private(set) var isConfirmingDueDateRemoval = false
+
+    private var hasRelativeReminder: Bool {
+        reminder?.relativeTo == .dueDate
+    }
+
+    /// Quick Add supports one reminder. A new picker choice replaces it;
+    /// relative reminders always have a valid due-date anchor in this draft.
+    public func setReminder(_ value: TaskReminder?) {
+        if let relation = value?.relativeTo {
+            guard relation == .dueDate, dueDate != nil else { return }
+        }
+        cancelDueDateRemoval()
+        reminder = value
+        updateRelativeReminder()
+    }
+
+    public func confirmDueDateRemoval() {
+        guard let pending = pendingDueDateRemoval else { return }
+        cancelDueDateRemoval()
+        reminder = nil
+        switch pending {
+        case .picker: applyDueDate(nil)
+        case let .input(proposed): input = proposed
+        }
+    }
+
+    public func cancelDueDateRemoval() {
+        pendingDueDateRemoval = nil
+        isConfirmingDueDateRemoval = false
+    }
+
+    private func updateRelativeReminder() {
+        guard hasRelativeReminder, let dueDate, var value = reminder else { return }
+        // Resolve the unsaved draft locally; Vikunja remains authoritative
+        // once the task exists and its dates are changed by synchronization.
+        value.reminder = dueDate.addingTimeInterval(TimeInterval(value.relativePeriod))
+        reminder = value
+    }
+
+    /// The single date used by both the chip and task creation. Picker dates
+    /// remain exact instants; they are never formatted and parsed back from text.
+    public var dueDate: Date? {
+        parsed.dueDate ?? pickedDueDate
+    }
+
+    /// A picker choice (including removal) replaces an applied date in the
+    /// input, keeping all other text and shortcuts. Unresolved/literal phrases
+    /// stay untouched. A later typed date can take over again.
+    public func pickDueDate(_ date: Date?) {
+        if date == nil, dueDate != nil, hasRelativeReminder {
+            pendingDueDateRemoval = .picker
+            isConfirmingDueDateRemoval = true
+            return
+        }
+        cancelDueDateRemoval()
+        applyDueDate(date)
+    }
+
+    private func applyDueDate(_ date: Date?) {
+        isApplyingDueDate = true
+        defer { isApplyingDueDate = false }
+        let interpretation = parsed.dateInterpretation
+        if interpretation.resolvedDate != nil, let expression = interpretation.expressions.first {
+            var range = expression.range
+            if range.lowerBound > input.startIndex,
+               input[input.index(before: range.lowerBound)].isWhitespace {
+                range = input.index(before: range.lowerBound) ..< range.upperBound
+            }
+            var updated = input
+            updated.removeSubrange(range)
+            input = updated.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        pickedDueDate = date
+        updateRelativeReminder()
     }
 
     /// The project the task is saved to: the picker's value, or the last matched shortcut.
@@ -56,7 +158,11 @@ public final class QuickAddTaskViewModel {
 
     /// `input` parsed with the user's syntax against the loaded projects and labels.
     public var parsed: QuickAddParser.Result {
-        QuickAddParser.parse(input, projects: projects, labels: labels, syntax: syntax, dateContext: dateParsingContext)
+        parseInput(input)
+    }
+
+    private func parseInput(_ value: String) -> QuickAddParser.Result {
+        QuickAddParser.parse(value, projects: projects, labels: labels, syntax: syntax, dateContext: dateParsingContext)
     }
 
     /// The app supplies the device zone captured when this sheet opens.
@@ -109,12 +215,18 @@ public final class QuickAddTaskViewModel {
     /// The user picked a priority chip. Writes it into the text as a `p`/`!` shortcut.
     public func pickPriority(_ value: VikunjaTask.Priority) {
         priority = value
+        if value == .unset {
+            // Remove later priority tokens too, so none can become active
+            // after the first shortcut is removed.
+            removeShortcutRanges(parsed.tokens.filter { $0.token.kind == .priority }.map(\.token.range))
+            return
+        }
         guard let syntax else { return }
         input = QuickAddParser.settingPriority(value, in: input, syntax: syntax)
     }
 
     public var canSave: Bool {
-        !parsed.title.isEmpty && selectedProjectID != nil && !isSaving
+        !parsed.title.isEmpty && selectedProjectID != nil && !isSaving && !isConfirmingDueDateRemoval
     }
 
     public var selectedProject: Project? {
@@ -175,6 +287,18 @@ public final class QuickAddTaskViewModel {
         syntaxStore?.syntax
     }
 
+    /// Illustrative examples, using the same dialect and priority mapping as
+    /// parsing and picker edits. They never create or select actual entities.
+    public var suggestions: [String] {
+        guard input.isEmpty, let syntax else { return [] }
+        return [
+            String(localized: "tomorrow", bundle: .module),
+            QuickAddParser.settingProject(String(localized: "work", bundle: .module), in: "", syntax: syntax),
+            QuickAddParser.settingPriority(.high, in: "", syntax: syntax),
+            "\(syntax.labelSigil)\(String(localized: "design", bundle: .module))",
+        ]
+    }
+
     private let taskRepository: TaskRepositoryProtocol
     private let projectRepository: ProjectRepositoryProtocol
     private let toastPresenter: ToastPresenting
@@ -188,13 +312,100 @@ public final class QuickAddTaskViewModel {
     private let syntaxStore: QuickAddSyntaxStore?
     /// Creates and attaches labels. Optional so tests and callers without labels can skip it.
     private let labelRepository: LabelRepositoryProtocol?
-    private var labels: [Label] = []
-    /// False until the labels load, so a label typed before then is never created as "new" by mistake.
-    private var labelsLoaded = false
+    public private(set) var labelCatalog = LabelCatalog(labels: [])
+    public private(set) var labelsLoadState: ScreenLoadState<Void> = .idle
+    private var pickedLabels: [Label] = []
+    private var labelSelectionOrder: [EntityID] = []
+    private var labels: [Label] {
+        labelCatalog.labels
+    }
+
+    public var canPickLabels: Bool {
+        labelRepository != nil
+    }
+
+    /// Labels retain their selection order, once per identity. Reading
+    /// resolved label models retains unsynced IDs that `parsed.labelIDs` omits.
+    public var selectedLabels: [Label] {
+        let typed = parsed.tokens.compactMap { item -> Label? in
+            if case let .label(label) = item.resolution {
+                return label
+            }
+            return nil
+        }
+        let selected = (pickedLabels + typed).map(labelCatalog.canonicalLabel)
+        let ordered = labelSelectionOrder.compactMap { id in
+            selected.first { $0.id == labelCatalog.canonicalID(for: id) }
+        }
+        var seen: Set<EntityID> = []
+        return (ordered + selected).filter { seen.insert($0.id).inserted }
+    }
+
+    public func toggleLabel(_ label: Label) {
+        let canonical = labelCatalog.canonicalLabel(label)
+        guard selectedLabels.contains(where: { $0.id == canonical.id }) else {
+            guard labelsAvailable else { return }
+            pickedLabels.append(canonical)
+            labelSelectionOrder = selectedLabels.map(\.id)
+            return
+        }
+        pickedLabels.removeAll { labelCatalog.canonicalID(for: $0.id) == canonical.id }
+        // Removing a selected label must also remove all its applied shortcuts,
+        // otherwise the next input edit would silently select it again.
+        let ranges = parsed.tokens.compactMap { item -> Range<String.Index>? in
+            guard case let .label(value) = item.resolution,
+                  labelCatalog.canonicalID(for: value.id) == canonical.id else { return nil }
+            return item.token.range
+        }
+        removeShortcutRanges(ranges)
+    }
+
+    /// The aggregate labels chip clears its entire draft selection, including
+    /// applied label shortcuts and new-label intents, without deleting labels.
+    public func clearLabels() {
+        let ranges = parsed.tokens.filter { $0.token.kind == .label && $0.isApplied }.map(\.token.range)
+        pickedLabels = []
+        labelSelectionOrder = []
+        removeShortcutRanges(ranges)
+    }
+
+    private func removeShortcutRanges(_ ranges: [Range<String.Index>]) {
+        guard !ranges.isEmpty else {
+            labelSelectionOrder = selectedLabels.map(\.id)
+            return
+        }
+        var updated = input
+        for var range in ranges.reversed() {
+            if range.lowerBound > updated.startIndex,
+               updated[updated.index(before: range.lowerBound)].isWhitespace {
+                range = updated.index(before: range.lowerBound) ..< range.upperBound
+            }
+            updated.removeSubrange(range)
+        }
+        input = updated.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    public func loadLabels() async {
+        guard let labelRepository, labelsLoadState != .loading else { return }
+        let previousState = labelsLoadState
+        labelsLoadState = .loading
+        do {
+            labelCatalog = try await labelRepository.fetchLabelCatalog()
+            pickedLabels = pickedLabels.map(labelCatalog.canonicalLabel)
+            labelSelectionOrder = selectedLabels.map(\.id)
+            labelsLoadState = .loaded
+        } catch is CancellationError {
+            labelsLoadState = previousState
+        } catch let error as VikunjaError {
+            labelsLoadState = .failure(error.displayMessage)
+        } catch {
+            labelsLoadState = .failure(error.localizedDescription)
+        }
+    }
 
     /// Labels can be used when there is a repository and its labels have loaded.
     private var labelsAvailable: Bool {
-        labelRepository != nil && labelsLoaded
+        labelRepository != nil && labelsLoadState == .loaded
     }
 
     /// Color for labels created from the quick-add title: the first label swatch
@@ -275,16 +486,8 @@ public final class QuickAddTaskViewModel {
                 // is gone (deleted/archived) — drop the stale optimistic cache.
                 defaultProjectCache?.setCachedDefaultProject(nil)
             }
-            if let labelRepository {
-                // A label failure must not fail the whole sheet: the projects and
-                // priority still work, and `save()` refuses label shortcuts instead.
-                do {
-                    labels = try await labelRepository.fetchLabels()
-                    labelsLoaded = true
-                } catch {
-                    labelsLoaded = false
-                }
-            }
+            // Label failures stay independent of project loading.
+            await loadLabels()
             // A project shortcut typed before the list arrived was unmatched
             // then, so copy it again now that the projects are known.
             appliedProjectText = nil
@@ -309,8 +512,11 @@ public final class QuickAddTaskViewModel {
     public func save() async -> VikunjaTask? {
         guard canSave, let projectID = selectedProjectID else { return nil }
         let shortcut = parsed
+        let selectedDueDate = dueDate
+        let selectedReminders = reminder.map { [$0] } ?? []
+        let selectedLabelIDs = selectedLabels.map(\.id)
         let usesLabels = shortcut.tokens.contains { $0.token.kind == .label }
-        if usesLabels, !labelsAvailable {
+        if usesLabels || !selectedLabelIDs.isEmpty, !labelsAvailable {
             saveErrorMessage = String(
                 localized: "Labels aren't available right now. Try again once they load.",
                 bundle: .module,
@@ -327,14 +533,15 @@ public final class QuickAddTaskViewModel {
                 VikunjaTask(
                     id: 0,
                     title: shortcut.title,
-                    dueDate: shortcut.dueDate,
+                    dueDate: selectedDueDate,
                     priority: priority,
                     projectID: projectID,
+                    reminders: selectedReminders,
                 ),
             )
-            let failedAttachments = await attachLabels(
-                shortcut.labelIDs.map(EntityID.remote) + newLabelIDs, to: created.id,
-            )
+            var seen: Set<EntityID> = []
+            let labelIDs = (selectedLabelIDs + newLabelIDs).filter { seen.insert($0).inserted }
+            let failedAttachments = await attachLabels(labelIDs, to: created.id)
             // Only available when the project list has already loaded (see
             // `canSave`'s doc comment) - the toast just isn't tappable in
             // that edge case rather than guessing at a `Project` value.
