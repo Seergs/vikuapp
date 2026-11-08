@@ -11,6 +11,7 @@ struct ShortcutTitleField: UIViewRepresentable {
     @Binding var text: String
     let highlights: QuickAddTitleHighlights
     let focusOnAppear: Bool
+    var textStyle: UIFont.TextStyle = .body
 
     @Environment(\.vikuPalette) private var palette
 
@@ -45,6 +46,7 @@ struct ShortcutTitleField: UIViewRepresentable {
     }
 
     func updateUIView(_ view: UITextView, context: Context) {
+        view.isEditable = context.environment.isEnabled
         context.coordinator.text = $text
         context.coordinator.refreshHighlights = { view in
             guard view.markedTextRange == nil else { return }
@@ -64,7 +66,7 @@ struct ShortcutTitleField: UIViewRepresentable {
         applyHighlights(to: view)
         let width = view.bounds.width > 0 ? view.bounds.width : UIScreen.main.bounds.width
         let fitting = view.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
-        view.isScrollEnabled = fitting.height > Self.maxContentHeight
+        view.isScrollEnabled = fitting.height > maxContentHeight
     }
 
     /// Reports the field's own natural size back to SwiftUI, capped at
@@ -77,11 +79,11 @@ struct ShortcutTitleField: UIViewRepresentable {
             return nil
         }
         let fitting = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
-        return CGSize(width: width, height: min(fitting.height, Self.maxContentHeight))
+        return CGSize(width: width, height: min(fitting.height, maxContentHeight))
     }
 
-    private static var maxContentHeight: CGFloat {
-        ceil(UIFont.preferredFont(forTextStyle: .body).lineHeight * maxVisibleLines)
+    private var maxContentHeight: CGFloat {
+        ceil(UIFont.preferredFont(forTextStyle: textStyle).lineHeight * Self.maxVisibleLines)
     }
 
     /// Recolors the existing storage in place instead of reassigning the text,
@@ -91,7 +93,7 @@ struct ShortcutTitleField: UIViewRepresentable {
         let selection = view.selectedRange
         let storage = view.textStorage
         let base: [NSAttributedString.Key: Any] = [
-            .font: UIFont.preferredFont(forTextStyle: .body),
+            .font: UIFont.preferredFont(forTextStyle: textStyle),
             .foregroundColor: UIColor(palette.textPrimary),
         ]
         storage.beginEditing()
@@ -102,7 +104,7 @@ struct ShortcutTitleField: UIViewRepresentable {
             storage.addAttributes(
                 [
                     .foregroundColor: UIColor(tint),
-                    .font: UIFont.preferredFont(forTextStyle: .body).withWeight(.semibold),
+                    .font: UIFont.preferredFont(forTextStyle: textStyle).withWeight(.semibold),
                 ],
                 range: range,
             )

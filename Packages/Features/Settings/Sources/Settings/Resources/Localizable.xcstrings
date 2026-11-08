@@ -1,6 +1,38 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Preview New Quick Add": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preview New Quick Add"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vista previa del nuevo agregado rápido"
+          }
+        }
+      }
+    },
+    "This session only. Preview the input-only sheet.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This session only. Preview the input-only sheet."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo durante esta sesión. Muestra la hoja con un único campo de texto."
+          }
+        }
+      }
+    },
     "Show Quick Add Date Preview": {
       "localizations": {
         "es": {

@@ -13,6 +13,7 @@ public struct SettingsRootView: View {
     private let devBadgeStore: DevBadgeVisibilityStoring
     private let networkLoggingStore: NetworkRequestLoggingStoring
     private let datePreviewStore: QuickAddDatePreviewStoring
+    private let quickAddRedesignEnabled: Binding<Bool>
     private let whatsNewSeenVersionStore: WhatsNewSeenVersionStoring
     private let onPreviewOnboarding: () -> Void
     private let makeConnectionsListViewModel: () -> ConnectionsListViewModel
@@ -70,6 +71,7 @@ public struct SettingsRootView: View {
         makeGroupOverdueNotificationsViewModel: @escaping () -> GroupOverdueNotificationsViewModel,
         makeDefaultProjectSettingsViewModel: @escaping () -> DefaultProjectSettingsViewModel,
         makeHomeSelectionSettingsViewModel: @escaping () -> HomeSelectionSettingsViewModel,
+        quickAddRedesignEnabled: Binding<Bool> = .constant(false),
     ) {
         self.router = router
         self.account = account
@@ -79,6 +81,7 @@ public struct SettingsRootView: View {
         self.devBadgeStore = devBadgeStore
         self.networkLoggingStore = networkLoggingStore
         self.datePreviewStore = datePreviewStore
+        self.quickAddRedesignEnabled = quickAddRedesignEnabled
         self.whatsNewSeenVersionStore = whatsNewSeenVersionStore
         self.onPreviewOnboarding = onPreviewOnboarding
         self.makeConnectionsListViewModel = makeConnectionsListViewModel
@@ -119,6 +122,7 @@ public struct SettingsRootView: View {
             devBadgeStore: devBadgeStore,
             networkLoggingStore: networkLoggingStore,
             datePreviewStore: datePreviewStore,
+            quickAddRedesignEnabled: quickAddRedesignEnabled,
             whatsNewSeenVersionStore: whatsNewSeenVersionStore,
             onPreviewOnboarding: onPreviewOnboarding,
             router: router,

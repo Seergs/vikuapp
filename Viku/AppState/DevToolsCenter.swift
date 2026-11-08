@@ -12,6 +12,10 @@ final class DevToolsCenter: DevBadgeVisibilityStoring, NetworkRequestLoggingStor
     var isDevBadgeVisible = true
     private(set) var isQuickAddDatePreviewVisible = false
 
+    #if DEBUG
+    var isQuickAddRedesignEnabled = true
+    #endif
+
     func setQuickAddDatePreviewVisible(_ visible: Bool) {
         isQuickAddDatePreviewVisible = visible
     }
