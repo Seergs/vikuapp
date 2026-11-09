@@ -10,27 +10,20 @@ import VikuDesignSystem
 /// web editor's HTML; see `RichText.plainText(from:)`), and `onSave` sends
 /// plain text back the same way the composer does for a new comment.
 struct EditCommentSheet: View {
-    @State private var draft: String
-    private let initialText: String
+    @Bindable var session: CommentEditSession
     private let onSave: (String) -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(\.vikuPalette) private var palette
 
-    init(initialText: String, onSave: @escaping (String) -> Void) {
-        self.initialText = initialText
-        _draft = State(initialValue: initialText)
+    init(session: CommentEditSession, onSave: @escaping (String) -> Void) {
+        self.session = session
         self.onSave = onSave
-    }
-
-    private var canSave: Bool {
-        let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !trimmed.isEmpty && trimmed != initialText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                TextField(String(localized: "Comment", bundle: .module), text: $draft, axis: .vertical)
+                TextField(String(localized: "Comment", bundle: .module), text: $session.draft, axis: .vertical)
                     .font(.system(size: 15))
                     .foregroundStyle(Color.primary)
                     .padding(VikuSpacing.sm)
@@ -51,15 +44,17 @@ struct EditCommentSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "Save", bundle: .module)) {
-                        onSave(draft)
+                        session.log("save")
+                        onSave(session.draft)
                         dismiss()
                     }
                     .fontWeight(.semibold)
-                    .disabled(!canSave)
+                    .disabled(!session.canSave)
                 }
             }
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+        .onAppear { session.log("presented") }
     }
 }

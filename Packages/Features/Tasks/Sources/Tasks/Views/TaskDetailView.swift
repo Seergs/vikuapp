@@ -32,7 +32,7 @@ public struct TaskDetailView: View {
     @State private var isShowingDuplicateSheet = false
     @State private var isShowingDeleteConfirmation = false
     @State private var commentPendingDeletion: TaskComment?
-    @State private var commentPendingEdit: TaskComment?
+    @State private var commentPendingEdit: CommentEditSession?
     @State private var relationEditStep: RelationEditStep?
     @State private var presentedInlineQuickAdd: PresentedInlineQuickAdd?
     @State private var isShowingFileImporter = false
@@ -336,9 +336,9 @@ public struct TaskDetailView: View {
                     Text("Cancel", bundle: .module)
                 }
             }
-            .sheet(item: $commentPendingEdit) { comment in
-                EditCommentSheet(initialText: RichText.plainText(from: comment.comment)) { newText in
-                    Task { await viewModel.editComment(comment, newText: newText) }
+            .sheet(item: $commentPendingEdit) { session in
+                EditCommentSheet(session: session) { newText in
+                    Task { await viewModel.editComment(session.comment, newText: newText) }
                 }
             }
             // Description and comments both render rich text; their embedded
@@ -539,7 +539,7 @@ public struct TaskDetailView: View {
 
         CommentsSection(
             viewModel: viewModel,
-            onEdit: { commentPendingEdit = $0 },
+            onEdit: { commentPendingEdit = CommentEditSession(comment: $0) },
             onDelete: { commentPendingDeletion = $0 },
             isComposerFocused: $isCommentComposerFocused,
         )
