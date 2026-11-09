@@ -40,11 +40,10 @@ public actor OfflineTaskCommentRepository: TaskCommentRepositoryProtocol {
             guard let task = try Self.findTaskRow(matching: taskID, accountID: self.accountID, db: db) else {
                 throw VikunjaError.notFound
             }
-            let sortedRows = try Self.accountRows(self.accountID, db: db)
+            let comments = try Self.accountRows(self.accountID, db: db)
                 .filter { $0.taskLocalID == task.localID }
                 .sorted(by: Self.precedes)
-            CommentOrderDiagnostics.rows("snapshot.sorted", sortedRows)
-            let comments = sortedRows.map(Self.comment(from:))
+                .map(Self.comment(from:))
             let coverage = try TaskCommentSyncRecord
                 .filter(Column("accountID") == self.accountID && Column("taskLocalID") == task.localID)
                 .fetchOne(db)
@@ -96,11 +95,9 @@ public actor OfflineTaskCommentRepository: TaskCommentRepositoryProtocol {
         try await localStore.write { db in
             let rows = try Self.accountRows(self.accountID, db: db)
             guard var row = Self.findRow(matching: commentID, in: rows) else { throw VikunjaError.notFound }
-            CommentOrderDiagnostics.row("edit.before", row)
             row.comment = text
             row.updated = Date()
             try row.save(db)
-            CommentOrderDiagnostics.row("edit.saved", row)
 
             if row.remoteID == nil {
                 // The comment's original create is still queued (or failed but
