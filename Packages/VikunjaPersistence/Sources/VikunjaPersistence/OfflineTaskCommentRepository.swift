@@ -40,12 +40,11 @@ public actor OfflineTaskCommentRepository: TaskCommentRepositoryProtocol {
             guard let task = try Self.findTaskRow(matching: taskID, accountID: self.accountID, db: db) else {
                 throw VikunjaError.notFound
             }
-            let comments = try Self.accountRows(self.accountID, db: db)
+            let sortedRows = try Self.accountRows(self.accountID, db: db)
                 .filter { $0.taskLocalID == task.localID }
-                .sorted {
-                    $0.created == $1.created ? $0.localID.uuidString < $1.localID.uuidString : $0.created < $1.created
-                }
-                .map(Self.comment(from:))
+                .sorted(by: Self.precedes)
+            CommentOrderDiagnostics.rows("snapshot.sorted", sortedRows)
+            let comments = sortedRows.map(Self.comment(from:))
             let coverage = try TaskCommentSyncRecord
                 .filter(Column("accountID") == self.accountID && Column("taskLocalID") == task.localID)
                 .fetchOne(db)
@@ -97,9 +96,11 @@ public actor OfflineTaskCommentRepository: TaskCommentRepositoryProtocol {
         try await localStore.write { db in
             let rows = try Self.accountRows(self.accountID, db: db)
             guard var row = Self.findRow(matching: commentID, in: rows) else { throw VikunjaError.notFound }
+            CommentOrderDiagnostics.row("edit.before", row)
             row.comment = text
             row.updated = Date()
             try row.save(db)
+            CommentOrderDiagnostics.row("edit.saved", row)
 
             if row.remoteID == nil {
                 // The comment's original create is still queued (or failed but
@@ -186,6 +187,30 @@ public actor OfflineTaskCommentRepository: TaskCommentRepositoryProtocol {
         switch id {
         case let .local(localID): rows.first { $0.localID == localID }
         case let .remote(remoteID): rows.first { $0.remoteID == remoteID }
+        }
+    }
+
+    private static func precedes(_ lhs: TaskCommentRecord, _ rhs: TaskCommentRecord) -> Bool {
+        // Vikunja can return fractions on create but whole seconds on reads.
+        // Compare at their shared precision so an edit acknowledgement cannot
+        // move a comment ahead of an earlier comment in the same second.
+        let lhsSecond = lhs.created.timeIntervalSince1970.rounded(.down)
+        let rhsSecond = rhs.created.timeIntervalSince1970.rounded(.down)
+        if lhsSecond != rhsSecond {
+            return lhsSecond < rhsSecond
+        }
+        switch (lhs.remoteID, rhs.remoteID) {
+        case let (lhsID?, rhsID?) where lhsID != rhsID:
+            return lhsID < rhsID
+        case (_?, nil):
+            return true
+        case (nil, _?):
+            return false
+        case (nil, nil) where lhs.created != rhs.created:
+            // Unsynced comments still have comparable local timestamps.
+            return lhs.created < rhs.created
+        default:
+            return lhs.localID.uuidString < rhs.localID.uuidString
         }
     }
 

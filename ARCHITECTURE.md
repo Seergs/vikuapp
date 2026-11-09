@@ -921,6 +921,14 @@ update only the state of identities still present in the view model.
 
 ## Comment download coverage
 
+Cached comment ordering compares creation times at whole-second precision:
+Vikunja can return fractional seconds on creation and whole seconds on subsequent
+reads. Synced comments within the same second use ascending server IDs, rather
+than random local UUIDs, as their deterministic tie-break. Pending local comments
+follow synced comments within that second and retain local creation-time order,
+with UUIDs resolving exact local ties. The original timestamps remain stored;
+edits and pulls can change their precision without changing this ordering rule.
+
 Comments remain demand-loaded when opening task details. `TaskCommentSnapshot`
 returns cached comments and the last successful complete download date in one
 local read. `taskCommentSync` stores that coverage per account and task, including

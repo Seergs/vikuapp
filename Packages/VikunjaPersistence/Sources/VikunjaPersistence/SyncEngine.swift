@@ -748,6 +748,7 @@ public actor SyncEngine {
         guard let taskRow, let taskRemoteID = taskRow.remoteID else { return }
 
         let remoteComments = try await commentRepository.fetchComments(taskID: .remote(taskRemoteID))
+        CommentOrderDiagnostics.serverOrder(remoteComments, accountID: accountID, taskLocalID: taskRow.localID)
         try Task.checkCancellation()
         let downloadedAt = Date()
         let fetchedRemoteIDs = Set(remoteComments.compactMap(\.id.remoteValue))
@@ -756,6 +757,7 @@ public actor SyncEngine {
             try Task.checkCancellation()
             let localRows = try TaskCommentRecord.fetchAll(db)
                 .filter { $0.accountID == self.accountID && $0.taskLocalID == taskRow.localID }
+            CommentOrderDiagnostics.rows("pull.cached-before", localRows)
             let pendingItems = try MutationQueueRecord.fetchAll(db).filter {
                 $0.accountID == self.accountID && $0.entityType == .comment
                     && ($0.status == .pending || $0.status == .failed)
@@ -1483,6 +1485,11 @@ public actor SyncEngine {
                 try Self.completePush(item, updatedAt: comment.updated, db: db)
                 return
             }
+            CommentOrderDiagnostics.row("push.\(item.operation).cached-before", row)
+            CommentOrderDiagnostics.remote(
+                "push.\(item.operation).server-result", comment,
+                accountID: self.accountID, taskLocalID: row.taskLocalID,
+            )
             row.remoteID = remoteID
             if try MutationQueueRecord.fetchOne(db, key: item.id)?.payload == item.payload {
                 row.comment = comment.comment
@@ -1494,6 +1501,12 @@ public actor SyncEngine {
             row.created = comment.created
             row.updated = comment.updated
             try row.save(db)
+            #if DEBUG
+            // Read back the stored value to expose any timestamp precision loss.
+            if let stored = try? TaskCommentRecord.fetchOne(db, key: row.localID) {
+                CommentOrderDiagnostics.row("push.\(item.operation).stored-after", stored)
+            }
+            #endif
             try Self.completePush(item, updatedAt: comment.updated, db: db)
         }
     }
