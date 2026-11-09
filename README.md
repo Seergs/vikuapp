@@ -4,15 +4,14 @@
 
 # Viku
 
-**Native iOS client for Vikunja with beautiful design and great user experience.**
+**A native iOS client for Vikunja, built for everyday task management.**
 
 </div>
 
 > ⚠️ Beta. Bugs are expected. Don't point it at a production Vikunja instance without a tested backup.
 
-Viku is a native iOS client for Vikunja, focused on everyday task management.
-Check what matters today, capture tasks quickly, and keep moving when you are
-away from your computer.
+Check what matters today, capture tasks quickly, and manage projects on the go.
+Viku focuses on quick interactions rather than the full Vikunja web experience.
 
 ## Screenshots
 
@@ -42,135 +41,81 @@ away from your computer.
 |---|---|---|
 | ![Terminal](docs/screenshots/themes/terminal.jpg) | ![Cyberpunk](docs/screenshots/themes/cyberpunk.jpg) | ![Vaporwave](docs/screenshots/themes/vaporwave.jpg) |
 
-## How to Use
+## Getting Started
 
 ### Installation
 
-The app is currently in Beta and can be installed via Testflight:
+[Join the TestFlight beta →](https://testflight.apple.com/join/aby3Bh4d)
 
-[Join the beta →](https://testflight.apple.com/join/aby3Bh4d)
-
-**Requires iOS 26.2+** (the app relies on the native Liquid Glass UI introduced in iOS 26).
+**Requires iOS 26.2+.**
 
 ### Setup
 
-Connect to your Vikunja instance using whichever method it supports:
+Enter your Vikunja instance URL and sign in using:
 
-- **API Token** — create one in Vikunja. See the [required scopes](#required-permissions).
-- **Username & Password** — available when your instance has local auth enabled.
-- **Single Sign-On (OIDC)** — available when your instance has an OpenID Connect
-  provider configured. See [OIDC Setup](#oidc-setup) below before your first sign-in.
+- **API Token** ([required permissions](#required-permissions))
+- **Username & Password**
+- **Single Sign-On (OIDC)** ([setup](#oidc-setup))
 
-The app detects which of these your instance supports as you type its address,
-and only shows the ones that are actually available.
+Viku automatically detects which sign-in methods your instance supports.
 
 ## Features
 
-### The app
+- **Multiple accounts:** Switch between accounts and Vikunja instances.
+- **Home:** See overdue, today’s, and upcoming tasks, or pin a project or saved filter.
+- **Quick capture:** Add tasks from the tab bar, Today widget, Siri, or `viku://quick-add`.
+- **Quick Add Magic:** Set project, priority, labels, and date in the task title. [Guide →](docs/guides/en/quick-add-shortcuts.md)
+- **Widgets:** Daily tasks and calendar views on your Home screen.
+- **Kanban:** Move tasks between buckets and create tasks in a bucket. Requires Vikunja 2.4.0+.
+- **Themes:** Multiple color palettes to choose from.
+- **Offline support (early stage):** Browse cached data and make changes that sync when you reconnect. Bugs are still expected.
 
-- **Multiple Instances:** Connect several Vikunja accounts and switch between them.
-- **Home:** An account-wide list of what is overdue, due today, and coming up across every project, behind quick filters. Pin a project or a saved filter in Settings to show that instead.
-- **Quick Capture:** Add a task in one tap from the tab bar, the Today home-screen widget, or the `viku://quick-add` deep link
-- **Quick-add shortcuts (experimental):** Set the project, priority and labels by typing them into the title. See [Quick-Add Shortcuts](docs/guides/en/quick-add-shortcuts.md).
-- **Widgets:** Quickly see your daily tasks and a calendar view from your Home screen.
-- **Kanban board:** Switch a project between List and Kanban view, drag tasks between buckets, and add tasks directly into a bucket. Requires a Vikunja instance on 2.4.0+.
-- **Themes:** Multiple color palettes, including light, dark and Warm, with live previews in Settings > Appearance.
-- **Offline Support (early stage):** Browse cached data and keep making changes without a connection; they sync when you're back online. Still early, so expect some bugs.
+**Planned:** Native push notifications.
 
-### Planned
+### Supported Operations
 
-- Native Push Notifications
+| Area | Supported operations |
+|---|---|
+| Tasks | Create, edit, delete, move between projects, search, duplicate (client-side copy) |
+| Task fields | Title, description, completion, due date, priority, labels, reminders |
+| Projects | Create, edit, delete, nest under a parent |
+| Saved filters | View tasks and query, rename, delete, pin to Home |
+| Labels | Create, rename, recolor, delete, assign to or remove from tasks |
+| Comments | Add, edit, delete |
+| Task relations | Add, remove |
+| Attachments | List, upload, download, preview, delete |
 
-
-### Vikunja API Coverage
-
-The app is a focused client, not a full port of the web UI, 
-so it covers the parts of the API that matter for day-to-day mobile use
-
-**Tasks**
-
-- Create, update, delete
-- Move a task to another project
-- Account-wide search
-- Duplicate (client-side copy)
-- Editable fields: title, description, completion, due date, priority, labels, reminders
-
-
-**Projects**
-
-- Create, update, delete
-- Nest a project under a parent
-
-**Saved Filters**
-
-- View tasks, rename, view the query, delete, pin to Home
-- No creating or editing the query itself
-
-**Labels**
-
-- Create, rename, recolor, delete
-- Assign and unassign on a task
-
-**Comments**
-
-- Add, edit, delete
-
-**Task relations**
-
-- Add and remove relations between tasks
-
-**Attachments**
-
-- List, upload, download and preview, delete
-
-**Kanban**
-
-- View a project's buckets with their tasks
-- Drag a task between buckets, including the done bucket (syncs the task's completion state)
-- Add a task directly into a bucket
-- Requires Vikunja 2.4.0+; the List/Kanban toggle is hidden on older servers
-
-**Not yet supported**
+### Not Yet Supported
 
 - Start dates, assignees, percent done, repeating tasks, task colors
-- Custom project views
-- Kanban bucket management (create/rename/delete/reorder buckets, WIP limits), intra-column reordering, filter-populated buckets
-- Gantt, table views
+- Creating or editing saved filter queries
+- Custom project views, Gantt, table views
+- Kanban bucket management, WIP limits, intra-column reordering, filter-populated buckets
 - Team and permission management, instance settings
 - Bulk editing
 
-### Server Version Support
+### Server Compatibility
 
-Viku works with any Vikunja instance, detecting what your server supports
-at runtime and using the newer v2 API when available (2.4.0+), falling back
-to v1 otherwise. No action needed on your end. See
-[Server Version Support](docs/guides/en/server-version-support.md) for the full
-compatibility plan and Vikunja's v1 retirement timeline.
+Viku detects server capabilities automatically, using API v2 on Vikunja 2.4.0+
+with a v1 fallback for older servers.
+[Compatibility details and v1 retirement timeline →](docs/guides/en/server-version-support.md)
 
 ## OIDC Setup
 
-If your Vikunja instance has an OpenID Connect provider configured (Authentik,
-Keycloak, Authelia, Google, ...), you can sign in with it directly instead of
-using an API token or a username and password.
+Before your first OIDC sign-in, ask your instance administrator to **add** this
+redirect URI to the identity provider’s client configuration, keeping Vikunja’s
+existing web redirect URI:
 
-Before your first sign-in, ask your instance admin to add this app's redirect
-URI as an **additional** allowed redirect URI on the provider's client
-configuration, alongside the one already used by Vikunja's own web frontend:
-
-```
+```text
 viku://oidc-callback
 ```
 
-This is a one-time change on the identity provider's side, not something each
-user has to do — most providers (Authentik, Keycloak, Authelia, Google, ...)
-let a single client have more than one allowed redirect URI. Without it, the
-provider will refuse the app's sign-in request even though the same login
-works fine from a browser.
+This is a one-time setup per provider client. Without it, the provider will
+reject the app’s sign-in request even if browser sign-in works.
 
 ## Required Permissions
 
-If you connect using an API Token instead of username/password or OIDC, make
-sure it has at least the following permissions:
+For API token sign-in, grant at least these permissions:
 
 | Group | Permissions |
 |---|---|
@@ -182,23 +127,6 @@ sure it has at least the following permissions:
 | `tasks relations` | create, delete |
 | `labels` | create, read all, update, delete |
 | `other` | user |
-
-## Philosophy & Scope
-
-### What it is for
-
-- **Today at a glance.** An account-wide view of what is overdue, due today, and coming up, across every project.
-- **Capturing tasks fast.** From the home-screen widget, a deep link, Siri, or a one-tap sheet, with the minimum fields needed and nothing else.
-- **Checking in on projects.** A simple browsable tree with completion progress, plus enough task detail (due date, priority, labels, comments, attachments, relations) 
-    to act on something without switching devices.
-- **Staying out of the way.** Native, lightweight, quick to open and quick to close.
-
-### What it is not
-
-- Not a reimplementation of the full Vikunja web UI.
-- No creating or editing saved filter queries, no Gantt, no bulk editing.
-- No team or permission administration, no instance configuration.
-- Not a place for long planning sessions. It is tuned for glances and quick capture, not for restructuring your workload.
 
 ---
 
