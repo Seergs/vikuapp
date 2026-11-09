@@ -44,7 +44,6 @@ struct EditCommentSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "Save", bundle: .module)) {
-                        session.log("save")
                         onSave(session.draft)
                         dismiss()
                     }
@@ -55,6 +54,5 @@ struct EditCommentSheet: View {
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
-        .onAppear { session.log("presented") }
     }
 }

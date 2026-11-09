@@ -1,6 +1,5 @@
 import Foundation
 import Observation
-import os
 import VikuDesignSystem
 import VikunjaCore
 
@@ -9,7 +8,6 @@ import VikunjaCore
 @MainActor
 @Observable
 final class CommentEditSession: Identifiable {
-    private static let logger = Logger(subsystem: "dev.sergiosuarez.vikunja", category: "comment-order")
     let id = UUID()
     let comment: TaskComment
     let initialText: String
@@ -20,21 +18,10 @@ final class CommentEditSession: Identifiable {
         let text = RichText.plainText(from: comment.comment)
         self.initialText = text
         self.draft = text
-        log("selected")
     }
 
     var canSave: Bool {
         let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         return !trimmed.isEmpty && trimmed != initialText.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    /// Correlates context-menu selection, presentation, and save without logging text.
-    func log(_ event: String) {
-        #if DEBUG
-        let sessionID = id.uuidString
-        let commentID = String(describing: comment.id)
-        let draftMatchesInitial = draft == initialText
-        Self.logger.debug("[comment-order] editor.\(event, privacy: .public) session=\(sessionID, privacy: .public) comment=\(commentID, privacy: .public) draftMatchesInitial=\(draftMatchesInitial)")
-        #endif
     }
 }
