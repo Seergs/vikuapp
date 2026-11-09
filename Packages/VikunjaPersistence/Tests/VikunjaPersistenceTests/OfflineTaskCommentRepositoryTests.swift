@@ -90,15 +90,126 @@ struct OfflineTaskCommentRepositoryTests {
     @discardableResult
     private func seedComment(
         in fixture: Fixture, taskLocalID: UUID, remoteID: Int?, text: String = "Looks good",
+        created: Date = Date(timeIntervalSince1970: 1_700_000_000), localID: UUID = UUID(),
     ) async throws -> TaskCommentRecord {
-        let now = Date(timeIntervalSince1970: 1_700_000_000)
         let row = TaskCommentRecord(
-            localID: UUID(), accountID: fixture.accountID, remoteID: remoteID, taskLocalID: taskLocalID,
+            localID: localID, accountID: fixture.accountID, remoteID: remoteID, taskLocalID: taskLocalID,
             comment: text, authorID: 1, authorUsername: "me", authorName: "Me", authorEmail: nil,
-            created: now, updated: now,
+            created: created, updated: created,
         )
         try await fixture.store.write { db in try row.insert(db) }
         return row
+    }
+
+    @Test(arguments: [false, true])
+    func `same second comments keep their order through an edit retry refresh and reopening`(
+        online: Bool,
+    ) async throws {
+        let fixture = try await makeRepository(online: online)
+        let task = try await seedTask(in: fixture, remoteID: 5)
+        let second = 1_794_191_456.0
+        let author = User(id: 1, username: "me")
+        // Use UUIDs opposite to the server IDs so an equal-date UUID fallback
+        // cannot accidentally pass after a complete thread refresh.
+        try await seedComment(
+            in: fixture, taskLocalID: task.localID, remoteID: 47, text: "A",
+            created: Date(timeIntervalSince1970: second + 0.771),
+            localID: #require(UUID(uuidString: "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF")),
+        )
+        try await seedComment(
+            in: fixture, taskLocalID: task.localID, remoteID: 48, text: "B",
+            created: Date(timeIntervalSince1970: second + 0.968),
+            localID: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000001")),
+        )
+        fixture.network.comments = [
+            TaskComment(
+                id: 47,
+                comment: "A",
+                author: author,
+                created: Date(timeIntervalSince1970: second),
+                updated: Date(timeIntervalSince1970: second),
+            ),
+            TaskComment(
+                id: 48,
+                comment: "B",
+                author: author,
+                created: Date(timeIntervalSince1970: second),
+                updated: Date(timeIntervalSince1970: second),
+            ),
+        ]
+        let expected: [EntityID] = [.remote(47), .remote(48)]
+        #expect(try await fixture.repository.fetchComments(taskID: 5).map(\.id) == expected)
+        fixture.network.updateError = .timeout
+        _ = try await fixture.repository.updateComment(48, text: "B edited", onTask: 5)
+        #expect(try await fixture.repository.fetchComments(taskID: 5).map(\.id) == expected)
+
+        try await fixture.engine.drainCommentMutations()
+        #expect(try await fixture.repository.fetchComments(taskID: 5).map(\.id) == expected)
+        fixture.network.updateError = nil
+        try await fixture.engine.drainCommentMutations()
+        let afterEdit = try await fixture.repository.fetchComments(taskID: 5)
+        #expect(afterEdit.map(\.id) == expected)
+        #expect(afterEdit.first { $0.id == .remote(48) }?.comment == "B edited")
+        #expect(afterEdit.first { $0.id == .remote(48) }?.created == Date(timeIntervalSince1970: second))
+
+        try await fixture.engine.pullComments(taskID: 5)
+        #expect(try await fixture.repository.fetchComments(taskID: 5).map(\.id) == expected)
+        let reopened = try OfflineTaskCommentRepository(
+            localStore: LocalStore(directory: fixture.storeDirectory), accountID: fixture.accountID,
+            syncRequester: NoopKanbanSyncRequester(),
+        )
+        #expect(try await reopened.fetchComments(taskID: 5).map(\.id) == expected)
+    }
+
+    @Test
+    func `creation seconds take precedence over server IDs and pending comments retain local order`() async throws {
+        let fixture = try await makeRepository(online: false)
+        let task = try await seedTask(in: fixture, remoteID: 5)
+        let second = 1_794_191_456.0
+        let lowUUID = try #require(UUID(uuidString: "00000000-0000-0000-0000-000000000001"))
+        let highUUID = try #require(UUID(uuidString: "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF"))
+        // Insert out of order, with local UUIDs opposite to creation order.
+        let laterPending = try await seedComment(
+            in: fixture, taskLocalID: task.localID, remoteID: nil, text: "Later pending",
+            created: Date(timeIntervalSince1970: second + 0.9), localID: lowUUID,
+        )
+        try await seedComment(
+            in: fixture, taskLocalID: task.localID, remoteID: 1, text: "Newer second",
+            created: Date(timeIntervalSince1970: second + 1),
+        )
+        let earlierPending = try await seedComment(
+            in: fixture, taskLocalID: task.localID, remoteID: nil, text: "Earlier pending",
+            created: Date(timeIntervalSince1970: second + 0.1), localID: highUUID,
+        )
+        try await seedComment(
+            in: fixture, taskLocalID: task.localID, remoteID: 47, text: "Synced",
+            created: Date(timeIntervalSince1970: second + 0.8),
+        )
+        try await seedComment(
+            in: fixture, taskLocalID: task.localID, remoteID: 99, text: "Older second",
+            created: Date(timeIntervalSince1970: second - 1),
+        )
+        let cached = try await fixture.repository.fetchComments(taskID: 5)
+        #expect(cached.map(\.id) == [
+            .remote(99), .remote(47), .local(earlierPending.localID), .local(laterPending.localID), .remote(1),
+        ])
+    }
+
+    @Test
+    func `pending comments with identical timestamps have a stable order after reopening`() async throws {
+        let fixture = try await makeRepository(online: false)
+        let task = try await seedTask(in: fixture, remoteID: nil)
+        let lowUUID = try #require(UUID(uuidString: "00000000-0000-0000-0000-000000000001"))
+        let highUUID = try #require(UUID(uuidString: "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF"))
+        try await seedComment(in: fixture, taskLocalID: task.localID, remoteID: nil, localID: highUUID)
+        try await seedComment(in: fixture, taskLocalID: task.localID, remoteID: nil, localID: lowUUID)
+        let expected: [EntityID] = [.local(lowUUID), .local(highUUID)]
+        #expect(try await fixture.repository.fetchComments(taskID: .local(task.localID)).map(\.id) == expected)
+        let reopened = try OfflineTaskCommentRepository(
+            localStore: LocalStore(directory: fixture.storeDirectory), accountID: fixture.accountID,
+            syncRequester: NoopKanbanSyncRequester(),
+        )
+        #expect(try await reopened.fetchComments(taskID: .local(task.localID)).map(\.id) == expected)
     }
 
     @Test
