@@ -266,7 +266,7 @@ public struct QuickAddSheetView: View {
             if let project = viewModel.selectedProject ?? viewModel.displayProject {
                 HStack(spacing: VikuSpacing.xs) {
                     Image(systemName: "folder")
-                        .font(VikuFont.body)
+                        .font(VikuFont.title3)
                     Text(verbatim: project.title)
                         .font(VikuFont.footnote)
                         .fontWeight(.bold)
@@ -485,7 +485,7 @@ public struct QuickAddSheetView: View {
     private func selectionChipLabel(_ icon: String, title: String, additionalCount: Int = 0) -> some View {
         HStack(spacing: VikuSpacing.xs) {
             Image(systemName: icon)
-                .font(VikuFont.body)
+                .font(VikuFont.title3)
             Text(verbatim: title)
                 .lineLimit(1)
             if additionalCount > 0 {
@@ -509,7 +509,7 @@ public struct QuickAddSheetView: View {
 
     private func shortcutIcon(_ systemName: String, label: String) -> some View {
         Image(systemName: systemName)
-            .font(VikuFont.body)
+            .font(VikuFont.title3)
             .foregroundStyle(palette.textSecondary)
             .frame(width: VikuSpacing.xl + VikuSpacing.xs, height: VikuSpacing.xl + VikuSpacing.xs)
             .background(palette.fieldBackground, in: Circle())
