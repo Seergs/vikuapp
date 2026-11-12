@@ -11,7 +11,7 @@ final class FakeBucketRepository: KanbanBoardRepositoryProtocol {
     var buckets: [KanbanBucket] = []
     var fetchError: VikunjaError?
     var moveError: VikunjaError?
-    var createError: VikunjaError?
+    var createError: (any Error)?
     var hasSnapshot = true
     var waitingForProject = false
     var supportsWrites = true
