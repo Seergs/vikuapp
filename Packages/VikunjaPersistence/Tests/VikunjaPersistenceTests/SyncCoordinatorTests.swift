@@ -201,6 +201,7 @@ actor CoordinatorReachabilityMonitor: ReachabilityMonitoring {
     /// subscribed, so a test can wait for that instead of racing a signal
     /// against a background task that hasn't started yet.
     private(set) var hasSubscriber = false
+    private let subscriptionReady = AsyncStream<Void>.makeStream()
     private var continuation: AsyncStream<Void>.Continuation?
     private var statusContinuation: AsyncStream<Bool>.Continuation?
 
@@ -208,6 +209,7 @@ actor CoordinatorReachabilityMonitor: ReachabilityMonitoring {
         AsyncStream { continuation in
             self.continuation = continuation
             self.hasSubscriber = true
+            self.subscriptionReady.continuation.finish()
         }
     }
 
@@ -215,11 +217,16 @@ actor CoordinatorReachabilityMonitor: ReachabilityMonitoring {
         AsyncStream { continuation in
             statusContinuation = continuation
             hasSubscriber = true
+            subscriptionReady.continuation.finish()
             hasStatusSubscriber = true
             if hasInitialReport {
                 continuation.yield(reachable)
             }
         }
+    }
+
+    func waitForSubscription() async {
+        for await _ in subscriptionReady.stream {}
     }
 
     func setReachable(_ value: Bool) {
@@ -413,7 +420,7 @@ struct SyncCoordinatorTests {
         await stopObserving(coordinator, reachability)
     }
 
-    @Test
+    @Test(.timeLimit(.minutes(1)))
     func `start syncs again every time reachability is regained`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let accountStore = FakeAccountStore()
@@ -422,20 +429,24 @@ struct SyncCoordinatorTests {
         let account = try makeAccount(host: "a.example.com")
         try await accountStore.addAccount(account, token: "token-a")
         let repository = factory.projectRepository(for: account.baseURL)
+        let fetchStarted = AsyncStream<Void>.makeStream()
+        defer { fetchStarted.continuation.finish() }
+        repository.onFetchProjects = { fetchStarted.continuation.yield() }
+        var fetches = fetchStarted.stream.makeAsyncIterator()
         let coordinator = SyncCoordinator(
             localStore: store, accountStore: accountStore, clientFactory: factory, reachability: reachability,
             tokenProvider: { account in { try await accountStore.token(forAccountID: account.id) } },
         )
 
         await coordinator.start()
-        await waitUntil { await reachability.hasSubscriber }
+        await reachability.waitForSubscription()
         await reachability.signalRegained()
 
-        await waitUntil { repository.fetchProjectsCallCount > 0 }
+        #expect(await fetches.next() != nil)
         #expect(repository.fetchProjectsCallCount == 1)
 
         await reachability.signalRegained()
-        await waitUntil { repository.fetchProjectsCallCount > 1 }
+        #expect(await fetches.next() != nil)
         #expect(repository.fetchProjectsCallCount == 2)
         await stopObserving(coordinator, reachability)
     }
