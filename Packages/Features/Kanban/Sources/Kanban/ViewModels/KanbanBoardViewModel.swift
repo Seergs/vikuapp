@@ -176,16 +176,24 @@ public final class KanbanBoardViewModel {
         await moveTask(current, to: target)
     }
 
-    public func createTask(title: String, in bucket: KanbanBucket) async {
+    /// Success means the repository accepted the task, including an offline local creation.
+    @discardableResult
+    public func createTask(title: String, in bucket: KanbanBucket) async -> Bool {
         guard supportsWrites, supportsTaskCreation, let viewID,
-              let current = buckets.first(where: { $0.id == bucket.id }) else { return }
-        guard !current.isFull else { show(VikunjaError.bucketFull); return }
+              let current = buckets.first(where: { $0.id == bucket.id }) else { return false }
+        guard !current.isFull else { show(VikunjaError.bucketFull); return false }
         do {
             _ = try await repository.createTask(
                 title: title, projectID: project.id, viewID: viewID, bucketID: bucket.id,
             )
             await load()
-        } catch { show(error) }
+            return true
+        } catch is CancellationError {
+            return false
+        } catch {
+            show(error)
+            return false
+        }
     }
 
     private func message(_ error: any Error) -> String {

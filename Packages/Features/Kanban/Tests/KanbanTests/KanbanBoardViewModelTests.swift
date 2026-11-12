@@ -195,8 +195,9 @@ struct KanbanBoardViewModelTests {
         )
         await viewModel.load()
 
-        await viewModel.createTask(title: "New card", in: viewModel.buckets[0])
+        let created = await viewModel.createTask(title: "New card", in: viewModel.buckets[0])
 
+        #expect(created)
         #expect(viewModel.buckets[0].tasks.map(\.title) == ["New card"])
         #expect(repository.createdTasks.map(\.bucketID) == [1])
     }
@@ -205,7 +206,7 @@ struct KanbanBoardViewModelTests {
     func `create task shows a toast and leaves the bucket unchanged when the local persistence fails it`() async {
         let repository = FakeBucketRepository()
         repository.buckets = [KanbanBucket(id: 1, title: "To Do")]
-        repository.createError = .network("offline")
+        repository.createError = VikunjaError.network("offline")
         let toastPresenter = FakeToastPresenter()
         let viewModel = KanbanBoardViewModel(
             project: Project(id: 4, title: "Work"),
@@ -215,8 +216,9 @@ struct KanbanBoardViewModelTests {
         )
         await viewModel.load()
 
-        await viewModel.createTask(title: "New card", in: viewModel.buckets[0])
+        let created = await viewModel.createTask(title: "New card", in: viewModel.buckets[0])
 
+        #expect(!created)
         #expect(viewModel.buckets[0].tasks.isEmpty)
         #expect(toastPresenter.shownMessages.map(\.style) == [.error])
     }
@@ -296,7 +298,8 @@ struct KanbanBoardViewModelTests {
         )
         await viewModel.load()
         await viewModel.createTask(title: "First", in: oldBucket)
-        await viewModel.createTask(title: "Second", in: oldBucket)
+        let created = await viewModel.createTask(title: "Second", in: oldBucket)
+        #expect(!created)
         #expect(repository.createdTasks.count == 1)
         #expect(viewModel.buckets[0].isFull)
         #expect(toast.shownMessages.map(\.style) == [.error])

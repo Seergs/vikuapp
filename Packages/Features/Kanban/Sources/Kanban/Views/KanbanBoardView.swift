@@ -157,7 +157,7 @@ public struct KanbanBoardView: View {
                         onDropTaskID: { taskID in
                             Task { await viewModel.moveTask(taskID: taskID, to: bucket) }
                         },
-                        onAddTask: { title in Task { await viewModel.createTask(title: title, in: bucket) } },
+                        onAddTask: { title in await viewModel.createTask(title: title, in: bucket) },
                     )
                 }
             }

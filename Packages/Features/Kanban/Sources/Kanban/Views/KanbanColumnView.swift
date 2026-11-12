@@ -19,14 +19,13 @@ struct KanbanColumnView: View {
     /// needs every bucket's tasks, not just this column's own, so the lookup
     /// (and the `moveTask` call) happens in `KanbanBoardView`.
     let onDropTaskID: @MainActor @Sendable (EntityID) -> Void
-    let onAddTask: (String) -> Void
+    let onAddTask: @MainActor (String) async -> Bool
 
     private var isTargeted: Bool {
         dropTarget.bucketID == bucket.id
     }
 
-    @State private var isAddingTask = false
-    @State private var newTaskTitle = ""
+    @State private var draft = KanbanTaskDraft()
     @FocusState private var isNewTaskFieldFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.vikuPalette) private var palette
@@ -56,7 +55,7 @@ struct KanbanColumnView: View {
 
             cards
 
-            if isAddingTask, allowsMutations, allowsTaskCreation, !bucket.isFull {
+            if draft.isPresented, allowsMutations, allowsTaskCreation, !bucket.isFull {
                 addTaskField
             }
         }
@@ -80,9 +79,16 @@ struct KanbanColumnView: View {
             target: $dropTarget,
             onDropTaskID: onDropTaskID,
         ))
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: draft.isPresented)
+        .onChange(of: draft.isPresented) { _, isPresented in
+            if !isPresented {
+                isNewTaskFieldFocused = false
+            }
+        }
+        .onDisappear { isNewTaskFieldFocused = false }
         .onChange(of: bucket.isFull) { _, isFull in
             guard isFull else { return }
-            isAddingTask = false
+            draft.isPresented = false
             isNewTaskFieldFocused = false
             dropTarget.update(isTargeted: false, bucketID: bucket.id)
         }
@@ -142,7 +148,7 @@ struct KanbanColumnView: View {
             Spacer(minLength: VikuSpacing.xs)
 
             Button {
-                isAddingTask = true
+                draft.isPresented = true
                 isNewTaskFieldFocused = true
             } label: {
                 Image(systemName: "plus")
@@ -203,7 +209,10 @@ struct KanbanColumnView: View {
             inlineLabels: true,
             allowsCompletionChanges: allowsMutations,
             onToggle: { onToggleDone(task) },
-            onOpen: { onSelectTask(task) },
+            onOpen: {
+                isNewTaskFieldFocused = false
+                onSelectTask(task)
+            },
             contextMenu: { EmptyView() },
         )
         .padding(VikuSpacing.sm)
@@ -211,8 +220,9 @@ struct KanbanColumnView: View {
     }
 
     private var addTaskField: some View {
-        HStack(spacing: VikuSpacing.xs) {
-            TextField(String(localized: "New task", bundle: .module), text: $newTaskTitle)
+        @Bindable var draft = draft
+        return HStack(spacing: VikuSpacing.xs) {
+            TextField(String(localized: "New task", bundle: .module), text: $draft.title)
                 .font(VikuFont.footnote)
                 .focused($isNewTaskFieldFocused)
                 .onSubmit(submitNewTask)
@@ -220,11 +230,12 @@ struct KanbanColumnView: View {
             Button(action: submitNewTask) { Text("Add", bundle: .module) }
                 .font(VikuFont.footnote)
                 .fontWeight(.semibold)
-                .disabled(bucket.isFull || newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(bucket.isFull || draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
             Button {
-                isAddingTask = false
-                newTaskTitle = ""
+                draft.isPresented = false
+                draft.title = ""
+                isNewTaskFieldFocused = false
             } label: {
                 Image(systemName: "xmark")
                     .font(VikuFont.caption.weight(.semibold))
@@ -232,15 +243,13 @@ struct KanbanColumnView: View {
             }
             .buttonStyle(.plain)
         }
+        .disabled(draft.isSubmitting)
         .padding(VikuSpacing.sm)
         .background(palette.fieldBackground, in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
     }
 
     private func submitNewTask() {
-        let title = newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !title.isEmpty, !bucket.isFull else { return }
-        onAddTask(title)
-        newTaskTitle = ""
-        isNewTaskFieldFocused = true
+        guard !bucket.isFull else { return }
+        Task { await draft.submit(using: onAddTask) }
     }
 }
