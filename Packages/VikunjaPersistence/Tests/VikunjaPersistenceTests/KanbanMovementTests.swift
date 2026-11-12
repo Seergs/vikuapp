@@ -22,6 +22,16 @@ private actor MovingKanbanRemote: BucketRepositoryProtocol {
     private(set) var moved: [Int] = []
     private(set) var created: [Int] = []
 
+    func fetchTask(_ id: EntityID) throws -> VikunjaTask {
+        try #require(id.remoteValue.flatMap { tasks[$0] })
+    }
+
+    func saveTask(_ task: VikunjaTask) {
+        if let id = task.id.remoteValue {
+            tasks[id] = task
+        }
+    }
+
     func populateDestinationColumns() {
         for (id, bucket, position) in [(101, 21, 100.0), (102, 21, 300.0), (103, 22, 100.0), (104, 22, 300.0)] {
             tasks[id] = VikunjaTask(id: .remote(id), title: "Neighbor", isDone: bucket == 22, projectID: 1)
@@ -153,6 +163,14 @@ struct KanbanMovementTests {
         }
         let remote = MovingKanbanRemote()
         let taskRemote = FakeTaskRepository()
+        taskRemote.fetchTaskResponse = { try await remote.fetchTask($0) }
+        taskRemote.beforeUpdateResponse = {
+            if let task = taskRemote.updatedTasks.last {
+                var response = taskRemote.updateResponse ?? task
+                response.updated = Date()
+                await remote.saveTask(response)
+            }
+        }
         let engine = SyncEngine(
             localStore: store,
             projectRepository: FakeProjectRepository(),

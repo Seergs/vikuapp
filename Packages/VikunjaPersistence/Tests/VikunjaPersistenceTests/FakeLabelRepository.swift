@@ -14,6 +14,7 @@ final class FakeLabelRepository: LabelRepositoryProtocol, @unchecked Sendable {
     private(set) var addedLabelIDs: [(labelID: EntityID, taskID: EntityID)] = []
     private(set) var removedLabelIDs: [(labelID: EntityID, taskID: EntityID)] = []
     var addLabelError: Error?
+    var onAddLabel: (@Sendable () -> Void)?
     var removeLabelError: Error?
     private var nextRemoteID = 100
 
@@ -66,6 +67,7 @@ final class FakeLabelRepository: LabelRepositoryProtocol, @unchecked Sendable {
             throw addLabelError
         }
         addedLabelIDs.append((labelID, taskID))
+        onAddLabel?()
     }
 
     func removeLabel(_ labelID: EntityID, fromTask taskID: EntityID) async throws {

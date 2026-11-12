@@ -30,6 +30,16 @@ private actor CreationScheduler: SyncRequesting {
 }
 
 private actor CreationRemote: BucketRepositoryProtocol {
+    private var tasks: [EntityID: VikunjaTask] = [:]
+
+    func fetchTask(_ id: EntityID) throws -> VikunjaTask {
+        try #require(tasks[id])
+    }
+
+    func saveTask(_ task: VikunjaTask) {
+        tasks[task.id] = task
+    }
+
     private(set) var requests: [(VikunjaTask, Int)] = []
     var responseHook: (@Sendable () async throws -> Void)?
     var failure: VikunjaError?
@@ -62,6 +72,7 @@ private actor CreationRemote: BucketRepositoryProtocol {
             reminders: task.reminders,
             updated: Date(),
         )
+        tasks[result.id] = result
         return result
     }
 
@@ -104,11 +115,18 @@ struct KanbanCreationTests {
         let notifications = CreationNotifications()
         let scheduler = CreationScheduler()
         let tasks = OfflineTaskRepository(localStore: store, accountID: accountID, syncRequester: scheduler)
+        let taskRemote = FakeTaskRepository()
+        taskRemote.fetchTaskResponse = { try await remote.fetchTask($0) }
+        taskRemote.beforeUpdateResponse = {
+            if let task = taskRemote.updatedTasks.last {
+                await remote.saveTask(task)
+            }
+        }
         let engine = SyncEngine(
             localStore: store,
             projectRepository: FakeProjectRepository(),
             labelRepository: FakeLabelRepository(),
-            taskRepository: FakeTaskRepository(),
+            taskRepository: taskRemote,
             relationRepository: FakeTaskRelationRepository(),
             accountID: accountID,
             bucketRepository: remote,

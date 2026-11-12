@@ -56,10 +56,40 @@ extension SyncEngine {
         do {
             guard let taskBulkUpdateRepository else { throw TaskBulkDrainError.missingRepository }
             try Task.checkCancellation()
+            if try await taskBulkBatchConflicts(batch) {
+                try await localStore.write { db in
+                    for sent in batch.items {
+                        guard var item = try MutationQueueRecord.fetchOne(db, key: sent.id),
+                              item.payload == sent.payload else { continue }
+                        item.status = sent.status
+                        item.needsConflictResolution = true
+                        try item.update(db)
+                    }
+                }
+                return true
+            }
             let tasks = try await taskBulkUpdateRepository.apply(batch.change, toTaskIDs: batch.taskIDs)
             try await acknowledgeTaskBulkBatch(batch, tasks: tasks)
         } catch {
             try await handleTaskBulkFailure(error, batch: batch)
+        }
+        return false
+    }
+
+    private func taskBulkBatchConflicts(_ batch: TaskBulkBatch) async throws -> Bool {
+        for (item, id) in zip(batch.items, batch.taskIDs) {
+            let intent = try TaskBulkIntent(item: item)
+            guard let base = intent.baseFields else { continue }
+            let current = try await taskRepository.fetchTask(id: id)
+            try Task.checkCancellation()
+            let fields = try await localStore.read { db in
+                try TaskEditableFields.server(current, accountID: self.accountID, db: db)
+            }
+            if case .conflict = TaskEditEvaluation.compare(
+                base: base, desired: base.applying(intent.change), current: fields,
+            ) {
+                return true
+            }
         }
         return false
     }
@@ -131,7 +161,7 @@ extension SyncEngine {
             if blocked {
                 return (nil, [])
             }
-            if let baseline = intent.baseUpdatedAt, let updated = row.serverUpdatedAt,
+            if intent.baseFields == nil, let baseline = intent.baseUpdatedAt, let updated = row.serverUpdatedAt,
                updated.timeIntervalSince(baseline) > 1 {
                 hasConflict = true
             }
@@ -150,8 +180,9 @@ extension SyncEngine {
     /// Our own successful write is the new baseline, not a server conflict.
     /// A bulk acknowledgement must also preserve later full task edits.
     static func rebaseTaskBulkIntents(
-        after sent: MutationQueueRecord, updatedAt: Date?, db: Database,
+        after sent: MutationQueueRecord, task: VikunjaTask, db: Database,
     ) throws {
+        let fields = try TaskEditableFields.server(task, accountID: sent.accountID, db: db)
         let items = try MutationQueueRecord.filter(Column("accountID") == sent.accountID)
             .filter(Column("targetLocalID") == sent.targetLocalID).fetchAll(db)
         for var item in items where item.id != sent.id && !item.needsConflictResolution && item.status != .inFlight {
@@ -163,15 +194,17 @@ extension SyncEngine {
                     continue
                 }
                 var intent = try TaskBulkIntent(item: item)
-                intent.baseUpdatedAt = updatedAt
+                intent.baseUpdatedAt = task.updated
+                intent.baseFields = fields
                 item.payload = try intent.encodedPayload()
-                item.baseUpdatedAt = updatedAt
+                item.baseUpdatedAt = task.updated
                 try item.update(db)
             } else if item.operation == .update, sent.operation.isBulkTaskChange || sent.operation == .moveBucket {
                 var payload = try KanbanLocalMutations.decode(TaskCreateOrUpdatePayload.self, item: item)
-                payload.baseUpdatedAt = updatedAt
+                payload.baseUpdatedAt = task.updated
+                payload.baseFields = fields
                 item.payload = try KanbanLocalMutations.encode(payload)
-                item.baseUpdatedAt = updatedAt
+                item.baseUpdatedAt = task.updated
                 try item.update(db)
             }
         }

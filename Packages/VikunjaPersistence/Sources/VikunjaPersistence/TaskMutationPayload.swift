@@ -20,6 +20,8 @@ struct TaskCreateOrUpdatePayload: Codable, Equatable, Sendable {
     /// the conflict check's baseline. `nil` for a `create` (nothing on the
     /// server yet to conflict with).
     var baseUpdatedAt: Date?
+    /// Missing on legacy queues. The payload is the authoritative edit baseline.
+    var baseFields: TaskEditableFields?
     /// Optional so payloads queued before reminders were persisted still
     /// decode; `nil` means the task had no reminders.
     var reminders: [TaskReminder]?
@@ -70,6 +72,7 @@ struct TaskCompletionPayload: Codable, Equatable, Sendable {
     var isDone: Bool
     /// Frozen across pulls; only our own acknowledged writes rebase this value.
     var baseUpdatedAt: Date?
+    var baseFields: TaskEditableFields?
 }
 
 /// Same batching and baseline rules as `TaskCompletionPayload`.
@@ -78,6 +81,7 @@ struct TaskDueDatePayload: Codable, Equatable, Sendable {
     var dueDate: Date
     /// Frozen across pulls; only our own acknowledged writes rebase this value.
     var baseUpdatedAt: Date?
+    var baseFields: TaskEditableFields?
 }
 
 /// One queued bulk row decoded independently of its stored payload type, so
@@ -88,11 +92,13 @@ struct TaskBulkIntent: Equatable, Sendable {
     var batchID: UUID
     var change: TaskBulkChange
     var baseUpdatedAt: Date?
+    var baseFields: TaskEditableFields?
 
-    init(batchID: UUID, change: TaskBulkChange, baseUpdatedAt: Date?) {
+    init(batchID: UUID, change: TaskBulkChange, baseUpdatedAt: Date?, baseFields: TaskEditableFields? = nil) {
         self.batchID = batchID
         self.change = change
         self.baseUpdatedAt = baseUpdatedAt
+        self.baseFields = baseFields
     }
 
     init(item: MutationQueueRecord) throws {
@@ -101,13 +107,13 @@ struct TaskBulkIntent: Equatable, Sendable {
             let payload = try KanbanLocalMutations.decode(TaskCompletionPayload.self, item: item)
             self.init(
                 batchID: payload.batchID, change: .completion(isDone: payload.isDone),
-                baseUpdatedAt: payload.baseUpdatedAt,
+                baseUpdatedAt: payload.baseUpdatedAt, baseFields: payload.baseFields,
             )
         case .setDueDate:
             let payload = try KanbanLocalMutations.decode(TaskDueDatePayload.self, item: item)
             self.init(
                 batchID: payload.batchID, change: .dueDate(payload.dueDate),
-                baseUpdatedAt: payload.baseUpdatedAt,
+                baseUpdatedAt: payload.baseUpdatedAt, baseFields: payload.baseFields,
             )
         case .create, .update, .delete, .addLabel, .removeLabel, .addRelation, .removeRelation, .moveBucket:
             throw VikunjaError.decoding("Queue item \(item.operation.rawValue) is not a bulk task change.")
@@ -122,11 +128,15 @@ struct TaskBulkIntent: Equatable, Sendable {
         switch change {
         case let .completion(isDone):
             try KanbanLocalMutations.encode(
-                TaskCompletionPayload(batchID: batchID, isDone: isDone, baseUpdatedAt: baseUpdatedAt),
+                TaskCompletionPayload(
+                    batchID: batchID, isDone: isDone, baseUpdatedAt: baseUpdatedAt, baseFields: baseFields,
+                ),
             )
         case let .dueDate(dueDate):
             try KanbanLocalMutations.encode(
-                TaskDueDatePayload(batchID: batchID, dueDate: dueDate, baseUpdatedAt: baseUpdatedAt),
+                TaskDueDatePayload(
+                    batchID: batchID, dueDate: dueDate, baseUpdatedAt: baseUpdatedAt, baseFields: baseFields,
+                ),
             )
         }
     }

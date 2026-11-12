@@ -18,7 +18,7 @@ public actor SyncEngine {
     let localStore: LocalStore
     private let projectRepository: ProjectRepositoryProtocol
     private let labelRepository: LabelRepositoryProtocol
-    private let taskRepository: TaskRepositoryProtocol
+    let taskRepository: TaskRepositoryProtocol
     private let relationRepository: TaskRelationRepositoryProtocol
     /// `nil` in tests/constructions that never touch comments. Every real
     /// `SyncEngine` built by the app or `SyncCoordinator` passes one.
@@ -855,20 +855,8 @@ public actor SyncEngine {
                 // refreshes freely - same reasoning as `serverUpdatedAt`.
                 existing.labelRemoteIDs = labelRemoteIDs
                 try existing.save(db)
-                // Keep the queued mutation's conflict baseline in sync with
-                // the refreshed `serverUpdatedAt`, so a pull between edit and
-                // drain doesn't trip a false conflict.
-                try MutationQueueRecord.fetchAll(db)
-                    .filter {
-                        $0.accountID == accountID && $0.entityType == .task
-                            && $0.targetLocalID == localID
-                            && ($0.status == .pending || $0.status == .failed)
-                    }
-                    .forEach { record in
-                        var updated = record
-                        updated.baseUpdatedAt = task.updated
-                        try updated.update(db)
-                    }
+                // Pulls observe the server; they never change an edit's base.
+                // That base lives in its payload until a known write succeeds.
                 // Relation association isn't part of the local edit being
                 // protected either - same reasoning as `labelRemoteIDs`.
                 try Self.replaceRelationRows(for: localID, accountID: accountID, task: task, db: db)
@@ -1363,6 +1351,9 @@ public actor SyncEngine {
             case .removeRelation: return try await drainTaskRelationMutation(item, isAdding: false)
             }
         } catch {
+            if error is CancellationError {
+                throw error
+            }
             try await markFailed(item, error: error)
             return .skipped
         }
@@ -1541,8 +1532,23 @@ public actor SyncEngine {
         guard let resolvedProjectID else {
             return .deferred // The new project hasn't synced yet — retry this item on a later pass.
         }
-        if let baseUpdatedAt = payload.baseUpdatedAt, let serverUpdatedAt = currentRow.serverUpdatedAt,
-           serverUpdatedAt.timeIntervalSince(baseUpdatedAt) > 1 {
+        if let base = payload.baseFields {
+            let current = try await taskRepository.fetchTask(id: .remote(remoteID))
+            try Task.checkCancellation()
+            let fields = try await localStore.read { db in
+                try TaskEditableFields.server(current, accountID: self.accountID, db: db)
+            }
+            switch TaskEditEvaluation.compare(base: base, desired: TaskEditableFields(payload), current: fields) {
+            case .unchanged: break
+            case .alreadyApplied:
+                try await applyTaskPushResult(current, deleting: item)
+                return .pushed
+            case .conflict:
+                try await flagConflict(item)
+                return .conflicted
+            }
+        } else if let baseUpdatedAt = payload.baseUpdatedAt, let serverUpdatedAt = currentRow.serverUpdatedAt,
+                  serverUpdatedAt.timeIntervalSince(baseUpdatedAt) > 1 {
             try await flagConflict(item)
             return .conflicted
         }
@@ -1772,9 +1778,17 @@ public actor SyncEngine {
             applyReminders = !hasNewerIntent
             if !hasNewerIntent {
                 let completionChanged = row.isDone != task.isDone
+                let projectID = try TaskEditableFields.server(task, accountID: item.accountID, db: db)?.projectLocalID
+                let projectChanged = projectID.map { $0 != row.projectLocalID } ?? false
+                row.title = task.title
+                row.description = task.description
+                row.priority = task.priority.rawValue
+                if let projectID {
+                    row.projectLocalID = projectID
+                }
                 row.isDone = task.isDone
                 row.dueDate = task.dueDate
-                if completionChanged {
+                if completionChanged || projectChanged {
                     try KanbanLocalMutations.applyCompletion(row, db: db)
                 }
             }
@@ -1788,14 +1802,16 @@ public actor SyncEngine {
                 for: item.targetLocalID, accountID: item.accountID, reminders: task.reminders, db: db,
             )
         }
-        try Self.completePush(item, updatedAt: task.updated, db: db)
-        try rebaseTaskBulkIntents(after: item, updatedAt: task.updated, db: db)
+        try Self.completePush(item, updatedAt: task.updated, task: task, db: db)
+        try rebaseTaskBulkIntents(after: item, task: task, db: db)
     }
 
     /// An edit can coalesce into a queue row while its earlier payload is
     /// awaiting the server. Preserve that newer intent and rebase it on our
     /// own successful response; a completed create becomes an update.
-    private static func completePush(_ sent: MutationQueueRecord, updatedAt: Date?, db: Database) throws {
+    private static func completePush(
+        _ sent: MutationQueueRecord, updatedAt: Date?, task: VikunjaTask? = nil, db: Database,
+    ) throws {
         guard var current = try MutationQueueRecord.fetchOne(db, key: sent.id) else { return }
         guard current.payload != sent.payload || current.operation != sent.operation else {
             try current.delete(db)
@@ -1812,6 +1828,9 @@ public actor SyncEngine {
         if current.entityType == .task,
            var payload = try decode(TaskCreateOrUpdatePayload.self, from: current.payload) {
             payload.baseUpdatedAt = updatedAt
+            if let task {
+                payload.baseFields = try TaskEditableFields.server(task, accountID: sent.accountID, db: db)
+            }
             current.payload = try encodePayload(payload)
         }
         current.needsConflictResolution = false
