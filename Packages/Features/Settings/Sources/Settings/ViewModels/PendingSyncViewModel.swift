@@ -12,6 +12,8 @@ public final class PendingSyncViewModel {
     public private(set) var operations: [PendingSyncOperation] = []
     public private(set) var loadState: ScreenLoadState<Void> = .idle
     private(set) var presentation = PendingSyncPresentation()
+    let loadingIndicator = PendingSyncLoadingIndicator()
+    let reloadIndicator = PendingSyncLoadingIndicator()
 
     private let provider: PendingSyncOperationsProviding
     private let accountID: UUID
@@ -39,8 +41,13 @@ public final class PendingSyncViewModel {
 
     /// Consumes the live stream until the calling `.task` is cancelled.
     public func observe() async {
+        defer {
+            if Task.isCancelled {
+                loadingIndicator.reset()
+            }
+        }
         if operations.isEmpty {
-            loadState = .loading
+            setLoadState(.loading)
         }
 
         let updates = await provider.observePendingSyncOperations(accountID: accountID)
@@ -51,17 +58,25 @@ public final class PendingSyncViewModel {
                 self.operations = operations
                 presentation.receive(operations, reset: isInitialSnapshot)
                 isInitialSnapshot = false
-                loadState = .loaded
+                setLoadState(.loaded)
             }
             guard !Task.isCancelled else { return }
-            loadState = .loaded
+            setLoadState(.loaded)
         } catch is CancellationError {
+            loadingIndicator.reset()
             return
         } catch let error as VikunjaError {
-            loadState = .failure(error.displayMessage)
+            setLoadState(.failure(error.displayMessage))
         } catch {
-            loadState = .failure(error.localizedDescription)
+            setLoadState(.failure(error.localizedDescription))
         }
+    }
+
+    /// Deliver every transition synchronously; a fast loading -> loaded change
+    /// must not depend on SwiftUI rendering the intermediate state.
+    private func setLoadState(_ state: ScreenLoadState<Void>) {
+        loadState = state
+        loadingIndicator.setLoading(state.isLoading)
     }
 
     /// Called by a view-owned task so leaving the screen cancels the delay.
@@ -103,7 +118,11 @@ public final class PendingSyncViewModel {
     public func reloadFromServer() async {
         guard canReloadFromServer, !isReloading, busyOperationIDs.isEmpty, let accountReloader else { return }
         isReloading = true
-        defer { isReloading = false }
+        reloadIndicator.setLoading(true)
+        defer {
+            isReloading = false
+            reloadIndicator.setLoading(false)
+        }
         do {
             try await accountReloader.reloadFromServer()
             // A reset removes the whole queue at once, without the normal per-row departure delay.
