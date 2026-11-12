@@ -206,7 +206,7 @@ struct DatabaseExecutionLifecycleTests {
         await #expect(throws: DatabaseError.self) { _ = try await failures.next() }
     }
 
-    @Test func `bulk claims interrupted by suspension recover without increasing failure counts`() async throws {
+    @Test func `bulk verification interrupted by suspension stays pending without increasing failure counts`() async throws {
         let lifecycle = DatabaseExecutionLifecycle()
         defer { lifecycle.setForeground(true) }
         let store = try makeStore(lifecycle)
@@ -240,7 +240,7 @@ struct DatabaseExecutionLifecycleTests {
         await #expect(throws: CancellationError.self) { try await engine.drainTaskMutations() }
         let interrupted = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
         #expect(interrupted.count == 2)
-        #expect(interrupted.allSatisfy { $0.status == .inFlight && $0.retryCount == 0 && $0.lastError == nil })
+        #expect(interrupted.allSatisfy { $0.status == .pending && $0.retryCount == 0 && $0.lastError == nil })
         #expect(try await tasks.fetchTasks(projectID: project.id).allSatisfy(\.isDone))
         remoteTasks.fetchTaskResponse = nil
         lifecycle.setForeground(true)
