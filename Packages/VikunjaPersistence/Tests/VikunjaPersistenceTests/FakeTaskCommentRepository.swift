@@ -5,6 +5,7 @@ final class FakeTaskCommentRepository: TaskCommentRepositoryProtocol, @unchecked
     var comments: [TaskComment] = []
     var fetchError: VikunjaError?
     var addError: VikunjaError?
+    var onAddComment: (@Sendable () -> Void)?
     var updateError: VikunjaError?
     var deleteError: VikunjaError?
 
@@ -52,6 +53,7 @@ final class FakeTaskCommentRepository: TaskCommentRepositoryProtocol, @unchecked
         )
         nextID += 1
         comments.append(created)
+        onAddComment?()
         return created
     }
 

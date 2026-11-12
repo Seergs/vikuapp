@@ -110,6 +110,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateReposi
         try await localStore.write { db in
             let rows = try Self.accountRows(self.accountID, db: db)
             guard var row = Self.findRow(matching: task.id, in: rows) else { throw VikunjaError.notFound }
+            let baseline = try TaskEditBaseline.capture(row, db: db)
             let projectRows = try Self.projectRows(self.accountID, db: db)
             guard let projectLocalID = Self.resolveProjectLocalID(matching: task.projectID, in: projectRows) else {
                 throw VikunjaError.notFound
@@ -143,7 +144,8 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateReposi
                 dueDate: task.dueDate,
                 priority: task.priority.rawValue,
                 projectLocalID: projectLocalID,
-                baseUpdatedAt: row.serverUpdatedAt,
+                baseUpdatedAt: baseline.updatedAt,
+                baseFields: baseline.fields,
                 reminders: task.reminders,
             )
             // A row that's never synced still has its original `create`
@@ -155,7 +157,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateReposi
                 targetLocalID: row.localID,
                 accountID: self.accountID,
                 payload: payload,
-                baseUpdatedAt: row.serverUpdatedAt,
+                baseUpdatedAt: baseline.updatedAt,
             ), db: db)
         }
         await triggerDrainIfOnline()
@@ -203,19 +205,23 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateReposi
             }
             let createdAt = Date()
             for var row in selected {
+                let baseline = try TaskEditBaseline.capture(row, db: db)
                 try Self.applyLocally(change, to: &row, db: db)
                 // A newer intent of the same kind replaces a pending one.
                 try MutationQueueRecord.filter(Column("accountID") == self.accountID)
                     .filter(Column("targetLocalID") == row.localID)
                     .filter(Column("operation") == operation.rawValue)
                     .filter(Column("status") != MutationStatus.inFlight.rawValue).deleteAll(db)
-                let intent = TaskBulkIntent(batchID: batchID, change: change, baseUpdatedAt: row.serverUpdatedAt)
+                let intent = TaskBulkIntent(
+                    batchID: batchID, change: change,
+                    baseUpdatedAt: baseline.updatedAt, baseFields: baseline.fields,
+                )
                 var item = try MutationQueueRecord(
                     id: nil, accountID: self.accountID, entityType: .task, operation: operation,
                     targetLocalID: row.localID,
                     payload: intent.encodedPayload(),
                     createdAt: createdAt, retryCount: 0, lastError: nil, status: .pending,
-                    needsConflictResolution: false, baseUpdatedAt: row.serverUpdatedAt,
+                    needsConflictResolution: false, baseUpdatedAt: baseline.updatedAt,
                 )
                 try item.insert(db)
             }

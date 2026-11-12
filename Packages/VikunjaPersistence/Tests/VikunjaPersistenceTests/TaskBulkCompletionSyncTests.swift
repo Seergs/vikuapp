@@ -289,6 +289,7 @@ struct TaskBulkCompletionSyncTests {
         let fixture = try await fixture()
         _ = try await fixture.local.setCompletion(taskIDs: fixture.tasks.map(\.id), isDone: true)
         fixture.remote.tasks[0].updated = fixture.remote.tasks[0].updated?.addingTimeInterval(10)
+        fixture.remote.tasks[0].title = "Edited by another client"
         try await fixture.engine.pullTasks()
         try await fixture.engine.drainTaskMutations()
         let items = try await queue(fixture)

@@ -7,6 +7,8 @@ final class FakeTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateRepository
     /// whose returned tasks still point at their real owning project.
     var tasksByProjectID: [Int: [VikunjaTask]] = [:]
     var fetchError: Error?
+    var fetchTaskError: Error?
+    var fetchTaskResponse: (@Sendable (EntityID) async throws -> VikunjaTask)?
     /// Lets a test fail one project's fetch while another project's still
     /// succeeds, mirroring one endpoint erroring mid-`pullTasks()`.
     var fetchErrorsByProjectID: [Int: Error] = [:]
@@ -15,6 +17,8 @@ final class FakeTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateRepository
     var updateResponse: VikunjaTask?
     var bulkUpdateError: Error?
     var beforeBulkUpdateResponse: (@Sendable () async throws -> Void)?
+    var beforeUpdateResponse: (@Sendable () async throws -> Void)?
+    var beforeCreateResponse: (@Sendable () async throws -> Void)?
     private(set) var bulkUpdateCalls: [(ids: [EntityID], change: TaskBulkChange)] = []
     var completionCalls: [(ids: [EntityID], isDone: Bool)] {
         bulkUpdateCalls.compactMap { call in
@@ -53,8 +57,14 @@ final class FakeTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateRepository
     }
 
     func fetchTask(id: EntityID) async throws -> VikunjaTask {
+        if let fetchTaskError {
+            throw fetchTaskError
+        }
         if let fetchError {
             throw fetchError
+        }
+        if let fetchTaskResponse {
+            return try await fetchTaskResponse(id)
         }
         guard let task = tasks.first(where: { $0.id == id }) else {
             throw VikunjaError.notFound
@@ -85,6 +95,7 @@ final class FakeTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateRepository
             updated: Date(),
         )
         tasks.append(created)
+        try await beforeCreateResponse?()
         return created
     }
 
@@ -96,8 +107,16 @@ final class FakeTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateRepository
         var updated = updateResponse ?? task
         updated.updated = Date()
         if let index = tasks.firstIndex(where: { $0.id == task.id }) {
+            if updateResponse == nil {
+                updated.labels = tasks[index].labels
+                updated.subtasks = tasks[index].subtasks
+                updated.dependsOn = tasks[index].dependsOn
+                updated.blocks = tasks[index].blocks
+                updated.otherRelations = tasks[index].otherRelations
+            }
             tasks[index] = updated
         }
+        try await beforeUpdateResponse?()
         return updated
     }
 
