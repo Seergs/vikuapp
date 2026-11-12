@@ -12,10 +12,6 @@ struct PendingSyncView: View {
     @State private var reloadID = 0
     @State private var confirmsServerReload = false
     @State private var requestsServerReload = false
-    @State private var showsReloadIndicator = false
-    @State private var reloadIndicatorShownAt: ContinuousClock.Instant?
-    @State private var showsLoadingIndicator = false
-    @State private var loadingIndicatorShownAt: ContinuousClock.Instant?
     @State private var pendingConflictRemoval: PendingSyncOperation?
     @State private var pendingTaskRemoval: PendingSyncOperation?
     @Environment(\.vikuPalette) private var palette
@@ -28,7 +24,7 @@ struct PendingSyncView: View {
 
     var body: some View {
         content
-            .disabled(viewModel.isReloading || showsReloadIndicator)
+            .disabled(viewModel.isReloading || viewModel.reloadIndicator.isVisible)
             .confirmationDialog(
                 Text("Discard local changes and reload?", bundle: .module),
                 isPresented: $confirmsServerReload,
@@ -49,9 +45,6 @@ struct PendingSyncView: View {
                 guard requestsServerReload else { return }
                 await viewModel.reloadFromServer()
                 requestsServerReload = false
-            }
-            .task(id: viewModel.isReloading) {
-                await updateReloadIndicator()
             }
             .confirmationDialog(
                 Text("Choose a column", bundle: .module),
@@ -93,8 +86,8 @@ struct PendingSyncView: View {
             .animation(rowAnimation, value: viewModel.presentation.operations)
             .animation(rowAnimation, value: viewModel.isReloading)
             .animation(rowAnimation, value: showsOfflineBanner)
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: showsReloadIndicator)
-            .animation(.easeInOut(duration: 0.3), value: showsLoadingIndicator)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: viewModel.reloadIndicator.isVisible)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: viewModel.loadingIndicator.isVisible)
             .scrollContentBackground(.hidden)
             .background(palette.pageBackground)
             .navigationTitle(Text("Pending Sync", bundle: .module))
@@ -108,8 +101,9 @@ struct PendingSyncView: View {
                 guard nextPresentationUpdate != nil else { return }
                 await viewModel.advancePresentation()
             }
-            .task(id: viewModel.loadState.isLoading) {
-                await updateLoadingIndicator()
+            .onDisappear {
+                viewModel.loadingIndicator.reset()
+                viewModel.reloadIndicator.reset()
             }
             .confirmationDialog(
                 Text("Remove this conflict?", bundle: .module),
@@ -139,10 +133,10 @@ struct PendingSyncView: View {
 
     @ViewBuilder
     private var content: some View {
-        if showsLoadingIndicator || viewModel.loadState.isLoading || viewModel.loadState == .idle {
+        if viewModel.loadingIndicator.isVisible || viewModel.loadState.isLoading || viewModel.loadState == .idle {
             ZStack {
                 palette.pageBackground
-                if showsLoadingIndicator {
+                if viewModel.loadingIndicator.isVisible {
                     ProgressView()
                         .transition(.opacity)
                 }
@@ -234,11 +228,11 @@ struct PendingSyncView: View {
                     }
                 }
             }
-            if viewModel.canReloadFromServer || viewModel.isReloading || showsReloadIndicator {
+            if viewModel.canReloadFromServer || viewModel.isReloading || viewModel.reloadIndicator.isVisible {
                 Section {
-                    if viewModel.isReloading || showsReloadIndicator {
+                    if viewModel.isReloading || viewModel.reloadIndicator.isVisible {
                         HStack(spacing: VikuSpacing.sm) {
-                            if showsReloadIndicator {
+                            if viewModel.reloadIndicator.isVisible {
                                 ProgressView()
                             }
                             Text("Reloading from server…", bundle: .module)
@@ -263,7 +257,7 @@ struct PendingSyncView: View {
         }
         .settingsListStyle()
         .overlay {
-            if viewModel.presentation.operations.isEmpty, !viewModel.isReloading, !showsReloadIndicator {
+            if viewModel.presentation.operations.isEmpty, !viewModel.isReloading, !viewModel.reloadIndicator.isVisible {
                 PendingSyncEmptyState()
                     .padding(.top, VikuSpacing.xxl)
                     .transition(.opacity)
@@ -280,7 +274,7 @@ struct PendingSyncView: View {
     }
 
     private var nextPresentationUpdate: ContinuousClock.Instant? {
-        guard viewModel.loadState == .loaded, !showsLoadingIndicator else { return nil }
+        guard viewModel.loadState == .loaded, !viewModel.loadingIndicator.isVisible else { return nil }
         return viewModel.presentation.nextUpdate
     }
 
@@ -289,45 +283,6 @@ struct PendingSyncView: View {
             insertion: .move(edge: .top).combined(with: .opacity),
             removal: .opacity.combined(with: .scale(scale: 0.96)),
         )
-    }
-
-    @MainActor
-    private func updateReloadIndicator() async {
-        do {
-            if viewModel.isReloading {
-                try await Task.sleep(for: .seconds(1))
-                try Task.checkCancellation()
-                reloadIndicatorShownAt = .now
-                showsReloadIndicator = true
-            } else if let shownAt = reloadIndicatorShownAt {
-                try await ContinuousClock().sleep(until: shownAt.advanced(by: .seconds(1)))
-                try Task.checkCancellation()
-                showsReloadIndicator = false
-                reloadIndicatorShownAt = nil
-            }
-        } catch {
-            // A fast reload or navigation cancels the pending presentation update.
-        }
-    }
-
-    /// Loading presentation has its own lifetime; the provider never waits for it.
-    @MainActor
-    private func updateLoadingIndicator() async {
-        do {
-            if viewModel.loadState.isLoading {
-                try await Task.sleep(for: .seconds(1))
-                try Task.checkCancellation()
-                loadingIndicatorShownAt = .now
-                showsLoadingIndicator = true
-            } else if let shownAt = loadingIndicatorShownAt {
-                try await ContinuousClock().sleep(until: shownAt.advanced(by: .seconds(1)))
-                try Task.checkCancellation()
-                showsLoadingIndicator = false
-                loadingIndicatorShownAt = nil
-            }
-        } catch {
-            // A fast load or navigation cancels the pending presentation update.
-        }
     }
 }
 
