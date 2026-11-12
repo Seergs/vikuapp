@@ -71,6 +71,7 @@ extension SyncEngine {
         do {
             claimed = try await claimKanbanCreation(item, destination: destination)
         } catch {
+            try checkSyncInterruption(error)
             try await blockKanbanCreation(item, failure: .destination, error: error)
             return .skipped
         }
@@ -81,6 +82,7 @@ extension SyncEngine {
             try await applyTaskPushResult(created, deleting: item)
             return .pushed
         } catch {
+            try checkSyncInterruption(error)
             if (error as? VikunjaError) == .bucketFull {
                 try await handleFullCreation(item, task: task)
                 return .skipped

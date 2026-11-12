@@ -77,7 +77,10 @@ public actor SyncEngine {
         var firstError: (any Error)?
         for phase in phases {
             try Task.checkCancellation()
-            do { try await phase() } catch { firstError = firstError ?? error }
+            do { try await phase() } catch {
+                try checkSyncInterruption(error)
+                firstError = firstError ?? error
+            }
         }
         if let firstError {
             throw firstError
@@ -255,7 +258,10 @@ public actor SyncEngine {
                     guard var current = try SavedFilterRecord.fetchOne(db, key: filter.projectLocalID) else { return }
                     try current.storeQuery(detail.query, pulledAt: Date(), db: db)
                 }
-            } catch { firstError = firstError ?? error }
+            } catch {
+                try checkSyncInterruption(error)
+                firstError = firstError ?? error
+            }
         }
         if let firstError {
             throw firstError
@@ -603,14 +609,14 @@ public actor SyncEngine {
         let projectRows = try await localStore.read { db in
             try ProjectRecord.fetchAll(db).filter { $0.accountID == self.accountID }
         }
-        let result = await fetchTaskPullResult(projectRows: projectRows)
+        let result = try await fetchTaskPullResult(projectRows: projectRows)
         try await applyTaskPullResult(result, projectRows: projectRows, pulledAt: now)
         if let firstError = result.firstError {
             throw firstError
         }
     }
 
-    private func fetchTaskPullResult(projectRows: [ProjectRecord]) async -> TaskPullResult {
+    private func fetchTaskPullResult(projectRows: [ProjectRecord]) async throws -> TaskPullResult {
         var remoteTasks: [VikunjaTask] = []
         var fetchedProjectLocalIDs: Set<UUID> = []
         var virtualSnapshots: [VirtualTaskSnapshot] = []
@@ -626,6 +632,7 @@ public actor SyncEngine {
                     fetchedProjectLocalIDs.insert(projectRow.localID)
                 }
             } catch {
+                try checkSyncInterruption(error)
                 firstError = firstError ?? error
             }
         }
@@ -1188,6 +1195,7 @@ public actor SyncEngine {
     /// while its request is suspended. Only mark the exact queued snapshot
     /// that failed; otherwise an old response could fail or delete newer work.
     private func markFilterMutationFailed(_ item: MutationQueueRecord, error: Error) async throws {
+        try checkSyncInterruption(error)
         // Losing connectivity does not invalidate queued intent or erase a prior server failure.
         guard (error as? VikunjaError) != .offline else { throw error }
         try? await localStore.write { db in
@@ -1883,6 +1891,7 @@ public actor SyncEngine {
     }
 
     func markFailed(_ item: MutationQueueRecord, error: Error) async throws {
+        try checkSyncInterruption(error)
         // Connectivity can disappear after the coordinator's reachability check.
         // Leave pending work pending, preserve earlier failures, and report offline
         // to the refresh caller rather than turning it into SyncIncompleteError.

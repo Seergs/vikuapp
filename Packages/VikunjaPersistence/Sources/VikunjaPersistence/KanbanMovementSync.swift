@@ -121,6 +121,7 @@ extension SyncEngine {
             try await applyKanbanMove(response, item: context.item, payload: context.payload)
             return .pushed
         } catch {
+            try checkSyncInterruption(error)
             return try await handleKanbanMoveFailure(
                 error,
                 context: KanbanMoveFailureContext(

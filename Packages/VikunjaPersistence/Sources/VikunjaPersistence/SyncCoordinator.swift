@@ -25,6 +25,7 @@ public actor SyncCoordinator {
 
     private var reloadingAccounts: Set<UUID> = []
     private var workByAccount: [UUID: Work] = [:]
+    private var reschedulingAccounts: Set<UUID> = []
 
     public init(
         localStore: LocalStore,
@@ -83,13 +84,20 @@ public actor SyncCoordinator {
     }
 
     private func scheduleAllAccounts(retryInFlight: Bool = false) async -> [Task<Void, Error>] {
-        guard await reachability.isReachable,
+        guard localStore.executionLifecycle?.isSuspended != true, await reachability.isReachable,
               let accounts = try? await accountStore.fetchAccounts() else { return [] }
         var tasks: [Task<Void, Error>] = []
         for account in accounts {
             guard !Task.isCancelled else { break }
             guard !reloadingAccounts.contains(account.id) else { continue }
-            tasks.append(enqueue(accountID: account.id, scope: .account, afterWrite: retryInFlight))
+            if let previous = workByAccount[account.id]?.task, previous.isCancelled {
+                tasks.append(Task {
+                    _ = await previous.result
+                    try await self.refresh(accountID: account.id, scope: .account)
+                })
+            } else {
+                tasks.append(enqueue(accountID: account.id, scope: .account, afterWrite: retryInFlight))
+            }
         }
         return tasks
     }
@@ -110,18 +118,60 @@ public actor SyncCoordinator {
 
     public func refresh(accountID: UUID, scope: SyncScope) async throws {
         try Task.checkCancellation()
+        try localStore.executionLifecycle?.checkAccess()
         guard await reachability.isReachable else { throw VikunjaError.offline }
+        guard !reloadingAccounts.contains(accountID) else { throw LocalStoreError.accountReloadInProgress }
+        await finishCancelledWork(accountID: accountID)
+        try localStore.executionLifecycle?.checkAccess()
         guard !reloadingAccounts.contains(accountID) else { throw LocalStoreError.accountReloadInProgress }
         let task = enqueue(accountID: accountID, scope: scope, afterWrite: false)
         // A disappearing screen must not cancel work shared with other triggers.
-        try await task.value
+        do { try await task.value } catch {
+            if task.isCancelled {
+                throw CancellationError()
+            }
+            throw error
+        }
         try Task.checkCancellation()
     }
 
     /// Returns as soon as the work is scheduled, never after a network request.
     public func requestSync(accountID: UUID) async {
-        guard await reachability.isReachable, !reloadingAccounts.contains(accountID) else { return }
+        guard localStore.executionLifecycle?.isSuspended != true,
+              await reachability.isReachable, !reloadingAccounts.contains(accountID) else { return }
+        if let previous = workByAccount[accountID]?.task, previous.isCancelled {
+            // Local saves must not await a cancelled request that is still
+            // unwinding. Coalesce writes into one reschedule after it settles.
+            guard reschedulingAccounts.insert(accountID).inserted else { return }
+            Task {
+                _ = await previous.result
+                self.reschedulingAccounts.remove(accountID)
+                await self.requestSync(accountID: accountID)
+            }
+            return
+        }
         _ = enqueue(accountID: accountID, scope: .account, afterWrite: true)
+    }
+
+    /// Keep the background execution assertion until the actual shared workers
+    /// settle. New work arriving before suspension is included on the next loop.
+    public func waitForCurrentWork() async {
+        if let lifecycle = localStore.executionLifecycle {
+            await lifecycle.waitForWorkers()
+            return
+        }
+        while !workByAccount.isEmpty, !Task.isCancelled {
+            let tasks = workByAccount.values.map(\.task)
+            for task in tasks {
+                _ = await task.result
+            }
+        }
+    }
+
+    private func finishCancelledWork(accountID: UUID) async {
+        if let task = workByAccount[accountID]?.task, task.isCancelled {
+            _ = await task.result
+        }
     }
 
     private func enqueue(accountID: UUID, scope: SyncScope, afterWrite: Bool) -> Task<Void, Error> {
@@ -139,7 +189,13 @@ public actor SyncCoordinator {
             workByAccount[accountID] = work
             return work.task
         }
-        let task = Task { try await self.run(accountID: accountID) }
+        let id = UUID()
+        let lifecycle = localStore.executionLifecycle
+        let task = Task {
+            defer { lifecycle?.untrack(id) }
+            try await self.run(accountID: accountID)
+        }
+        lifecycle?.track(task, id: id)
         var work = Work(task: task)
         work.includesAccountPass = scope.includesAccount
         work.needsAnotherPass = scope.includesAccount
@@ -172,7 +228,10 @@ public actor SyncCoordinator {
                 do {
                     try await engine.synchronize()
                     failure = nil
-                } catch { failure = error }
+                } catch {
+                    try checkSyncInterruption(error)
+                    failure = error
+                }
             }
             // Capture pending detail work after the account pass has populated
             // task identities, including tasks that were just created offline.
@@ -183,7 +242,10 @@ public actor SyncCoordinator {
                 do {
                     try await engine.pullComments(taskID: id)
                     threadFailures[id] = nil
-                } catch { threadFailures[id] = error }
+                } catch {
+                    try checkSyncInterruption(error)
+                    threadFailures[id] = error
+                }
                 workByAccount[accountID]?.requestedThreads.remove(id)
             }
             boardFailures = await pullPendingBoards(account, previousFailures: boardFailures)
@@ -222,6 +284,20 @@ public actor SyncCoordinator {
 
     /// Staging reuses the ordinary pull path, but never drains the live queue.
     public func reloadFromServer(accountID: UUID) async throws {
+        try localStore.executionLifecycle?.checkAccess()
+        let id = UUID()
+        let lifecycle = localStore.executionLifecycle
+        let task = Task {
+            defer { lifecycle?.untrack(id) }
+            try await self.performReloadFromServer(accountID: accountID)
+        }
+        lifecycle?.track(task, id: id)
+        try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: { task.cancel() }
+    }
+
+    private func performReloadFromServer(accountID: UUID) async throws {
         try Task.checkCancellation()
         guard reloadingAccounts.insert(accountID).inserted else { throw LocalStoreError.accountReloadInProgress }
         defer { reloadingAccounts.remove(accountID) }
@@ -237,7 +313,7 @@ public actor SyncCoordinator {
         do {
             let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
             defer { try? FileManager.default.removeItem(at: directory) }
-            let staging = try LocalStore(directory: directory)
+            let staging = try LocalStore(directory: directory, executionLifecycle: localStore.executionLifecycle)
             try await staging.write { db in try original.seedIdentities(db: db) }
             try await makeEngine(account, store: staging).downloadReplacement(original: original)
             try Task.checkCancellation()

@@ -108,14 +108,20 @@ extension SyncEngine {
     }
 
     private func handleTaskBulkFailure(_ error: any Error, batch: TaskBulkBatch) async throws {
-        if error is CancellationError || (error as? VikunjaError) == .offline {
-            try await localStore.write { db in
-                for sent in batch.items {
-                    guard var item = try MutationQueueRecord.fetchOne(db, key: sent.id),
-                          item.payload == sent.payload else { continue }
-                    item.status = sent.status
-                    try item.update(db)
+        if error is CancellationError || Task.isCancelled || (error as? URLError)?.code == .cancelled
+            || (error as? VikunjaError) == .offline {
+            do {
+                try await localStore.write { db in
+                    for sent in batch.items {
+                        guard var item = try MutationQueueRecord.fetchOne(db, key: sent.id),
+                              item.payload == sent.payload else { continue }
+                        item.status = sent.status
+                        try item.update(db)
+                    }
                 }
+            } catch is CancellationError {
+                // Suspension can prevent cleanup. Durable claims are released by
+                // recoverTaskBulkUpdates before the next replay, without a failure.
             }
             throw error
         }
