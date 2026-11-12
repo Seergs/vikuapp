@@ -22,6 +22,7 @@ struct VikuApp: App {
     /// not `.background`, indistinguishable from a cold launch's own first
     /// `.inactive -> .active` step by `oldPhase` alone.
     @State private var hasCompletedInitialActivation = false
+    @State private var needsSyncAfterResume = false
 
     init() {
         AppDelegate.container = container
@@ -41,16 +42,21 @@ struct VikuApp: App {
                 container.refreshWidgetSnapshotsBeforeSuspension()
                 AppDelegate.scheduleNextBackgroundSync()
             }
+            if phase != .background {
+                needsSyncAfterResume = needsSyncAfterResume || container.executionLifecycle.isSuspended
+                container.executionController.enterForeground()
+            }
             if phase == .active {
                 // A genuine return from the background — matches the user's
                 // own mental model ("I just came back, check now"). Skipped
                 // on the very first activation (cold launch), which
                 // `AppContainer.bootstrap()`'s `syncCoordinator.start()`
                 // already covers on its own.
-                if hasCompletedInitialActivation {
+                if hasCompletedInitialActivation || needsSyncAfterResume {
                     Task { await container.syncCoordinator.syncAllAccounts() }
                 }
                 hasCompletedInitialActivation = true
+                needsSyncAfterResume = false
             }
         }
     }

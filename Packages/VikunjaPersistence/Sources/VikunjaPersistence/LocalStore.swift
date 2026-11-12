@@ -23,53 +23,93 @@ public enum LocalStoreError: Error, Sendable, LocalizedError {
 /// being an actor rather than a class with locks.
 public actor LocalStore {
     private let dbPool: DatabasePool
+    nonisolated let executionLifecycle: DatabaseExecutionLifecycle?
     private var reloadingAccounts: Set<UUID> = []
 
     /// - Parameter directory: where the database file lives, created if
     ///   missing. Pass the App Group container so a widget extension can
     ///   eventually read the same database; a scratch directory works for
     ///   tests.
-    public init(directory: URL) throws {
+    public init(directory: URL, executionLifecycle: DatabaseExecutionLifecycle? = nil) throws {
+        try executionLifecycle?.checkAccess()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let dbPool = try DatabasePool(path: directory.appendingPathComponent("viku.sqlite").path)
+        var configuration = Configuration()
+        configuration.observesSuspensionNotifications = executionLifecycle != nil
+        let dbPool = try DatabasePool(
+            path: directory.appendingPathComponent("viku.sqlite").path, configuration: configuration,
+        )
         var migrator = DatabaseMigrator()
         DatabaseMigrations.registerAll(on: &migrator)
         try migrator.migrate(dbPool)
         self.dbPool = dbPool
+        self.executionLifecycle = executionLifecycle
     }
 
-    public init(appGroupIdentifier: String) throws {
+    public init(appGroupIdentifier: String, executionLifecycle: DatabaseExecutionLifecycle? = nil) throws {
         let directory = FileManager.default.containerURL(
             forSecurityApplicationGroupIdentifier: appGroupIdentifier,
         )
         guard let directory else {
             throw LocalStoreError.containerUnavailable
         }
-        try self.init(directory: directory)
+        try self.init(directory: directory, executionLifecycle: executionLifecycle)
     }
 
     public func read<T: Sendable>(_ value: @Sendable (Database) throws -> T) async throws -> T {
-        try await dbPool.read(value)
+        let generation = executionLifecycle?.suspensionGeneration
+        do {
+            return try await dbPool.read(value)
+        } catch { throw normalizedInterruption(error, since: generation) }
     }
 
     public func write<T: Sendable>(_ updates: @Sendable (Database) throws -> T) async throws -> T {
-        // Only the rare account reload pays for this check. Keeping the guard at
-        // the transaction boundary covers every local repository without new plumbing.
-        let lockedAccounts = reloadingAccounts
-        return try await dbPool.write { db in
-            let before = try lockedAccounts.map { try AccountSnapshot(accountID: $0, db: db) }
-            let result = try updates(db)
-            let after = try lockedAccounts.map { try AccountSnapshot(accountID: $0, db: db) }
-            guard before == after else { throw LocalStoreError.accountReloadInProgress }
-            return result
+        try await writeTransaction(checkReloads: true, updates)
+    }
+
+    private func writeTransaction<T: Sendable>(
+        checkReloads: Bool, _ updates: @Sendable (Database) throws -> T,
+    ) async throws -> T {
+        // Only the rare account reload pays for the snapshot guard. Its own
+        // atomic replacement bypasses that guard, but still respects suspension.
+        let lockedAccounts = checkReloads ? reloadingAccounts : []
+        try executionLifecycle?.checkAccess()
+        let generation = executionLifecycle?.suspensionGeneration
+        do {
+            return try await dbPool.write { db in
+                try Task.checkCancellation()
+                try self.executionLifecycle?.checkAccess()
+                let before = try lockedAccounts.map { try AccountSnapshot(accountID: $0, db: db) }
+                let result = try updates(db)
+                let after = try lockedAccounts.map { try AccountSnapshot(accountID: $0, db: db) }
+                guard before == after else { throw LocalStoreError.accountReloadInProgress }
+                try Task.checkCancellation()
+                try self.executionLifecycle?.checkAccess()
+                guard self.executionLifecycle?.suspensionGeneration == generation else {
+                    throw CancellationError()
+                }
+                return result
+            }
+        } catch { throw normalizedInterruption(error, since: generation) }
+    }
+
+    private nonisolated func normalizedInterruption(_ error: any Error, since generation: Int?) -> any Error {
+        if Task.isCancelled {
+            return CancellationError()
         }
+        if let lifecycle = executionLifecycle,
+           lifecycle.isSuspended || lifecycle.suspensionGeneration != generation,
+           let databaseError = error as? DatabaseError,
+           databaseError.resultCode == .SQLITE_INTERRUPT || databaseError.resultCode == .SQLITE_ABORT {
+            return CancellationError()
+        }
+        return error
     }
 
     /// The writer barrier lets previously submitted writes settle before the snapshot.
     func beginAccountReload(accountID: UUID) async throws -> AccountSnapshot {
         guard reloadingAccounts.insert(accountID).inserted else { throw LocalStoreError.accountReloadInProgress }
         do {
-            return try await dbPool.write { db in try AccountSnapshot(accountID: accountID, db: db) }
+            return try await write { db in try AccountSnapshot(accountID: accountID, db: db) }
         } catch {
             reloadingAccounts.remove(accountID)
             throw error
@@ -81,7 +121,7 @@ public actor LocalStore {
     }
 
     func replaceAccount(accountID: UUID, with snapshot: AccountSnapshot) async throws {
-        try await dbPool.write { db in
+        try await writeTransaction(checkReloads: false) { db in
             try Task.checkCancellation()
             try snapshot.replace(accountID: accountID, db: db)
             try Task.checkCancellation()
@@ -96,16 +136,10 @@ public actor LocalStore {
         }
         .removeDuplicates()
         .values(in: dbPool)
-        return AsyncThrowingStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
-            let task = Task {
-                do {
-                    for try await _ in values {
-                        continuation.yield(())
-                    }
-                    continuation.finish()
-                } catch { continuation.finish(throwing: error) }
+        return recoveringObservation { continuation in
+            for try await _ in values {
+                continuation.yield(())
             }
-            continuation.onTermination = { _ in task.cancel() }
         }
     }
 
@@ -131,18 +165,10 @@ public actor LocalStore {
         }
         .removeDuplicates()
         let values = observation.values(in: dbPool)
-        return AsyncThrowingStream { continuation in
-            let task = Task {
-                do {
-                    for try await statuses in values {
-                        continuation.yield(statuses)
-                    }
-                    continuation.finish()
-                } catch {
-                    continuation.finish(throwing: error)
-                }
+        return recoveringObservation { continuation in
+            for try await statuses in values {
+                continuation.yield(statuses)
             }
-            continuation.onTermination = { _ in task.cancel() }
         }
     }
 
@@ -173,16 +199,38 @@ public actor LocalStore {
         }
         .removeDuplicates()
         let values = observation.values(in: dbPool)
-        return AsyncThrowingStream { continuation in
+        return recoveringObservation { continuation in
+            for try await operations in values {
+                continuation.yield(operations)
+            }
+        }
+    }
+
+    nonisolated func recoveringObservation<Value: Sendable>(
+        consume: @escaping @Sendable (AsyncThrowingStream<Value, Error>.Continuation) async throws -> Void,
+    ) -> AsyncThrowingStream<Value, Error> {
+        AsyncThrowingStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
             let task = Task {
-                do {
-                    for try await operations in values {
-                        continuation.yield(operations)
+                while !Task.isCancelled {
+                    let generation = self.executionLifecycle?.suspensionGeneration
+                    do {
+                        try await self.executionLifecycle?.waitUntilResumed()
+                        try await consume(continuation)
+                        continuation.finish()
+                        return
+                    } catch {
+                        guard !Task.isCancelled else { break }
+                        // A suspension can race a fast resume. Recreate the GRDB
+                        // iterator even if execution has already resumed.
+                        if self.normalizedInterruption(error, since: generation) is CancellationError,
+                           self.executionLifecycle != nil {
+                            continue
+                        }
+                        continuation.finish(throwing: error)
+                        return
                     }
-                    continuation.finish()
-                } catch {
-                    continuation.finish(throwing: error)
                 }
+                continuation.finish()
             }
             continuation.onTermination = { _ in task.cancel() }
         }

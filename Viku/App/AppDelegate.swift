@@ -28,6 +28,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
         registerPushNotificationCategories()
+        Self.container?.executionLifecycle.setForeground(application.applicationState != .background)
         registerBackgroundSyncTask()
         return true
     }
@@ -39,12 +40,16 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     /// primary sync mechanism. Must run before this method returns, per
     /// `BGTaskScheduler`'s own requirement.
     private func registerBackgroundSyncTask() {
-        BGTaskScheduler.shared.register(forTaskWithIdentifier: Self.backgroundSyncTaskIdentifier, using: nil) { task in
-            let syncTask = Task {
-                await Self.container?.syncCoordinator.syncAllAccounts()
-                task.setTaskCompleted(success: true)
+        BGTaskScheduler.shared.register(
+            forTaskWithIdentifier: Self.backgroundSyncTaskIdentifier, using: .main,
+        ) { task in
+            MainActor.assumeIsolated {
+                guard let container = Self.container else {
+                    task.setTaskCompleted(success: false)
+                    return
+                }
+                container.executionController.runScheduledSync(task, coordinator: container.syncCoordinator)
             }
-            task.expirationHandler = { syncTask.cancel() }
             Self.scheduleNextBackgroundSync()
         }
         Self.scheduleNextBackgroundSync()
@@ -129,14 +134,16 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
                 return
             }
             let actionIdentifier = response.actionIdentifier
-            Task {
-                try? await Self.container?.performNotificationAction(
-                    actionIdentifier,
-                    taskID: id,
-                    accountKey: accountKey,
-                )
+            guard let container = Self.container else {
                 completionHandler()
+                return
             }
+            container.executionController.runNotificationAction(operation: {
+                try? await container.performNotificationAction(
+                    actionIdentifier, taskID: id, accountKey: accountKey,
+                )
+                await container.syncCoordinator.waitForCurrentWork()
+            }, completion: completionHandler)
         }
     }
 }

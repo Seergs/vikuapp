@@ -143,12 +143,17 @@ struct ProjectSubtreeDeletionTests {
         fixture.network.deleteError = cancelled ? CancellationError() : VikunjaError.unauthorized
         try await fixture.repository.delete(id: 1)
 
-        try await fixture.engine.drainProjectMutations()
+        if cancelled {
+            await #expect(throws: CancellationError.self) { try await fixture.engine.drainProjectMutations() }
+        } else {
+            try await fixture.engine.drainProjectMutations()
+        }
         try await fixture.engine.pullProjects()
         #expect(try await fixture.repository.fetchProjects().map(\.id) == [.remote(4)])
         let queue = try await fixture.store.read { db in try MutationQueueRecord.fetchAll(db) }
         #expect(queue.count == 1)
-        #expect(queue.first?.status == .failed)
+        #expect(queue.first?.status == (cancelled ? .pending : .failed))
+        #expect(queue.first?.retryCount == (cancelled ? 0 : 1))
 
         fixture.network.deleteError = nil
         try await fixture.engine.drainProjectMutations()

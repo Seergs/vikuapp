@@ -32,7 +32,9 @@ final class AppContainer {
     /// App Group container isn't available (an unprovisioned Simulator
     /// build), the same way every other on-device cache in this app
     /// degrades rather than crashing.
-    let localStore: LocalStore = AppContainer.makeLocalStore()
+    let localStore: LocalStore
+    let executionLifecycle = DatabaseExecutionLifecycle()
+    lazy var executionController = AppExecutionController(lifecycle: executionLifecycle)
     /// Shared by `syncCoordinator` and every local-first repository this
     /// container builds, so they agree on whether the network is up right
     /// now.
@@ -180,11 +182,6 @@ final class AppContainer {
     /// push notifications, since iOS exposes one combined permission. Pass
     /// this as `AppIconBadgePermissionRequesting` to `makeAppIconBadgeViewModel`.
     let appIconBadgePermissionRequester: AppIconBadgePermissionRequesting = APNsPermissionCenter.shared
-    /// Tracks the OS run-time extension requested by
-    /// `refreshWidgetSnapshotsBeforeSuspension()` so it can be ended exactly
-    /// once, from whichever of (refresh finished, OS revoked the extension)
-    /// happens first.
-    private var widgetRefreshBackgroundTaskID = UIBackgroundTaskIdentifier.invalid
 
     init(
         accountStore: AccountStoreProtocol = KeychainAccountStore(
@@ -193,6 +190,7 @@ final class AppContainer {
         ),
         clientFactory: InstanceClientFactoryProtocol = VikunjaInstanceClientFactory(),
     ) {
+        self.localStore = Self.makeLocalStore(executionLifecycle: executionLifecycle)
         self.accountStore = accountStore
         self.clientFactory = clientFactory
         let sessionRefresher = PasswordSessionRefresher(
@@ -223,14 +221,16 @@ final class AppContainer {
     /// container (so the widget extensions read the same data as their
     /// fallback) and falling back to this app's own Application Support
     /// directory when that container isn't available.
-    private static func makeLocalStore() -> LocalStore {
-        if let store = try? LocalStore(appGroupIdentifier: VikuWidgetConfig.appGroupIdentifier) {
+    private static func makeLocalStore(executionLifecycle: DatabaseExecutionLifecycle) -> LocalStore {
+        if let store = try? LocalStore(
+            appGroupIdentifier: VikuWidgetConfig.appGroupIdentifier, executionLifecycle: executionLifecycle,
+        ) {
             return store
         }
         let fallbackDirectory = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("VikunjaPersistence", isDirectory: true)
-        guard let store = try? LocalStore(directory: fallbackDirectory) else {
+        guard let store = try? LocalStore(directory: fallbackDirectory, executionLifecycle: executionLifecycle) else {
             fatalError("LocalStore: failed to open the local database in the App Group container or the fallback")
         }
         return store
@@ -307,31 +307,16 @@ final class AppContainer {
         await appIconBadgeCenter.updateBadge(from: todayState)
     }
 
-    /// Same refresh as `refreshWidgetSnapshots()`, but requests extra run
-    /// time from the OS first. Call this instead of a plain
-    /// `Task { await refreshWidgetSnapshots() }` from a `scenePhase ==
-    /// .background` transition: without it, iOS can suspend the app before
-    /// the network fetch inside `refreshWidgetSnapshots()` finishes, so the
-    /// live badge/widget update silently never runs.
+    /// Preserve execution until both widgets and the actual sync workers finish.
+    /// Expiration revokes database permission synchronously through the controller.
     func refreshWidgetSnapshotsBeforeSuspension() {
-        endWidgetRefreshBackgroundTask()
-        widgetRefreshBackgroundTaskID = UIApplication.shared.beginBackgroundTask(
-            withName: "RefreshWidgetSnapshots",
-        ) { [weak self] in
-            Task { @MainActor [weak self] in
-                self?.endWidgetRefreshBackgroundTask()
+        executionController.enterBackground { [self] in
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { await self.refreshWidgetSnapshots() }
+                group.addTask { await self.syncCoordinator.waitForCurrentWork() }
+                await group.waitForAll()
             }
         }
-        Task {
-            await refreshWidgetSnapshots()
-            endWidgetRefreshBackgroundTask()
-        }
-    }
-
-    private func endWidgetRefreshBackgroundTask() {
-        guard widgetRefreshBackgroundTaskID != .invalid else { return }
-        UIApplication.shared.endBackgroundTask(widgetRefreshBackgroundTaskID)
-        widgetRefreshBackgroundTaskID = .invalid
     }
 
     /// Refreshes the cached Vikunja default project for `account` from

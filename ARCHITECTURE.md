@@ -944,3 +944,40 @@ the conversation has been downloaded. Retry uses the existing scoped refresh;
 there is no automatic comment prefetch. Account recovery downloads previously
 covered conversations, including empty ones, and replaces their metadata with the
 rest of the account snapshot. Deleting a task cascades its coverage record.
+
+## Database execution and app suspension
+
+The app's `AppExecutionController` owns UIKit background assertions and scheduled
+background-sync callbacks. `DatabaseExecutionLifecycle` tracks foreground access
+and independent background execution windows for the process. Widgets and the
+actual shared sync workers finish under the transition assertion; completion of
+one window cannot revoke another. Notification action callbacks also hold a
+window until their work completes. The lifecycle must suspend managed databases
+synchronously before returning the final execution window to iOS.
+
+`LocalStore` opts into GRDB 7.11.1's suspension notifications when constructed with
+the shared lifecycle. Suspension interrupts SQLite work and prevents new writer
+locks; resumed execution permits database access again. Each write also checks
+its execution generation before commit, so a fast suspend/resume cannot commit
+an interrupted transaction. WAL reads remain available. Staging stores used by
+account reload share the lifecycle, while the reload's authorized atomic
+replacement retains its exception to the account-reload write guard.
+
+The lifecycle cancels the coordinator's actual account and reload workers, not
+just callers awaiting them. New sync triggers are suppressed while suspended,
+and cancelled workers settle before replacement. A disappearing screen still
+does not cancel shared work. Suspension-related database interruptions and request
+cancellation propagate as cancellation rather than persisted server failures.
+Bulk claims that cannot be released while suspended are recovered by the existing
+replay recovery on the next pass. Kanban's existing safeguards for unconfirmed
+non-idempotent requests remain in force; cancellation does not authorize blindly
+repeating them.
+
+Local-store observation streams recreate their GRDB iterators after a suspension
+interruption and await resumed execution without polling. Cancellation of the
+consumer still ends observation. No feature imports GRDB or handles UIKit
+execution windows. GRDB documents this suspension API as experimental; tests cover
+transaction rollback, queued-intent preservation, overlapping execution windows,
+worker cancellation and observation continuity. Physical-device validation
+without a debugger remains necessary for the iOS suspension boundary. Transaction
+performance investigation is separate (VIKU-193).
