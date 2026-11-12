@@ -8,6 +8,12 @@ private struct TaskBulkBatch: Sendable {
     let change: TaskBulkChange
 }
 
+private struct TaskBulkCandidate: Sendable {
+    let item: MutationQueueRecord
+    let taskID: EntityID
+    let intent: TaskBulkIntent
+}
+
 private enum TaskBulkDrainError: Error {
     case missingRepository
     case invalidPayload
@@ -39,59 +45,61 @@ extension SyncEngine {
         }
     }
 
-    /// Returns true when the entire batch was blocked by a newer server edit.
+    /// A logical batch can make progress across several submissions. Only the
+    /// verified, still-current subset is claimed and sent; other tasks keep
+    /// their own conflicts, failures, or ordering dependencies.
+    /// Returns true when this pass marked at least one new conflict.
     func drainTaskBulkBatch(_ batchID: UUID) async throws -> Bool {
         guard activeTaskBulkBatches.insert(batchID).inserted else { return false }
         defer { activeTaskBulkBatches.remove(batchID) }
-        let (batch, conflicts) = try await localStore.write { db in
-            try Self.prepareTaskBulkBatch(batchID, accountID: self.accountID, db: db)
+        let candidates = try await localStore.read { db in
+            try Self.taskBulkCandidates(batchID, accountID: self.accountID, db: db)
         }
-        if !conflicts.isEmpty {
-            for item in conflicts {
-                try await flagConflict(item)
+        var ready: [TaskBulkCandidate] = []
+        var conflicts: [TaskBulkCandidate] = []
+        for candidate in candidates {
+            try Task.checkCancellation()
+            do {
+                if try await taskBulkCandidateConflicts(candidate) {
+                    conflicts.append(candidate)
+                } else {
+                    ready.append(candidate)
+                }
+            } catch {
+                try checkSyncInterruption(error)
+                guard (error as? VikunjaError) != .offline else { throw error }
+                // A task-specific verification failure must not fail siblings.
+                // Nothing has been claimed or submitted yet.
+                try await markFailed(candidate.item, error: error)
             }
-            return true
         }
-        guard let batch else { return false }
+        let (batch, flaggedConflict) = try await localStore.write { [ready, conflicts] db in
+            try Self.claimTaskBulkBatch(ready: ready, conflicts: conflicts, accountID: self.accountID, db: db)
+        }
+        guard let batch else { return flaggedConflict }
         do {
             guard let taskBulkUpdateRepository else { throw TaskBulkDrainError.missingRepository }
             try Task.checkCancellation()
-            if try await taskBulkBatchConflicts(batch) {
-                try await localStore.write { db in
-                    for sent in batch.items {
-                        guard var item = try MutationQueueRecord.fetchOne(db, key: sent.id),
-                              item.payload == sent.payload else { continue }
-                        item.status = sent.status
-                        item.needsConflictResolution = true
-                        try item.update(db)
-                    }
-                }
-                return true
-            }
             let tasks = try await taskBulkUpdateRepository.apply(batch.change, toTaskIDs: batch.taskIDs)
             try await acknowledgeTaskBulkBatch(batch, tasks: tasks)
         } catch {
             try await handleTaskBulkFailure(error, batch: batch)
         }
-        return false
+        return flaggedConflict
     }
 
-    private func taskBulkBatchConflicts(_ batch: TaskBulkBatch) async throws -> Bool {
-        for (item, id) in zip(batch.items, batch.taskIDs) {
-            let intent = try TaskBulkIntent(item: item)
-            guard let base = intent.baseFields else { continue }
-            let current = try await taskRepository.fetchTask(id: id)
-            try Task.checkCancellation()
-            let fields = try await localStore.read { db in
-                try TaskEditableFields.server(current, accountID: self.accountID, db: db)
-            }
-            if case .conflict = TaskEditEvaluation.compare(
-                base: base, desired: base.applying(intent.change), current: fields,
-            ) {
-                return true
-            }
+    private func taskBulkCandidateConflicts(_ candidate: TaskBulkCandidate) async throws -> Bool {
+        // Legacy dates are evaluated at the final transaction, against the most
+        // recently observed row. Their absent field snapshots cannot be invented.
+        guard let base = candidate.intent.baseFields else { return false }
+        let current = try await taskRepository.fetchTask(id: candidate.taskID)
+        try Task.checkCancellation()
+        let fields = try await localStore.read { db in
+            try TaskEditableFields.server(current, accountID: self.accountID, db: db)
         }
-        return false
+        return TaskEditEvaluation.compare(
+            base: base, desired: base.applying(candidate.intent.change), current: fields,
+        ) == .conflict
     }
 
     private func acknowledgeTaskBulkBatch(_ batch: TaskBulkBatch, tasks: [VikunjaTask]) async throws {
@@ -136,51 +144,74 @@ extension SyncEngine {
             .fetchAll(db)
     }
 
-    private static func prepareTaskBulkBatch(
+    private static func taskBulkCandidates(
         _ batchID: UUID, accountID: UUID, db: Database,
-    ) throws -> (TaskBulkBatch?, [MutationQueueRecord]) {
-        let queue = try MutationQueueRecord.filter(Column("accountID") == accountID).fetchAll(db)
-        let items = try queue.filter { item in
-            guard item.entityType == .task, item.operation.isBulkTaskChange else { return false }
-            return try TaskBulkIntent(item: item).batchID == batchID
-        }.sorted { ($0.id ?? 0) < ($1.id ?? 0) }
-        guard !items.isEmpty, items.allSatisfy({ $0.status != .inFlight && !$0.needsConflictResolution }) else {
-            return (nil, [])
-        }
-        let ids = Set(items.compactMap(\.id))
-        var taskIDs: [EntityID] = []
-        var hasConflict = false
-        let first = try TaskBulkIntent(item: items[0])
-        for item in items {
+    ) throws -> [TaskBulkCandidate] {
+        let queue = try MutationQueueRecord.filter(Column("accountID") == accountID)
+            .order(Column("id")).fetchAll(db)
+        var candidates: [TaskBulkCandidate] = []
+        for item in queue where item.entityType == .task && item.operation.isBulkTaskChange {
             let intent = try TaskBulkIntent(item: item)
-            guard intent.change == first.change else { throw TaskBulkDrainError.invalidPayload }
-            guard let row = try TaskRecord.fetchOne(db, key: item.targetLocalID), row.accountID == accountID,
-                  let remoteID = row.remoteID else { return (nil, []) }
-            // Preserve FIFO for earlier edits, unresolved conflicts and creates.
-            let blocked = queue.contains {
-                $0.entityType == .task && $0.targetLocalID == item.targetLocalID && !ids.contains($0.id ?? 0)
-                    && ($0.operation == .delete || $0.needsConflictResolution
-                        || $0.operation == .create
-                        || (($0.id ?? 0) < (item.id ?? 0)
-                            && ($0.operation.isBulkTaskChange || [.update, .moveBucket].contains($0.operation))))
+            guard intent.batchID == batchID,
+                  let row = try eligibleTaskBulkRow(item, queue: queue, db: db),
+                  let remoteID = row.remoteID else { continue }
+            if let first = candidates.first, first.intent.change != intent.change {
+                throw TaskBulkDrainError.invalidPayload
             }
-            if blocked {
-                return (nil, [])
+            candidates.append(TaskBulkCandidate(item: item, taskID: .remote(remoteID), intent: intent))
+        }
+        return candidates
+    }
+
+    /// FIFO is per task, never across unrelated members of a logical batch.
+    private static func eligibleTaskBulkRow(
+        _ item: MutationQueueRecord, queue: [MutationQueueRecord], db: Database,
+    ) throws -> TaskRecord? {
+        guard item.status != .inFlight, !item.needsConflictResolution,
+              let row = try TaskRecord.fetchOne(db, key: item.targetLocalID),
+              row.accountID == item.accountID, row.remoteID != nil else { return nil }
+        let blocked = queue.contains {
+            $0.entityType == .task && $0.targetLocalID == item.targetLocalID && $0.id != item.id
+                && ($0.operation == .delete || $0.needsConflictResolution || $0.operation == .create
+                    || (($0.id ?? 0) < (item.id ?? 0)
+                        && ($0.operation.isBulkTaskChange || [.update, .moveBucket].contains($0.operation))))
+        }
+        return blocked ? nil : row
+    }
+
+    /// Re-read after network verification: edits, deletes, and new dependencies
+    /// arriving during that read must not be claimed using an obsolete snapshot.
+    private static func claimTaskBulkBatch(
+        ready: [TaskBulkCandidate], conflicts: [TaskBulkCandidate], accountID: UUID, db: Database,
+    ) throws -> (TaskBulkBatch?, Bool) {
+        let queue = try MutationQueueRecord.filter(Column("accountID") == accountID).fetchAll(db)
+        let byID = Dictionary(uniqueKeysWithValues: queue.compactMap { item in item.id.map { ($0, item) } })
+        let conflictingIDs = Set(conflicts.compactMap(\.item.id))
+        var items: [MutationQueueRecord] = []
+        var taskIDs: [EntityID] = []
+        var flaggedConflict = false
+        for candidate in conflicts + ready {
+            guard let id = candidate.item.id, var current = byID[id], current == candidate.item,
+                  let row = try eligibleTaskBulkRow(current, queue: queue, db: db),
+                  row.remoteID == candidate.taskID.remoteValue else { continue }
+            let legacyConflict = candidate.intent.baseFields == nil
+                && candidate.intent.baseUpdatedAt.map { base in
+                    row.serverUpdatedAt.map { $0.timeIntervalSince(base) > 1 } ?? false
+                } == true
+            if conflictingIDs.contains(id) || legacyConflict {
+                current.needsConflictResolution = true
+                flaggedConflict = true
+            } else {
+                // Retain pre-claim status in the snapshot, for interrupted writes.
+                items.append(current)
+                taskIDs.append(candidate.taskID)
+                current.status = .inFlight
             }
-            if intent.baseFields == nil, let baseline = intent.baseUpdatedAt, let updated = row.serverUpdatedAt,
-               updated.timeIntervalSince(baseline) > 1 {
-                hasConflict = true
-            }
-            taskIDs.append(.remote(remoteID))
+            try current.update(db)
         }
-        if hasConflict {
-            return (nil, items)
-        }
-        for var item in items {
-            item.status = .inFlight
-            try item.update(db)
-        }
-        return (TaskBulkBatch(items: items, taskIDs: taskIDs, change: first.change), [])
+        guard let first = items.first else { return (nil, flaggedConflict) }
+        let change = try TaskBulkIntent(item: first).change
+        return (TaskBulkBatch(items: items, taskIDs: taskIDs, change: change), flaggedConflict)
     }
 
     /// Our own successful write is the new baseline, not a server conflict.

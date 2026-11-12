@@ -141,11 +141,11 @@ struct TaskBulkCompletionSyncTests {
         _ = try await fixture.local.setCompletion(taskIDs: fixture.tasks.map(\.id), isDone: true)
         fixture.remote.updateError = VikunjaError.server(message: "Unavailable", statusCode: 503)
         try await fixture.engine.drainTaskMutations()
-        #expect(fixture.remote.completionCalls.isEmpty)
-        #expect(try await queue(fixture).count == 3)
+        #expect(fixture.remote.completionCalls.map(\.ids) == [[fixture.tasks[1].id]])
+        #expect(try await queue(fixture).count == 2)
         fixture.remote.updateError = nil
         try await fixture.engine.drainTaskMutations()
-        #expect(fixture.remote.completionCalls.count == 1)
+        #expect(fixture.remote.completionCalls.map(\.ids) == [[fixture.tasks[1].id], [fixture.tasks[0].id]])
         #expect(fixture.remote.tasks.first?.title == "Pending title")
         #expect(fixture.remote.tasks.map(\.isDone) == [true, true])
         #expect(try await queue(fixture).isEmpty)
@@ -285,7 +285,7 @@ struct TaskBulkCompletionSyncTests {
         #expect(try await queue(fixture).isEmpty)
     }
 
-    @Test func `one server conflict blocks the whole batch and remains recoverable`() async throws {
+    @Test func `one server conflict leaves only that task pending while its sibling completes`() async throws {
         let fixture = try await fixture()
         _ = try await fixture.local.setCompletion(taskIDs: fixture.tasks.map(\.id), isDone: true)
         fixture.remote.tasks[0].updated = fixture.remote.tasks[0].updated?.addingTimeInterval(10)
@@ -293,9 +293,10 @@ struct TaskBulkCompletionSyncTests {
         try await fixture.engine.pullTasks()
         try await fixture.engine.drainTaskMutations()
         let items = try await queue(fixture)
-        #expect(items.count == 2)
+        #expect(items.count == 1)
         #expect(items.allSatisfy { $0.needsConflictResolution && $0.canDiscardConflict })
-        #expect(fixture.remote.completionCalls.isEmpty)
+        #expect(fixture.remote.completionCalls.map(\.ids) == [[fixture.tasks[1].id]])
+        #expect(fixture.remote.tasks.map(\.isDone) == [false, true])
     }
 
     @Test func `tasks created offline resolve their IDs before bulk upload`() async throws {

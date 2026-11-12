@@ -220,7 +220,7 @@ struct TaskBulkDueDateSyncTests {
         #expect(try await queue(fixture).isEmpty)
     }
 
-    @Test func `a newer server edit blocks the whole reschedule as a recoverable conflict`() async throws {
+    @Test func `a newer server edit blocks only its task while the other task is rescheduled`() async throws {
         let fixture = try await fixture()
         _ = try await fixture.local.setDueDate(taskIDs: fixture.tasks.map(\.id), dueDate: Self.rescheduled)
         fixture.remote.tasks[0].updated = fixture.remote.tasks[0].updated?.addingTimeInterval(10)
@@ -228,9 +228,10 @@ struct TaskBulkDueDateSyncTests {
         try await fixture.engine.pullTasks()
         try await fixture.engine.drainTaskMutations()
         let items = try await queue(fixture)
-        #expect(items.count == 2)
+        #expect(items.count == 1)
         #expect(items.allSatisfy { $0.needsConflictResolution && $0.canDiscardConflict })
-        #expect(fixture.remote.dueDateCalls.isEmpty)
+        #expect(fixture.remote.dueDateCalls.map(\.ids) == [[fixture.tasks[1].id]])
+        #expect(fixture.remote.tasks.map(\.dueDate) == [Self.overdue, Self.rescheduled])
         // Like every other conflict, the newer server state is shown while
         // the queued intent waits for the user's resolution in Pending Sync.
         let conflicted = try await fixture.local.fetchTask(id: fixture.tasks[0].id)
