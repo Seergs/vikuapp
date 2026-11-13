@@ -15,8 +15,10 @@ public final class VikunjaLabelRepositoryV2: LabelRepositoryProtocol {
     }
 
     public func fetchLabels() async throws -> [Label] {
-        let envelope: APIv2Envelope<LabelDTO> = try await client.send(VikunjaEndpoints.labelsV2())
-        return envelope.items.map(LabelMapper.toDomain)
+        let dtos: [LabelDTO] = try await client.sendAllPagesV2 {
+            VikunjaEndpoints.labelsV2(page: $0)
+        }
+        return dtos.map(LabelMapper.toDomain)
     }
 
     public func create(_ label: Label) async throws -> Label {
