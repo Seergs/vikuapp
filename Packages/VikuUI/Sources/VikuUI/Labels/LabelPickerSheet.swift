@@ -173,10 +173,8 @@ private struct LabelPickerRow: View {
     }
 }
 
-/// A quieter checkbox than `TaskDetailCheckbox` — a thin, low-opacity ring
-/// that fills with a soft gray tint (not a solid color) and a muted
-/// checkmark, matching the mockup's subtler treatment for "is this label
-/// picked" versus the task's own bold completion toggle.
+/// A neutral checkbox with an accent checkmark. System label/fill colors already
+/// include their own opacity, so avoid multiplying it down on the empty ring.
 private struct LabelSelectionIndicator: View {
     let isSelected: Bool
     var size: CGFloat = 22
@@ -185,14 +183,14 @@ private struct LabelSelectionIndicator: View {
 
     var body: some View {
         Circle()
-            .strokeBorder(palette.textTertiary.opacity(isSelected ? 0 : 0.4), lineWidth: 1.5)
-            .background(Circle().fill(palette.textTertiary.opacity(isSelected ? 0.22 : 0)))
+            .strokeBorder(palette.textSecondary.opacity(isSelected ? 0 : 1), lineWidth: 1.5)
+            .background(Circle().fill(palette.fieldBackground.opacity(isSelected ? 1 : 0)))
             .frame(width: size, height: size)
             .overlay {
                 if isSelected {
                     Image(systemName: "checkmark")
                         .font(.system(size: size * 0.46, weight: .bold))
-                        .foregroundStyle(palette.textSecondary)
+                        .foregroundStyle(palette.brand)
                 }
             }
     }
@@ -244,7 +242,7 @@ private struct CreateLabelCard: View {
                     ? String(localized: "Creating label...", bundle: .module)
                     : String(localized: "Create and Add", bundle: .module))
                     .font(.system(size: 14.5, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.brandForeground)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, VikuSpacing.sm)
                     .background(

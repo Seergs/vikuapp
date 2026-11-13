@@ -35,7 +35,6 @@ public struct RenameFilterSheetView: View {
             .padding(.horizontal, VikuSpacing.md)
             .padding(.top, VikuSpacing.md)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(palette.pageBackground)
             .animation(.spring(response: 0.35, dampingFraction: 0.86), value: viewModel.saveErrorMessage)
             .navigationTitle(Text("Rename Filter", bundle: .module))
             #if os(iOS)

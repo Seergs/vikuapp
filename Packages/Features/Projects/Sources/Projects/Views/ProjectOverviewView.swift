@@ -239,6 +239,7 @@ struct ProjectOverviewView: View {
                     makeViewModel: { makeCreateProjectViewModel(viewModel.project.id) },
                     onCreated: { viewModel.addSubproject($0) },
                 )
+                .vikuNativeSheetAppearance()
             }
             .sheet(item: $taskPendingMove) { task in
                 ProjectPickerSheet(
@@ -250,6 +251,7 @@ struct ProjectOverviewView: View {
                     guard let destination else { return }
                     Task { await viewModel.move(task, to: destination) }
                 }
+                .vikuNativeSheetAppearance()
                 .task { await viewModel.loadMoveCandidates() }
             }
             .sheet(item: $taskPendingDuplicate) { task in
@@ -257,11 +259,13 @@ struct ProjectOverviewView: View {
                     makeViewModel: { viewModel.makeDuplicateTaskViewModel(for: task) },
                     onDuplicated: onDuplicated,
                 )
+                .vikuNativeSheetAppearance()
             }
             .sheet(item: $taskPendingDueDateEdit) { task in
                 DueDatePickerSheet(initialDate: task.dueDate) { newDate in
                     Task { await viewModel.setDueDate(task, to: newDate) }
                 }
+                .vikuNativeSheetAppearance()
             }
             .sheet(item: $taskPendingLabelEdit) { task in
                 LabelPickerSheet(
@@ -274,6 +278,7 @@ struct ProjectOverviewView: View {
                         await viewModel.createAndAddLabel(task, title: title, hexColor: hexColor)
                     },
                 )
+                .vikuNativeSheetAppearance()
             }
             .sheet(item: $relationEditStep) { step in
                 switch step {
@@ -281,6 +286,7 @@ struct ProjectOverviewView: View {
                     RelationKindPickerSheet { kind in
                         relationEditStep = .pickTask(task, kind)
                     }
+                    .vikuNativeSheetAppearance()
                 case let .pickTask(task, kind):
                     RelationTaskPickerSheet(
                         kind: kind,
@@ -302,6 +308,7 @@ struct ProjectOverviewView: View {
                             relationEditStep = nil
                         },
                     )
+                    .vikuNativeSheetAppearance()
                 }
             }
     }

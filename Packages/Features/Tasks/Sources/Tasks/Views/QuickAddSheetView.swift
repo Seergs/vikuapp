@@ -10,7 +10,6 @@ public struct QuickAddSheetView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.vikuPalette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.displayScale) private var displayScale
     @FocusState private var isFocused: Bool
     @State private var isShowingProjectPicker = false
     @State private var isShowingDueDatePicker = false
@@ -35,24 +34,6 @@ public struct QuickAddSheetView: View {
 
     private var sheetCornerRadius: CGFloat {
         VikuRadius.lg + VikuSpacing.sm
-    }
-
-    /// The native presentation background includes the drag-indicator area.
-    /// A top-edge hairline separates dark surfaces where a shadow disappears.
-    private var sheetBackground: some View {
-        palette.cardBackground
-            .overlay {
-                UnevenRoundedRectangle(
-                    topLeadingRadius: sheetCornerRadius,
-                    topTrailingRadius: sheetCornerRadius,
-                )
-                .strokeBorder(palette.textSecondary.opacity(0.16), lineWidth: 1 / displayScale)
-                .mask(alignment: .top) {
-                    Rectangle().frame(height: sheetCornerRadius + 1 / displayScale)
-                }
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-            }
     }
 
     private var detentHeight: CGFloat {
@@ -119,8 +100,6 @@ public struct QuickAddSheetView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollDismissesKeyboard(.interactively)
-        .background(palette.cardBackground)
-        .presentationBackground { sheetBackground }
         .presentationDetents([.height(detentHeight)])
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(sheetCornerRadius)
@@ -132,9 +111,11 @@ public struct QuickAddSheetView: View {
                 projects: viewModel.projects,
                 selectedProjectID: viewModel.selectedProjectID,
             ) { viewModel.pickProject($0) }
+                .vikuNativeSheetAppearance()
         }
         .sheet(isPresented: $isShowingDueDatePicker, onDismiss: presentDueDateRemovalIfNeeded) {
             DueDatePickerSheet(initialDate: viewModel.dueDate) { viewModel.pickDueDate($0) }
+                .vikuNativeSheetAppearance()
                 .environment(\.timeZone, viewModel.dateParsingContext.timeZone)
         }
         .sheet(isPresented: $isShowingReminderPicker) {
@@ -144,6 +125,7 @@ public struct QuickAddSheetView: View {
                 onSave: { viewModel.setReminder($0) },
                 onDelete: viewModel.reminder.map { _ in { viewModel.setReminder(nil) } },
             )
+            .vikuNativeSheetAppearance()
             .environment(\.timeZone, viewModel.dateParsingContext.timeZone)
         }
         .sheet(isPresented: $isShowingLabelPicker) { labelsPicker }
@@ -412,6 +394,7 @@ public struct QuickAddSheetView: View {
                 .padding(VikuSpacing.md)
             }
         }
+        .vikuNativeSheetAppearance()
     }
 
     @ViewBuilder

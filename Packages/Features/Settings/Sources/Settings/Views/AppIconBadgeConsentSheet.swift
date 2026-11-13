@@ -59,6 +59,7 @@ struct AppIconBadgeConsentSheet: View {
                     dismiss()
                 } label: {
                     Text("Enable", bundle: .module)
+                        .foregroundStyle(palette.brandForeground)
                         .font(VikuFont.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, VikuSpacing.sm + VikuSpacing.xxs)

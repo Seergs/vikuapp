@@ -131,6 +131,7 @@ public struct DuplicateTaskSheetView: View {
             ) { project in
                 viewModel.selectedProjectID = project?.id.remoteValue
             }
+            .vikuNativeSheetAppearance()
         }
         .task {
             isTitleFocused = true
