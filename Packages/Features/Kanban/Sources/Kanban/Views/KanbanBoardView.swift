@@ -22,6 +22,7 @@ public struct KanbanBoardView: View {
     /// done-bucket lookups in `KanbanBoardViewModel` keep seeing every task.
     let searchText: String
     let onSelectTask: (VikunjaTask) -> Void
+    private let taskContextMenu: (VikunjaTask) -> [ContextMenuItem]
 
     @State private var loadingPresentation = KanbanLoadingPresentation()
     @State private var presentationOrigin = ContinuousClock.now
@@ -33,10 +34,12 @@ public struct KanbanBoardView: View {
         viewModel: KanbanBoardViewModel,
         searchText: String = "",
         onSelectTask: @escaping (VikunjaTask) -> Void,
+        taskContextMenu: @escaping (VikunjaTask) -> [ContextMenuItem],
     ) {
         self.viewModel = viewModel
         self.searchText = searchText
         self.onSelectTask = onSelectTask
+        self.taskContextMenu = taskContextMenu
     }
 
     public var body: some View {
@@ -153,6 +156,7 @@ public struct KanbanBoardView: View {
                         allowsTaskCreation: viewModel.supportsTaskCreation,
                         onRefresh: { await viewModel.refresh() },
                         onSelectTask: onSelectTask,
+                        taskContextMenu: taskContextMenu,
                         onToggleDone: { task in Task { await viewModel.toggleDone(task) } },
                         onDropTaskID: { taskID in
                             Task { await viewModel.moveTask(taskID: taskID, to: bucket) }
@@ -180,6 +184,7 @@ public struct KanbanBoardView: View {
             toastPresenter: PreviewToastPresenter(),
         ),
         onSelectTask: { _ in },
+        taskContextMenu: { _ in [] },
     )
 }
 

@@ -809,6 +809,30 @@ readable with provisional ordering until refresh; missing positions preserve
 cached values, with response order as the fallback for previously uncached tasks.
 The existing pending-action and atomic-download safeguards still apply.
 
+## Task actions in List and Kanban
+
+List and Kanban share the project overview's task menu and sheet presentations.
+`KanbanBoardView` accepts resolved `ContextMenuItem` values from its host; it does not own a
+second set of task-editing repositories. Board write capabilities gate the menu,
+and completion still uses the board's bucket-movement command. Other actions use
+the overview's existing protocol-backed repositories and offline queue. Task edits
+resolve canonical records even when the board contains a task absent from the
+local List query, without inserting it into that list. The label sheet reads live
+board labels while local changes are observed. Upload failures and conflicts use
+the existing Pending Sync recovery flow.
+
+On iOS, `VikuUI.StableContextMenuCard` owns the painted card's native context-menu
+and drag interactions together. Each presentation builds an immutable `UIMenu`
+from the latest actions; local observations continue and update the source card
+without replacing the visible menu. UIKit manages its lifted preview. A request
+for drag items does not start a presentation hold: only `sessionWillBegin` marks
+an actual drag as active. Menu dismissal and actual drag completion jointly
+release the action snapshot, so dragging out of a menu retains the same task identity.
+The next presentation uses the newest values. Completion menu commands carry an
+explicit target state to avoid reversing a change already applied by sync. List
+uses the SwiftUI renderer for the same action descriptions. No storage or sync
+work is paused for a menu.
+
 ## Online saved-filter Kanban
 
 Project boards use `OfflineKanbanBoardRepository`. Saved-filter boards use

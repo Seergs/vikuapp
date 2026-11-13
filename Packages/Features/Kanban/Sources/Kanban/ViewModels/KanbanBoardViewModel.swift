@@ -171,9 +171,21 @@ public final class KanbanBoardViewModel {
 
     public func toggleDone(_ task: VikunjaTask) async {
         guard let current = buckets.flatMap(\.tasks).first(where: { $0.id == task.id }) else { return }
-        let target = current.isDone ? buckets.first { !$0.isDoneBucket } : buckets.first { $0.isDoneBucket }
+        await setCompletion(current, isDone: !current.isDone)
+    }
+
+    /// Menus carry an explicit target state. If sync already applied that state
+    /// while the menu was open, its command must not accidentally toggle it back.
+    public func setCompletion(_ task: VikunjaTask, isDone: Bool) async {
+        guard let current = self.task(id: task.id), current.isDone != isDone else { return }
+        let target = isDone ? buckets.first { $0.isDoneBucket } : buckets.first { !$0.isDoneBucket }
         guard let target else { return }
         await moveTask(current, to: target)
+    }
+
+    /// Resolves live card fields for sheets that remain open during local updates.
+    public func task(id: EntityID) -> VikunjaTask? {
+        buckets.lazy.flatMap(\.tasks).first { $0.id == id }
     }
 
     /// Success means the repository accepted the task, including an offline local creation.

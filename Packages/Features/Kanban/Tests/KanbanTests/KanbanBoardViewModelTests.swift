@@ -5,6 +5,59 @@ import VikunjaCore
 
 @MainActor
 struct KanbanBoardViewModelTests {
+    @Test(arguments: [false, true])
+    func `a menu completion command does not invert a state already applied by sync`(isDone: Bool) async {
+        let repository = FakeBucketRepository()
+        let current = VikunjaTask(id: 1, title: "Task", isDone: isDone, projectID: 4)
+        var captured = current
+        captured.isDone = !isDone
+        repository.buckets = [
+            KanbanBucket(id: 1, title: "To Do", tasks: isDone ? [] : [current]),
+            KanbanBucket(id: 2, title: "Done", isDoneBucket: true, tasks: isDone ? [current] : []),
+        ]
+        let viewModel = KanbanBoardViewModel(
+            project: Project(id: 4, title: "Work"), repository: repository,
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(), toastPresenter: FakeToastPresenter(),
+        )
+        await viewModel.load()
+
+        await viewModel.setCompletion(captured, isDone: isDone)
+
+        #expect(viewModel.task(id: current.id)?.isDone == isDone)
+        #expect(repository.movedTaskIDs.isEmpty)
+    }
+
+    @Test
+    func `completion actions on alternating cards keep each tasks state independent`() async throws {
+        let repository = FakeBucketRepository()
+        let open = VikunjaTask(id: 1, title: "Open", projectID: 4)
+        let done = VikunjaTask(id: 2, title: "Done", isDone: true, projectID: 4)
+        let untouched = VikunjaTask(id: 3, title: "Untouched", projectID: 4)
+        repository.buckets = [
+            KanbanBucket(id: 1, title: "To Do", tasks: [open, untouched]),
+            KanbanBucket(id: 2, title: "Done", isDoneBucket: true, tasks: [done]),
+        ]
+        let viewModel = KanbanBoardViewModel(
+            project: Project(id: 4, title: "Work"), repository: repository,
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(), toastPresenter: FakeToastPresenter(),
+        )
+        await viewModel.load()
+
+        await viewModel.toggleDone(open)
+        #expect(try #require(viewModel.task(id: open.id)).isDone)
+        #expect(try #require(viewModel.task(id: done.id)).isDone)
+
+        await viewModel.toggleDone(done)
+        #expect(try #require(viewModel.task(id: open.id)).isDone)
+        #expect(try #require(viewModel.task(id: done.id)).isDone == false)
+        #expect(try #require(viewModel.task(id: untouched.id)).isDone == false)
+
+        // An older card value must not make the next action use an obsolete state.
+        await viewModel.toggleDone(open)
+        #expect(try #require(viewModel.task(id: open.id)).isDone == false)
+        #expect(repository.movedTaskIDs.map(\.taskID) == [open.id, done.id, open.id])
+    }
+
     @Test
     func `load populates buckets from the repository`() async {
         let repository = FakeBucketRepository()

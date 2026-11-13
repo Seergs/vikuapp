@@ -151,7 +151,14 @@ struct ProjectOverviewView: View {
                     .scrollContentBackground(.hidden)
                     .refreshable { await viewModel.refresh() }
             case .kanban:
-                KanbanBoardView(viewModel: kanbanViewModel, searchText: searchText, onSelectTask: onSelectTask)
+                KanbanBoardView(
+                    viewModel: kanbanViewModel, searchText: searchText, onSelectTask: onSelectTask,
+                    taskContextMenu: { task in
+                        taskContextMenu(for: task) {
+                            Task { await kanbanViewModel.setCompletion(task, isDone: !task.isDone) }
+                        }
+                    },
+                )
             }
         }
         .background(palette.pageBackground)
@@ -269,7 +276,8 @@ struct ProjectOverviewView: View {
             }
             .sheet(item: $taskPendingLabelEdit) { task in
                 LabelPickerSheet(
-                    taskLabels: viewModel.tasks.first(where: { $0.id == task.id })?.labels ?? task.labels,
+                    taskLabels: (displayMode == .kanban ? kanbanViewModel.task(id: task.id)?.labels : nil)
+                        ?? viewModel.tasks.first(where: { $0.id == task.id })?.labels ?? task.labels,
                     allLabels: viewModel.allLabels,
                     labelAliases: viewModel.labelCatalog.aliases,
                     onLoad: { await viewModel.loadAllLabels() },
@@ -311,6 +319,69 @@ struct ProjectOverviewView: View {
                     .vikuNativeSheetAppearance()
                 }
             }
+    }
+
+    /// Both presentations use the same actions and sheets. Completion stays with
+    /// the presentation because Kanban also changes the task's bucket.
+    private func taskContextMenu(for task: VikunjaTask, onToggleDone: @escaping @MainActor () -> Void) -> [ContextMenuItem] {
+        [
+            .group("completion", items: [
+                .action(
+                    "completion",
+                    title: task.isDone
+                        ? String(localized: "Mark as Not Done", bundle: .module)
+                        : String(localized: "Mark as Done", bundle: .module),
+                    systemImage: task.isDone ? "circle" : "checkmark.circle", perform: onToggleDone,
+                ),
+            ]),
+            .group("fields", items: [
+                DueDateMenu.item(
+                    currentDueDate: task.dueDate,
+                    onSelect: { date in Task { await viewModel.setDueDate(task, to: date) } },
+                    onCustom: { taskPendingDueDateEdit = task },
+                ),
+                .submenu(
+                    "priority", title: String(localized: "Priority", bundle: .module), systemImage: "flag",
+                    items: VikunjaTask.Priority.selectable.map { priority in
+                        .action(
+                            "priority-\(priority.rawValue)",
+                            title: priority.localizedMenuLabel,
+                            isSelected: task.priority == priority,
+                        ) {
+                            Task { await viewModel.setPriority(task, to: priority) }
+                        }
+                    },
+                ),
+                .action("labels", title: String(localized: "Labels", bundle: .module), systemImage: "tag") {
+                    taskPendingLabelEdit = task
+                },
+            ]),
+            .group("organization", items: [
+                .action("relation", title: String(localized: "Add Relation", bundle: .module), systemImage: "link") {
+                    relationEditStep = .pickKind(task)
+                },
+                .action(
+                    "duplicate",
+                    title: String(localized: "Duplicate Task", bundle: .module),
+                    systemImage: "plus.square.on.square",
+                ) {
+                    taskPendingDuplicate = task
+                },
+                .action("move", title: String(localized: "Move to Project", bundle: .module), systemImage: "folder") {
+                    taskPendingMove = task
+                },
+            ]),
+            .group("destructive", items: [
+                .action(
+                    "delete",
+                    title: String(localized: "Delete Task", bundle: .module),
+                    systemImage: "trash",
+                    isDestructive: true,
+                ) {
+                    taskPendingDelete = task
+                },
+            ]),
+        ]
     }
 
     /// Mirrors `ProjectsView.deleteConfirmationMessage`: this screen's own
@@ -464,62 +535,9 @@ struct ProjectOverviewView: View {
                             }
                         },
                         contextMenu: {
-                            Button(
-                                task.isDone
-                                    ? String(localized: "Mark as Not Done", bundle: .module)
-                                    : String(localized: "Mark as Done", bundle: .module),
-                                systemImage: task.isDone ? "circle" : "checkmark.circle",
-                            ) {
+                            ContextMenuItems(taskContextMenu(for: task) {
                                 Task { await viewModel.toggleDone(task) }
-                            }
-                            Divider()
-                            DueDateMenu(
-                                currentDueDate: task.dueDate,
-                                onSelect: { date in Task { await viewModel.setDueDate(task, to: date) } },
-                                onCustom: { taskPendingDueDateEdit = task },
-                            )
-                            Menu(String(localized: "Priority", bundle: .module), systemImage: "flag") {
-                                ForEach(VikunjaTask.Priority.selectable, id: \.self) { priority in
-                                    Button {
-                                        Task { await viewModel.setPriority(task, to: priority) }
-                                    } label: {
-                                        HStack {
-                                            Text(verbatim: priority.localizedMenuLabel)
-                                            if task.priority == priority {
-                                                Image(systemName: "checkmark")
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            Button(String(localized: "Labels", bundle: .module), systemImage: "tag") {
-                                taskPendingLabelEdit = task
-                            }
-                            Divider()
-                            Button(String(localized: "Add Relation", bundle: .module), systemImage: "link") {
-                                relationEditStep = .pickKind(task)
-                            }
-                            Button(
-                                String(localized: "Duplicate Task", bundle: .module),
-                                systemImage: "plus.square.on.square",
-                            ) {
-                                taskPendingDuplicate = task
-                            }
-                            Button(String(localized: "Move to Project", bundle: .module), systemImage: "folder") {
-                                taskPendingMove = task
-                            }
-                            Divider()
-                            // `role: .destructive` alone renders blue here: the
-                            // tab bar's tint leaks into the context menu and
-                            // overrides it. Pin it back to danger.
-                            Button(
-                                String(localized: "Delete Task", bundle: .module),
-                                systemImage: "trash",
-                                role: .destructive,
-                            ) {
-                                taskPendingDelete = task
-                            }
-                            .tint(palette.semanticDanger)
+                            })
                         },
                     )
                     .vikuCardRow(
