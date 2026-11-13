@@ -84,7 +84,7 @@ struct TodayView: View {
                     title: String(localized: "Move to Project", bundle: .module),
                     projects: viewModel.allProjects,
                     selectedProjectID: nil,
-                    excludingSubtreeOf: task.projectID,
+                    disablingSelectionOf: task.projectID,
                 ) { destination in
                     guard let destination else { return }
                     Task { await viewModel.move(task, to: destination) }
@@ -562,7 +562,6 @@ private extension View {
     /// varied with row content instead of always being exactly that padding.
     /// `listRowSpacing` is iOS-only; this package also builds for macOS to
     /// run its tests.
-    @ViewBuilder
     func todayListStyle() -> some View {
         #if os(iOS)
         listStyle(.plain)

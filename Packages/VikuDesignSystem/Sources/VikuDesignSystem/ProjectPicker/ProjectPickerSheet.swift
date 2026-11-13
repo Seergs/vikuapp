@@ -22,9 +22,11 @@ public struct ProjectPickerSheet: View {
     private let selectedProjectID: EntityID?
     private let showsNoneOption: Bool
     private let excludedID: EntityID?
+    private let disabledID: EntityID?
     private let onSelect: (Project?) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var query = ""
     @State private var expandedIDs: Set<EntityID> = []
     @State private var didSeedExpansion = false
@@ -38,8 +40,9 @@ public struct ProjectPickerSheet: View {
     ///   - showsNoneOption: when `true`, a leading "None" row that selects
     ///     `nil` (a root-level project / no parent).
     ///   - excludingSubtreeOf: a project id whose whole subtree is hidden —
-    ///     the parent-project pickers pass the project being edited; the
-    ///     "move task" pickers pass the task's current project.
+    ///     parent-project pickers use this to prevent cycles.
+    ///   - disablingSelectionOf: a project that remains visible and expandable
+    ///     but cannot be selected. Task move pickers pass the current project.
     ///   - onSelect: the picked project, or `nil` for the "None" row. Called
     ///     after the sheet dismisses.
     public init(
@@ -48,6 +51,7 @@ public struct ProjectPickerSheet: View {
         selectedProjectID: EntityID?,
         showsNoneOption: Bool = false,
         excludingSubtreeOf: EntityID? = nil,
+        disablingSelectionOf: EntityID? = nil,
         onSelect: @escaping (Project?) -> Void,
     ) {
         self.title = title
@@ -55,6 +59,7 @@ public struct ProjectPickerSheet: View {
         self.selectedProjectID = selectedProjectID
         self.showsNoneOption = showsNoneOption
         self.excludedID = excludingSubtreeOf
+        self.disabledID = disablingSelectionOf
         self.onSelect = onSelect
     }
 
@@ -72,11 +77,20 @@ public struct ProjectPickerSheet: View {
                 return [row] + flatten(node.children, depth: depth + 1)
             }
         }
-        return flatten(ProjectPickerTree.tree(from: projects, excludingSubtreeOf: excludedID), depth: 0)
+        return flatten(ProjectPickerTree.tree(
+            from: projects,
+            excludingSubtreeOf: excludedID,
+            disablingSelectionOf: disabledID,
+        ), depth: 0)
     }
 
-    private var searchResults: [Project] {
-        ProjectPickerTree.flatMatches(projects, query: query, excludingSubtreeOf: excludedID)
+    private var searchResults: [ProjectPickerNode] {
+        ProjectPickerTree.flatMatches(
+            projects,
+            query: query,
+            excludingSubtreeOf: excludedID,
+            disablingSelectionOf: disabledID,
+        )
     }
 
     public var body: some View {
@@ -87,15 +101,16 @@ public struct ProjectPickerSheet: View {
                 }
 
                 if isSearching {
-                    ForEach(searchResults) { project in
+                    ForEach(searchResults) { node in
                         ProjectRow(
-                            project: project,
+                            project: node.project,
                             hasChildren: false,
                             depth: 0,
                             isExpanded: false,
-                            isSelected: project.id == selectedProjectID,
+                            isSelected: node.id == selectedProjectID,
+                            isSelectable: node.isSelectable,
                             onToggleExpand: {},
-                            onSelect: { select(project) },
+                            onSelect: { select(node.project) },
                         )
                     }
                 } else {
@@ -106,6 +121,7 @@ public struct ProjectPickerSheet: View {
                             depth: row.depth,
                             isExpanded: expandedIDs.contains(row.node.id),
                             isSelected: row.node.project.id == selectedProjectID,
+                            isSelectable: row.node.isSelectable,
                             onToggleExpand: { toggleExpansion(row.node.id) },
                             onSelect: { select(row.node.project) },
                         )
@@ -147,7 +163,7 @@ public struct ProjectPickerSheet: View {
     }
 
     private func toggleExpansion(_ id: EntityID) {
-        withAnimation(.snappy(duration: 0.2)) {
+        withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) {
             if !expandedIDs.insert(id).inserted {
                 expandedIDs.remove(id)
             }
@@ -155,6 +171,9 @@ public struct ProjectPickerSheet: View {
     }
 
     private func select(_ project: Project?) {
+        if let project, project.id == disabledID {
+            return
+        }
         dismiss()
         onSelect(project)
     }
@@ -198,6 +217,7 @@ private struct ProjectRow: View {
     let depth: Int
     let isExpanded: Bool
     let isSelected: Bool
+    let isSelectable: Bool
     let onToggleExpand: () -> Void
     let onSelect: () -> Void
 
@@ -224,9 +244,9 @@ private struct ProjectRow: View {
                 HStack(spacing: VikuSpacing.sm) {
                     ProjectPickerIcon(hexColor: project.hexColor, hasChildren: hasChildren)
 
-                    Text(project.title)
+                    Text(verbatim: project.title)
                         .font(VikuFont.body)
-                        .foregroundStyle(Color.primary)
+                        .foregroundStyle(isSelectable ? palette.textPrimary : palette.textTertiary)
                         .lineLimit(1)
 
                     Spacer(minLength: VikuSpacing.sm)
@@ -241,6 +261,8 @@ private struct ProjectRow: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .disabled(!isSelectable)
+            .opacity(isSelectable ? 1 : 0.5)
         }
         .padding(.leading, CGFloat(depth) * VikuSpacing.md)
     }
