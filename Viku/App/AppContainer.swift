@@ -865,11 +865,14 @@ final class AppContainer {
     }
 
     func makeSearchViewModel(account: InstanceAccount) -> SearchViewModel {
-        SearchViewModel(
-            taskRepository: offlineTaskRepository(for: account),
+        let repository = offlineTaskRepository(for: account)
+        return SearchViewModel(
+            taskRepository: repository,
+            searchRepository: repository,
             projectRepository: offlineProjectRepository(for: account),
             toastPresenter: toastCenter,
             hapticPresenter: hapticCenter,
+            syntaxStore: quickAddSyntaxStore,
         )
     }
 
@@ -938,7 +941,7 @@ final class AppContainer {
 
     private func offlineTaskRepository(
         for account: InstanceAccount,
-    ) -> any TaskRepositoryProtocol & TaskBulkUpdateRepositoryProtocol {
+    ) -> any TaskRepositoryProtocol & TaskBulkUpdateRepositoryProtocol & TaskSearchRepositoryProtocol {
         OfflineTaskRepository(localStore: localStore, accountID: account.id, syncRequester: accountSync(for: account))
     }
 

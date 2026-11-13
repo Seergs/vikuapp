@@ -6,21 +6,45 @@ import VikuUI
 @Observable
 @MainActor
 public final class SearchViewModel {
-    /// How long to wait after the last keystroke before hitting the network, so
-    /// typing doesn't fire (and re-render) a request per character.
+    /// Avoid recalculating and rendering results for every keystroke.
     static let debounceInterval: Duration = .milliseconds(300)
 
-    private let taskRepository: TaskRepositoryProtocol
+    private let searchRepository: TaskSearchRepositoryProtocol
+    private let syntaxStore: QuickAddSyntaxStore?
     private let projectRepository: ProjectRepositoryProtocol
     private let toastPresenter: ToastPresenting
     private let mutator: TaskListMutator
 
     var query = ""
     var state = ScreenLoadState<[VikunjaTask]>.idle
-    var projectsByID: [Int: Project] = [:]
+    var projectsByID: [EntityID: Project] = [:]
 
     private var lastSearchQuery = ""
-    private var searchTask: Task<Void, Never>?
+    private var lastSearchSyntax: QuickAddSyntax?
+    private(set) var searchTask: Task<Void, Never>?
+
+    var syntax: QuickAddSyntax? {
+        syntaxStore?.syntax
+    }
+
+    var searchHint: String {
+        switch syntax {
+        case .vikunja:
+            String(localized: "Search by title, or use `*Label`, `+Project` and `!3`", bundle: .module)
+        case .todoist:
+            String(localized: "Search by title, or use `@Label`, `#Project` and `p1`", bundle: .module)
+        case nil:
+            String(localized: "Type a query to search all your tasks", bundle: .module)
+        }
+    }
+
+    public func cancelSearch() {
+        searchTask?.cancel()
+        searchTask = nil
+        if state.isLoading {
+            state = .idle
+        }
+    }
 
     /// Whether the account's project list has been fetched at least once this
     /// view-model lifetime. Projects only feed each row's name/color badge and
@@ -35,11 +59,14 @@ public final class SearchViewModel {
 
     public init(
         taskRepository: TaskRepositoryProtocol,
+        searchRepository: TaskSearchRepositoryProtocol,
         projectRepository: ProjectRepositoryProtocol,
         toastPresenter: ToastPresenting,
         hapticPresenter: HapticFeedbackPresenting = NoopHapticFeedback(),
+        syntaxStore: QuickAddSyntaxStore? = nil,
     ) {
-        self.taskRepository = taskRepository
+        self.searchRepository = searchRepository
+        self.syntaxStore = syntaxStore
         self.projectRepository = projectRepository
         self.toastPresenter = toastPresenter
         self.mutator = TaskListMutator(
@@ -54,9 +81,10 @@ public final class SearchViewModel {
     public func queryChanged() {
         searchTask?.cancel()
 
-        let trimmedQuery = query.trimmingCharacters(in: .whitespaces)
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if trimmedQuery.isEmpty {
+            searchTask = nil
             lastSearchQuery = ""
             state = .idle
             return
@@ -73,10 +101,17 @@ public final class SearchViewModel {
     /// search doesn't have to wait on the project list at all.
     public func preload() async {
         await loadProjects()
+        // Resume an unfinished search cancelled when leaving the screen. Loaded
+        // results deliberately do not observe edits or synchronization yet.
+        if !Task.isCancelled, searchTask == nil, !state.isLoaded,
+           !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            queryChanged()
+        }
     }
 
     private func performSearch(_ trimmedQuery: String) async {
-        guard trimmedQuery != lastSearchQuery || !state.isLoaded else { return }
+        let syntax = syntax
+        guard trimmedQuery != lastSearchQuery || syntax != lastSearchSyntax || !state.isLoaded else { return }
 
         // Keep the current results on screen while re-searching; only fall back
         // to the full-screen spinner when there's nothing to show yet. This is
@@ -86,11 +121,10 @@ public final class SearchViewModel {
         }
 
         do {
-            // Load the project list concurrently with the search rather than
-            // after it. Once cached, `loadProjects()` returns immediately, so
-            // repeat searches only cost the one task-search request.
+            // Project badges load concurrently with the local task query.
             async let projectsReady: Void = loadProjects()
-            let tasks = try await taskRepository.searchTasks(query: trimmedQuery)
+            let criteria = QuickAddParser.searchQuery(trimmedQuery, syntax: syntax)
+            let tasks = try await searchRepository.searchTasks(matching: criteria)
             guard !Task.isCancelled else { return }
             await projectsReady
             guard !Task.isCancelled else { return }
@@ -98,7 +132,7 @@ public final class SearchViewModel {
             // A task pointing at a project created since the list was cached:
             // refresh once so its row can render instead of being dropped by
             // the `if let project` lookup in the view.
-            if tasks.contains(where: { $0.projectID.remoteValue.map { projectsByID[$0] == nil } ?? true }) {
+            if tasks.contains(where: { projectsByID[$0.projectID] == nil }) {
                 await loadProjects(force: true)
                 guard !Task.isCancelled else { return }
             }
@@ -107,6 +141,7 @@ public final class SearchViewModel {
             // a cancelled or failed query can be retried instead of being
             // suppressed by the dedupe guard above while stale results show.
             lastSearchQuery = trimmedQuery
+            lastSearchSyntax = syntax
             state = .loaded(tasks)
         } catch {
             guard !Task.isCancelled else { return }
@@ -150,14 +185,7 @@ public final class SearchViewModel {
         guard force || !projectsLoaded else { return }
         do {
             let projects = try await projectRepository.fetchProjects()
-            for project in projects {
-                // A project without a synced id yet (offline-created) has no
-                // tasks in search results to attribute to it — not reachable
-                // until Projects' own offline-create path exists.
-                if let projectID = project.id.remoteValue {
-                    projectsByID[projectID] = project
-                }
-            }
+            projectsByID = Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0) })
             projectsLoaded = true
             didWarnProjectLoadFailure = false
         } catch {

@@ -13,6 +13,7 @@ struct SearchViewModelTests {
         taskRepository.tasks = tasks
         let viewModel = SearchViewModel(
             taskRepository: taskRepository,
+            searchRepository: taskRepository,
             projectRepository: FakeProjectRepository(),
             toastPresenter: toast,
             hapticPresenter: haptics,

@@ -2,7 +2,7 @@
 title: Quick Add Magic
 summary: Set dates, projects, labels, and priorities as you type.
 category: basics
-updated: 2026-11-07
+updated: 2026-11-12
 related: offline-mode
 ---
 
@@ -65,3 +65,11 @@ If removing the date and other applied shortcuts leaves no title, the create but
 To keep a recognized expression as literal title text, turn off Quick Add Magic or edit the task after creating it. The
 Developer date-preview switch only controls diagnostics; it does not control
 whether dates are applied.
+
+## Search with the same syntax
+
+Search shares the Quick Add Magic setting and token recognition. With Magic off, the query is literal title text. With it enabled, `*Bug +Work !3 login` (Vikunja) or `@Bug #Work p2 login` (Todoist) combines a title search with label, project and priority filters. Labels combine with OR; title, project and priority combine with AND. Only the first project and priority shortcut applies. Dates and assignees are not interpreted as search filters.
+
+Names match without distinguishing case or accents, and every matching identity is included when names are duplicated. Unknown names are removed from the title query and ignored as filters, matching Vikunja web. For example, `*Bgu login` searches for “login” without a label restriction if “Bgu” does not exist locally. `*Bug *Bgu login` still restricts by “Bug” if that label exists. A query made entirely of unknown names shows every locally available task. A genuinely empty field keeps the initial search screen. Quoted names and escaped symbols follow Quick Add recognition.
+
+Search is read-only and local: it never creates labels, sends remote search requests or triggers synchronization. It includes pending label additions/removals and local identities before server IDs are assigned. Failed uploads retain local edits. After a conflict, Search uses the cached state selected by the existing sync flow and leaves the queued edit available for resolution. It covers cached data only, so a missing or failed download can leave results incomplete or outdated. Results do not observe ongoing synchronization or edits elsewhere; changing the query recalculates them. Text matching remains a case-insensitive substring of the title, without description search or relevance ranking.

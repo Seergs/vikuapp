@@ -2,7 +2,7 @@
 title: Quick Add Magic
 summary: Add a task, its project, and a due date as you type.
 category: basics
-updated: 2026-11-07
+updated: 2026-11-13
 related: offline-mode
 ---
 
@@ -43,3 +43,7 @@ Try `tomorrow`, `next Saturday`, or `in three days`. English and Spanish dates w
 Review the highlighted date and shortcut indicators. Unrecognized or ambiguous text stays in the title, so check the project and due date before saving.
 
 To keep a recognized date as part of the title, turn off shortcuts before writing the task, or edit its title after creating it.
+
+## Search with shortcuts
+
+Search uses the same shortcuts for labels, projects and priority. Try `*Bug login` (Vikunja) or `@Bug login` (Todoist) to find titles containing “login” with the “Bug” label. With Magic off, search matches title text only.

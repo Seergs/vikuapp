@@ -8,7 +8,8 @@ import VikunjaCore
 /// detection machinery, unlike `OfflineLabelRepository`: Vikunja's task API
 /// exposes `updated`, so `drainTaskUpdate` has a real baseline to compare a
 /// queued edit against.
-public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateRepositoryProtocol {
+public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateRepositoryProtocol,
+    TaskSearchRepositoryProtocol {
     private let localStore: LocalStore
     private let accountID: UUID
     private let syncRequester: SyncRequesting
@@ -309,6 +310,33 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateReposi
             return rows
                 .filter { !hiddenLocalIDs.contains($0.localID) && $0.title.localizedCaseInsensitiveContains(query) }
                 .map { Self.task(from: $0, context: context) }
+        }
+    }
+
+    public func searchTasks(matching query: TaskSearchQuery) async throws -> [VikunjaTask] {
+        try await localStore.read { db in
+            let rows = try Self.accountRows(self.accountID, db: db)
+            let hiddenTasks = try Self.pendingDeleteTargetLocalIDs(accountID: self.accountID, db: db)
+            let hiddenEntities = try MutationQueueRecord.fetchAll(db).filter {
+                $0.accountID == self.accountID && $0.operation == .delete
+                    && ($0.status == .pending || $0.status == .failed)
+            }
+            let hiddenProjects = Set(hiddenEntities.filter { $0.entityType == .project }.map(\.targetLocalID))
+            let hiddenLabels = Set(hiddenEntities.filter { $0.entityType == .label }.map(\.targetLocalID))
+            let context = try Self.makeAssemblyContext(accountID: self.accountID, db: db)
+            let projects = context.projectsByLocalID.values.filter { !hiddenProjects.contains($0.localID) }.map {
+                Project(id: $0.remoteID.map(EntityID.remote) ?? .local($0.localID), title: $0.title)
+            }
+            let labels = context.labelsByLocalID.values.filter { !hiddenLabels.contains($0.localID) }.map {
+                Label(
+                    id: $0.remoteID.map(EntityID.remote) ?? .local($0.localID), title: $0.title, hexColor: $0.hexColor,
+                )
+            }
+            let tasks = rows.filter {
+                !hiddenTasks.contains($0.localID) && !hiddenProjects.contains($0.projectLocalID)
+                    && (query.text.isEmpty || $0.title.localizedCaseInsensitiveContains(query.text))
+            }.map { Self.task(from: $0, context: context) }
+            return query.filter(tasks: tasks, projects: projects, labels: labels)
         }
     }
 

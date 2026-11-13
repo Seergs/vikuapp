@@ -121,6 +121,38 @@
         }
       }
     },
+    "Search by title, or use `*Label`, `+Project` and `!3`" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search by title, or use `*Label`, `+Project` and `!3`"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Busca por título o usa `*Etiqueta`, `+Proyecto` y `!3`"
+          }
+        }
+      }
+    },
+    "Search by title, or use `@Label`, `#Project` and `p1`" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search by title, or use `@Label`, `#Project` and `p1`"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Busca por título o usa `@Etiqueta`, `#Proyecto` y `p1`"
+          }
+        }
+      }
+    },
     "Search failed" : {
       "localizations" : {
         "es" : {

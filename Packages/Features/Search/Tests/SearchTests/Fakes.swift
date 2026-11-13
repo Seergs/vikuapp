@@ -1,7 +1,22 @@
 @testable import Search
 import VikunjaCore
 
-final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
+final class FakeTaskRepository: TaskRepositoryProtocol, TaskSearchRepositoryProtocol, @unchecked Sendable {
+    var searchError: VikunjaError?
+    var searchDelay: Duration = .zero
+    var onSearch: (@Sendable () async -> Void)?
+    private(set) var searches: [TaskSearchQuery] = []
+
+    func searchTasks(matching query: TaskSearchQuery) async throws -> [VikunjaTask] {
+        searches.append(query)
+        await onSearch?()
+        try await Task.sleep(for: searchDelay)
+        if let searchError {
+            throw searchError
+        }
+        return query.filter(tasks: tasks, projects: [], labels: tasks.flatMap(\.labels))
+    }
+
     var tasks: [VikunjaTask] = []
     var updateError: VikunjaError?
     var deleteError: VikunjaError?
@@ -82,5 +97,17 @@ final class FakeHapticPresenter: HapticFeedbackPresenting {
     private(set) var played: [HapticStyle] = []
     func play(_ style: HapticStyle) {
         played.append(style)
+    }
+}
+
+@MainActor
+final class FakeSyntaxStore: QuickAddSyntaxStore {
+    var syntax: QuickAddSyntax?
+    init(_ syntax: QuickAddSyntax?) {
+        self.syntax = syntax
+    }
+
+    func setSyntax(_ syntax: QuickAddSyntax?) {
+        self.syntax = syntax
     }
 }

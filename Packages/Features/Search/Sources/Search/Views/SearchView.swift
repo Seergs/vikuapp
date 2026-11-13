@@ -9,12 +9,19 @@ struct SearchView: View {
     @Bindable var viewModel: SearchViewModel
     @Environment(AppRouter.self) private var router
     @Environment(\.vikuPalette) private var palette
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var taskPendingDelete: VikunjaTask?
+    @State private var spinnerShownAt: ContinuousClock.Instant?
 
     var body: some View {
         searchContent
             .task { await viewModel.preload() }
-            .animation(.easeInOut(duration: 0.2), value: viewModel.state.value?.map(\.id))
+            .task(id: viewModel.state.isLoading) { await updateSpinner() }
+            .onDisappear {
+                viewModel.cancelSearch()
+                spinnerShownAt = nil
+            }
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: viewModel.state.value?.map(\.id))
             .searchListStyle()
             .scrollContentBackground(.hidden)
             .background(palette.pageBackground)
@@ -24,6 +31,9 @@ struct SearchView: View {
                 prompt: Text("Search tasks", bundle: .module),
             )
             .onChange(of: viewModel.query) { _, _ in
+                viewModel.queryChanged()
+            }
+            .onChange(of: viewModel.syntax) { _, _ in
                 viewModel.queryChanged()
             }
             .navigationTitle(Text("Search", bundle: .module))
@@ -54,49 +64,88 @@ struct SearchView: View {
 
     private var searchContent: some View {
         List {
-            switch viewModel.state {
-            case .idle:
-                VikuStatusView(
-                    systemImage: "magnifyingglass",
-                    title: String(localized: "Search Tasks", bundle: .module),
-                    message: String(localized: "Type a query to search all your tasks", bundle: .module),
-                )
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-
-            case .loading:
+            if spinnerShownAt != nil {
                 ProgressView()
                     .frame(maxWidth: .infinity)
                     .padding(.top, VikuSpacing.xxl)
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
-
-            case let .loaded(tasks):
-                if tasks.isEmpty {
-                    VikuStatusView(
-                        systemImage: "magnifyingglass",
-                        title: String(localized: "No Results", bundle: .module),
-                        message: String(localized: "No tasks match your search", bundle: .module),
-                    )
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                } else {
-                    loadedContent(tasks)
-                }
-
-            case let .failure(message):
-                VikuStatusView(
-                    systemImage: "exclamationmark.triangle.fill",
-                    title: String(localized: "Search Error", bundle: .module),
-                    message: message,
-                    fillsHeight: false,
-                )
-                .padding(.top, VikuSpacing.lg)
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
+            } else {
+                resultContent
             }
         }
+    }
+
+    /// Presentation timing never delays the repository query or its result state.
+    private func updateSpinner() async {
+        do {
+            if viewModel.state.isLoading {
+                guard spinnerShownAt == nil else { return }
+                try await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled, viewModel.state.isLoading else { return }
+                spinnerShownAt = .now
+            } else if let spinnerShownAt {
+                try await ContinuousClock().sleep(until: spinnerShownAt.advanced(by: .seconds(1)))
+                guard !Task.isCancelled else { return }
+                self.spinnerShownAt = nil
+            }
+        } catch {
+            // A new loading state or leaving the screen cancels presentation timing.
+        }
+    }
+
+    @ViewBuilder
+    private var resultContent: some View {
+        switch viewModel.state {
+        case .idle:
+            VikuStatusView(
+                systemImage: "magnifyingglass",
+                title: String(localized: "Search Tasks", bundle: .module),
+                message: searchHint,
+            )
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+
+        case .loading:
+            Color.clear.listRowSeparator(.hidden).listRowBackground(Color.clear)
+
+        case let .loaded(tasks):
+            if tasks.isEmpty {
+                VikuStatusView(
+                    systemImage: "magnifyingglass",
+                    title: String(localized: "No Results", bundle: .module),
+                    message: String(localized: "No tasks match your search", bundle: .module),
+                )
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+            } else {
+                loadedContent(tasks)
+            }
+
+        case let .failure(message):
+            VikuStatusView(
+                systemImage: "exclamationmark.triangle.fill",
+                title: String(localized: "Search Error", bundle: .module),
+                message: message,
+                fillsHeight: false,
+            )
+            .padding(.top, VikuSpacing.lg)
+            .listRowInsets(EdgeInsets())
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+        }
+    }
+
+    private var searchHint: Text {
+        var text = (try? AttributedString(
+            markdown: viewModel.searchHint,
+            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace),
+        )) ?? AttributedString(viewModel.searchHint)
+        for run in text.runs where run.inlinePresentationIntent?.contains(.code) == true {
+            text[run.range].font = VikuFont.subheadline.monospaced()
+            text[run.range].backgroundColor = palette.fieldBackground
+        }
+        return Text(text)
     }
 
     @ViewBuilder
@@ -116,7 +165,7 @@ struct SearchView: View {
         .listRowBackground(Color.clear)
 
         ForEach(Array(tasks.enumerated()), id: \.element.id) { index, task in
-            if let project = task.projectID.remoteValue.flatMap({ viewModel.projectsByID[$0] }) {
+            if let project = viewModel.projectsByID[task.projectID] {
                 VikuTaskRow(
                     task: task,
                     project: project,
@@ -150,6 +199,7 @@ struct SearchView: View {
     NavigationStack {
         SearchView(viewModel: SearchViewModel(
             taskRepository: PreviewTaskRepository(),
+            searchRepository: PreviewTaskRepository(),
             projectRepository: PreviewProjectRepository(),
             toastPresenter: PreviewToastPresenter(),
         ))
@@ -176,7 +226,11 @@ private extension View {
 
 // MARK: - Preview Helpers
 
-private final class PreviewTaskRepository: @unchecked Sendable, TaskRepositoryProtocol {
+private final class PreviewTaskRepository: @unchecked Sendable, TaskRepositoryProtocol, TaskSearchRepositoryProtocol {
+    func searchTasks(matching _: TaskSearchQuery) async throws -> [VikunjaTask] {
+        []
+    }
+
     func fetchTasks(projectID _: EntityID) async throws -> [VikunjaTask] {
         []
     }
