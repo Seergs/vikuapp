@@ -2,7 +2,7 @@
 title: Quick Add Magic
 summary: Añade una tarea, su proyecto y su fecha mientras escribes.
 category: basics
-updated: 2026-11-12
+updated: 2026-11-13
 related: offline-mode
 ---
 
@@ -46,8 +46,4 @@ Para conservar una fecha reconocida como parte del título, desactiva los atajos
 
 ## Busca con atajos
 
-La búsqueda usa la misma configuración de Quick Add Magic. En modo Vikunja, `*Bug login` encuentra tareas cuyo título contiene «login» y que tienen la etiqueta «Bug». En modo Todoist, usa `@Bug login`. También puedes filtrar por proyecto y prioridad con los símbolos de la tabla. Las fechas y los asignados se conservan como texto de búsqueda.
-
-Varias etiquetas coinciden con cualquiera de ellas. Los nombres duplicados incluyen todas las etiquetas o proyectos coincidentes. Los nombres de etiquetas y proyectos desconocidos se ignoran; una consulta que solo contiene atajos desconocidos muestra todas las tareas disponibles localmente. El campo vacío muestra la pantalla inicial. Antepon una barra inversa al símbolo de un atajo para buscarlo literalmente.
-
-La búsqueda consulta datos descargados y cambios locales pendientes, incluso sin conexión. Los resultados pueden estar incompletos o desactualizados tras un fallo de sincronización. Se recalculan al cambiar la consulta; no se actualizan automáticamente mientras se sincronizan los datos. Con Magic desactivado, toda la consulta se busca como texto del título.
+Usa los mismos atajos para filtrar por etiqueta, proyecto y prioridad. Prueba `*Bug login` (Vikunja) o `@Bug login` (Todoist) para encontrar títulos que contengan «login» con la etiqueta «Bug». Con Magic desactivado, solo se busca texto en el título.
