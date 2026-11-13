@@ -764,6 +764,39 @@ Open threads:
   re-fetched from the server.
 
 
+## Utility sheet appearance
+
+Editing, creation, selection, and consent sheets use native presentation materials
+and neutral system surfaces/text, with the selected theme expressed through its
+accent. Apply `vikuNativeSheetAppearance()` to the content returned by `.sheet`,
+outside the presented view itself. This placement scopes `vikuPalette` for the
+sheet root's own environment reads as well as its descendants. Apply it outside
+any additional content modifiers, such as a caller-provided `safeAreaInset`.
+
+The design-system modifier injects `VikuPalette.nativeSheet` and sets the accent
+tint. The derived palette preserves `brand` and `brandForeground`, uses native
+surface/label providers, and uses neutral-surface status and date-highlight
+colors. It is idempotent for nested sheets and does not change the inherited
+light/dark scheme, the global theme, or sibling views. Project, label, and priority
+colors still belong to the content. Custom accent-filled controls must use
+`brandForeground` rather than assuming white text.
+
+Keep the native presentation background uncovered: do not add a full-page palette
+background, replace `presentationBackground`, or simulate glass with extra effects
+in utility sheets. Native `List`/`Form` surfaces and localized field/card fills
+remain appropriate. The What's New sheet, including its guide/history pages, is
+an intentional content-oriented exception and retains the full theme palette.
+System-owned file import and QuickLook presentations retain system styling.
+
+The utility sheet inventory is: Quick Add; create/edit project; rename filter;
+create/edit label; duplicate task; edit comment; due date; reminder; label picker;
+project picker (including move, parent, and default project); home selection;
+relation kind; relation task; notification consent; and app-icon badge consent.
+Reusable sheet views are styled at every presentation boundary, including nested
+pickers. Test palette derivation and environment scoping in VikuDesignSystem;
+validate materials on device with the keyboard, all detents, and accessibility
+appearance settings because package tests do not verify Liquid Glass compositing.
+
 ## Kanban task ordering
 
 Project board downloads carry task positions scoped to the downloaded view in

@@ -4,6 +4,28 @@ import SwiftUI
 /// the token file itself stays free of `#if os(...)` branching — this package
 /// also builds for macOS to run its tests, where `UIColor` doesn't exist.
 extension Color {
+    /// Native secondary labels for neutral sheet materials. The app's themed
+    /// secondary text below intentionally uses a different contrast treatment.
+    static var platformNativeTextSecondary: Color {
+        #if os(iOS)
+        Color(uiColor: .secondaryLabel)
+        #elseif os(macOS)
+        Color(nsColor: .secondaryLabelColor)
+        #else
+        Color.secondary
+        #endif
+    }
+
+    static var platformNativeTextTertiary: Color {
+        #if os(iOS)
+        Color(uiColor: .tertiaryLabel)
+        #elseif os(macOS)
+        Color(nsColor: .tertiaryLabelColor)
+        #else
+        Color.secondary
+        #endif
+    }
+
     /// Dark green on light fields and mint on dark fields, independent of the brand hue.
     static var platformDateHighlightText: Color {
         #if os(iOS)

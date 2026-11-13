@@ -55,21 +55,25 @@ struct ProjectsView: View {
                 Task { await viewModel.load() }
             }, content: {
                 CreateProjectSheetView(makeViewModel: { makeCreateProjectViewModel(nil) })
+                    .vikuNativeSheetAppearance()
             })
             .sheet(item: $editingProject, onDismiss: {
                 Task { await viewModel.load() }
             }, content: { project in
                 EditProjectSheetView(makeViewModel: { makeEditProjectViewModel(project) })
+                    .vikuNativeSheetAppearance()
             })
             .sheet(item: $renamingFilterProject, onDismiss: {
                 Task { await viewModel.load() }
             }, content: { project in
                 RenameFilterSheetView(makeViewModel: { makeRenameFilterViewModel(project) })
+                    .vikuNativeSheetAppearance()
             })
             .sheet(item: $subprojectParentProject, onDismiss: {
                 Task { await viewModel.load() }
             }, content: { parentProject in
                 CreateProjectSheetView(makeViewModel: { makeCreateProjectViewModel(parentProject.id) })
+                    .vikuNativeSheetAppearance()
             })
             .confirmationDialog(
                 Text(verbatim: deleteConfirmationMessage),

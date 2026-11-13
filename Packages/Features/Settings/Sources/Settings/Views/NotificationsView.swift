@@ -119,6 +119,7 @@ struct NotificationsView: View {
                 NotificationsConsentSheet {
                     Task { await viewModel.confirmEnable() }
                 }
+                .vikuNativeSheetAppearance()
             }
             .confirmationDialog(
                 Text("Turn off push notifications?", bundle: .module),

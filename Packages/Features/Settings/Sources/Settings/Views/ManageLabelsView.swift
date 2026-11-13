@@ -50,6 +50,7 @@ struct ManageLabelsView: View {
                         await viewModel.updateLabel(label, title: title, hexColor: hexColor)
                     }
                 }
+                .vikuNativeSheetAppearance()
             }
             .confirmationDialog(
                 Text("Delete this label?", bundle: .module),

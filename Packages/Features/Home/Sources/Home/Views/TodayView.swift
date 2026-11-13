@@ -89,6 +89,7 @@ struct TodayView: View {
                     guard let destination else { return }
                     Task { await viewModel.move(task, to: destination) }
                 }
+                .vikuNativeSheetAppearance()
                 .task { await viewModel.loadMoveCandidates() }
             }
             .sheet(item: $taskPendingDuplicate) { task in
@@ -98,11 +99,13 @@ struct TodayView: View {
                         router.push(.taskDetail(task, project))
                     },
                 )
+                .vikuNativeSheetAppearance()
             }
             .sheet(item: $taskPendingDueDateEdit) { task in
                 DueDatePickerSheet(initialDate: task.dueDate) { newDate in
                     Task { await viewModel.setDueDate(task, to: newDate) }
                 }
+                .vikuNativeSheetAppearance()
             }
             .sheet(item: $taskPendingLabelEdit) { task in
                 LabelPickerSheet(
@@ -115,6 +118,7 @@ struct TodayView: View {
                         await viewModel.createAndAddLabel(task, title: title, hexColor: hexColor)
                     },
                 )
+                .vikuNativeSheetAppearance()
             }
             .sheet(item: $relationEditStep) { step in
                 switch step {
@@ -122,6 +126,7 @@ struct TodayView: View {
                     RelationKindPickerSheet { kind in
                         relationEditStep = .pickTask(task, kind)
                     }
+                    .vikuNativeSheetAppearance()
                 case let .pickTask(task, kind):
                     RelationTaskPickerSheet(
                         kind: kind,
@@ -143,6 +148,7 @@ struct TodayView: View {
                             relationEditStep = nil
                         },
                     )
+                    .vikuNativeSheetAppearance()
                 }
             }
     }

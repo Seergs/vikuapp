@@ -112,7 +112,6 @@ struct NotificationsConsentSheet: View {
             .padding(.top, VikuSpacing.xl)
             .padding(.bottom, VikuSpacing.md)
         }
-        .background(palette.cardBackground)
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: VikuSpacing.sm + VikuSpacing.xs) {
                 Button {
@@ -120,6 +119,7 @@ struct NotificationsConsentSheet: View {
                     dismiss()
                 } label: {
                     Text("Agree & Continue", bundle: .module)
+                        .foregroundStyle(palette.brandForeground)
                         .font(VikuFont.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, VikuSpacing.sm + VikuSpacing.xxs)
@@ -133,7 +133,6 @@ struct NotificationsConsentSheet: View {
                     .foregroundStyle(palette.textSecondary)
             }
             .padding(VikuSpacing.md)
-            .background(palette.cardBackground)
         }
         .presentationDragIndicator(.visible)
     }

@@ -303,6 +303,7 @@ struct SettingsView: View {
             AppIconBadgeConsentSheet {
                 Task { await badgeViewModel.confirmEnable() }
             }
+            .vikuNativeSheetAppearance()
         }
         .sheet(isPresented: $isPresentingDefaultProjectPicker) {
             ProjectPickerSheet(
@@ -313,6 +314,7 @@ struct SettingsView: View {
             ) { project in
                 Task { await defaultProjectViewModel.selectDefaultProject(project) }
             }
+            .vikuNativeSheetAppearance()
         }
         .sheet(isPresented: $isPresentingHomeSelectionPicker) {
             HomeSelectionPickerSheet(
@@ -321,6 +323,7 @@ struct SettingsView: View {
             ) { project in
                 homeSelectionViewModel.select(project)
             }
+            .vikuNativeSheetAppearance()
         }
         .task {
             await badgeViewModel.refreshPermissionStatus()

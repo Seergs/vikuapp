@@ -415,6 +415,7 @@ private struct QuickAddOverlay: View {
         }
         .sheet(item: $presented) { presented in
             QuickAddSheetView(viewModel: presented.viewModel)
+                .vikuNativeSheetAppearance()
         }
         // A `viku://quick-add` deep link opens the same sheet. Handled
         // here, not in `MainTabView`, so reading the router doesn't rebuild

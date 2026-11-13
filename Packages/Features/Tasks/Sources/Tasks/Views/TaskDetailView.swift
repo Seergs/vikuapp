@@ -240,6 +240,7 @@ public struct TaskDetailView: View {
                 DueDatePickerSheet(initialDate: viewModel.task.dueDate) { newDate in
                     Task { await viewModel.setDueDate(newDate) }
                 }
+                .vikuNativeSheetAppearance()
             }
             .sheet(item: $reminderEditTarget) { target in
                 ReminderPickerSheet(
@@ -258,6 +259,7 @@ public struct TaskDetailView: View {
                         { Task { await viewModel.removeReminder(at: index) } }
                     },
                 )
+                .vikuNativeSheetAppearance()
             }
             .sheet(isPresented: $isShowingLabelPicker) {
                 LabelPickerSheet(
@@ -270,6 +272,7 @@ public struct TaskDetailView: View {
                         await viewModel.createAndAddLabel(title: title, hexColor: hexColor)
                     },
                 )
+                .vikuNativeSheetAppearance()
             }
             .sheet(isPresented: $isShowingMovePicker) {
                 ProjectPickerSheet(
@@ -285,6 +288,7 @@ public struct TaskDetailView: View {
                         }
                     }
                 }
+                .vikuNativeSheetAppearance()
                 .task { await viewModel.loadAllProjects() }
             }
             .sheet(isPresented: $isShowingDuplicateSheet) {
@@ -295,6 +299,7 @@ public struct TaskDetailView: View {
                         router.push(.taskDetail(task, project))
                     },
                 )
+                .vikuNativeSheetAppearance()
             }
             .confirmationDialog(
                 Text("This permanently deletes the task.", bundle: .module),
@@ -340,6 +345,7 @@ public struct TaskDetailView: View {
                 EditCommentSheet(session: session) { newText in
                     Task { await viewModel.editComment(session.comment, newText: newText) }
                 }
+                .vikuNativeSheetAppearance()
             }
             // Description and comments both render rich text; their embedded
             // images load through the screen's loader and open in QuickLook.
@@ -359,6 +365,7 @@ public struct TaskDetailView: View {
                     RelationKindPickerSheet { kind in
                         relationEditStep = .pickTask(task, kind)
                     }
+                    .vikuNativeSheetAppearance()
                 case let .pickTask(_, kind):
                     RelationTaskPickerSheet(
                         kind: kind,
@@ -385,10 +392,12 @@ public struct TaskDetailView: View {
                             relationEditStep = nil
                         },
                     )
+                    .vikuNativeSheetAppearance()
                 }
             }
             .sheet(item: $presentedInlineQuickAdd) { presented in
                 QuickAddSheetView(viewModel: presented.viewModel)
+                    .vikuNativeSheetAppearance()
             }
             .onChange(of: focusedField) { previous, current in
                 if previous == .title, current != .title {

@@ -69,9 +69,11 @@ public struct ProjectOverviewRootView: View {
         }, content: { project in
             if project.kind == .savedFilter {
                 RenameFilterSheetView(makeViewModel: { makeRenameFilterViewModel(project) })
+                    .vikuNativeSheetAppearance()
                     .presentationCompactAdaptation(.sheet)
             } else {
                 EditProjectSheetView(makeViewModel: { makeEditProjectViewModel(project) })
+                    .vikuNativeSheetAppearance()
                     .presentationCompactAdaptation(.sheet)
             }
         })
