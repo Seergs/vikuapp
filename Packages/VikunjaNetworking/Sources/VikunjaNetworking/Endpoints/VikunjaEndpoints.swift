@@ -105,8 +105,11 @@ enum VikunjaEndpoints {
         Endpoint(path: "/api/v1/projects/\(id)", method: .delete)
     }
 
-    static func labels() -> Endpoint {
-        Endpoint(path: "/api/v1/labels")
+    static func labels(page: Int? = nil) -> Endpoint {
+        Endpoint(
+            path: "/api/v1/labels",
+            queryItems: page.map { [URLQueryItem(name: "page", value: String($0))] } ?? [],
+        )
     }
 
     static func createLabel(dto: LabelDTO) throws -> Endpoint {

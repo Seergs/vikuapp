@@ -1,0 +1,47 @@
+[
+  {
+    "id": 1,
+    "title": "planning",
+    "description": "",
+    "hex_color": "25be8b",
+    "created_by": {
+      "id": 1,
+      "name": "Fixture User",
+      "username": "fixture-user",
+      "created": "2026-07-24T16:45:17-06:00",
+      "updated": "2026-11-13T09:59:21-06:00"
+    },
+    "created": "2026-07-24T16:45:26-06:00",
+    "updated": "2026-07-24T16:45:26-06:00"
+  },
+  {
+    "id": 2,
+    "title": "logistics",
+    "description": "",
+    "hex_color": "25be8b",
+    "created_by": {
+      "id": 1,
+      "name": "Fixture User",
+      "username": "fixture-user",
+      "created": "2026-07-24T16:45:17-06:00",
+      "updated": "2026-11-13T09:59:21-06:00"
+    },
+    "created": "2026-07-24T16:45:26-06:00",
+    "updated": "2026-07-24T16:45:26-06:00"
+  },
+  {
+    "id": 3,
+    "title": "inspection",
+    "description": "",
+    "hex_color": "ff006e",
+    "created_by": {
+      "id": 1,
+      "name": "Fixture User",
+      "username": "fixture-user",
+      "created": "2026-07-24T16:45:17-06:00",
+      "updated": "2026-11-13T09:59:21-06:00"
+    },
+    "created": "2026-07-24T16:45:26-06:00",
+    "updated": "2026-07-24T16:45:26-06:00"
+  }
+]

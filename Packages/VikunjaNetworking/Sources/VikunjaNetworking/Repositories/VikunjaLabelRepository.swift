@@ -8,7 +8,9 @@ public final class VikunjaLabelRepository: LabelRepositoryProtocol {
     }
 
     public func fetchLabels() async throws -> [Label] {
-        let dtos: [LabelDTO] = try await client.send(VikunjaEndpoints.labels())
+        let dtos: [LabelDTO] = try await client.sendAllPagesV1 {
+            VikunjaEndpoints.labels(page: $0)
+        }
         return dtos.map(LabelMapper.toDomain)
     }
 

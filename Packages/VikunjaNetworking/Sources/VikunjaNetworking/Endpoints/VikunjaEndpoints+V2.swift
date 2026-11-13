@@ -64,8 +64,11 @@ extension VikunjaEndpoints {
         Endpoint(path: "/api/v2/tasks/\(taskID)/comments/\(commentID)", method: .delete)
     }
 
-    static func labelsV2() -> Endpoint {
-        Endpoint(path: "/api/v2/labels")
+    static func labelsV2(page: Int? = nil) -> Endpoint {
+        Endpoint(
+            path: "/api/v2/labels",
+            queryItems: page.map { [URLQueryItem(name: "page", value: String($0))] } ?? [],
+        )
     }
 
     static func createLabelV2(dto: LabelDTO) throws -> Endpoint {
