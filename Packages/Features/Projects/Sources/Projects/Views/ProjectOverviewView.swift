@@ -245,7 +245,7 @@ struct ProjectOverviewView: View {
                     title: String(localized: "Move to Project", bundle: .module),
                     projects: viewModel.allProjects,
                     selectedProjectID: nil,
-                    excludingSubtreeOf: viewModel.project.id,
+                    disablingSelectionOf: task.projectID,
                 ) { destination in
                     guard let destination else { return }
                     Task { await viewModel.move(task, to: destination) }
@@ -1046,7 +1046,6 @@ private extension View {
     /// See `TodayView.todayListStyle()` for why `listRowSpacing(0)` and a
     /// zeroed `defaultMinListRowHeight` are needed alongside `.plain`, and
     /// why `listRowSpacing` is gated to iOS.
-    @ViewBuilder
     func projectsListStyle() -> some View {
         #if os(iOS)
         listStyle(.plain)

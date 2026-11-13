@@ -10,6 +10,7 @@ import VikunjaCore
 public struct ProjectPickerNode: Identifiable, Hashable {
     public let project: Project
     public let children: [ProjectPickerNode]
+    public let isSelectable: Bool
 
     public var id: EntityID {
         project.id
@@ -29,10 +30,12 @@ public enum ProjectPickerTree {
     /// (malformed server data) by never revisiting a project id on the same
     /// branch. `excludedID`, when set, drops that project **and its whole
     /// subtree** — a project can't be reparented under itself or a
-    /// descendant, and a task's move target can't be its current project.
+    /// descendant. `disabledID` keeps the project and its descendants visible,
+    /// but prevents selecting only that project as a task move destination.
     public static func tree(
         from projects: [Project],
         excludingSubtreeOf excludedID: EntityID? = nil,
+        disablingSelectionOf disabledID: EntityID? = nil,
     ) -> [ProjectPickerNode] {
         let childrenByParentID = Dictionary(grouping: projects, by: \.parentProjectID)
 
@@ -45,6 +48,7 @@ public enum ProjectPickerTree {
                     return ProjectPickerNode(
                         project: project,
                         children: nodes(withParentID: project.id, ancestors: ancestors.union([project.id])),
+                        isSelectable: project.id != disabledID,
                     )
                 }
         }
@@ -59,13 +63,15 @@ public enum ProjectPickerTree {
         _ projects: [Project],
         query: String,
         excludingSubtreeOf excludedID: EntityID? = nil,
-    ) -> [Project] {
+        disablingSelectionOf disabledID: EntityID? = nil,
+    ) -> [ProjectPickerNode] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
         let excluded = excludedID.map { subtreeIDs(rootedAt: $0, in: projects) } ?? []
         return projects
             .filter { !excluded.contains($0.id) && $0.title.localizedCaseInsensitiveContains(trimmed) }
             .sorted { $0.position < $1.position }
+            .map { ProjectPickerNode(project: $0, children: [], isSelectable: $0.id != disabledID) }
     }
 
     /// The chain of parent ids from `projectID` up to its root, so the picker
