@@ -2,7 +2,7 @@
 title: Quick Add Magic
 summary: Add a task, its project, and a due date as you type.
 category: basics
-updated: 2026-11-07
+updated: 2026-11-12
 related: offline-mode
 ---
 
@@ -43,3 +43,11 @@ Try `tomorrow`, `next Saturday`, or `in three days`. English and Spanish dates w
 Review the highlighted date and shortcut indicators. Unrecognized or ambiguous text stays in the title, so check the project and due date before saving.
 
 To keep a recognized date as part of the title, turn off shortcuts before writing the task, or edit its title after creating it.
+
+## Search with shortcuts
+
+Search uses the same Quick Add Magic setting. In Vikunja mode, `*Bug login` finds tasks whose title contains “login” with the “Bug” label. In Todoist mode, use `@Bug login`. You can also filter by project and priority using the symbols above. Dates and assignees remain plain search text.
+
+Several labels match any of them. Duplicate names include all matching labels or projects. Unknown label and project names are ignored; a query containing only unknown shortcuts shows all locally available tasks. An empty search field shows the initial screen. Escape a shortcut symbol with a backslash to search for it literally.
+
+Search reads downloaded data and pending local changes, including offline. Results can be incomplete or outdated after a failed sync. Results are recalculated when you change the query; they do not update automatically as data syncs. With Magic off, the entire query is searched as title text.

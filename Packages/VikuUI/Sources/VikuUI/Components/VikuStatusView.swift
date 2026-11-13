@@ -7,7 +7,7 @@ import VikuDesignSystem
 public struct VikuStatusView: View {
     private let systemImage: String
     private let title: String
-    private let message: String
+    private let message: Text
     private let iconSize: CGFloat
     private let fillsHeight: Bool
     private let retry: (() -> Void)?
@@ -23,6 +23,25 @@ public struct VikuStatusView: View {
         systemImage: String,
         title: String,
         message: String,
+        iconSize: CGFloat = 40,
+        fillsHeight: Bool = true,
+        retry: (() -> Void)? = nil,
+    ) {
+        self.init(
+            systemImage: systemImage,
+            title: title,
+            message: Text(verbatim: message),
+            iconSize: iconSize,
+            fillsHeight: fillsHeight,
+            retry: retry,
+        )
+    }
+
+    /// Accepts styled text while preserving the shared status layout.
+    public init(
+        systemImage: String,
+        title: String,
+        message: Text,
         iconSize: CGFloat = 40,
         fillsHeight: Bool = true,
         retry: (() -> Void)? = nil,
@@ -44,7 +63,7 @@ public struct VikuStatusView: View {
             Text(title)
                 .font(VikuFont.headline)
 
-            Text(message)
+            message
                 .font(VikuFont.subheadline)
                 .foregroundStyle(palette.textSecondary)
                 .multilineTextAlignment(.center)

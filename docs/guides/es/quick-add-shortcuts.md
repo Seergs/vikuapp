@@ -2,7 +2,7 @@
 title: Quick Add Magic
 summary: Asigna fechas, proyectos, etiquetas y prioridades mientras escribes.
 category: basics
-updated: 2026-11-07
+updated: 2026-11-12
 related: offline-mode
 ---
 
@@ -69,3 +69,11 @@ título, el botón de crear se desactiva.
 Para conservar una expresión reconocida literalmente en el título, desactiva Quick Add Magic o edita la tarea después de
 crearla. El interruptor de vista previa de fechas en Desarrollador solo controla el
 panel de diagnóstico; no controla si las fechas se aplican.
+
+## Busca con la misma sintaxis
+
+La búsqueda comparte la configuración de Quick Add Magic y el reconocimiento de atajos. Con Magic desactivado, la consulta se busca literalmente en el título. Con Magic activado, `*Bug +Trabajo !3 login` (Vikunja) o `@Bug #Trabajo p2 login` (Todoist) combina texto del título con filtros de etiqueta, proyecto y prioridad. Las etiquetas se combinan con O; el texto, el proyecto y la prioridad se combinan con Y. Solo se aplica el primer atajo de proyecto y prioridad. Las fechas y los asignados no se interpretan como filtros.
+
+Los nombres coinciden sin distinguir mayúsculas ni acentos. Si hay nombres duplicados, se incluyen todas las identidades coincidentes. Los nombres desconocidos se eliminan del texto y se ignoran como filtros, igual que en Vikunja web. Por ejemplo, `*Bgu login` busca «login» sin restringir por etiqueta si «Bgu» no existe localmente. `*Bug *Bgu login` sigue filtrando por «Bug» si esa etiqueta existe. Una consulta compuesta solo por nombres desconocidos muestra todas las tareas locales. El campo realmente vacío conserva la pantalla inicial. Los nombres entre comillas y los símbolos escapados siguen las reglas de Quick Add.
+
+La búsqueda es local y de solo lectura: no crea etiquetas, no hace búsquedas remotas ni inicia sincronizaciones. Incluye asignaciones y retiradas de etiquetas pendientes e identidades locales sin ID del servidor. Los fallos de subida conservan las ediciones locales. Tras un conflicto, la búsqueda usa el estado guardado por el flujo de sincronización existente y mantiene la edición pendiente disponible para resolverla. Solo cubre datos guardados localmente; una descarga pendiente o fallida puede dejar resultados incompletos o desactualizados. No observa sincronizaciones ni ediciones externas; cambiar la consulta recalcula los resultados. El texto se busca como una subcadena del título sin distinguir mayúsculas, sin buscar en la descripción ni ordenar por relevancia.

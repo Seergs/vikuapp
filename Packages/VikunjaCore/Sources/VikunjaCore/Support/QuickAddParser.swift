@@ -167,6 +167,26 @@ public enum QuickAddParser {
         return scan(input, syntax: syntax).tokens
     }
 
+    /// Shares Quick Add's token recognition, but never creates labels or parses
+    /// dates. Every recognized token is removed, including unknown names.
+    /// As in Quick Add, the first project and priority shortcuts take precedence.
+    public static func searchQuery(_ input: String, syntax: QuickAddSyntax?) -> TaskSearchQuery {
+        guard let syntax else {
+            return TaskSearchQuery(text: input.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+        let scan = scan(input, syntax: syntax)
+        let project = scan.tokens.first { $0.kind == .project }?.value
+        let labels = scan.tokens.filter { $0.kind == .label }.map(\.value)
+        let priority = scan.tokens.first { $0.kind == .priority }
+            .flatMap { Int($0.value) }.map { syntax.priority(forLevel: $0) }
+        return TaskSearchQuery(
+            text: buildTitle(input: input, escapes: scan.escapes, removing: scan.tokens.map(\.range)),
+            projectName: project,
+            labelNames: labels,
+            priority: priority,
+        )
+    }
+
     // MARK: - Scanning
 
     private struct Scan {

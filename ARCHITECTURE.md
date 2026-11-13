@@ -46,7 +46,7 @@ is fully built as multi-account management — list, add, edit, delete, and
 switch the active connection, all through `AccountStoreProtocol`. Task and
 project mutation (create/update/delete), label CRUD + association, relation
 add/remove, and task comment fetch/add are all wired through `VikunjaNetworking`
-end to end. `Features/Search` is still a placeholder screen.
+end to end. `Features/Search` searches the local task cache with optional Quick Add shortcut filters.
 
 ---
 
@@ -118,7 +118,7 @@ vikunja-ios/
         ├── Onboarding/            # "connect to your instance" — built end to end
         ├── Home/                  # "Today" tab — built end to end (every project's tasks, by due date)
         ├── Projects/              # projects tab — built end to end (list, tree, overview, create, delete)
-        ├── Search/                # search tab (iOS 26 `.search` role) — placeholder
+        ├── Search/                # search tab (iOS 26 `.search` role) — local task search
         ├── Settings/              # settings tab — built end to end (multi-account: list/add/edit/delete/switch)
         ├── Tasks/                 # task detail (pushed by Home/Projects as a leaf) + quick-add sheet
         └── ...
@@ -749,9 +749,6 @@ the networking layer.
 
 Open threads:
 
-- **`Search`** is still a placeholder. The natural next slice is a real query
-  against `ProjectRepositoryProtocol` / `TaskRepositoryProtocol.searchTasks`
-  (both already exist).
 - **Subtasks** render read-only on the detail screen (a `TaskRelation` is too
   thin to round-trip through an update without an extra fetch per row) — making
   them togglable/creatable like the other relation kinds is unfinished.
@@ -981,3 +978,22 @@ transaction rollback, queued-intent preservation, overlapping execution windows,
 worker cancellation and observation continuity. Physical-device validation
 without a debugger remains necessary for the iOS suspension boundary. Transaction
 performance investigation is separate (VIKU-193).
+
+## Structured task search
+
+Search uses `TaskSearchRepositoryProtocol` with `TaskSearchQuery`, separately from
+`TaskRepositoryProtocol.searchTasks(query:)`, whose literal semantics remain for
+relation pickers. `QuickAddParser.searchQuery` shares the creation tokenizer and
+escape handling, but never interprets dates or creates labels. Search reads the
+existing Quick Add syntax preference; off means literal title search.
+
+`OfflineTaskRepository` resolves names and reads effective task state in one
+account-scoped database snapshot. Known labels combine with OR, while title,
+project and priority combine with AND. Duplicate names include all matching IDs,
+including local identities. Unknown names are stripped and ignored; no resolved
+filters and no remaining text matches all visible local tasks. Only the first
+project and priority token applies. Label matching includes queued additions and
+removals after failures/conflicts and through local-to-remote identity changes.
+Queries do not trigger sync, and results do not observe ongoing local changes.
+There is no new remote-search capability or database migration. Search's row
+project lookup uses EntityID so offline-created projects can render.

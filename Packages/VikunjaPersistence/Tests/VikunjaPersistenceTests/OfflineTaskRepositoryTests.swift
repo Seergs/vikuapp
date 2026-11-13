@@ -515,6 +515,122 @@ struct OfflineTaskRepositoryTests {
         #expect(results.map(\.title) == ["Buy milk"])
     }
 
+    @Test func `structured search uses pending label additions removals and OR without network reads`() async throws {
+        let fixture = try await makeRepository(online: false)
+        let labels = OfflineLabelRepository(
+            localStore: fixture.store, accountID: fixture.accountID, syncRequester: fixture.syncRequester,
+        )
+        let bug = try await labels.create(Label(id: .local(UUID()), title: "Bug", hexColor: ""))
+        let urgent = try await labels.create(Label(id: .local(UUID()), title: "Urgent", hexColor: ""))
+        let first = try await fixture.repository.create(
+            VikunjaTask(id: .local(UUID()), title: "Login bug", priority: .high, projectID: fixture.project),
+        )
+        let second = try await fixture.repository.create(
+            VikunjaTask(id: .local(UUID()), title: "Login urgent", priority: .high, projectID: fixture.project),
+        )
+        try await labels.addLabel(bug.id, toTask: first.id)
+        try await labels.addLabel(urgent.id, toTask: first.id)
+        try await labels.addLabel(urgent.id, toTask: second.id)
+        let query = QuickAddParser.searchQuery("*Bug *Urgent +groceries !3 login", syntax: .vikunja)
+        #expect(try await Set(fixture.repository.searchTasks(matching: query).map(\.id)) == [first.id, second.id])
+        try await labels.removeLabel(bug.id, fromTask: first.id)
+        let bugQuery = QuickAddParser.searchQuery("*Bug login", syntax: .vikunja)
+        #expect(try await fixture.repository.searchTasks(matching: bugQuery).isEmpty)
+        #expect(try await fixture.repository.searchTasks(matching: query).count == 2)
+        try await fixture.repository.delete(id: second.id)
+        #expect(try await fixture.repository.searchTasks(matching: query).map(\.id) == [first.id])
+        #expect(fixture.network.fetchTasksCallCount == 0)
+        #expect(fixture.network.createdTasks.isEmpty)
+    }
+
+    @Test func `structured search preserves matches through failed sync and identity changes`() async throws {
+        let fixture = try await makeRepository(online: false)
+        let labelNetwork = FakeLabelRepository()
+        let labels = OfflineLabelRepository(
+            localStore: fixture.store, accountID: fixture.accountID, syncRequester: fixture.syncRequester,
+        )
+        let label = try await labels.create(Label(id: .local(UUID()), title: "Bug", hexColor: ""))
+        let task = try await fixture.repository.create(
+            VikunjaTask(id: .local(UUID()), title: "Login", projectID: fixture.project),
+        )
+        try await labels.addLabel(label.id, toTask: task.id)
+        let query = QuickAddParser.searchQuery("*Bug login", syntax: .vikunja)
+        #expect(try await fixture.repository.searchTasks(matching: query).map(\.id) == [task.id])
+        let engine = SyncEngine(
+            localStore: fixture.store, projectRepository: FakeProjectRepository(),
+            labelRepository: labelNetwork, taskRepository: fixture.network,
+            relationRepository: FakeTaskRelationRepository(), accountID: fixture.accountID,
+        )
+        labelNetwork.addLabelError = VikunjaError.network("unavailable")
+        try await engine.drainLabelMutations()
+        try await engine.drainTaskMutations()
+        let failed = try await fixture.store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(failed.contains { $0.operation == .addLabel && $0.status == .failed })
+        let afterFailure = try await fixture.repository.searchTasks(matching: query)
+        #expect(afterFailure.count == 1)
+        #expect(afterFailure.first?.id.remoteValue != nil)
+        #expect(afterFailure.first?.labels.first?.id.remoteValue != nil)
+        labelNetwork.addLabelError = nil
+        try await engine.drainTaskMutations()
+        #expect(try await fixture.repository.searchTasks(matching: query).map(\.id) == afterFailure.map(\.id))
+        let remaining = try await fixture.store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(remaining.isEmpty)
+    }
+
+    @Test func `unknown structured names stay read only and never expose another account`() async throws {
+        let fixture = try await makeRepository(online: false)
+        let own = try await fixture.repository.create(
+            VikunjaTask(id: .local(UUID()), title: "Login", projectID: fixture.project),
+        )
+        let otherAccount = UUID()
+        let otherProject = try await seedProject(in: fixture.store, accountID: otherAccount, remoteID: 2)
+        let other = OfflineTaskRepository(
+            localStore: fixture.store, accountID: otherAccount, syncRequester: NoopKanbanSyncRequester(),
+        )
+        _ = try await other.create(
+            VikunjaTask(id: .local(UUID()), title: "Login", projectID: .local(otherProject.localID)),
+        )
+        let otherLabel = LabelRecord(
+            localID: UUID(), accountID: otherAccount, remoteID: 99, title: "Bug", hexColor: "",
+        )
+        try await fixture.store.write { db in try otherLabel.insert(db) }
+        let before = try await fixture.store.read { db in try MutationQueueRecord.fetchAll(db) }
+        for input in ["*Bug", "*Bgu +Missing login"] {
+            let query = QuickAddParser.searchQuery(input, syntax: .vikunja)
+            #expect(try await fixture.repository.searchTasks(matching: query).map(\.id) == [own.id])
+        }
+        let after = try await fixture.store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(after == before)
+    }
+
+    @Test func `structured search follows cached conflict state without changing pending resolution`() async throws {
+        let fixture = try await makeRepository(online: true)
+        let created = try await fixture.repository.create(
+            VikunjaTask(id: .local(UUID()), title: "Original", projectID: fixture.project),
+        )
+        await fixture.reachability.setReachable(false)
+        var local = try await fixture.repository.fetchTask(id: created.id)
+        local.title = "Login local"
+        local.priority = .high
+        _ = try await fixture.repository.update(local)
+        let localQuery = QuickAddParser.searchQuery("!3 login", syntax: .vikunja)
+        #expect(try await fixture.repository.searchTasks(matching: localQuery).map(\.title) == ["Login local"])
+        fixture.network.tasks[0].title = "External edit"
+        fixture.network.tasks[0].updated = Date().addingTimeInterval(60)
+        await fixture.reachability.setReachable(true)
+        await fixture.syncRequester.requestSync()
+        let queue = try await fixture.store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(queue.contains { $0.needsConflictResolution })
+        // The existing conflict flow pulls the server version into the cache,
+        // retaining the local desired fields in the queued edit for recovery.
+        #expect(try await fixture.repository.searchTasks(matching: localQuery).isEmpty)
+        let query = QuickAddParser.searchQuery("external", syntax: .vikunja)
+        let found = try await fixture.repository.searchTasks(matching: query)
+        #expect(found.map(\.title) == ["External edit"])
+        let afterSearch = try await fixture.store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(afterSearch == queue)
+    }
+
     @Test
     func `fetchTasks never returns another accounts rows`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())

@@ -46,6 +46,8 @@ struct LocalizationTests {
         ("Delete", "Eliminar"),
         ("Search failed", "Error al buscar"),
         ("Could not load project details", "No se pudieron cargar los detalles del proyecto"),
+        ("Search by title, or use `*Label`, `+Project` and `!3`", "Busca por título o usa `*Etiqueta`, `+Proyecto` y `!3`"),
+        ("Search by title, or use `@Label`, `#Project` and `p1`", "Busca por título o usa `@Etiqueta`, `#Proyecto` y `p1`"),
     ])
     func `key resolves to its Spanish translation`(key: String, expected: String) {
         #expect(Self.es(key) == expected)
