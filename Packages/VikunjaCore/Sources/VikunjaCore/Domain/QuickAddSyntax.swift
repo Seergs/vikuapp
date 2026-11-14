@@ -2,7 +2,7 @@
 /// in Settings. The two differ only in their symbols, so the parser is the
 /// same for both.
 public enum QuickAddSyntax: String, CaseIterable, Sendable {
-    /// `#Project` and `p1` through `p4`, as in Todoist.
+    /// `#Project` and `p1` through `p4`, with `!!1` through `!!4` as aliases.
     case todoist
     /// `+Project` and `!1` through `!5`, as in Vikunja's own add magic.
     case vikunja
@@ -28,6 +28,15 @@ public enum QuickAddSyntax: String, CaseIterable, Sendable {
         switch self {
         case .todoist: "p"
         case .vikunja: "!"
+        }
+    }
+
+    /// Priority prefixes accepted while reading, longest first. Picker edits
+    /// continue to write the canonical `priorityPrefix`.
+    public var acceptedPriorityPrefixes: [String] {
+        switch self {
+        case .todoist: ["!!", "p"]
+        case .vikunja: ["!"]
         }
     }
 
