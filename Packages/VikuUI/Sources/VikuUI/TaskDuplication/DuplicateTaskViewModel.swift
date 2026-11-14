@@ -38,6 +38,8 @@ public final class DuplicateTaskViewModel {
     private let projectRepository: ProjectRepositoryProtocol
     private let toastPresenter: ToastPresenting
     private let hapticPresenter: HapticFeedbackPresenting
+    /// List hosts offer navigation through the toast; detail hosts already push the copy.
+    private let toastOpensTask: Bool
 
     public var isLoading: Bool {
         loadState == .loading
@@ -73,6 +75,7 @@ public final class DuplicateTaskViewModel {
         projectRepository: ProjectRepositoryProtocol,
         toastPresenter: ToastPresenting,
         hapticPresenter: HapticFeedbackPresenting = NoopHapticFeedback(),
+        toastOpensTask: Bool = false,
     ) {
         self.source = source
         self.sourceProject = sourceProject
@@ -85,6 +88,7 @@ public final class DuplicateTaskViewModel {
         self.projectRepository = projectRepository
         self.toastPresenter = toastPresenter
         self.hapticPresenter = hapticPresenter
+        self.toastOpensTask = toastOpensTask
     }
 
     public func load() async {
@@ -133,8 +137,13 @@ public final class DuplicateTaskViewModel {
                 await attachRelations(to: created.id)
             }
             hapticPresenter.play(.success)
-            toastPresenter.show("Task duplicated", style: .success)
-            return (created, project(withID: created.projectID.remoteValue ?? selectedProjectID))
+            let destination = project(withID: created.projectID.remoteValue ?? selectedProjectID)
+            toastPresenter.show(
+                String(localized: "Task duplicated", bundle: .module),
+                style: .success,
+                action: toastOpensTask ? .taskDetail(created, destination) : nil,
+            )
+            return (created, destination)
         } catch let error as VikunjaError {
             saveErrorMessage = error.displayMessage
             return nil

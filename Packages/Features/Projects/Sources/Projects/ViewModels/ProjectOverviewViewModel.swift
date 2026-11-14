@@ -672,6 +672,7 @@ public final class ProjectOverviewViewModel {
             projectRepository: projectRepository,
             toastPresenter: toastPresenter,
             hapticPresenter: hapticPresenter,
+            toastOpensTask: true,
         )
     }
 

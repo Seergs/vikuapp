@@ -51,7 +51,6 @@ public struct ProjectOverviewRootView: View {
             onSelectSubproject: { router.push(.projectOverview($0.project)) },
             onSelectTask: { router.push(.taskDetail($0, viewModel.taskProject(for: $0))) },
             onEditProject: { editingProject = $0 },
-            onDuplicated: { router.push(.taskDetail($0, $1)) },
             makeCreateProjectViewModel: makeCreateProjectViewModel,
         )
         // Pushed from a `.inline`-titled screen (Tasks' `TaskDetailView`), a

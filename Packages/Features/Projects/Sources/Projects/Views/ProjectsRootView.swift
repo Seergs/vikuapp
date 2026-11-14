@@ -80,7 +80,6 @@ public struct ProjectsRootView: View {
                     onSelectSubproject: { router.push(ProjectsRoute.projectOverview($0)) },
                     onSelectTask: { task in router.push(.taskDetail(task, overviewViewModel.taskProject(for: task))) },
                     onEditProject: { editingProject = $0; editingProjectID = $0.id },
-                    onDuplicated: { router.push(.taskDetail($0, $1)) },
                     makeCreateProjectViewModel: makeCreateProjectViewModel,
                 )
             }

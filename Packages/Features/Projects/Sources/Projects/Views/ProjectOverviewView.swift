@@ -25,12 +25,6 @@ struct ProjectOverviewView: View {
     let onSelectSubproject: (ProjectNode) -> Void
     let onSelectTask: (VikunjaTask) -> Void
     let onEditProject: (Project) -> Void
-    /// Called with the duplicate and its (possibly different) project right
-    /// before the sheet dismisses, so the caller can push its detail screen —
-    /// mirrors `onSelectTask`, but takes the project explicitly since the
-    /// duplicate can land in any project the sheet's picker offers, not just
-    /// this one.
-    let onDuplicated: (VikunjaTask, Project) -> Void
     /// Builds the "create subproject" sheet's view model, taking the parent
     /// project id — mirrors `ProjectsView`/`ProjectsRootView`'s own
     /// `makeCreateProjectViewModel`, reused here with this screen's project
@@ -264,7 +258,6 @@ struct ProjectOverviewView: View {
             .sheet(item: $taskPendingDuplicate) { task in
                 DuplicateTaskSheetView(
                     makeViewModel: { viewModel.makeDuplicateTaskViewModel(for: task) },
-                    onDuplicated: onDuplicated,
                 )
                 .vikuNativeSheetAppearance()
             }

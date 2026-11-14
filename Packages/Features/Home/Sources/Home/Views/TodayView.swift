@@ -95,9 +95,6 @@ struct TodayView: View {
             .sheet(item: $taskPendingDuplicate) { task in
                 DuplicateTaskSheetView(
                     makeViewModel: { viewModel.makeDuplicateTaskViewModel(for: task) },
-                    onDuplicated: { task, project in
-                        router.push(.taskDetail(task, project))
-                    },
                 )
                 .vikuNativeSheetAppearance()
             }
