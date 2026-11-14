@@ -1,6 +1,13 @@
 import VikunjaCore
 
 enum ProjectMapper {
+    /// The server appends virtual projects outside pagination on every page.
+    /// Preserve first-seen ordering and keep each virtual identity only once.
+    static func catalogToDomain(_ dtos: [ProjectDTO]) -> [Project] {
+        var virtualIDs: Set<Int> = []
+        return dtos.filter { $0.id >= 0 || virtualIDs.insert($0.id).inserted }.map(toDomain)
+    }
+
     static func toDomain(_ dto: ProjectDTO) -> Project {
         Project(
             id: .remote(dto.id),

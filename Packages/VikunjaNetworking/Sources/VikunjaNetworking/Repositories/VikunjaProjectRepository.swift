@@ -8,8 +8,11 @@ public final class VikunjaProjectRepository: ProjectRepositoryProtocol {
     }
 
     public func fetchProjects() async throws -> [Project] {
-        let dtos: [ProjectDTO] = try await client.send(VikunjaEndpoints.projects())
-        return dtos.map(ProjectMapper.toDomain)
+        let dtos: [ProjectDTO] = try await client.sendAllPagesV1(
+            countedItem: { $0.id >= 0 },
+            endpoint: { VikunjaEndpoints.projects(page: $0) },
+        )
+        return ProjectMapper.catalogToDomain(dtos)
     }
 
     public func fetchProject(id: EntityID) async throws -> Project {

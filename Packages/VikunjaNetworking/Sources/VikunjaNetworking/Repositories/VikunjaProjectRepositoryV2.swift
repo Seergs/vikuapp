@@ -17,8 +17,11 @@ final class VikunjaProjectRepositoryV2: ProjectRepositoryProtocol {
     }
 
     func fetchProjects() async throws -> [Project] {
-        let envelope: APIv2Envelope<ProjectDTO> = try await client.send(VikunjaEndpoints.projectsV2())
-        return envelope.items.map(ProjectMapper.toDomain)
+        let dtos: [ProjectDTO] = try await client.sendAllPagesV2(
+            countedItem: { $0.id >= 0 },
+            endpoint: { VikunjaEndpoints.projectsV2(page: $0) },
+        )
+        return ProjectMapper.catalogToDomain(dtos)
     }
 
     func fetchProject(id: EntityID) async throws -> Project {
