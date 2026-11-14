@@ -12,6 +12,17 @@ public final class VikunjaUserRepository: UserRepositoryProtocol {
         return UserMapper.toDomain(dto)
     }
 
+    public func updateQuickAddMagicMode(_ mode: QuickAddMagicMode) async throws -> User {
+        let current: UserDTO = try await client.send(VikunjaEndpoints.currentUser())
+        guard let currentSettings = current.settings else {
+            throw VikunjaError.decoding("Current user settings are missing")
+        }
+        let settings = try currentSettings.updatingQuickAddMagicMode(mode)
+        try await client.send(VikunjaEndpoints.updateUserSettings(dto: settings))
+        let refreshed: UserDTO = try await client.send(VikunjaEndpoints.currentUser())
+        return UserMapper.toDomain(refreshed)
+    }
+
     public func updateDefaultProject(id: Int?) async throws -> User {
         let current: UserDTO = try await client.send(VikunjaEndpoints.currentUser())
         let settings = (current.settings ?? UserSettingsDTO()).updatingDefaultProjectId(id ?? 0)

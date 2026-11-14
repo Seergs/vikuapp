@@ -353,6 +353,10 @@ final class FakeUserRepository: UserRepositoryProtocol, @unchecked Sendable {
         return user
     }
 
+    func updateQuickAddMagicMode(_ mode: QuickAddMagicMode) async throws -> User {
+        throw VikunjaError.offline
+    }
+
     func updateOverdueTasksRemindersTime(_ time: String) async throws -> User {
         updateOverdueTasksRemindersTimeCallCount += 1
         lastUpdatedOverdueTasksRemindersTime = time

@@ -1,3 +1,5 @@
+import VikunjaCore
+
 struct UserDTO: Codable {
     let id: Int
     let username: String
@@ -22,9 +24,8 @@ struct UserDTO: Codable {
 /// field (e.g. `default_project_id`) must decode this from the current
 /// `GET /user` response first, change only that field, and send the whole
 /// struct back — otherwise it silently resets the user's name, language,
-/// reminders, etc. `frontendSettings` is passed through as opaque `JSONValue`
-/// for the same reason `TaskDTO.reminders`/`assignees` do (see `JSONValue`'s
-/// doc comment) rather than modeling its shape, which this app never reads.
+/// reminders, etc. `frontendSettings` retains arbitrary fields as `JSONValue`;
+/// only `quick_add_magic_mode` is interpreted and changed by this app.
 /// `extra_settings_links` is omitted: it's server-computed and not one of the
 /// fields the write endpoint accepts.
 struct UserSettingsDTO: Codable {
@@ -38,7 +39,7 @@ struct UserSettingsDTO: Codable {
     let weekStart: Int?
     let language: String?
     let timezone: String?
-    let frontendSettings: JSONValue?
+    var frontendSettings: JSONValue?
 
     init(
         name: String? = nil,
@@ -115,5 +116,34 @@ struct UserSettingsDTO: Codable {
             timezone: timezone,
             frontendSettings: frontendSettings,
         )
+    }
+}
+
+/// Verified against upstream helpers/userSettings.ts and quickAddMagic/prefixes.ts:
+/// the web default is Vikunja when the field or frontend settings are absent.
+extension UserSettingsDTO {
+    var quickAddMagicMode: QuickAddMagicMode? {
+        let fields: [String: JSONValue]
+        switch frontendSettings {
+        case nil, .null: return .vikunja
+        case let .object(value): fields = value
+        default: return nil
+        }
+        guard let value = fields["quick_add_magic_mode"] else { return .vikunja }
+        guard case let .string(raw) = value else { return nil }
+        return QuickAddMagicMode(rawValue: raw)
+    }
+
+    func updatingQuickAddMagicMode(_ mode: QuickAddMagicMode) throws -> UserSettingsDTO {
+        var copy = self
+        var fields: [String: JSONValue]
+        switch frontendSettings {
+        case nil, .null: fields = [:]
+        case let .object(existing): fields = existing
+        default: throw VikunjaError.decoding("Expected frontend_settings object")
+        }
+        fields["quick_add_magic_mode"] = .string(mode.rawValue)
+        copy.frontendSettings = .object(fields)
+        return copy
     }
 }

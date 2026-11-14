@@ -21,6 +21,7 @@ public struct User: Identifiable, Equatable, Sendable {
     /// — the server then falls back to its own configured default (often
     /// `UTC`), which this app has no way to know ahead of time.
     public var timezone: String?
+    public var quickAddMagicMode: QuickAddMagicMode?
 
     public init(
         id: Int,
@@ -30,6 +31,7 @@ public struct User: Identifiable, Equatable, Sendable {
         defaultProjectID: Int? = nil,
         overdueTasksRemindersTime: String? = nil,
         timezone: String? = nil,
+        quickAddMagicMode: QuickAddMagicMode? = nil,
     ) {
         self.id = id
         self.username = username
@@ -38,5 +40,6 @@ public struct User: Identifiable, Equatable, Sendable {
         self.defaultProjectID = defaultProjectID
         self.overdueTasksRemindersTime = overdueTasksRemindersTime
         self.timezone = timezone
+        self.quickAddMagicMode = quickAddMagicMode
     }
 }

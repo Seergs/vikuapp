@@ -6,6 +6,9 @@
 public protocol UserRepositoryProtocol: Sendable {
     func fetchCurrentUser() async throws -> User
 
+    /// Reads current general settings and changes only the Magic preference.
+    func updateQuickAddMagicMode(_ mode: QuickAddMagicMode) async throws -> User
+
     /// Sets the project new tasks default into, or clears it when `id` is
     /// `nil`. Vikunja's general-settings endpoint replaces the whole settings
     /// object on write, so implementations must read-modify-write the other

@@ -1,0 +1,36 @@
+{
+  "id": 3,
+  "name": "QA User",
+  "username": "qa-user",
+  "created": "2026-01-10T09:00:00Z",
+  "updated": "2026-01-20T09:00:00Z",
+  "settings": {
+    "name": "QA User",
+    "email_reminders_enabled": false,
+    "discoverable_by_name": false,
+    "discoverable_by_email": false,
+    "overdue_tasks_reminders_enabled": true,
+    "overdue_tasks_reminders_time": "9:00",
+    "default_project_id": 6,
+    "week_start": 0,
+    "language": "",
+    "timezone": "UTC",
+    "frontend_settings": {
+      "quick_add_magic_mode": "todoist",
+      "color_schema": "auto",
+      "play_sound_when_done": true,
+      "quick_add_default_reminders": [
+        {
+          "relative_period": -3600
+        }
+      ],
+      "default_due_time": "09:00",
+      "sidebar_width": null
+    },
+    "extra_settings_links": null
+  },
+  "deletion_scheduled_at": "0001-01-01T00:00:00Z",
+  "is_local_user": true,
+  "auth_provider": "local",
+  "is_admin": false
+}
