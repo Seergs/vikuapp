@@ -58,6 +58,8 @@ struct LocalizationTests {
         ("Delete Task", "Eliminar tarea"),
         ("Cancel", "Cancelar"),
         ("Move to Project", "Mover a proyecto"),
+        ("Move to Top", "Mover al inicio"),
+        ("Move to Bottom", "Mover al final"),
         ("Couldn't load this project", "No se pudo cargar este proyecto"),
         ("Subprojects", "Subproyectos"),
         ("No tasks yet", "Aún no hay tareas"),

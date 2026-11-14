@@ -15,6 +15,7 @@ public final class KanbanBoardViewModel {
     public private(set) var supportsTaskCreation = false
     public private(set) var requiresConnection = false
     public private(set) var isRefreshing = false
+    public private(set) var isReordering = false
     public var isLoading: Bool {
         loadState == .loading
     }
@@ -23,6 +24,7 @@ public final class KanbanBoardViewModel {
 
     private var viewID: Int?
     private let repository: KanbanBoardRepositoryProtocol
+    private let orderingRepository: KanbanTaskOrderingProtocol?
     private let trigger: SyncTriggering
     private let synchronization: LocalScreenSync
     private let toastPresenter: ToastPresenting
@@ -36,12 +38,14 @@ public final class KanbanBoardViewModel {
 
     public init(
         project: Project, repository: KanbanBoardRepositoryProtocol,
+        orderingRepository: KanbanTaskOrderingProtocol? = nil,
         syncTrigger: SyncTriggering, localData: LocalDataObserving,
         toastPresenter: ToastPresenting,
         hapticPresenter: HapticFeedbackPresenting = NoopHapticFeedback(),
     ) {
         self.project = project
         self.repository = repository
+        self.orderingRepository = orderingRepository
         self.trigger = syncTrigger
         self.synchronization = LocalScreenSync(
             trigger: syncTrigger, localData: localData, toastPresenter: toastPresenter,
@@ -167,6 +171,43 @@ public final class KanbanBoardViewModel {
             }
             await load()
         } catch { show(error) }
+    }
+
+    /// Uses the complete bucket, including cards hidden by the board's search.
+    public func orderingOptions(for task: VikunjaTask) -> KanbanTaskOrderingOptions? {
+        guard supportsWrites, orderingRepository != nil, !isReordering, let viewID,
+              !pendingActions.contains(task.id),
+              let bucket = buckets.first(where: { $0.tasks.contains { $0.id == task.id } }) else { return nil }
+        var placements: [KanbanTaskPlacement] = []
+        if bucket.tasks.first?.id != task.id {
+            placements.append(.top)
+        }
+        if bucket.tasks.last?.id != task.id {
+            placements.append(.bottom)
+        }
+        return KanbanTaskOrderingOptions(taskID: task.id, viewID: viewID, bucketID: bucket.id, placements: placements)
+    }
+
+    public func reorderTask(_ options: KanbanTaskOrderingOptions, to placement: KanbanTaskPlacement) async {
+        guard !Task.isCancelled, supportsWrites, !isReordering, let orderingRepository,
+              viewID == options.viewID, options.placements.contains(placement),
+              let bucket = buckets.first(where: { $0.tasks.contains { $0.id == options.taskID } }),
+              bucket.id == options.bucketID, pendingActions.insert(options.taskID).inserted else { return }
+        isReordering = true
+        defer {
+            isReordering = false
+            pendingActions.remove(options.taskID)
+        }
+        do {
+            try await orderingRepository.reorderTask(
+                taskID: options.taskID, projectID: project.id, viewID: options.viewID,
+                bucketID: options.bucketID, placement: placement,
+            )
+            await load()
+        } catch is CancellationError {
+        } catch {
+            show(error)
+        }
     }
 
     public func toggleDone(_ task: VikunjaTask) async {

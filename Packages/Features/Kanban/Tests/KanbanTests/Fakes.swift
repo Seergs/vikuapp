@@ -3,7 +3,7 @@ import Foundation
 import VikunjaCore
 
 @MainActor
-final class FakeBucketRepository: KanbanBoardRepositoryProtocol {
+final class FakeBucketRepository: KanbanBoardRepositoryProtocol, KanbanTaskOrderingProtocol {
     func hasCachedKanbanSupport() async throws -> Bool {
         hasSnapshot
     }
@@ -12,6 +12,9 @@ final class FakeBucketRepository: KanbanBoardRepositoryProtocol {
     var fetchError: VikunjaError?
     var moveError: VikunjaError?
     var createError: (any Error)?
+    var reorderError: (any Error)?
+    var beforeReorder: (@MainActor () async throws -> Void)?
+    var viewID = 7
     var hasSnapshot = true
     var waitingForProject = false
     var supportsWrites = true
@@ -19,6 +22,33 @@ final class FakeBucketRepository: KanbanBoardRepositoryProtocol {
     var requiresConnection = false
     private(set) var movedTaskIDs: [(taskID: EntityID, bucketID: Int)] = []
     private(set) var createdTasks: [(task: VikunjaTask, bucketID: Int)] = []
+    struct RecordedOrder {
+        let taskID: EntityID
+        let projectID: EntityID
+        let viewID: Int
+        let bucketID: Int
+        let placement: KanbanTaskPlacement
+    }
+
+    private(set) var reorderedTasks: [RecordedOrder] = []
+
+    func reorderTask(
+        taskID: EntityID, projectID: EntityID, viewID: Int, bucketID: Int, placement: KanbanTaskPlacement,
+    ) async throws {
+        reorderedTasks.append(RecordedOrder(
+            taskID: taskID, projectID: projectID, viewID: viewID, bucketID: bucketID, placement: placement,
+        ))
+        try await beforeReorder?()
+        if let reorderError {
+            throw reorderError
+        }
+        guard let bucket = buckets.firstIndex(where: { $0.id == bucketID }),
+              let index = buckets[bucket].tasks.firstIndex(where: { $0.id == taskID }) else {
+            throw VikunjaError.notFound
+        }
+        let task = buckets[bucket].tasks.remove(at: index)
+        buckets[bucket].tasks.insert(task, at: placement == .top ? 0 : buckets[bucket].tasks.count)
+    }
 
     func fetchBoard(projectID: EntityID, viewID: Int?) async throws -> KanbanBoardSnapshot {
         if let fetchError {
@@ -29,7 +59,7 @@ final class FakeBucketRepository: KanbanBoardRepositoryProtocol {
         }
         guard hasSnapshot else { return .unavailable }
         return .available(KanbanBoard(
-            viewID: 7,
+            viewID: self.viewID,
             buckets: buckets,
             defaultBucketID: buckets.first?.id,
             supportsWrites: supportsWrites,

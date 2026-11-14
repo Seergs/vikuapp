@@ -154,7 +154,7 @@ struct ProjectOverviewView: View {
                 KanbanBoardView(
                     viewModel: kanbanViewModel, searchText: searchText, onSelectTask: onSelectTask,
                     taskContextMenu: { task in
-                        taskContextMenu(for: task) {
+                        taskContextMenu(for: task, orderingActions: kanbanOrderingActions(for: task)) {
                             Task { await kanbanViewModel.setCompletion(task, isDone: !task.isDone) }
                         }
                     },
@@ -321,9 +321,27 @@ struct ProjectOverviewView: View {
             }
     }
 
+    private func kanbanOrderingActions(for task: VikunjaTask) -> [ContextMenuItem] {
+        guard let options = kanbanViewModel.orderingOptions(for: task) else { return [] }
+        return options.placements.map { placement in
+            .action(
+                placement == .top ? "moveToTop" : "moveToBottom",
+                title: placement == .top
+                    ? String(localized: "Move to Top", bundle: .module)
+                    : String(localized: "Move to Bottom", bundle: .module),
+                systemImage: placement == .top ? "arrow.up.to.line" : "arrow.down.to.line",
+            ) {
+                Task { await kanbanViewModel.reorderTask(options, to: placement) }
+            }
+        }
+    }
+
     /// Both presentations use the same actions and sheets. Completion stays with
     /// the presentation because Kanban also changes the task's bucket.
-    private func taskContextMenu(for task: VikunjaTask, onToggleDone: @escaping @MainActor () -> Void) -> [ContextMenuItem] {
+    private func taskContextMenu(
+        for task: VikunjaTask, orderingActions: [ContextMenuItem] = [],
+        onToggleDone: @escaping @MainActor () -> Void,
+    ) -> [ContextMenuItem] {
         [
             .group("completion", items: [
                 .action(
@@ -333,7 +351,7 @@ struct ProjectOverviewView: View {
                         : String(localized: "Mark as Done", bundle: .module),
                     systemImage: task.isDone ? "circle" : "checkmark.circle", perform: onToggleDone,
                 ),
-            ]),
+            ] + orderingActions),
             .group("fields", items: [
                 DueDateMenu.item(
                     currentDueDate: task.dueDate,
