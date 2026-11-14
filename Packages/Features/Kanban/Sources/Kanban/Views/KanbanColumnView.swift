@@ -107,6 +107,7 @@ struct KanbanColumnView: View {
                         card(for: task)
                     }
                 }
+                .animation(reduceMotion ? nil : .snappy, value: content.visibleTasks.map(\.id))
             }
             .refreshable { await onRefresh() }
         }

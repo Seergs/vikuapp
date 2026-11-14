@@ -533,7 +533,8 @@ final class AppContainer {
                 ),
             )
             return KanbanBoardViewModel(
-                project: project, repository: repository, syncTrigger: repository, localData: sync,
+                project: project, repository: repository, orderingRepository: repository,
+                syncTrigger: repository, localData: sync,
                 toastPresenter: toastCenter, hapticPresenter: hapticCenter,
             )
         }
@@ -543,6 +544,7 @@ final class AppContainer {
         return KanbanBoardViewModel(
             project: project,
             repository: repository,
+            orderingRepository: repository,
             syncTrigger: sync,
             localData: sync,
             toastPresenter: toastCenter,

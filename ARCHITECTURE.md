@@ -814,9 +814,16 @@ The existing pending-action and atomic-download safeguards still apply.
 `KanbanTaskOrderingProtocol` exposes `reorderTask` with `.top` / `.bottom`, plus
 `moveTaskToTop` and `moveTaskToBottom` conveniences. The expected bucket and view
 are explicit. Commands never change bucket membership, completion, or task fields.
-This backend contract is separate from `KanbanBoardRepositoryProtocol`; a future
-feature can inject both protocols for the same concrete repository. No UI is wired
-for these commands yet.
+This contract is separate from `KanbanBoardRepositoryProtocol`; `AppContainer`
+injects both protocols for the same concrete repository into `KanbanBoardViewModel`.
+Only Kanban menus offer the edge actions, hiding an action when the task is already
+at that edge of the complete bucket. Search does not redefine the bucket's edges.
+Each menu captures its task, view, and bucket so an intervening movement cannot
+redirect a stale action. Concurrent ordering commands are suppressed until local
+acceptance or online confirmation; failures retain the visible order and report
+through the existing toast presenter. Accepted changes reload the repository
+snapshot and animate by task identity unless Reduce Motion is enabled. The native
+menu adapter stays unchanged and List menus do not gain ordering actions.
 
 `OfflineKanbanBoardRepository` changes the cached assignment and inserts a
 `setTaskPosition` queue row in one transaction. Relative intent is durable; a new
