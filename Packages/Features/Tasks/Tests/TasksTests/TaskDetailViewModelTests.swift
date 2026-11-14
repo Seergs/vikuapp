@@ -18,6 +18,31 @@ private struct OfflineSync: SyncTriggering {
 @MainActor
 struct TaskDetailViewModelTests {
     @Test
+    func `cancelled attachment load stays retryable without showing an error`() async {
+        let attachments = FakeTaskAttachmentRepository()
+        attachments.fetchError = CancellationError()
+        let toast = FakeToastPresenter()
+        let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
+            task: VikunjaTask(id: 1, title: "Cached", projectID: 1),
+            project: Project(id: 1, title: "Work"), repository: FakeTaskRepository(),
+            labelRepository: FakeLabelRepository(), relationRepository: FakeTaskRelationRepository(),
+            commentRepository: FakeTaskCommentRepository(), attachmentRepository: attachments,
+            projectRepository: FakeProjectRepository(), toastPresenter: toast,
+        )
+        await viewModel.loadAttachments()
+        #expect(viewModel.attachmentsLoadState == .idle)
+        #expect(toast.shownMessages.isEmpty)
+        attachments.fetchError = VikunjaError.offline
+        await viewModel.loadAttachments()
+        #expect(viewModel.attachmentsLoadState.failureMessage != nil)
+        attachments.fetchError = nil
+        await viewModel.loadAttachments()
+        #expect(viewModel.attachmentsLoadState == .loaded)
+        #expect(viewModel.attachments.isEmpty)
+    }
+
+    @Test
     func `offline refresh keeps the task and avoids a second attachment error`() async {
         let repository = FakeTaskRepository()
         let task = VikunjaTask(id: 1, title: "Cached", projectID: 1)

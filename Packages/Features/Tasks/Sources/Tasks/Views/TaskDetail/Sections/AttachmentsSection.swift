@@ -13,22 +13,70 @@ struct AttachmentsSection: View {
     let onOpen: (TaskAttachment) -> Void
     let onDelete: (TaskAttachment) -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.vikuPalette) private var palette
+    @State private var presentation = AttachmentLoadingPresentation()
+    @State private var presentationOrigin = ContinuousClock.now
+
+    private var isLoading: Bool {
+        viewModel.attachmentsLoadState == .idle || viewModel.attachmentsLoadState.isLoading
+    }
+
+    private var isWaiting: Bool {
+        isLoading || presentation.isWaiting
+    }
+
     var body: some View {
         SectionBlock(
             title: String(localized: "Attachments", bundle: .module),
-            count: viewModel.attachments.isEmpty ? nil : "\(viewModel.attachments.count)",
+            count: isWaiting || viewModel.attachments.isEmpty ? nil : "\(viewModel.attachments.count)",
             trailing: AnyView(
                 SectionHeaderButton(title: String(localized: "Add", bundle: .module), action: onAdd)
                     .disabled(viewModel.isUploadingAttachment),
             ),
         ) {
-            AttachmentsList(
-                attachments: viewModel.attachments,
-                loadState: viewModel.attachmentsLoadState,
-                isUploading: viewModel.isUploadingAttachment,
-                onOpen: onOpen,
-                onDelete: onDelete,
+            if isWaiting {
+                HStack(spacing: VikuSpacing.sm) {
+                    ProgressView()
+                    Text("Loading attachments…", bundle: .module)
+                        .font(VikuFont.subheadline)
+                        .foregroundStyle(palette.textTertiary)
+                    Spacer(minLength: 0)
+                }
+                .frame(minHeight: VikuSpacing.xxl)
+                .opacity(presentation.showsSpinner ? 1 : 0)
+                .accessibilityHidden(!presentation.showsSpinner)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: presentation.showsSpinner)
+                .transition(.opacity)
+            } else {
+                AttachmentsList(
+                    attachments: viewModel.attachments,
+                    loadState: viewModel.attachmentsLoadState,
+                    isUploading: viewModel.isUploadingAttachment,
+                    onOpen: onOpen,
+                    onDelete: onDelete,
+                    onRetry: { Task { await viewModel.loadAttachments() } },
+                )
+                .transition(.opacity)
+            }
+        }
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: isWaiting)
+        .task(id: isLoading) { await updatePresentation() }
+        .onDisappear {
+            presentation = AttachmentLoadingPresentation()
+            presentationOrigin = .now
+        }
+    }
+
+    private func updatePresentation() async {
+        let clock = ContinuousClock()
+        while !Task.isCancelled {
+            let delay = presentation.update(
+                isLoading: isLoading,
+                at: presentationOrigin.duration(to: clock.now),
             )
+            guard let delay else { return }
+            do { try await clock.sleep(for: delay) } catch { return }
         }
     }
 }
@@ -39,6 +87,8 @@ private struct AttachmentsList: View {
     var isUploading = false
     let onOpen: (TaskAttachment) -> Void
     let onDelete: (TaskAttachment) -> Void
+
+    let onRetry: () -> Void
 
     @Environment(\.vikuPalette) private var palette
 
@@ -55,6 +105,13 @@ private struct AttachmentsList: View {
                 Text(verbatim: emptyStateMessage)
                     .font(VikuFont.subheadline)
                     .foregroundStyle(palette.textTertiary)
+                if case .failure = loadState {
+                    Button(action: onRetry) {
+                        Text("Retry", bundle: .module)
+                    }
+                    .font(VikuFont.subheadline)
+                    .foregroundStyle(palette.brand)
+                }
             } else {
                 ForEach(attachments) { attachment in
                     AttachmentRow(

@@ -732,22 +732,20 @@ public final class TaskDetailViewModel {
         }
         do {
             let fetched = try await attachmentRepository.fetchAttachments(taskID: taskID)
+            try Task.checkCancellation()
             guard token == attachmentsWriteToken else { return }
             attachments = fetched
             attachmentsLoadState = .loaded
-        } catch let error as VikunjaError {
+        } catch is CancellationError {
             guard token == attachmentsWriteToken else { return }
-            if hadContent {
-                toastPresenter.show(error.displayMessage, style: .error)
-            } else {
-                attachmentsLoadState = .failure(error.displayMessage)
-            }
+            attachmentsLoadState = hadContent ? .loaded : .idle
         } catch {
             guard token == attachmentsWriteToken else { return }
+            let message = (error as? VikunjaError)?.displayMessage ?? error.localizedDescription
             if hadContent {
-                toastPresenter.show(error.localizedDescription, style: .error)
+                toastPresenter.show(message, style: .error)
             } else {
-                attachmentsLoadState = .failure(error.localizedDescription)
+                attachmentsLoadState = .failure(message)
             }
         }
     }
