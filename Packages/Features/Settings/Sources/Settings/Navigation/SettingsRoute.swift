@@ -4,6 +4,8 @@ import VikunjaCore
 public enum SettingsRoute: Hashable, Sendable {
     /// The appearance/theme picker.
     case appearance
+    /// The account-wide Quick Add Magic mode picker and guide.
+    case quickAddMagic
     /// The list of saved instance connections.
     case connections
     /// The add/edit form for a single connection.

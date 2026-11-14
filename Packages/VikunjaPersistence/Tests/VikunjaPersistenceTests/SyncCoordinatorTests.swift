@@ -141,11 +141,22 @@ final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @unchecked
         fatalError("not used by SyncCoordinatorTests")
     }
 
+    private var usersByBaseURL: [URL: MagicTestUserRepository] = [:]
+
+    func userRepository(for baseURL: URL) -> MagicTestUserRepository {
+        if let existing = usersByBaseURL[baseURL] {
+            return existing
+        }
+        let repository = MagicTestUserRepository()
+        usersByBaseURL[baseURL] = repository
+        return repository
+    }
+
     func makeUserRepository(
         baseURL: URL,
         tokenProvider: @escaping @Sendable () async throws -> String?,
     ) -> UserRepositoryProtocol {
-        fatalError("not used by SyncCoordinatorTests")
+        userRepository(for: baseURL)
     }
 
     func makeBucketRepository(
@@ -280,6 +291,37 @@ struct SyncCoordinatorTests {
         await waitUntil { await reachability.hasSubscriber }
         await reachability.finish()
         await coordinator.stop()
+    }
+
+    @Test func `connectivity restoration uploads the durable account Magic choice automatically`() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try LocalStore(directory: directory)
+        let accounts = FakeAccountStore()
+        let factory = FakeInstanceClientFactory()
+        let reachability = CoordinatorReachabilityMonitor(isReachable: false)
+        let account = try makeAccount(host: "magic.example.com")
+        try await accounts.addAccount(account, token: "token")
+        let remote = factory.userRepository(for: account.baseURL)
+        let coordinator = SyncCoordinator(
+            localStore: store, accountStore: accounts, clientFactory: factory,
+            reachability: reachability, tokenProvider: { _ in { "token" } },
+        )
+        let local = OfflineQuickAddSettingsRepository(
+            localStore: store, accountID: account.id,
+            syncRequester: AccountSync(accountID: account.id, coordinator: coordinator, localStore: store),
+        )
+        await coordinator.start()
+        await reachability.waitForSubscription()
+        try await local.setMode(.todoist)
+        #expect(await remote.updates.isEmpty)
+        #expect(try await local.settings().syncStatus == .pending)
+        await reachability.setReachable(true)
+        await waitUntil { await remote.updates == [.todoist] }
+        await coordinator.waitForCurrentWork()
+        #expect(await remote.updates == [.todoist])
+        #expect(try await local.settings() == QuickAddMagicSettings(mode: .todoist))
+        await stopObserving(coordinator, reachability)
     }
 
     @Test func `reconnection uploads bulk completion through the account transport factory`() async throws {

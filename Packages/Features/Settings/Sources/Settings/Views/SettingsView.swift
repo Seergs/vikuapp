@@ -83,33 +83,8 @@ struct SettingsView: View {
                     }
                 }
 
-                Picker(selection: quickAddSyntaxBinding) {
-                    Text("Off", bundle: .module).tag(QuickAddSyntax?.none)
-                    ForEach(QuickAddSyntax.allCases, id: \.self) { syntax in
-                        Text(verbatim: syntax.displayName).tag(QuickAddSyntax?.some(syntax))
-                    }
-                } label: {
-                    HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
-                        SettingsRowIcon(systemName: "number")
-                        Text("Quick Add Magic", bundle: .module)
-                    }
-                }
             } header: {
                 Text("General", bundle: .module)
-            } footer: {
-                VStack(alignment: .leading, spacing: VikuSpacing.xs) {
-                    Text(
-                        "Shortcuts for new tasks. Todoist: #Project, @label, p1-p4. Vikunja: +Project, *label, !1-!5.",
-                        bundle: .module,
-                    )
-                    Button {
-                        appRouter.push(.documentationArticle("quick-add-shortcuts"))
-                    } label: {
-                        Text("Quick Add Magic guide", bundle: .module)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(palette.brand)
-                }
             }
             .listRowBackground(palette.cardBackground)
             // Widens the gap to "This connection" below — confirmed good
@@ -165,6 +140,17 @@ struct SettingsView: View {
                     subtitle: defaultProjectViewModel.defaultProjectTitle ?? String(localized: "None", bundle: .module),
                 ) {
                     isPresentingDefaultProjectPicker = true
+                }
+                .listRowBackground(palette.cardBackground)
+
+                SettingsNavigationRow(
+                    icon: "number",
+                    title: String(localized: "Quick Add Magic", bundle: .module),
+                    subtitle: quickAddSyntaxStore.hasKnownMode
+                        ? QuickAddMagicMode(syntax: quickAddSyntaxStore.syntax).displayName
+                        : String(localized: "Waiting for account setting", bundle: .module),
+                ) {
+                    router.push(SettingsRoute.quickAddMagic)
                 }
                 .listRowBackground(palette.cardBackground)
 
@@ -367,10 +353,6 @@ struct SettingsView: View {
                 }
             },
         )
-    }
-
-    private var quickAddSyntaxBinding: Binding<QuickAddSyntax?> {
-        Binding(get: { quickAddSyntaxStore.syntax }, set: { quickAddSyntaxStore.setSyntax($0) })
     }
 
     private var groupOverdueNotificationsBinding: Binding<Bool> {

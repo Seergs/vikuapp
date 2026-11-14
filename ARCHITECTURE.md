@@ -357,6 +357,10 @@ The draft supports one reminder; removing its linked due date requires confirmat
 to remove both, while removing the reminder alone keeps the due date. Absolute
 reminders remain independent. Quick Add Magic controls text interpretation and
 the localized dialect examples shown only while the input is empty.
+Magic is an account-scoped Vikunja setting with durable offline writes, shared
+by Settings, Search, and related-task creation. See
+[Shared Quick Add Magic settings](docs/quick-add-settings-sync.md) for the wire
+contract, replay rules, and replacement behavior.
 
 The FAB stays global (one instance on the tab shell) but the sheet defaults
 its project from context. `AppContainer` owns a `QuickAddContext` (an

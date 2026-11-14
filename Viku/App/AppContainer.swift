@@ -133,7 +133,18 @@ final class AppContainer {
     let taskSortStore: TaskSortStore = TaskSortCenter()
 
     /// The shortcut dialect quick-add parses with, chosen in Settings.
-    let quickAddSyntaxStore: QuickAddSyntaxStore = QuickAddSyntaxCenter()
+    private var quickAddSyntaxStores: [UUID: QuickAddSyntaxCenter] = [:]
+
+    func quickAddSyntaxStore(account: InstanceAccount) -> QuickAddSyntaxStore {
+        if let existing = quickAddSyntaxStores[account.id] {
+            return existing
+        }
+        let store = QuickAddSyntaxCenter(repository: OfflineQuickAddSettingsRepository(
+            localStore: localStore, accountID: account.id, syncRequester: accountSync(for: account),
+        ))
+        quickAddSyntaxStores[account.id] = store
+        return store
+    }
 
     /// Session-only dev-tools state, shared with Settings and Quick Add
     /// through the corresponding VikunjaCore protocols. See `DevToolsCenter`.
@@ -580,7 +591,7 @@ final class AppContainer {
             notificationSettingsStore: notificationSettingsStore,
             accountID: account.id,
             inlineImageLoader: inlineImageLoader(for: account, attachmentRepository: attachmentRepository),
-            syntaxStore: quickAddSyntaxStore,
+            syntaxStore: quickAddSyntaxStore(account: account),
             taskChangeBroadcaster: taskChangeCenter,
         )
     }
@@ -710,7 +721,7 @@ final class AppContainer {
             projectRepository: offlineProjectRepository(for: account),
             toastPresenter: toastCenter,
             taskChangeBroadcaster: taskChangeCenter,
-            syntaxStore: quickAddSyntaxStore,
+            syntaxStore: quickAddSyntaxStore(account: account),
             labelRepository: offlineLabelRepository(for: account),
             defaultProjectCache: AccountDefaultProjectCache(store: defaultProjectStore, accountID: account.id),
             datePreviewStore: BuildConfig.isDevBuild ? devToolsCenter : nil,
@@ -874,7 +885,7 @@ final class AppContainer {
             projectRepository: offlineProjectRepository(for: account),
             toastPresenter: toastCenter,
             hapticPresenter: hapticCenter,
-            syntaxStore: quickAddSyntaxStore,
+            syntaxStore: quickAddSyntaxStore(account: account),
         )
     }
 

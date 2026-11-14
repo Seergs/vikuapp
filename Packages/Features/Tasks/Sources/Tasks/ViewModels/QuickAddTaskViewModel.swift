@@ -27,6 +27,9 @@ public final class QuickAddTaskViewModel {
     /// into `selectedProjectID` / `priority`, the same state the pickers edit.
     public var input: String = "" {
         didSet {
+            if draftMagicMode == nil, !input.isEmpty {
+                draftMagicMode = QuickAddMagicMode(syntax: syntaxStore?.syntax)
+            }
             if !isApplyingDueDate, hasRelativeReminder, dueDate == nil,
                (parseInput(oldValue).dueDate ?? pickedDueDate) != nil {
                 pendingDueDateRemoval = .input(input)
@@ -42,6 +45,9 @@ public final class QuickAddTaskViewModel {
             syncShortcutsToPicker()
             labelSelectionOrder = selectedLabels.map(\.id)
             updateRelativeReminder()
+            if input.isEmpty {
+                draftMagicMode = nil
+            }
         }
     }
 
@@ -282,9 +288,14 @@ public final class QuickAddTaskViewModel {
         }
     }
 
-    /// `nil` when shortcuts are off, so the title and pickers behave as before.
+    /// Captured when typing starts, so a remote refresh cannot reinterpret a draft.
+    private var draftMagicMode: QuickAddMagicMode?
+
     private var syntax: QuickAddSyntax? {
-        syntaxStore?.syntax
+        if let draftMagicMode {
+            return draftMagicMode.syntax
+        }
+        return syntaxStore?.syntax
     }
 
     /// Illustrative examples, using the same dialect and priority mapping as

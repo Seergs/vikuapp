@@ -363,6 +363,9 @@ public actor SyncCoordinator {
             ),
             commentRepository: commentRepository,
             filterRepository: filterRepository,
+            userRepository: clientFactory.makeUserRepository(
+                baseURL: account.baseURL, tokenProvider: resolvedTokenProvider,
+            ),
             accountID: account.id,
             bucketRepository: clientFactory.makeBucketRepository(
                 baseURL: account.baseURL, tokenProvider: resolvedTokenProvider,

@@ -9,9 +9,21 @@ related: offline-mode
 # Quick Add Magic
 
 The quick-add sheet can read shortcuts typed straight into the title, so you can
-file a task without opening the project, priority, or label pickers. Shortcuts
-are off by default. To turn it on, go to **Settings → General
-→ Quick Add Magic** and pick a dialect:
+file a task without opening the project, priority, or label pickers. Go to
+**Settings → This connection → Quick Add Magic** to turn shortcuts off or choose a dialect.
+The app uses the mode saved on your Vikunja server, shared with the web. When no mode
+is stored on the server, Vikunja syntax is the default. The old device-only
+preference is ignored; there is no migration prompt.
+
+The last known mode is available offline, separately for each account. A selection
+takes effect immediately and is queued durably for synchronization, including
+after restarting the app. Settings → Pending Sync shows pending or failed synchronization;
+failures can also be retried on the Magic selection screen. On reconnection, your latest pending choice updates the account;
+otherwise, the server mode replaces the cached value. An existing Quick Add title
+keeps its original interpretation until you clear it. Before the first successful
+download, shortcuts stay off unless you choose a mode yourself.
+
+Available dialects:
 
 - **Vikunja** uses the same symbols as Vikunja's own add magic.
 - **Todoist** uses the symbols Todoist users already know.

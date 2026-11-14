@@ -58,6 +58,34 @@ struct QuickAddSuggestionTests {
         #expect(model.suggestions == examples)
     }
 
+    @Test func `remote syntax changes preserve an existing draft until its title is cleared`() {
+        let store = FakeQuickAddSyntaxStore(syntax: .todoist)
+        let model = makeModel(store: store)
+        model.input = "Review p2"
+        #expect(model.parsed.title == "Review")
+        #expect(model.parsed.priority == .high)
+        store.setSyntax(.vikunja)
+        #expect(model.parsed.title == "Review")
+        #expect(model.parsed.priority == .high)
+        model.input = ""
+        model.input = "Review !3"
+        #expect(model.parsed.title == "Review")
+        #expect(model.parsed.priority == .high)
+    }
+
+    @Test func `a literal draft stays literal when a remote refresh enables Magic`() {
+        let store = FakeQuickAddSyntaxStore(syntax: nil)
+        let model = makeModel(store: store)
+        model.input = "Review p2"
+        store.setSyntax(.todoist)
+        #expect(model.parsed.title == "Review p2")
+        #expect(model.parsed.priority == nil)
+        model.input = ""
+        model.input = "Review p2"
+        #expect(model.parsed.title == "Review")
+        #expect(model.parsed.priority == .high)
+    }
+
     @Test func `suggestions follow syntax changes without recreating the draft`() {
         let store = FakeQuickAddSyntaxStore(syntax: .todoist)
         let model = makeModel(store: store)
