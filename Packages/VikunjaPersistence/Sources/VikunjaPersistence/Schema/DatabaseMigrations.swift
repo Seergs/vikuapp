@@ -37,6 +37,13 @@ enum DatabaseMigrations {
                 table.primaryKey(["accountID", "taskLocalID"])
             }
         }
+        migrator.registerMigration("indexIncomingTaskRelations") { db in
+            try db.create(
+                index: "taskRelation_on_accountID_otherTaskRemoteID",
+                on: "taskRelation",
+                columns: ["accountID", "otherTaskRemoteID"],
+            )
+        }
     }
 
     private static func createProject(_ db: Database) throws {

@@ -281,6 +281,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateReposi
 
             guard let remoteID = row.remoteID else {
                 // Never synced - nothing server-side to delete.
+                try TaskRelationDeletion.removeReferences(to: row, db: db)
                 try row.delete(db)
                 return
             }
@@ -365,6 +366,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateReposi
         let labelsByRemoteID: [Int: LabelRecord]
         let labelsByLocalID: [UUID: LabelRecord]
         let pendingLabelMutations: [UUID: [(operation: MutationOperation, labelLocalID: UUID)]]
+        let hiddenRelationTaskIDs: Set<EntityID>
         let relationsByTaskLocalID: [UUID: [TaskRelationRecord]]
         let remindersByTaskLocalID: [UUID: [TaskReminder]]
         let pendingRelationMutations: [UUID: [PendingRelationMutation]]
@@ -389,6 +391,10 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateReposi
         let relationRows = try TaskRelationRecord.fetchAll(db).filter { $0.accountID == accountID }
         let remindersByTaskLocalID = try TaskReminderRecord.remindersByTaskLocalID(accountID: accountID, db: db)
         let pendingRelationMutations = try Self.pendingRelationMutations(accountID: accountID, db: db)
+        let hiddenLocalIDs = try Self.pendingDeleteTargetLocalIDs(accountID: accountID, db: db)
+        let hiddenRelationTaskIDs = Set(taskRows.filter { hiddenLocalIDs.contains($0.localID) }.flatMap { row in
+            [EntityID.local(row.localID)] + (row.remoteID.map { [EntityID.remote($0)] } ?? [])
+        })
         return try TaskAssemblyContext(
             projectsByLocalID: Self.projectsByLocalID(projectRows),
             labelsByRemoteID: Dictionary(uniqueKeysWithValues: labelRows.compactMap { row in
@@ -396,6 +402,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateReposi
             }),
             labelsByLocalID: Dictionary(uniqueKeysWithValues: labelRows.map { ($0.localID, $0) }),
             pendingLabelMutations: Self.pendingLabelMutations(accountID: accountID, db: db),
+            hiddenRelationTaskIDs: hiddenRelationTaskIDs,
             relationsByTaskLocalID: Dictionary(grouping: relationRows, by: \.taskLocalID),
             remindersByTaskLocalID: remindersByTaskLocalID,
             pendingRelationMutations: pendingRelationMutations,
@@ -512,12 +519,11 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateReposi
     /// Target ids to hide from a read — a delete the user asked for stays
     /// hidden whether it's still pending its first attempt or failed and
     /// waiting to be retried; either way it's not coming back.
-    private static func pendingDeleteTargetLocalIDs(accountID: UUID, db: Database) throws -> Set<UUID> {
+    static func pendingDeleteTargetLocalIDs(accountID: UUID, db: Database) throws -> Set<UUID> {
         try Set(
             MutationQueueRecord.fetchAll(db)
                 .filter {
                     $0.accountID == accountID && $0.entityType == .task && $0.operation == .delete
-                        && ($0.status == .pending || $0.status == .failed)
                 }
                 .map(\.targetLocalID),
         )
@@ -577,6 +583,9 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateReposi
             to: &relationsByKind, mutations: context.pendingMirrorRelationMutations[row.localID] ?? [],
             context: context,
         )
+        relationsByKind = relationsByKind.mapValues { relations in
+            relations.filter { !context.hiddenRelationTaskIDs.contains($0.id) }
+        }.filter { !$0.value.isEmpty }
         return VikunjaTask(
             id: row.remoteID.map(EntityID.remote) ?? .local(row.localID),
             title: row.title,

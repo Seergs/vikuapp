@@ -1103,3 +1103,23 @@ removals after failures/conflicts and through local-to-remote identity changes.
 Queries do not trigger sync, and results do not observe ongoing local changes.
 There is no new remote-search capability or database migration. Search's row
 project lookup uses EntityID so offline-created projects can render.
+
+## Relations when deleting tasks
+
+`OfflineTaskRepository` hides relations to either identity of a task with a queued
+local deletion, including failed or in-flight deletions. Confirmed relation rows
+and incoming queued relation commands remain available until deletion is confirmed,
+so recovery can restore them. New relation commands reject either endpoint while
+it is pending deletion, and the drain defers existing commands involving it.
+
+Once a local deletion succeeds (including an already-absent server task),
+`TaskRelationDeletion` removes incoming cached references and queued relation
+commands involving either endpoint in the same transaction as the task removal.
+Never-synced task deletion performs the same queue cleanup immediately. Late
+relation responses cannot rebuild references after a task or command is removed.
+The incoming-reference lookup uses an account/remote-target composite index.
+
+Remote downloads continue to replace each fetched task's complete relation set.
+A missing local target alone is not proof of deletion: a partial download can
+omit an uncached task or a task moved to an unavailable project. Such relations
+retain their server-provided summary until an authoritative refresh replaces them.
