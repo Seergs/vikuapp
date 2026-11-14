@@ -598,7 +598,7 @@ struct URLSessionAPIClientTests {
         #expect(tasks.map(\.title) == ["Buy coffee"])
         let request = try #require(await capture.lastRequest)
         #expect(request.url?.path == "/api/v2/tasks")
-        #expect(request.url?.query == "q=coffee")
+        #expect(request.url?.query == "q=coffee&page=1")
     }
 
     @Test

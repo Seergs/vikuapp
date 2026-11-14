@@ -71,7 +71,9 @@ public final class VikunjaTaskRepository: TaskRepositoryProtocol {
     }
 
     public func searchTasks(query: String) async throws -> [VikunjaTask] {
-        let dtos: [TaskDTO] = try await client.send(VikunjaEndpoints.searchTasks(query: query))
+        let dtos: [TaskDTO] = try await client.sendAllPagesV1 {
+            VikunjaEndpoints.searchTasks(query: query, page: $0)
+        }
         return dtos.map(TaskMapper.toDomain)
     }
 }
