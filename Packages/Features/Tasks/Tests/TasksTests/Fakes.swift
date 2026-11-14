@@ -333,7 +333,7 @@ final class FakeTaskCommentRepository: TaskCommentRepositoryProtocol, @unchecked
 final class FakeTaskAttachmentRepository: TaskAttachmentRepositoryProtocol, @unchecked Sendable {
     var attachments: [TaskAttachment] = []
     var downloadData: [Int: Data] = [:]
-    var fetchError: VikunjaError?
+    var fetchError: (any Error)?
     var uploadError: VikunjaError?
     var downloadError: VikunjaError?
     var deleteError: VikunjaError?
