@@ -54,6 +54,8 @@ enum PendingSyncOperationsReader {
 
     private static func title(for item: MutationQueueRecord, db: Database) throws -> String? {
         switch item.entityType {
+        case .quickAddSettings:
+            String(localized: "Quick Add Magic", bundle: .module)
         case .project, .filter:
             try ProjectRecord.fetchOne(db, key: item.targetLocalID)?.title
         case .label:
@@ -76,6 +78,7 @@ enum PendingSyncOperationsReader {
 private extension MutationEntityType {
     var pendingSyncEntity: PendingSyncEntity {
         switch self {
+        case .quickAddSettings: .quickAddSettings
         case .project: .project
         case .filter: .filter
         case .label: .label

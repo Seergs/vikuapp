@@ -450,6 +450,7 @@ private struct PendingSyncOperationRow: View {
 private extension PendingSyncEntity {
     var displayName: LocalizedStringKey {
         switch self {
+        case .quickAddSettings: "Quick Add Magic"
         case .project: "Project"
         case .filter: "Saved Filter"
         case .label: "Label"

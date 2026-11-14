@@ -2,6 +2,7 @@ import Foundation
 import GRDB
 
 struct AccountSnapshot: Equatable, Sendable {
+    let quickAddSettings: [QuickAddSettingsRecord]
     let syncStates: [SyncStateRecord]
     let projects: [ProjectRecord]
     let tasks: [TaskRecord]
@@ -18,6 +19,7 @@ struct AccountSnapshot: Equatable, Sendable {
     let mutations: [MutationQueueRecord]
 
     init(accountID: UUID, db: Database, includeSyncStates: Bool = true) throws {
+        self.quickAddSettings = try QuickAddSettingsRecord.filter(Column("accountID") == accountID).fetchAll(db)
         self.syncStates = if includeSyncStates {
             try SyncStateRecord.filter(Column("accountID") == accountID).fetchAll(db)
         } else {
@@ -52,6 +54,7 @@ struct AccountSnapshot: Equatable, Sendable {
 
     func replace(accountID: UUID, db: Database) throws {
         // Children cascade from projects; explicit deletes also clear orphaned queue/state rows.
+        try QuickAddSettingsRecord.filter(Column("accountID") == accountID).deleteAll(db)
         try ProjectRecord.filter(Column("accountID") == accountID).deleteAll(db)
         try LabelRecord.filter(Column("accountID") == accountID).deleteAll(db)
         try MutationQueueRecord.filter(Column("accountID") == accountID).deleteAll(db)
@@ -75,6 +78,7 @@ struct AccountSnapshot: Equatable, Sendable {
         try insert(kanbanBuckets, db: db)
         try insert(kanbanAssignments, db: db)
         try insert(syncStates, db: db)
+        try insert(quickAddSettings, db: db)
     }
 
     private func insert(_ records: [some PersistableRecord], db: Database) throws {

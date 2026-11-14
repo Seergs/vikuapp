@@ -5,6 +5,7 @@ import GRDB
 /// entity as later slices add their own offline support (Label, VikunjaTask,
 /// ...) - the `mutationQueueItem` table itself needs no schema change.
 enum MutationEntityType: String, Codable, Sendable {
+    case quickAddSettings
     case project
     case filter
     case label

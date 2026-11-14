@@ -6,6 +6,7 @@ extension SyncEngine {
     /// Pull into a private store. Any partial result is disposable until every phase succeeds.
     func downloadReplacement(original: AccountSnapshot) async throws {
         try Task.checkCancellation()
+        try await syncQuickAddSettings()
         try await pullProjects()
         try Task.checkCancellation()
         try await pullFilterQueries()
