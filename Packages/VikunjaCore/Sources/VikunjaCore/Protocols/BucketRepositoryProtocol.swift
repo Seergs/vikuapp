@@ -1,4 +1,6 @@
 public protocol BucketRepositoryProtocol: Sendable {
+    /// Absolute per-view position write, separate from bucket membership.
+    func setTaskPosition(taskID: Int, viewID: Int, position: Double) async throws -> TaskViewPosition
     func downloadBoard(projectID: Int, viewID: Int?) async throws -> KanbanDownload
     func fetchBuckets(projectID: Int) async throws -> [KanbanBucket]
     func moveTask(taskID: Int, toBucketID: Int, projectID: Int, viewID: Int?) async throws -> VikunjaTask

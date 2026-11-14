@@ -3,9 +3,9 @@ import GRDB
 import VikunjaCore
 
 public struct OfflineKanbanBoardRepository: KanbanBoardRepositoryProtocol {
-    private let localStore: LocalStore
-    private let accountID: UUID
-    private let syncRequester: SyncRequesting
+    let localStore: LocalStore
+    let accountID: UUID
+    let syncRequester: SyncRequesting
     private let reachability: ReachabilityMonitoring?
 
     public init(

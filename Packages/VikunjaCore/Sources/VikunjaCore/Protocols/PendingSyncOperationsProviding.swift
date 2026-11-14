@@ -16,8 +16,9 @@ public protocol PendingSyncOperationsProviding: Sendable {
     #endif
 
     /// Removes `id` from the account's queue only when it's a conflict.
-    /// Conflicted items are never drained, so this only drops the abandoned
-    /// local attempt instead of changing either side. A conflict normally
+    /// Conflicted items are never drained, so this drops the abandoned local
+    /// attempt without writing to the server. Implementations may restore cached
+    /// placement from server metadata retained with that conflict. A conflict normally
     /// triggers a server pull, but a failed pull can leave the local row
     /// stale until the next successful sync.
     func discardConflictedPendingSyncOperation(id: Int64, accountID: UUID) async throws

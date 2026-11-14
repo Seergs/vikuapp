@@ -24,6 +24,7 @@ enum MutationEntityType: String, Codable, Sendable {
 /// item.
 enum MutationOperation: String, Codable, Sendable {
     case moveBucket
+    case setTaskPosition
     /// One task in a bulk completion request, grouped by TaskCompletionPayload.batchID.
     case setCompletion
     /// One task in a bulk due-date request, grouped by TaskDueDatePayload.batchID.

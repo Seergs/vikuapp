@@ -69,6 +69,10 @@ private actor MovingKanbanRemote: BucketRepositoryProtocol {
         tasks[100]?.isDone = bucketID == 22
     }
 
+    func setTaskPosition(taskID: Int, viewID: Int, position: Double) async throws -> TaskViewPosition {
+        throw VikunjaError.notFound
+    }
+
     func downloadBoard(projectID: Int, viewID: Int?) async throws -> KanbanDownload {
         let buckets = availableBuckets.map { id in
             KanbanBucket(

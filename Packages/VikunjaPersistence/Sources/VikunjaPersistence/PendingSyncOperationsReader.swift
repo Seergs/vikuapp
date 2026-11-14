@@ -90,7 +90,7 @@ private extension MutationOperation {
         switch self {
         case .moveBucket: .moveBucket
         case .create: .create
-        case .update, .setCompletion, .setDueDate: .update
+        case .update, .setCompletion, .setDueDate, .setTaskPosition: .update
         case .delete: .delete
         case .addLabel: .addLabel
         case .removeLabel: .removeLabel

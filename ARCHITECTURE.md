@@ -809,6 +809,48 @@ readable with provisional ordering until refresh; missing positions preserve
 cached values, with response order as the fallback for previously uncached tasks.
 The existing pending-action and atomic-download safeguards still apply.
 
+## Kanban edge ordering commands
+
+`KanbanTaskOrderingProtocol` exposes `reorderTask` with `.top` / `.bottom`, plus
+`moveTaskToTop` and `moveTaskToBottom` conveniences. The expected bucket and view
+are explicit. Commands never change bucket membership, completion, or task fields.
+This backend contract is separate from `KanbanBoardRepositoryProtocol`; a future
+feature can inject both protocols for the same concrete repository. No UI is wired
+for these commands yet.
+
+`OfflineKanbanBoardRepository` changes the cached assignment and inserts a
+`setTaskPosition` queue row in one transaction. Relative intent is durable; a new
+command supersedes older non-in-flight intent for the same task/view at the end of
+the FIFO queue, preserving chronology across tasks. Pending orders are reapplied
+after downloads change the numeric position scale. Archived, automatic, filtered,
+deleted, and foreign-account targets are rejected. Reordering within a full bucket
+is allowed because it does not consume capacity. Local task creation drains first
+so position requests always use a resolved server identity.
+
+The drain reads the complete current board, computes the bucket's edge, and uses
+`PUT /api/v2/tasks/{task}/position` with `project_view_id` and `position`. The
+transport disables automatic retries and validates the response's task/view IDs.
+Position writes are serialized per view. A successful write is confirmed durably
+before downloading the authoritative ordering; download retries never repeat the
+write. After an interrupted request, synchronization first reconciles its submitted
+position or the already-satisfied edge. An ambiguous competing order or changed
+bucket becomes a visible, discardable conflict rather than an automatic overwrite.
+A new explicit command can replace a conflict. Conflicts retain known server
+placement for discard recovery. Successful acknowledgements adopt the complete
+server position scale and reapply newer pending relative intent.
+
+For concurrent remote reorderings within the same bucket, unsubmitted commands
+use the freshest server order and apply the user's explicit edge intent. The
+server remains responsible for concurrent-write ordering and renormalization;
+there is no compare-and-swap API. New tasks arriving remotely after a successful
+command can subsequently occupy an edge.
+
+Saved-filter boards implement the same ordering protocol online only. They refresh
+before resolving an edge, reject tasks with queued canonical changes, write the
+position, and refresh again. Failures retain the last snapshot; offline commands
+are not queued. The existing Pending Sync reader presents durable order commands
+as task updates, with its existing retry/conflict recovery behavior.
+
 ## Task actions in List and Kanban
 
 List and Kanban share the project overview's task menu and sheet presentations.

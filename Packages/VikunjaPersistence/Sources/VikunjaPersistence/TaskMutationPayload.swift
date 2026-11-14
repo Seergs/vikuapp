@@ -115,7 +115,8 @@ struct TaskBulkIntent: Equatable, Sendable {
                 batchID: payload.batchID, change: .dueDate(payload.dueDate),
                 baseUpdatedAt: payload.baseUpdatedAt, baseFields: payload.baseFields,
             )
-        case .create, .update, .delete, .addLabel, .removeLabel, .addRelation, .removeRelation, .moveBucket:
+        case .create, .update, .delete, .addLabel, .removeLabel, .addRelation, .removeRelation,
+             .moveBucket, .setTaskPosition:
             throw VikunjaError.decoding("Queue item \(item.operation.rawValue) is not a bulk task change.")
         }
     }
