@@ -127,6 +127,8 @@ public struct SettingsRootView: View {
             switch route {
             case .appearance:
                 AppearancePickerView(themeStore: themeStore)
+            case .quickAddMagic:
+                QuickAddMagicPickerView(syntaxStore: quickAddSyntaxStore)
             case .connections:
                 ConnectionsListView(makeViewModel: makeConnectionsListViewModel, router: router)
             case let .connectionForm(mode):

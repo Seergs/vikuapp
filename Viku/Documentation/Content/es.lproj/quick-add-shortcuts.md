@@ -12,7 +12,7 @@ Captura y organiza una tarea en una sola línea, sin abrir cada campo por separa
 
 ## Activa los atajos
 
-Abre **Ajustes → General → Quick Add Magic** y elige **Vikunja** o **Todoist**, según cuál te resulte familiar. Los atajos están desactivados de forma predeterminada.
+Abre **Ajustes → Esta conexión → Quick Add Magic** y elige **Desactivado**, **Vikunja** o **Todoist**. La app usa el ajuste guardado en tu servidor de Vikunja: cambiarlo también cambia el modo usado en la web. Si no hay una preferencia guardada, Vikunja usa su propia sintaxis.
 
 ## Prueba con una tarea
 

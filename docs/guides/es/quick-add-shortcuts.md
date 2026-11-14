@@ -10,8 +10,22 @@ related: offline-mode
 
 La pantalla de creación rápida reconoce atajos escritos directamente en el título,
 para que puedas asignar un proyecto, una prioridad o etiquetas sin abrir sus
-selectores. Los atajos están desactivados de forma predeterminada.
-Para activarla, ve a **Ajustes → General → Quick Add Magic** y elige una sintaxis:
+selectores. Ve a **Ajustes → Esta conexión → Quick Add Magic** para desactivar los
+atajos o elegir una sintaxis. La app usa el modo guardado en tu servidor de Vikunja y lo
+comparte con la web. Si no hay un modo guardado en el servidor, se usa la
+sintaxis de Vikunja. La preferencia anterior exclusiva del dispositivo se
+ignora, sin mostrar un aviso de migración.
+
+El último modo conocido está disponible sin conexión, por separado para cada
+cuenta. Una selección se aplica de inmediato y queda guardada para sincronizarse,
+incluso si reinicias la app. Ajustes → Sincronización pendiente muestra los cambios pendientes o
+fallidos; los fallos también se pueden reintentar en la pantalla de selección de Magic. Al reconectar, tu última elección pendiente
+actualiza la cuenta; si no hay cambios pendientes, el modo del servidor
+sustituye la copia local. Un título de Quick Add ya escrito conserva su
+interpretación hasta que lo borres. Antes de la primera descarga correcta, los
+atajos permanecen desactivados salvo que elijas un modo.
+
+Sintaxis disponibles:
 
 - **Vikunja** utiliza los mismos símbolos que la creación rápida de Vikunja.
 - **Todoist** utiliza los símbolos que ya conocen los usuarios de Todoist.

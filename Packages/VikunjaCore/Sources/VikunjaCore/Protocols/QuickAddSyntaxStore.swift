@@ -1,10 +1,27 @@
-/// What a ViewModel and Settings need in order to read and change the
-/// shortcut dialect quick-add parses (`QuickAddSyntax`), without knowing
-/// where it's persisted. Implemented by a `UserDefaults`-backed store in the
-/// app target and injected via `AppContainer`, the same way `TaskSortStore` is.
+/// Observable, account-bound access used by Settings and title parsers.
 @MainActor
 public protocol QuickAddSyntaxStore: AnyObject {
-    /// `nil` when shortcuts are off, which is the default.
+    /// `nil` when shortcuts are off or the first account snapshot is unavailable.
     var syntax: QuickAddSyntax? { get }
+    var hasKnownMode: Bool { get }
+    var syncStatus: SyncItemStatus? { get }
+    var failureMessage: String? { get }
+    func retrySync()
     func setSyntax(_ syntax: QuickAddSyntax?)
+}
+
+public extension QuickAddSyntaxStore {
+    var hasKnownMode: Bool {
+        true
+    }
+
+    var syncStatus: SyncItemStatus? {
+        nil
+    }
+
+    var failureMessage: String? {
+        nil
+    }
+
+    func retrySync() {}
 }

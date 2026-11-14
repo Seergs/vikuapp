@@ -19,6 +19,19 @@ struct SettingsNavigationTests {
     }
 
     @Test
+    func `returning from the Magic guide preserves the mode selection screen`() {
+        let router = AppRouter()
+        router.push(SettingsRoute.quickAddMagic)
+        let pickerPath = router.path
+
+        router.push(.documentationArticle("quick-add-shortcuts"))
+        #expect(router.path.count == 2)
+
+        router.pop()
+        #expect(router.path == pickerPath)
+    }
+
+    @Test
     func `documentation and local Settings routes share one stack`() {
         let router = AppRouter()
         router.push(.documentationIndex)

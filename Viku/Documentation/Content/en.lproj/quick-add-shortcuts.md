@@ -12,7 +12,7 @@ Capture a task and organize it in one line, without opening each field separatel
 
 ## Turn on shortcuts
 
-Open **Settings → General → Quick Add Magic** and choose **Vikunja** or **Todoist**, whichever feels familiar. Shortcuts are off by default.
+Open **Settings → This connection → Quick Add Magic** and choose **Off**, **Vikunja**, or **Todoist**. The app uses the setting saved on your Vikunja server: changing it also changes the mode used on the web. Without a saved preference, Vikunja uses its own syntax.
 
 ## Try a task
 
