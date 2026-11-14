@@ -3,6 +3,19 @@ import VikunjaCore
 @testable import VikunjaNetworking
 
 struct VikunjaUserRepositorySwitchTests {
+    @Test(arguments: [false, true])
+    func `routes shared Magic updates by API capability`(v2Supported: Bool) async throws {
+        let v1 = SpyUserRepository(label: "v1")
+        let v2 = SpyUserRepository(label: "v2")
+        let repository = VikunjaUserRepositorySwitch(
+            v1: v1, v2: v2,
+            capabilityProvider: FakeUserCapabilityProvider(supportsAPIV2: v2Supported),
+        )
+        let user = try await repository.updateQuickAddMagicMode(.todoist)
+        #expect(user.username == (v2Supported ? "v2" : "v1"))
+        #expect(user.quickAddMagicMode == .todoist)
+    }
+
     @Test
     func `delegates to v1 when the capability provider does not support apiV2`() async throws {
         let v1 = SpyUserRepository(label: "v1")
@@ -106,6 +119,10 @@ private final class SpyUserRepository: UserRepositoryProtocol, @unchecked Sendab
     func updateDefaultProject(id _: Int?) async throws -> User {
         updateDefaultProjectCallCount += 1
         return User(id: 1, username: label)
+    }
+
+    func updateQuickAddMagicMode(_ mode: QuickAddMagicMode) async throws -> User {
+        User(id: 1, username: label, quickAddMagicMode: mode)
     }
 
     func updateOverdueTasksRemindersTime(_: String) async throws -> User {

@@ -14,6 +14,7 @@ enum UserMapper {
             overdueTasksRemindersTime: dto.settings?.overdueTasksRemindersTime,
             // Vikunja reports an unset time zone as `""`, not null.
             timezone: dto.settings?.timezone.flatMap { $0.isEmpty ? nil : $0 },
+            quickAddMagicMode: dto.settings?.quickAddMagicMode,
         )
     }
 }

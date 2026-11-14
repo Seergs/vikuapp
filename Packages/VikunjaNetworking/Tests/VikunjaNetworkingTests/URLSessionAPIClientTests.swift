@@ -311,6 +311,59 @@ struct URLSessionAPIClientTests {
         #expect(sentJSON["cover_image_attachment_id"] as? Int == 42)
     }
 
+    @Test(arguments: [false, true])
+    func `magic updates only its nested preference with the correct API contract`(v2: Bool) async throws {
+        let url = try #require(Bundle.module.url(forResource: "user-quick-add-settings", withExtension: "json"))
+        let original = try Data(contentsOf: url)
+        var refreshed = try #require(JSONSerialization.jsonObject(with: original) as? [String: Any])
+        var refreshedSettings = try #require(refreshed["settings"] as? [String: Any])
+        var frontend = try #require(refreshedSettings["frontend_settings"] as? [String: Any])
+        frontend["quick_add_magic_mode"] = "disabled"
+        refreshedSettings["frontend_settings"] = frontend
+        refreshed["settings"] = refreshedSettings
+        let refreshedData = try JSONSerialization.data(withJSONObject: refreshed)
+        let refreshedBody = try #require(String(data: refreshedData, encoding: .utf8))
+        let (session, capture) = try MockURLProtocol.makeSession(responses: [
+            (200, #require(String(data: original, encoding: .utf8))),
+            (200, #"{"message":"ok"}"#),
+            (200, refreshedBody),
+        ])
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository: UserRepositoryProtocol = v2
+            ? VikunjaUserRepositoryV2(client: client) : VikunjaUserRepository(client: client)
+        let user = try await repository.updateQuickAddMagicMode(.disabled)
+        #expect(user.quickAddMagicMode == .disabled)
+        let requests = await capture.requests
+        #expect(requests.count == 3)
+        let prefix = v2 ? "/api/v2" : "/api/v1"
+        let expectedPaths = [prefix + "/user", prefix + "/user/settings/general", prefix + "/user"]
+        #expect(requests.map { $0.url?.path } == expectedPaths)
+        #expect(requests.map(\.httpMethod) == ["GET", v2 ? "PUT" : "POST", "GET"])
+        let sent = try #require(requests[1].httpBody)
+        let body = try #require(JSONSerialization.jsonObject(with: sent) as? [String: Any])
+        // extra_settings_links is server-provided and intentionally not written.
+        refreshedSettings.removeValue(forKey: "extra_settings_links")
+        let expectedData = try JSONSerialization.data(withJSONObject: refreshedSettings, options: .sortedKeys)
+        let actualData = try JSONSerialization.data(withJSONObject: body, options: .sortedKeys)
+        #expect(actualData == expectedData)
+    }
+
+    @Test(arguments: [false, true])
+    func `missing account settings never triggers a destructive Magic update`(v2: Bool) async throws {
+        let url = try #require(Bundle.module.url(forResource: "user", withExtension: "json"))
+        var original = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        original.removeValue(forKey: "settings")
+        let body = try #require(String(data: JSONSerialization.data(withJSONObject: original), encoding: .utf8))
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: body)
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let repository: UserRepositoryProtocol = v2
+            ? VikunjaUserRepositoryV2(client: client) : VikunjaUserRepository(client: client)
+        await #expect(throws: VikunjaError.decoding("Current user settings are missing")) {
+            try await repository.updateQuickAddMagicMode(.todoist)
+        }
+        #expect(await capture.requests.count == 1)
+    }
+
     // `VikunjaUserRepository.updateDefaultProject(id:)`'s read-modify-write
     // behavior is tested here for the same reason as
     // `VikunjaTaskRepository.update(_:)` above.
@@ -995,7 +1048,10 @@ struct URLSessionAPIClientTests {
 
             let user = try await repository.fetchCurrentUser()
 
-            #expect(user == User(id: 3, username: "qa-user", name: "QA User", defaultProjectID: 6))
+            let expected = User(
+                id: 3, username: "qa-user", name: "QA User", defaultProjectID: 6, quickAddMagicMode: .vikunja,
+            )
+            #expect(user == expected)
             #expect(await capture.lastRequest?.url?.path == path)
         }
     }

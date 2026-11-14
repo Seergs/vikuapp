@@ -20,6 +20,11 @@ final class VikunjaUserRepositorySwitch: UserRepositoryProtocol {
         return try await repository.fetchCurrentUser()
     }
 
+    func updateQuickAddMagicMode(_ mode: QuickAddMagicMode) async throws -> User {
+        let repository = await capabilityProvider.supports(.apiV2) ? v2 : v1
+        return try await repository.updateQuickAddMagicMode(mode)
+    }
+
     func updateDefaultProject(id: Int?) async throws -> User {
         let repository = await capabilityProvider.supports(.apiV2) ? v2 : v1
         return try await repository.updateDefaultProject(id: id)
