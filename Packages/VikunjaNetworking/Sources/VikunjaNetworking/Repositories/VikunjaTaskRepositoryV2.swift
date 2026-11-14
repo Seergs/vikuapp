@@ -86,7 +86,9 @@ public final class VikunjaTaskRepositoryV2: TaskRepositoryProtocol {
     }
 
     public func searchTasks(query: String) async throws -> [VikunjaTask] {
-        let envelope: APIv2Envelope<TaskDTO> = try await client.send(VikunjaEndpoints.searchTasksV2(query: query))
-        return envelope.items.map(TaskMapper.toDomain)
+        let dtos: [TaskDTO] = try await client.sendAllPagesV2 {
+            VikunjaEndpoints.searchTasksV2(query: query, page: $0)
+        }
+        return dtos.map(TaskMapper.toDomain)
     }
 }

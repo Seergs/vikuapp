@@ -150,8 +150,12 @@ extension VikunjaEndpoints {
         try .encoding(path: "/api/v2/tasks/bulk", method: .put, body: dto)
     }
 
-    static func searchTasksV2(query: String) -> Endpoint {
-        Endpoint(path: "/api/v2/tasks", queryItems: [URLQueryItem(name: "q", value: query)])
+    static func searchTasksV2(query: String, page: Int? = nil) -> Endpoint {
+        Endpoint(
+            path: "/api/v2/tasks",
+            queryItems: [URLQueryItem(name: "q", value: query)]
+                + (page.map { [URLQueryItem(name: "page", value: String($0))] } ?? []),
+        )
     }
 
     static func taskAttachmentsV2(taskID: Int, page: Int? = nil) -> Endpoint {

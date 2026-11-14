@@ -81,8 +81,12 @@ enum VikunjaEndpoints {
     /// go-vikunja/vikunja#1988; on a server past that change, the old path
     /// gets matched by `/tasks/{id}` instead, with `id="all"` failing to
     /// bind as an int — a 400 "Invalid model provided").
-    static func searchTasks(query: String) -> Endpoint {
-        Endpoint(path: "/api/v1/tasks", queryItems: [URLQueryItem(name: "s", value: query)])
+    static func searchTasks(query: String, page: Int? = nil) -> Endpoint {
+        Endpoint(
+            path: "/api/v1/tasks",
+            queryItems: [URLQueryItem(name: "s", value: query)]
+                + (page.map { [URLQueryItem(name: "page", value: String($0))] } ?? []),
+        )
     }
 
     static func projects(page: Int? = nil) -> Endpoint {
