@@ -223,8 +223,11 @@ extension VikunjaEndpoints {
     /// under the `/api/v2` prefix, with list responses wrapped in
     /// `PaginatedWebhook` and create/update swapping methods the same way
     /// every other v2 resource does (POST to create, PUT to update).
-    static func webhooksV2(projectID: Int) -> Endpoint {
-        Endpoint(path: "/api/v2/projects/\(projectID)/webhooks")
+    static func webhooksV2(projectID: Int, page: Int? = nil) -> Endpoint {
+        Endpoint(
+            path: "/api/v2/projects/\(projectID)/webhooks",
+            queryItems: page.map { [URLQueryItem(name: "page", value: String($0))] } ?? [],
+        )
     }
 
     static func createWebhookV2(projectID: Int, dto: WebhookDTO) throws -> Endpoint {

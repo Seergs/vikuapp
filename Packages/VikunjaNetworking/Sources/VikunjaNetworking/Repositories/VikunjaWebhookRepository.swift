@@ -9,7 +9,9 @@ public final class VikunjaWebhookRepository: WebhookRepositoryProtocol {
     }
 
     public func fetchWebhooks(projectID: Int) async throws -> [Webhook] {
-        let dtos: [WebhookDTO] = try await client.send(VikunjaEndpoints.webhooks(projectID: projectID))
+        let dtos: [WebhookDTO] = try await client.sendAllPagesV1 {
+            VikunjaEndpoints.webhooks(projectID: projectID, page: $0)
+        }
         return dtos.compactMap(WebhookMapper.toDomain)
     }
 
