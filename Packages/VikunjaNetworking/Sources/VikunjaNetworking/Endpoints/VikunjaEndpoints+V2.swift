@@ -151,8 +151,11 @@ extension VikunjaEndpoints {
         Endpoint(path: "/api/v2/tasks", queryItems: [URLQueryItem(name: "q", value: query)])
     }
 
-    static func taskAttachmentsV2(taskID: Int) -> Endpoint {
-        Endpoint(path: "/api/v2/tasks/\(taskID)/attachments")
+    static func taskAttachmentsV2(taskID: Int, page: Int? = nil) -> Endpoint {
+        Endpoint(
+            path: "/api/v2/tasks/\(taskID)/attachments",
+            queryItems: page.map { [URLQueryItem(name: "page", value: String($0))] } ?? [],
+        )
     }
 
     static func uploadTaskAttachmentV2(taskID: Int, form: MultipartFormData) -> Endpoint {

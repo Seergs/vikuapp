@@ -175,8 +175,11 @@ enum VikunjaEndpoints {
         Endpoint(path: "/api/v1/tasks/\(taskID)/comments/\(commentID)", method: .delete)
     }
 
-    static func taskAttachments(taskID: Int) -> Endpoint {
-        Endpoint(path: "/api/v1/tasks/\(taskID)/attachments")
+    static func taskAttachments(taskID: Int, page: Int? = nil) -> Endpoint {
+        Endpoint(
+            path: "/api/v1/tasks/\(taskID)/attachments",
+            queryItems: page.map { [URLQueryItem(name: "page", value: String($0))] } ?? [],
+        )
     }
 
     static func uploadTaskAttachment(taskID: Int, form: MultipartFormData) -> Endpoint {

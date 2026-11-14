@@ -9,7 +9,9 @@ public final class VikunjaTaskAttachmentRepository: TaskAttachmentRepositoryProt
     }
 
     public func fetchAttachments(taskID: Int) async throws -> [TaskAttachment] {
-        let dtos: [TaskAttachmentDTO] = try await client.send(VikunjaEndpoints.taskAttachments(taskID: taskID))
+        let dtos: [TaskAttachmentDTO] = try await client.sendAllPagesV1 {
+            VikunjaEndpoints.taskAttachments(taskID: taskID, page: $0)
+        }
         return dtos.map(AttachmentMapper.toDomain)
     }
 

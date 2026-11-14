@@ -23,7 +23,7 @@ struct TaskDetailViewModelTests {
         let task = VikunjaTask(id: 1, title: "Cached", projectID: 1)
         repository.tasks = [task]
         let attachments = FakeTaskAttachmentRepository()
-        attachments.fetchError = .network("Attachment fetch should not run")
+        attachments.fetchError = VikunjaError.network("Attachment fetch should not run")
         let toast = FakeToastPresenter()
         let viewModel = TaskDetailViewModel(
             syncTrigger: OfflineSync(), localData: TestScreenSync(), task: task,
@@ -1287,10 +1287,42 @@ struct TaskDetailViewModelTests {
         #expect(viewModel.attachmentsLoadState == .loaded)
     }
 
+    @Test(arguments: [false, true])
+    func `failed or cancelled attachment refresh preserves the displayed list`(cancelled: Bool) async {
+        let attachmentRepository = FakeTaskAttachmentRepository()
+        let existing = TaskAttachment(
+            id: 1, taskID: 1, fileName: "spec.pdf", mimeType: "application/pdf",
+            sizeBytes: 2048, created: Date(), createdBy: User(id: 2, username: "sam"),
+        )
+        attachmentRepository.attachments = [existing]
+        let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
+            task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
+            project: Project(id: 1, title: "Work"), repository: FakeTaskRepository(),
+            labelRepository: FakeLabelRepository(), relationRepository: FakeTaskRelationRepository(),
+            commentRepository: FakeTaskCommentRepository(), attachmentRepository: attachmentRepository,
+            projectRepository: FakeProjectRepository(), toastPresenter: FakeToastPresenter(),
+        )
+        await viewModel.loadAttachments()
+        #expect(viewModel.attachments == [existing])
+
+        attachmentRepository.attachments = []
+        if cancelled {
+            attachmentRepository.fetchError = CancellationError()
+        } else {
+            attachmentRepository.fetchError = VikunjaError.network("Later page failed")
+        }
+        await viewModel.loadAttachments()
+
+        #expect(viewModel.attachments == [existing])
+        #expect(viewModel.attachmentsLoadState == .loaded)
+        #expect(attachmentRepository.downloadedPreviewSizes.isEmpty)
+    }
+
     @Test
     func `load attachments surfaces A friendly message on failure`() async {
         let attachmentRepository = FakeTaskAttachmentRepository()
-        attachmentRepository.fetchError = .network("offline")
+        attachmentRepository.fetchError = VikunjaError.network("offline")
         let viewModel = TaskDetailViewModel(
             syncTrigger: TestScreenSync(), localData: TestScreenSync(),
             task: VikunjaTask(id: 1, title: "Write report", projectID: 1),
@@ -1821,7 +1853,7 @@ struct TaskDetailViewModelTests {
         await viewModel.loadComments()
         await viewModel.loadAttachments()
         comments.fetchError = .notFound
-        attachments.fetchError = .notFound
+        attachments.fetchError = VikunjaError.notFound
         // Mimic the database observation firing before delete returns and the
         // view's task being cancelled only after the dismissal transition.
         repository.afterDelete = {
