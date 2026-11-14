@@ -13,8 +13,11 @@ extension VikunjaEndpoints {
         Endpoint(path: "/api/v2/info")
     }
 
-    static func projectsV2() -> Endpoint {
-        Endpoint(path: "/api/v2/projects")
+    static func projectsV2(page: Int? = nil) -> Endpoint {
+        Endpoint(
+            path: "/api/v2/projects",
+            queryItems: page.map { [URLQueryItem(name: "page", value: String($0))] } ?? [],
+        )
     }
 
     static func projectV2(id: Int) -> Endpoint {
