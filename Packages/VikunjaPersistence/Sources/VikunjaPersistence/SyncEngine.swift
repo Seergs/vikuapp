@@ -24,6 +24,8 @@ public actor SyncEngine {
     /// `nil` in tests/constructions that never touch comments. Every real
     /// `SyncEngine` built by the app or `SyncCoordinator` passes one.
     private let commentRepository: TaskCommentRepositoryProtocol?
+    /// `nil` for engine instances that do not synchronize account preferences.
+    let userRepository: UserRepositoryProtocol?
     /// `nil` for engine instances that do not drain saved-filter writes.
     private let filterRepository: FilterRepositoryProtocol?
     /// `InstanceAccount.id` — every row this engine reads or writes is
@@ -41,6 +43,7 @@ public actor SyncEngine {
         taskBulkUpdateRepository: TaskBulkUpdateRepositoryProtocol? = nil,
         commentRepository: TaskCommentRepositoryProtocol? = nil,
         filterRepository: FilterRepositoryProtocol? = nil,
+        userRepository: UserRepositoryProtocol? = nil,
         accountID: UUID,
         bucketRepository: BucketRepositoryProtocol? = nil,
         capabilityProvider: CapabilityProvider = NoopCapabilityProvider(),
@@ -56,6 +59,7 @@ public actor SyncEngine {
         self.relationRepository = relationRepository
         self.commentRepository = commentRepository
         self.filterRepository = filterRepository
+        self.userRepository = userRepository
         self.accountID = accountID
         self.onKanbanCreationRejected = onKanbanCreationRejected
     }
@@ -65,6 +69,7 @@ public actor SyncEngine {
     /// request fails. Remaining queue entries make partial uploads observable.
     public func synchronize() async throws {
         let phases: [@Sendable () async throws -> Void] = [
+            { try await self.syncQuickAddSettings() },
             { try await self.pullProjects() },
             { try await self.drainProjectMutations() },
             { try await self.drainFilterMutations() },
@@ -459,6 +464,7 @@ public actor SyncEngine {
         }
         return try Set(items.compactMap { item in
             switch entityType {
+            case .quickAddSettings: nil
             case .project: try decode(ProjectDeletePayload.self, from: item.payload)?.remoteID
             case .task: try decode(TaskDeletePayload.self, from: item.payload)?.remoteID
             case .label: try decode(LabelDeletePayload.self, from: item.payload)?.remoteID
@@ -1892,7 +1898,7 @@ public actor SyncEngine {
         case .comment:
             guard let created = try decode(TaskCommentCreatePayload.self, from: sent.payload) else { return }
             payload = try encodePayload(TaskCommentDeletePayload(taskLocalID: created.taskLocalID, remoteID: remoteID))
-        case .filter: return
+        case .filter, .quickAddSettings: return
         }
         var deletion = MutationQueueRecord(
             id: nil, accountID: sent.accountID, entityType: sent.entityType, operation: .delete,

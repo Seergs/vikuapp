@@ -57,6 +57,7 @@ enum ProjectSubtree {
             let shouldDiscard: Bool = switch item.entityType {
             case .project: projectIDs.contains(item.targetLocalID)
             case .task: taskIDs.contains(item.targetLocalID)
+            case .quickAddSettings: false
             case .comment: commentIDs.contains(item.targetLocalID)
             case .filter, .label: false
             }

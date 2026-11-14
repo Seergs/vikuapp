@@ -44,6 +44,13 @@ enum DatabaseMigrations {
                 columns: ["accountID", "otherTaskRemoteID"],
             )
         }
+        migrator.registerMigration("createQuickAddSettings") { db in
+            try db.create(table: "quickAddSettings") { table in
+                table.primaryKey("accountID", .text)
+                table.column("mode", .text).notNull()
+                table.column("revision", .text).notNull()
+            }
+        }
     }
 
     private static func createProject(_ db: Database) throws {

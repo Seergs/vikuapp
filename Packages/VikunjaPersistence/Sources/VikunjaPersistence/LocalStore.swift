@@ -263,3 +263,16 @@ public actor LocalStore {
 }
 
 extension LocalStore: PendingSyncOperationsProviding {}
+
+extension LocalStore {
+    func observeQuickAddSettings(accountID: UUID) -> AsyncThrowingStream<QuickAddMagicSettings, Error> {
+        let values = ValueObservation.tracking { db in
+            try QuickAddSettingsRecord.settings(accountID: accountID, db: db)
+        }.removeDuplicates().values(in: dbPool)
+        return recoveringObservation { continuation in
+            for try await value in values {
+                continuation.yield(value)
+            }
+        }
+    }
+}

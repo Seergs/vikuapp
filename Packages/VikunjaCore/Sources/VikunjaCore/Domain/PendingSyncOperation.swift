@@ -2,6 +2,7 @@ import Foundation
 
 /// Which kind of local entity a queued mutation targets.
 public enum PendingSyncEntity: String, Hashable, Sendable {
+    case quickAddSettings
     case project
     case filter
     case label

@@ -44,7 +44,7 @@ enum PendingSyncStatusReader {
                 if let remoteID = row.remoteID {
                     statuses[SyncItemKey(kind: .task, id: .remote(remoteID))] = status
                 }
-            case .label, .comment:
+            case .label, .comment, .quickAddSettings:
                 continue
             }
         }
