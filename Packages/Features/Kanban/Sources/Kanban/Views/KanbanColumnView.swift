@@ -11,6 +11,7 @@ struct KanbanColumnView: View {
     let bucket: KanbanBucket
     let searchText: String
     @Binding var dropTarget: KanbanDropTarget
+    let dragPresentation: CardDragPresentation
     let allowsMutations: Bool
     let allowsTaskCreation: Bool
     let onRefresh: () async -> Void
@@ -20,7 +21,7 @@ struct KanbanColumnView: View {
     /// The dropped card's task id. Resolving it to a full `VikunjaTask`
     /// needs every bucket's tasks, not just this column's own, so the lookup
     /// (and the `moveTask` call) happens in `KanbanBoardView`.
-    let onDropTaskID: @MainActor @Sendable (EntityID) -> Void
+    let onDropTaskID: @MainActor @Sendable (EntityID) async -> Bool
     let onAddTask: @MainActor (String) async -> Bool
 
     private var isTargeted: Bool {
@@ -79,6 +80,7 @@ struct KanbanColumnView: View {
             bucketID: bucket.id,
             allowsDrop: allowsMutations && !bucket.isFull,
             target: $dropTarget,
+            dragPresentation: dragPresentation,
             onDropTaskID: onDropTaskID,
         ))
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: draft.isPresented)
@@ -196,8 +198,10 @@ struct KanbanColumnView: View {
             // Kanban needs the presentation workaround documented on
             // StableContextMenuCard; the plain SwiftUI variant failed device testing.
             StableContextMenuCard(
-                identity: KanbanDragIdentity.encode(task.id), dragValue: KanbanDragIdentity.encode(task.id),
+                identity: "\(bucket.id):\(KanbanDragIdentity.encode(task.id))",
+                dragValue: KanbanDragIdentity.encode(task.id),
                 cornerRadius: VikuRadius.md, items: taskContextMenu(task),
+                dragPresentation: dragPresentation,
             ) {
                 cardContent(for: task)
             }

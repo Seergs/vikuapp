@@ -6,6 +6,131 @@ import UIKit
 
 @MainActor
 struct StableContextMenuCardTests {
+    @Test(arguments: [true, false], [UIDropOperation.move, .copy])
+    func `a relocated source stays hidden through its outgoing transition`(
+        dropFinishesFirst: Bool, operation: UIDropOperation,
+    ) {
+        let presentation = CardDragPresentation()
+        let initial = snapshot(done: true, height: 40, dragPresentation: presentation) {}
+        let controller = ContextMenuCardController(snapshot: initial)
+        controller.loadViewIfNeeded()
+        let drag = UIDragInteraction(delegate: controller)
+        let dragSession = TestDragSession()
+        controller.dragInteraction(drag, sessionWillBegin: dragSession)
+        let token = presentation.beginDrop()
+
+        if !dropFinishesFirst {
+            controller.dragInteraction(drag, session: dragSession, didEndWith: operation)
+        }
+        // SwiftUI has removed the source from ForEach's data, but still retains
+        // its controller while the removal transition runs.
+        presentation.finishDrop(token, sourceWasRemoved: true)
+        controller.update(initial)
+        if dropFinishesFirst {
+            controller.dragInteraction(drag, session: dragSession, didEndWith: operation)
+        }
+
+        #expect(controller.view.alpha == 0)
+        #expect(!presentation.isSourceHidden("destination:42"))
+
+        // Returning this task to the same column creates a new controller. The
+        // old outgoing controller must not affect the new card's visibility.
+        let returned = ContextMenuCardController(snapshot: initial)
+        returned.loadViewIfNeeded()
+        returned.update(initial)
+        #expect(returned.view.alpha == 1)
+        controller.update(initial)
+        #expect(controller.view.alpha == 0)
+    }
+
+    @Test(arguments: [true, false], [UIDropOperation.move, .copy])
+    func `an accepted drop never reveals its source before the destination finishes`(
+        dropFinishesFirst: Bool, operation: UIDropOperation,
+    ) {
+        let presentation = CardDragPresentation()
+        let initial = snapshot(done: true, height: 40, dragPresentation: presentation) {}
+        let controller = ContextMenuCardController(snapshot: initial)
+        controller.loadViewIfNeeded()
+        let drag = UIDragInteraction(delegate: controller)
+        let dragSession = TestDragSession()
+        controller.dragInteraction(drag, sessionWillBegin: dragSession)
+        let token = presentation.beginDrop()
+
+        if dropFinishesFirst {
+            presentation.finishDrop(token)
+            controller.update(initial)
+        } else {
+            controller.dragInteraction(drag, session: dragSession, didEndWith: operation)
+            controller.update(initial)
+        }
+        #expect(controller.view.alpha == 0)
+
+        if dropFinishesFirst {
+            controller.dragInteraction(drag, session: dragSession, didEndWith: operation)
+        } else {
+            presentation.finishDrop(token)
+            controller.update(initial)
+        }
+        #expect(controller.view.alpha == 1)
+    }
+
+    @Test(arguments: [UIDropOperation.cancel, .forbidden, .move])
+    func `drag hides only the source until completion and preserves live layout`(operation: UIDropOperation) throws {
+        let controller = ContextMenuCardController(snapshot: snapshot(done: true, height: 40) {})
+        controller.loadViewIfNeeded()
+        let surface = try #require(controller.children.first?.view)
+        let drag = UIDragInteraction(delegate: controller)
+        let dragSession = TestDragSession()
+
+        // A later drag must hide the source again after the previous one ends.
+        for _ in 0 ..< 2 {
+            _ = controller.dragInteraction(drag, itemsForBeginning: dragSession)
+            #expect(controller.view.alpha == 1)
+            controller.dragInteraction(drag, sessionWillBegin: dragSession)
+            #expect(controller.view.alpha == 0)
+            // Keep the painted surface available to UIKit's native previews.
+            #expect(surface.alpha == 1)
+            #expect(!surface.isHidden)
+
+            controller.update(snapshot(done: false, height: 80) {})
+            #expect(controller.view.alpha == 0)
+            #expect(controller.fittingSize(width: 284).height == 80)
+
+            controller.dragInteraction(drag, session: dragSession, didEndWith: operation)
+            #expect(controller.view.alpha == 1)
+            #expect(controller.fittingSize(width: 284).height == 80)
+        }
+    }
+
+    @Test(arguments: [true, false])
+    func `menu dismissal cannot reveal a drag source and cannot delay its restoration`(menuEndsFirst: Bool) throws {
+        let controller = ContextMenuCardController(snapshot: snapshot(done: true, height: 40) {})
+        controller.loadViewIfNeeded()
+        let menu = UIContextMenuInteraction(delegate: controller)
+        let configuration = try #require(
+            controller.contextMenuInteraction(menu, configurationForMenuAtLocation: .zero),
+        )
+        let animator = DeferredMenuAnimator()
+        controller.contextMenuInteraction(menu, willEndFor: configuration, animator: animator)
+        let drag = UIDragInteraction(delegate: controller)
+        let dragSession = TestDragSession()
+        controller.dragInteraction(drag, sessionWillBegin: dragSession)
+
+        if menuEndsFirst {
+            animator.finish()
+            controller.update(snapshot(done: false, height: 80) {})
+            #expect(controller.view.alpha == 0)
+        }
+
+        controller.dragInteraction(drag, session: dragSession, didEndWith: .cancel)
+        #expect(controller.view.alpha == 1)
+
+        if !menuEndsFirst {
+            animator.finish()
+            #expect(controller.view.alpha == 1)
+        }
+    }
+
     @Test(arguments: [UIDropOperation.cancel, .move])
     func `an actual drag preserves action identity without blocking live card updates`(operation: UIDropOperation) throws {
         let controller = ContextMenuCardController(snapshot: snapshot(done: true, height: 40) {})
@@ -37,6 +162,7 @@ struct StableContextMenuCardTests {
         let drag = UIDragInteraction(delegate: controller)
         let dragSession = TestDragSession()
         let items = controller.dragInteraction(drag, itemsForBeginning: dragSession)
+        #expect(controller.view.alpha == 1)
         #expect(items.count == 1)
         #expect(items.first?.itemProvider.canLoadObject(ofClass: NSString.self) == true)
         let menu = UIContextMenuInteraction(delegate: controller)
@@ -50,6 +176,7 @@ struct StableContextMenuCardTests {
         // UIKit asked for possible drag items, but never began a drag session.
         // There is no drag-end callback to wait for in this interaction.
         #expect(controller.fittingSize(width: 284).height == 80)
+        #expect(controller.view.alpha == 1)
         _ = controller.contextMenuInteraction(menu, configurationForMenuAtLocation: .zero)
         #expect(controller.menuForPresentation().identity == "open")
         #expect(try checkedPriority(controller.menuForPresentation().menu) == "urgent")
@@ -129,7 +256,10 @@ struct StableContextMenuCardTests {
         #expect(try checkedPriority(menu.menu) == "low")
     }
 
-    private func snapshot(done: Bool, height: CGFloat, perform: @escaping @MainActor () -> Void)
+    private func snapshot(
+        done: Bool, height: CGFloat, dragPresentation: CardDragPresentation? = nil,
+        perform: @escaping @MainActor () -> Void,
+    )
         -> ContextMenuCardController.Snapshot {
         .init(
             identity: done ? "done" : "open", dragValue: "remote:42", cornerRadius: 12,
@@ -141,6 +271,7 @@ struct StableContextMenuCardTests {
                 ]),
             ],
             content: AnyView(Color.clear.frame(height: height)),
+            dragPresentation: dragPresentation,
         )
     }
 

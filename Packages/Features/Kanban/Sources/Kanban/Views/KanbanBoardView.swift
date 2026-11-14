@@ -27,6 +27,7 @@ public struct KanbanBoardView: View {
     @State private var loadingPresentation = KanbanLoadingPresentation()
     @State private var presentationOrigin = ContinuousClock.now
     @State private var dropTarget = KanbanDropTarget()
+    @State private var dragPresentation = CardDragPresentation()
     @State private var horizontalScrollPosition: Int?
     @Environment(\.vikuPalette) private var palette
 
@@ -55,6 +56,7 @@ public struct KanbanBoardView: View {
         .background(palette.pageBackground)
         .onDisappear {
             dropTarget.reset()
+            dragPresentation.reset()
             loadingPresentation = KanbanLoadingPresentation()
         }
         .task(id: isInitialLoading) {
@@ -152,6 +154,7 @@ public struct KanbanBoardView: View {
                         bucket: bucket,
                         searchText: searchText,
                         dropTarget: $dropTarget,
+                        dragPresentation: dragPresentation,
                         allowsMutations: viewModel.supportsWrites,
                         allowsTaskCreation: viewModel.supportsTaskCreation,
                         onRefresh: { await viewModel.refresh() },
@@ -159,7 +162,7 @@ public struct KanbanBoardView: View {
                         taskContextMenu: taskContextMenu,
                         onToggleDone: { task in Task { await viewModel.toggleDone(task) } },
                         onDropTaskID: { taskID in
-                            Task { await viewModel.moveTask(taskID: taskID, to: bucket) }
+                            await viewModel.moveTask(taskID: taskID, to: bucket)
                         },
                         onAddTask: { title in await viewModel.createTask(title: title, in: bucket) },
                     )
