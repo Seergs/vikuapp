@@ -9,50 +9,52 @@ import VikunjaCore
 /// present that sheet, since nothing here owns the sheet presentation.
 public struct DueDateMenu: View {
     private let currentDueDate: Date?
-    private let onSelect: (Date?) -> Void
-    private let onCustom: () -> Void
+    private let onSelect: @MainActor (Date?) -> Void
+    private let onCustom: @MainActor () -> Void
 
-    public init(currentDueDate: Date?, onSelect: @escaping (Date?) -> Void, onCustom: @escaping () -> Void) {
+    public init(currentDueDate: Date?, onSelect: @escaping @MainActor (Date?) -> Void, onCustom: @escaping @MainActor () -> Void) {
         self.currentDueDate = currentDueDate
         self.onSelect = onSelect
         self.onCustom = onCustom
     }
 
     public var body: some View {
-        let selected = selectedShortcut()
-        Menu(String(localized: "Due Date", bundle: .module), systemImage: "calendar") {
-            ForEach(DueDateShortcut.allCases) { shortcut in
-                Button {
-                    onSelect(shortcut.resolvedDate())
-                } label: {
-                    HStack {
-                        Text(String(localized: String.LocalizationValue(shortcut.titleKey), bundle: .module))
-                        if shortcut == selected {
-                            Image(systemName: "checkmark")
-                        }
-                    }
-                }
-            }
-            Divider()
-            Button(String(localized: "Custom...", bundle: .module)) {
-                onCustom()
-            }
-        }
+        ContextMenuItems([Self.item(currentDueDate: currentDueDate, onSelect: onSelect, onCustom: onCustom)])
     }
 
-    /// The one quick pick that reads as "selected", mutually exclusive even
-    /// when several options' resolved dates land on the same calendar day
-    /// (e.g. on a Friday, "Tomorrow" and "Next Weekend" are both Saturday).
-    /// A checkmark is a radio-button affordance, so exactly one option (or
-    /// none) lights up; the tie goes to whichever option is listed first,
-    /// the most specific phrasing of that day.
-    private func selectedShortcut() -> DueDateShortcut? {
-        guard let currentDueDate else { return DueDateShortcut.none }
-        let calendar = Calendar.current
-        return DueDateShortcut.allCases
-            .first { shortcut in
-                guard shortcut != .none, let resolved = shortcut.resolvedDate() else { return false }
-                return calendar.isDate(currentDueDate, inSameDayAs: resolved)
+    /// Resolves the same shortcuts for SwiftUI and stable native context menus.
+    public static func item(
+        currentDueDate: Date?, onSelect: @escaping @MainActor (Date?) -> Void, onCustom: @escaping @MainActor () -> Void,
+        now: Date = Date(), calendar: Calendar = .current,
+    ) -> ContextMenuItem {
+        let selected = selectedShortcut(for: currentDueDate, now: now, calendar: calendar)
+        let shortcuts = DueDateShortcut.allCases.map { shortcut in
+            ContextMenuItem.action(
+                shortcut.rawValue,
+                title: String(localized: String.LocalizationValue(shortcut.titleKey), bundle: .module),
+                isSelected: shortcut == selected,
+            ) {
+                onSelect(shortcut.resolvedDate())
             }
+        }
+        return .submenu(
+            "dueDate", title: String(localized: "Due Date", bundle: .module), systemImage: "calendar",
+            items: [
+                .group("shortcuts", items: shortcuts),
+                .group("custom", items: [
+                    .action("customDate", title: String(localized: "Custom...", bundle: .module), perform: onCustom),
+                ]),
+            ],
+        )
+    }
+
+    /// Use the first matching shortcut so overlapping dates have one checkmark.
+    private static func selectedShortcut(for dueDate: Date?, now: Date, calendar: Calendar) -> DueDateShortcut? {
+        guard let dueDate else { return DueDateShortcut.none }
+        return DueDateShortcut.allCases.first { shortcut in
+            guard shortcut != .none,
+                  let resolved = shortcut.resolvedDate(now: now, calendar: calendar) else { return false }
+            return calendar.isDate(dueDate, inSameDayAs: resolved)
+        }
     }
 }

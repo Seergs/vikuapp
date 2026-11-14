@@ -408,12 +408,12 @@ public final class ProjectOverviewViewModel {
     /// Sets a task's priority, persists the change, and rolls the local edit
     /// back if the server rejects it - mirrors `toggleDone(_:)`.
     public func setPriority(_ task: VikunjaTask, to priority: VikunjaTask.Priority) async {
+        guard let original = await taskForMutation(task) else { return }
         loadVersion += 1
-        guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
-        var updated = task
+        var updated = original
         updated.priority = priority
-        tasks[index] = updated
-        let result = await mutator.persistSetPriority(updated: updated, original: task)
+        replaceVisibleTask(updated)
+        let result = await mutator.persistSetPriority(updated: updated, original: original)
         acceptMutationResult(result, replacing: updated)
     }
 
@@ -421,12 +421,12 @@ public final class ProjectOverviewViewModel {
     /// and rolls the local edit back if the server rejects it - mirrors
     /// `setPriority(_:to:)`.
     public func setDueDate(_ task: VikunjaTask, to dueDate: Date?) async {
+        guard let original = await taskForMutation(task) else { return }
         loadVersion += 1
-        guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
-        var updated = task
+        var updated = original
         updated.dueDate = dueDate
-        tasks[index] = updated
-        let result = await mutator.persistSetDueDate(updated: updated, original: task)
+        replaceVisibleTask(updated)
+        let result = await mutator.persistSetDueDate(updated: updated, original: original)
         acceptMutationResult(result, replacing: updated)
     }
 
@@ -436,10 +436,13 @@ public final class ProjectOverviewViewModel {
     /// task update endpoint, so this routes through the label repository
     /// rather than `mutator.persistSetPriority`'s `repository.update(_:)`.
     public func toggleLabel(_ task: VikunjaTask, _ label: Label) async {
+        _ = await persistLabelToggle(task, label)
+    }
+
+    private func persistLabelToggle(_ task: VikunjaTask, _ label: Label) async -> VikunjaTask? {
+        guard let original = await taskForMutation(task) else { return nil }
         let label = labelCatalog.canonicalLabel(label)
         loadVersion += 1
-        guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
-        let original = tasks[index]
         var updated = original
         let isAdding = !updated.labels.contains { labelCatalog.canonicalID(for: $0.id) == label.id }
         if isAdding {
@@ -447,11 +450,12 @@ public final class ProjectOverviewViewModel {
         } else {
             updated.labels.removeAll { labelCatalog.canonicalID(for: $0.id) == label.id }
         }
-        tasks[index] = updated
+        replaceVisibleTask(updated)
         let result = await mutator.persistToggleLabel(
             updated: updated, original: original, label: label, isAdding: isAdding, labelRepository: labelRepository,
         )
         acceptMutationResult(result, replacing: updated)
+        return result
     }
 
     /// Loads every label on the instance, for the label picker sheet.
@@ -481,10 +485,10 @@ public final class ProjectOverviewViewModel {
         }
         labelCatalogVersion += 1
         labelCatalog.labels.append(created)
-        await toggleLabel(task, created)
+        let result = await persistLabelToggle(task, created)
         await loadAllLabels()
         let canonical = labelCatalog.canonicalLabel(created)
-        let attached = tasks.first(where: { $0.id == task.id })?.labels.contains {
+        let attached = result?.labels.contains {
             labelCatalog.canonicalID(for: $0.id) == canonical.id
         } ?? false
         return attached ? canonical : nil
@@ -535,12 +539,11 @@ public final class ProjectOverviewViewModel {
     /// row (so its link glyph appears immediately) and rolling back if the
     /// server rejects it - mirrors `TaskDetailViewModel.addRelation(_:kind:)`.
     public func addRelation(_ relation: TaskRelation, kind: RelationKind, to task: VikunjaTask) async {
+        guard let original = await taskForMutation(task) else { return }
         loadVersion += 1
-        guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
-        let original = tasks[index]
         var updated = original
         updated.addRelation(relation, kind: kind)
-        tasks[index] = updated
+        replaceVisibleTask(updated)
         let result = await mutator.persistAddRelation(
             relation, kind: kind, updated: updated, original: original, relationRepository: relationRepository,
         )
@@ -670,6 +673,31 @@ public final class ProjectOverviewViewModel {
             toastPresenter: toastPresenter,
             hapticPresenter: hapticPresenter,
         )
+    }
+
+    /// A board's server-side filter can include tasks absent from the local list.
+    /// Read those tasks through the canonical repository instead of silently ignoring
+    /// their actions or adding them to a list whose filter they may not satisfy.
+    private func taskForMutation(_ task: VikunjaTask) async -> VikunjaTask? {
+        guard !Task.isCancelled else { return nil }
+        if let current = tasks.first(where: { $0.id == task.id }) {
+            return current
+        }
+        do {
+            let fetched = try await repository.fetchTask(id: task.id)
+            guard !Task.isCancelled else { return nil }
+            return tasks.first(where: { $0.id == task.id }) ?? fetched
+        } catch is CancellationError {
+            return nil
+        } catch {
+            toastPresenter.show((error as? VikunjaError)?.displayMessage ?? error.localizedDescription, style: .error)
+            return nil
+        }
+    }
+
+    private func replaceVisibleTask(_ task: VikunjaTask) {
+        guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
+        tasks[index] = task
     }
 
     /// Observation can reorder or remove a row while a write is suspended.

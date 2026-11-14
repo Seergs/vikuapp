@@ -1,6 +1,7 @@
 import SwiftUI
 import VikuDesignSystem
 import VikunjaCore
+import VikuUI
 
 /// A bucket with a single drop destination. A scroll view keeps native List
 /// insertion placeholders from appearing before capacity is validated.
@@ -14,6 +15,7 @@ struct KanbanColumnView: View {
     let allowsTaskCreation: Bool
     let onRefresh: () async -> Void
     let onSelectTask: (VikunjaTask) -> Void
+    let taskContextMenu: (VikunjaTask) -> [ContextMenuItem]
     let onToggleDone: (VikunjaTask) -> Void
     /// The dropped card's task id. Resolving it to a full `VikunjaTask`
     /// needs every bucket's tasks, not just this column's own, so the lookup
@@ -189,10 +191,20 @@ struct KanbanColumnView: View {
     @ViewBuilder
     private func card(for task: VikunjaTask) -> some View {
         if allowsMutations {
+            #if os(iOS)
+            // Kanban needs the presentation workaround documented on
+            // StableContextMenuCard; the plain SwiftUI variant failed device testing.
+            StableContextMenuCard(
+                identity: KanbanDragIdentity.encode(task.id), dragValue: KanbanDragIdentity.encode(task.id),
+                cornerRadius: VikuRadius.md, items: taskContextMenu(task),
+            ) {
+                cardContent(for: task)
+            }
+            #else
             cardContent(for: task)
-                .draggable(KanbanDragIdentity.encode(task.id)) {
-                    cardContent(for: task)
-                }
+                .contextMenu { ContextMenuItems(taskContextMenu(task)) }
+                .draggable(KanbanDragIdentity.encode(task.id)) { cardContent(for: task) }
+            #endif
         } else {
             cardContent(for: task)
         }
@@ -217,6 +229,9 @@ struct KanbanColumnView: View {
         )
         .padding(VikuSpacing.sm)
         .background(palette.fieldBackground, in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
+        // Native fieldBackground is a translucent fill. Preserve its resting
+        // appearance over the column while giving lifted cards an opaque base.
+        .background(palette.cardBackground, in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
     }
 
     private var addTaskField: some View {

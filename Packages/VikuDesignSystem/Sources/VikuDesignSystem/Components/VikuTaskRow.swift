@@ -128,6 +128,11 @@ public struct VikuTaskRow<Menu: View>: View {
                 ? Text("Selected", bundle: .module)
                 : Text("Not selected", bundle: .module))
             .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+        } else if Menu.self == EmptyView.self {
+            // The host may provide a menu around the whole painted card.
+            // Do not install an empty nested interaction on its inner row.
+            rowContent
+                .onTapGesture(perform: onOpen)
         } else {
             rowContent
                 .onTapGesture(perform: onOpen)
