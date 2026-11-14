@@ -232,8 +232,11 @@ enum VikunjaEndpoints {
         Endpoint(path: "/api/v1/webhooks/events")
     }
 
-    static func userWebhooks() -> Endpoint {
-        Endpoint(path: "/api/v1/user/settings/webhooks")
+    static func userWebhooks(page: Int? = nil) -> Endpoint {
+        Endpoint(
+            path: "/api/v1/user/settings/webhooks",
+            queryItems: page.map { [URLQueryItem(name: "page", value: String($0))] } ?? [],
+        )
     }
 
     static func createUserWebhook(dto: WebhookDTO) throws -> Endpoint {

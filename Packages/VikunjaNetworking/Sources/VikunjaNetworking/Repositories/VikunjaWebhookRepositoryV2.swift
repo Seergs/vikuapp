@@ -48,8 +48,8 @@ public final class VikunjaWebhookRepositoryV2: WebhookRepositoryProtocol {
     }
 
     public func fetchUserWebhooks() async throws -> [Webhook] {
-        let envelope: APIv2Envelope<WebhookDTO> = try await client.send(VikunjaEndpoints.userWebhooksV2())
-        return envelope.items.compactMap(WebhookMapper.toDomain)
+        let dtos: [WebhookDTO] = try await client.sendAllPagesV2 { VikunjaEndpoints.userWebhooksV2(page: $0) }
+        return dtos.compactMap(WebhookMapper.toDomain)
     }
 
     public func createUserWebhook(targetURL: URL, events: [WebhookEvent], secret: String?) async throws -> Webhook {

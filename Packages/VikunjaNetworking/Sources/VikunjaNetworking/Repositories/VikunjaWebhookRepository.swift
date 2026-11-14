@@ -42,7 +42,7 @@ public final class VikunjaWebhookRepository: WebhookRepositoryProtocol {
     }
 
     public func fetchUserWebhooks() async throws -> [Webhook] {
-        let dtos: [WebhookDTO] = try await client.send(VikunjaEndpoints.userWebhooks())
+        let dtos: [WebhookDTO] = try await client.sendAllPagesV1 { VikunjaEndpoints.userWebhooks(page: $0) }
         return dtos.compactMap(WebhookMapper.toDomain)
     }
 
