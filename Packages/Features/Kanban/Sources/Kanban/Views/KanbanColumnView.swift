@@ -192,6 +192,8 @@ struct KanbanColumnView: View {
     private func card(for task: VikunjaTask) -> some View {
         if allowsMutations {
             #if os(iOS)
+            // Kanban needs the presentation workaround documented on
+            // StableContextMenuCard; the plain SwiftUI variant failed device testing.
             StableContextMenuCard(
                 identity: KanbanDragIdentity.encode(task.id), dragValue: KanbanDragIdentity.encode(task.id),
                 cornerRadius: VikuRadius.md, items: taskContextMenu(task),

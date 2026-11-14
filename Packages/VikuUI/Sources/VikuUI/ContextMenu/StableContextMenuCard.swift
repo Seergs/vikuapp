@@ -5,6 +5,16 @@ import UIKit
 /// Owns the native menu and drag on one painted surface. A presented menu is
 /// built once from a value snapshot without replacing its visible actions or
 /// resetting its submenu. The underlying card always receives live updates.
+///
+/// Workaround for the Kanban interactions observed with SwiftUI's `.contextMenu`
+/// and `.draggable`: rapid data refreshes could briefly show the wrong completion
+/// action, reset an open priority submenu, or leave card fields visually stale.
+/// The SwiftUI comparison branch reproduced these issues during device testing;
+/// this is not a confirmed iOS framework bug. UIKit lets us keep the presented
+/// menu's actions stable while continuing to update the source card independently.
+/// Reconsider this adapter when a SwiftUI implementation passes the same refresh,
+/// rapid-reopening, editing, and drag-from-menu scenarios. Existing List menus
+/// continue to use SwiftUI and do not need this workaround.
 public struct StableContextMenuCard<Content: View>: UIViewControllerRepresentable {
     private let identity: String
     private let dragValue: String
