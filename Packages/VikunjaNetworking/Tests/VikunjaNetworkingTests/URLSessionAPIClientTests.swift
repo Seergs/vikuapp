@@ -483,7 +483,7 @@ struct URLSessionAPIClientTests {
         #expect(tasks.map(\.title) == ["Buy coffee", "Page two"])
         let requests = await capture.requests
         #expect(requests.count == 2)
-        #expect(requests[0].url?.query == nil)
+        #expect(requests[0].url?.query == "page=1")
         #expect(try URLComponents(url: #require(requests[1].url), resolvingAgainstBaseURL: false)?
             .queryItems?.first(where: { $0.name == "page" })?.value == "2")
     }
@@ -507,7 +507,7 @@ struct URLSessionAPIClientTests {
         #expect(tasks.count == 2)
         let requests = await capture.requests
         #expect(requests.count == 2)
-        #expect(requests[0].url?.query == nil)
+        #expect(requests[0].url?.query == "page=1")
         #expect(try URLComponents(url: #require(requests[1].url), resolvingAgainstBaseURL: false)?
             .queryItems?.first(where: { $0.name == "page" })?.value == "2")
     }
