@@ -212,8 +212,11 @@ enum VikunjaEndpoints {
         try .encoding(path: "/api/v1/user/settings/general", method: .post, body: dto)
     }
 
-    static func webhooks(projectID: Int) -> Endpoint {
-        Endpoint(path: "/api/v1/projects/\(projectID)/webhooks")
+    static func webhooks(projectID: Int, page: Int? = nil) -> Endpoint {
+        Endpoint(
+            path: "/api/v1/projects/\(projectID)/webhooks",
+            queryItems: page.map { [URLQueryItem(name: "page", value: String($0))] } ?? [],
+        )
     }
 
     static func createWebhook(projectID: Int, dto: WebhookDTO) throws -> Endpoint {
