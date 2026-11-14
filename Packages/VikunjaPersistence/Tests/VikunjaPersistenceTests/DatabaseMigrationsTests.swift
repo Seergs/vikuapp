@@ -35,6 +35,40 @@ struct DatabaseMigrationsTests {
     }
 
     @Test
+    func `incoming relation index migration preserves existing relations`() throws {
+        let database = try DatabaseQueue()
+        var migrator = DatabaseMigrator()
+        DatabaseMigrations.registerAll(on: &migrator)
+        try migrator.migrate(database, upTo: "createTaskCommentSync")
+        let accountID = UUID()
+        let projectID = UUID()
+        let taskID = UUID()
+        let relation = TaskRelationRecord(
+            localID: UUID(), accountID: accountID, taskLocalID: taskID,
+            kind: .related, otherTaskRemoteID: 6, otherProjectRemoteID: 1, title: "Other", isDone: false,
+        )
+        try database.write { db in
+            try ProjectRecord(
+                localID: projectID, accountID: accountID, remoteID: 1, title: "Project", description: nil,
+                isArchived: false, isFavorite: false, parentProjectLocalID: nil, position: 0,
+                hexColor: "", serverUpdatedAt: nil,
+            ).insert(db)
+            try TaskRecord(
+                localID: taskID, accountID: accountID, remoteID: 5, title: "Task", description: nil,
+                isDone: false, dueDate: nil, priority: 0, projectLocalID: projectID, serverUpdatedAt: nil,
+            ).insert(db)
+            try relation.insert(db)
+        }
+        try migrator.migrate(database)
+        #expect(try database.read { try TaskRelationRecord.fetchOne($0) } == relation)
+        let columns = try database.read { db in
+            try db.indexes(on: "taskRelation")
+                .first { $0.name == "taskRelation_on_accountID_otherTaskRemoteID" }?.columns
+        }
+        #expect(columns == ["accountID", "otherTaskRemoteID"])
+    }
+
+    @Test
     func `migrating twice is a no op`() throws {
         let dbQueue = try migratedDatabase()
         var migrator = DatabaseMigrator()

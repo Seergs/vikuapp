@@ -1586,9 +1586,14 @@ public actor SyncEngine {
         guard let payload: TaskDeletePayload = try decodePayload(item.payload) else {
             throw DrainError.invalidPayload
         }
-        try await taskRepository.delete(id: .remote(payload.remoteID))
+        do {
+            try await taskRepository.delete(id: .remote(payload.remoteID))
+        } catch VikunjaError.notFound {
+            // An earlier attempt or another client already completed the deletion.
+        }
         try await localStore.write { db in
             if let row = try TaskRecord.fetchOne(db, key: item.targetLocalID) {
+                try TaskRelationDeletion.removeReferences(to: row, db: db)
                 try row.delete(db)
             }
             try MutationQueueRecord.filter(Column("accountID") == self.accountID)
@@ -1655,6 +1660,17 @@ public actor SyncEngine {
         guard let payload: TaskRelationMutationPayload = try decodePayload(item.payload) else {
             throw DrainError.invalidPayload
         }
+        let isBlocked = try await localStore.write { db in
+            guard try MutationQueueRecord.fetchOne(db, key: item.id) != nil else { return true }
+            guard try TaskRecord.fetchOne(db, key: item.targetLocalID) != nil,
+                  try TaskRecord.fetchOne(db, key: payload.otherTaskLocalID) != nil else {
+                try item.delete(db)
+                return true
+            }
+            let hidden = try OfflineTaskRepository.pendingDeleteTargetLocalIDs(accountID: self.accountID, db: db)
+            return hidden.contains(item.targetLocalID) || hidden.contains(payload.otherTaskLocalID)
+        }
+        guard !isBlocked else { return .deferred }
         guard let resolved = try await localStore.read({ db in
             try Self.resolveRelationMutationRows(
                 taskLocalID: item.targetLocalID, otherTaskLocalID: payload.otherTaskLocalID, db: db,
@@ -1674,6 +1690,11 @@ public actor SyncEngine {
             )
         }
         try await localStore.write { db in
+            // A deletion or recovery can finish while the request is in flight.
+            // Never recreate a relation after either local endpoint was removed.
+            guard try MutationQueueRecord.fetchOne(db, key: item.id) != nil,
+                  try TaskRecord.fetchOne(db, key: item.targetLocalID) != nil,
+                  try TaskRecord.fetchOne(db, key: payload.otherTaskLocalID) != nil else { return }
             try Self.patchRelationCache(
                 isAdding: isAdding, kind: payload.kind, taskLocalID: item.targetLocalID,
                 otherTaskLocalID: payload.otherTaskLocalID, resolved: resolved, accountID: self.accountID, db: db,

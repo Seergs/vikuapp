@@ -48,6 +48,10 @@ public actor OfflineTaskRelationRepository: TaskRelationRepositoryProtocol {
             ) else {
                 throw VikunjaError.notFound
             }
+            let hidden = try OfflineTaskRepository.pendingDeleteTargetLocalIDs(accountID: self.accountID, db: db)
+            guard !hidden.contains(taskRow.localID), !hidden.contains(otherTaskRow.localID) else {
+                throw VikunjaError.notFound
+            }
             let payload = TaskRelationMutationPayload(kind: kind, otherTaskLocalID: otherTaskRow.localID)
             var item = try MutationQueueRecord(
                 id: nil,

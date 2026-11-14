@@ -10,6 +10,7 @@ final class FakeTaskRelationRepository: TaskRelationRepositoryProtocol, @uncheck
 
     private(set) var addedRelations: [RecordedRelation] = []
     private(set) var removedRelations: [RecordedRelation] = []
+    var beforeAddResponse: (@Sendable () async throws -> Void)?
     var addRelationError: Error?
     var removeRelationError: Error?
 
@@ -18,6 +19,7 @@ final class FakeTaskRelationRepository: TaskRelationRepositoryProtocol, @uncheck
             throw addRelationError
         }
         addedRelations.append(RecordedRelation(kind: kind, otherTaskID: otherTaskID, taskID: taskID))
+        try await beforeAddResponse?()
     }
 
     func removeRelation(kind: RelationKind, otherTaskID: EntityID, fromTask taskID: EntityID) async throws {
