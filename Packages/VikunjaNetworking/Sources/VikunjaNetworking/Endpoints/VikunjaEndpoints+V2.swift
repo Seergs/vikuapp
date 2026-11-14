@@ -243,8 +243,11 @@ extension VikunjaEndpoints {
         Endpoint(path: "/api/v2/webhooks/events")
     }
 
-    static func userWebhooksV2() -> Endpoint {
-        Endpoint(path: "/api/v2/user/settings/webhooks")
+    static func userWebhooksV2(page: Int? = nil) -> Endpoint {
+        Endpoint(
+            path: "/api/v2/user/settings/webhooks",
+            queryItems: page.map { [URLQueryItem(name: "page", value: String($0))] } ?? [],
+        )
     }
 
     static func createUserWebhookV2(dto: WebhookDTO) throws -> Endpoint {
