@@ -7,7 +7,7 @@ import Foundation
 ///   names may contain spaces: `#"Lista del super"`.
 /// - `@home` (Todoist) or `*home` (Vikunja) adds a label. Several can be used.
 ///   A label that does not exist yet is created when the task is saved.
-/// - `p1`-`p4` (Todoist) or `!1`-`!5` (Vikunja) sets a priority.
+/// - `p1`-`p4` or `!!1`-`!!4` (Todoist), or `!1`-`!5` (Vikunja), sets a priority.
 /// - A backslash before a sigil escapes it, so `\#` stays a literal `#`.
 /// - With an explicit `dateContext`, one uniquely resolved temporal expression
 ///   sets the due date and is removed from the title alongside applied shortcuts.
@@ -200,7 +200,7 @@ public enum QuickAddParser {
         // One entry per Character plus the end index, so any character offset
         // maps back to a String.Index.
         let indices = Array(input.indices) + [input.endIndex]
-        let prefix = Array(syntax.priorityPrefix)
+        let priorityPrefixes = syntax.acceptedPriorityPrefixes.map { Array($0) }
 
         var tokens: [Token] = []
         var escapes: [Range<String.Index>] = []
@@ -230,7 +230,7 @@ public enum QuickAddParser {
                       let shortcut = namedToken(kind: .label, at: offset, in: characters, indices: indices) {
                 tokens.append(shortcut.token)
                 offset = shortcut.endOffset
-            } else if hasPrefix(prefix, at: offset, in: characters),
+            } else if let prefix = priorityPrefixes.first(where: { hasPrefix($0, at: offset, in: characters) }),
                       let shortcut = priorityToken(
                           at: offset,
                           prefixLength: prefix.count,
@@ -251,7 +251,8 @@ public enum QuickAddParser {
     /// True when the text right after a backslash is a sigil this dialect uses.
     private static func isSigil(_ rest: ArraySlice<Character>, syntax: QuickAddSyntax) -> Bool {
         guard let first = rest.first else { return false }
-        return first == syntax.projectSigil || first == syntax.labelSigil || first == syntax.priorityPrefix.first
+        return first == syntax.projectSigil || first == syntax.labelSigil
+            || syntax.acceptedPriorityPrefixes.contains { rest.starts(with: $0) }
     }
 
     private static func hasPrefix(_ prefix: [Character], at offset: Int, in characters: [Character]) -> Bool {
@@ -291,7 +292,7 @@ public enum QuickAddParser {
         return (token, endOffset)
     }
 
-    /// Reads a priority shortcut such as `!3` or `p2`. Only the digits in the
+    /// Reads a priority shortcut such as `!3`, `p2` or `!!2`. Only the digits in the
     /// dialect's range count, so `pay` or `p9` stay text.
     private static func priorityToken(
         at offset: Int,
