@@ -297,6 +297,47 @@ struct OfflineTaskCommentRepositoryTests {
         #expect(afterCancellation.lastSuccessfulDownloadAt == originalDate)
     }
 
+    @Test(arguments: [false, true])
+    func `incomplete comment refresh preserves local edits queue and coverage`(cancelled: Bool) async throws {
+        let fixture = try await makeRepository(online: false)
+        try await seedTask(in: fixture, remoteID: 5)
+        fixture.network.comments = [TaskComment(
+            id: 1, comment: "Original", author: User(id: 7, username: "alex"),
+            created: Date(timeIntervalSince1970: 1_700_000_000), updated: Date(timeIntervalSince1970: 1_700_000_000),
+        )]
+        try await fixture.engine.pullComments(taskID: .remote(5))
+        _ = try await fixture.repository.updateComment(.remote(1), text: "Edited offline", onTask: .remote(5))
+        _ = try await fixture.repository.addComment("Created offline", toTask: .remote(5))
+        try await fixture.store.write { db in
+            var item = try #require(MutationQueueRecord.fetchAll(db).first)
+            item.needsConflictResolution = true
+            try item.save(db)
+        }
+        let before = try await fixture.repository.fetchCommentSnapshot(taskID: .remote(5))
+        let queueBefore = try await fixture.store.read { db in try MutationQueueRecord.fetchAll(db) }
+        let rowsBefore = try await fixture.store.read { db in try TaskCommentRecord.fetchAll(db) }
+
+        if cancelled {
+            let download = Task {
+                withUnsafeCurrentTask { $0?.cancel() }
+                try await fixture.engine.pullComments(taskID: .remote(5))
+            }
+            await #expect(throws: (any Error).self) { try await download.value }
+        } else {
+            fixture.network.fetchError = .decoding("Incomplete paginated download")
+            await #expect(throws: VikunjaError.self) { try await fixture.engine.pullComments(taskID: .remote(5)) }
+        }
+        let after = try await fixture.repository.fetchCommentSnapshot(taskID: .remote(5))
+        #expect(after.comments == before.comments)
+        #expect(after.lastSuccessfulDownloadAt == before.lastSuccessfulDownloadAt)
+        #expect(try await fixture.store.read { db in try MutationQueueRecord.fetchAll(db) } == queueBefore)
+        #expect(try await fixture.store.read { db in try TaskCommentRecord.fetchAll(db) } == rowsBefore)
+        fixture.network.fetchError = nil
+        try await fixture.engine.pullComments(taskID: .remote(5))
+        #expect(try await fixture.repository.fetchCommentSnapshot(taskID: .remote(5)).lastSuccessfulDownloadAt != nil)
+        #expect(try await fixture.store.read { db in try MutationQueueRecord.fetchAll(db) } == queueBefore)
+    }
+
     @Test
     func `legacy and offline created comments do not imply complete coverage`() async throws {
         let fixture = try await makeRepository(online: false)

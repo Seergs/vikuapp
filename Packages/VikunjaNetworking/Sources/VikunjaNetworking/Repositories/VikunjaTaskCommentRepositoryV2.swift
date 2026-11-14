@@ -18,18 +18,8 @@ public final class VikunjaTaskCommentRepositoryV2: TaskCommentRepositoryProtocol
         guard let resolvedTaskID = taskID.remoteValue else {
             preconditionFailure("VikunjaTaskCommentRepositoryV2.fetchComments: the task must be synced first")
         }
-        let envelope: APIv2Envelope<CommentDTO> = try await client.send(
-            VikunjaEndpoints.commentsV2(taskID: resolvedTaskID),
-        )
-        var dtos = envelope.items
-        if envelope.totalPages > 1 {
-            for page in 2 ... envelope.totalPages {
-                try Task.checkCancellation()
-                let nextPage: APIv2Envelope<CommentDTO> = try await client.send(
-                    VikunjaEndpoints.commentsV2(taskID: resolvedTaskID, page: page),
-                )
-                dtos += nextPage.items
-            }
+        let dtos: [CommentDTO] = try await client.sendAllPagesV2 {
+            VikunjaEndpoints.commentsV2(taskID: resolvedTaskID, page: $0)
         }
         return dtos.map(CommentMapper.toDomain)
     }
