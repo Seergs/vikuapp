@@ -20,17 +20,20 @@ public struct StableContextMenuCard<Content: View>: UIViewControllerRepresentabl
     private let dragValue: String
     private let cornerRadius: CGFloat
     private let items: [ContextMenuItem]
+    private let dragPresentation: CardDragPresentation?
     private let content: Content
     @Environment(\.self) private var environment
 
     public init(
         identity: String, dragValue: String, cornerRadius: CGFloat, items: [ContextMenuItem],
+        dragPresentation: CardDragPresentation? = nil,
         @ViewBuilder content: () -> Content,
     ) {
         self.identity = identity
         self.dragValue = dragValue
         self.cornerRadius = cornerRadius
         self.items = items
+        self.dragPresentation = dragPresentation
         self.content = content()
     }
 
@@ -39,6 +42,9 @@ public struct StableContextMenuCard<Content: View>: UIViewControllerRepresentabl
     }
 
     public func updateUIViewController(_ controller: ContextMenuCardController, context: Context) {
+        // Observe the shared handoff so completion also updates a retained source
+        // after a failed move or a drop back into the same column.
+        _ = dragPresentation?.isSourceHidden(identity)
         controller.update(snapshot)
     }
 
@@ -52,6 +58,7 @@ public struct StableContextMenuCard<Content: View>: UIViewControllerRepresentabl
         .init(
             identity: identity, dragValue: dragValue, cornerRadius: cornerRadius, items: items,
             content: AnyView(content.environment(\.self, environment)),
+            dragPresentation: dragPresentation,
         )
     }
 }
@@ -65,15 +72,20 @@ public final class ContextMenuCardController: UIViewController,
         let cornerRadius: CGFloat
         let items: [ContextMenuItem]
         let content: AnyView
+        var dragPresentation: CardDragPresentation?
     }
 
     private let hosting: UIHostingController<AnyView>
     private let session: ContextMenuSession<Snapshot>
     private var menuIdentifier: String?
+    private let dragPresentation: CardDragPresentation
+    private var dragSourceIdentity: String?
+    private var sourceWasRemoved = false
 
     init(snapshot: Snapshot) {
         self.hosting = UIHostingController(rootView: snapshot.content)
         self.session = ContextMenuSession(snapshot)
+        self.dragPresentation = snapshot.dragPresentation ?? CardDragPresentation()
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -111,6 +123,7 @@ public final class ContextMenuCardController: UIViewController,
         hosting.view.invalidateIntrinsicContentSize()
         view.invalidateIntrinsicContentSize()
         view.setNeedsLayout()
+        updateSourceVisibility()
     }
 
     func fittingSize(width: CGFloat) -> CGSize {
@@ -176,7 +189,17 @@ public final class ContextMenuCardController: UIViewController,
     }
 
     public func dragInteraction(_ interaction: UIDragInteraction, sessionWillBegin dragSession: any UIDragSession) {
-        session.begin(.drag)
+        let snapshot = session.begin(.drag)
+        dragSourceIdentity = snapshot.identity
+        sourceWasRemoved = false
+        dragPresentation.beginDrag(source: snapshot.identity) { [weak self] in
+            self?.sourceWasRemoved = true
+            self?.updateSourceVisibility()
+        }
+        // The lift preview is already captured. Hide its source without removing
+        // the card's layout space. Use the outer view so menu dismissal and live
+        // updates to the hosted content cannot reveal it during the drag.
+        updateSourceVisibility()
     }
 
     public func dragInteraction(
@@ -189,6 +212,18 @@ public final class ContextMenuCardController: UIViewController,
         _ interaction: UIDragInteraction, session dragSession: any UIDragSession, didEndWith operation: UIDropOperation,
     ) {
         end(.drag)
+        if let dragSourceIdentity {
+            dragPresentation.endDrag(source: dragSourceIdentity, didMove: operation == .move || operation == .copy)
+        }
+        // An accepted drop may still be loading its provider or updating data.
+        // Keep its source hidden until that handoff finishes, without a timer.
+        updateSourceVisibility()
+    }
+
+    private func updateSourceVisibility() {
+        let identity = dragSourceIdentity ?? session.latest.identity
+        let isHidden = sourceWasRemoved || dragPresentation.isSourceHidden(identity)
+        view.alpha = isHidden ? 0 : 1
     }
 
     private func end(_ interaction: ContextMenuSession<Snapshot>.Interaction) {

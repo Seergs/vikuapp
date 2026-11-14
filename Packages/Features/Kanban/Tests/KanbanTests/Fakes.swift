@@ -11,6 +11,7 @@ final class FakeBucketRepository: KanbanBoardRepositoryProtocol, KanbanTaskOrder
     var buckets: [KanbanBucket] = []
     var fetchError: VikunjaError?
     var moveError: VikunjaError?
+    var afterMove: (@MainActor () -> Void)?
     var createError: (any Error)?
     var reorderError: (any Error)?
     var beforeReorder: (@MainActor () async throws -> Void)?
@@ -83,6 +84,7 @@ final class FakeBucketRepository: KanbanBoardRepositoryProtocol, KanbanTaskOrder
             task.isDone = false
         }
         buckets[destination].tasks.append(task)
+        afterMove?()
         return task
     }
 

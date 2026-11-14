@@ -877,6 +877,17 @@ without replacing the visible menu. UIKit manages its lifted preview. A request
 for drag items does not start a presentation hold: only `sessionWillBegin` marks
 an actual drag as active. Menu dismissal and actual drag completion jointly
 release the action snapshot, so dragging out of a menu retains the same task identity.
+After lift completes, the controller hides its source card with outer-view alpha,
+preserving layout and live content updates until drop or cancellation animations
+finish. Accepted drops also retain that hold through item-provider decoding and
+the destination's awaited move and snapshot reload. `CardDragPresentation` shares
+this presentation-only handoff. Invalid payloads, failed writes and drops into
+the source column restore the source. A snapshot that removes the source retires
+that controller's painted content permanently, so a late native drag-end callback
+cannot reveal it during SwiftUI's outgoing removal transition. A new controller
+for the same task starts visible. Source identity
+includes its column, so the destination card is visible immediately. Menu dismissal
+cannot reveal the source during an active drag.
 The next presentation uses the newest values. Completion menu commands carry an
 explicit target state to avoid reversing a change already applied by sync. List
 uses the SwiftUI renderer for the same action descriptions. No storage or sync

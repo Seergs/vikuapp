@@ -148,16 +148,18 @@ public final class KanbanBoardViewModel {
     }
 
     public func moveTask(_ task: VikunjaTask, to bucket: KanbanBucket) async {
-        await moveTask(taskID: task.id, to: bucket)
+        _ = await moveTask(taskID: task.id, to: bucket)
     }
 
-    func moveTask(taskID: EntityID, to bucket: KanbanBucket) async {
+    /// Returns whether the visible snapshot no longer contains the source card.
+    @discardableResult
+    func moveTask(taskID: EntityID, to bucket: KanbanBucket) async -> Bool {
         let source = buckets.first { $0.tasks.contains { $0.id == taskID } }
         let previousDone = source?.tasks.first { $0.id == taskID }?.isDone
-        guard supportsWrites, let viewID, source?.id != bucket.id,
-              let current = buckets.first(where: { $0.id == bucket.id }) else { return }
-        guard !current.isFull else { show(VikunjaError.bucketFull); return }
-        guard pendingActions.insert(taskID).inserted else { return }
+        guard supportsWrites, let viewID, let source, source.id != bucket.id,
+              let current = buckets.first(where: { $0.id == bucket.id }) else { return false }
+        guard !current.isFull else { show(VikunjaError.bucketFull); return false }
+        guard pendingActions.insert(taskID).inserted else { return false }
         defer { pendingActions.remove(taskID) }
         do {
             let moved = try await repository.moveTask(
@@ -170,7 +172,11 @@ public final class KanbanBoardViewModel {
                 hapticPresenter.play(.success)
             }
             await load()
-        } catch { show(error) }
+            return buckets.first(where: { $0.id == source.id })?.tasks.contains { $0.id == taskID } != true
+        } catch {
+            show(error)
+            return false
+        }
     }
 
     /// Uses the complete bucket, including cards hidden by the board's search.

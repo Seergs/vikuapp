@@ -111,8 +111,9 @@ struct KanbanBoardViewModelTests {
         )
         await viewModel.load()
 
-        await viewModel.moveTask(task, to: viewModel.buckets[1])
+        let sourceWasRemoved = await viewModel.moveTask(taskID: task.id, to: viewModel.buckets[1])
 
+        #expect(sourceWasRemoved)
         #expect(viewModel.buckets[0].tasks.isEmpty)
         #expect(viewModel.buckets[1].tasks.map(\.id) == [1])
         #expect(repository.movedTaskIDs.map(\.bucketID) == [2])
@@ -159,8 +160,9 @@ struct KanbanBoardViewModelTests {
         )
         await viewModel.load()
 
-        await viewModel.moveTask(task, to: viewModel.buckets[1])
+        let sourceWasRemoved = await viewModel.moveTask(taskID: task.id, to: viewModel.buckets[1])
 
+        #expect(!sourceWasRemoved)
         #expect(viewModel.buckets[0].tasks.map(\.id) == [1])
         #expect(viewModel.buckets[1].tasks.isEmpty)
         #expect(toastPresenter.shownMessages.map(\.style) == [.error])
@@ -179,9 +181,38 @@ struct KanbanBoardViewModelTests {
         )
         await viewModel.load()
 
-        await viewModel.moveTask(task, to: viewModel.buckets[0])
+        let sourceWasRemoved = await viewModel.moveTask(taskID: task.id, to: viewModel.buckets[0])
 
+        #expect(!sourceWasRemoved)
         #expect(repository.movedTaskIDs.isEmpty)
+    }
+
+    @Test
+    func `a committed move with a failed snapshot read keeps its visible source recoverable`() async {
+        let repository = FakeBucketRepository()
+        let task = VikunjaTask(id: 1, title: "Write report", projectID: 4)
+        repository.buckets = [
+            KanbanBucket(id: 1, title: "To Do", tasks: [task]),
+            KanbanBucket(id: 2, title: "Doing"),
+        ]
+        repository.afterMove = { repository.fetchError = .network("Snapshot unavailable") }
+        let viewModel = KanbanBoardViewModel(
+            project: Project(id: 4, title: "Work"), repository: repository,
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
+            toastPresenter: FakeToastPresenter(),
+        )
+        await viewModel.load()
+
+        let sourceWasRemoved = await viewModel.moveTask(taskID: task.id, to: viewModel.buckets[1])
+
+        #expect(!sourceWasRemoved)
+        #expect(viewModel.buckets[0].tasks.map(\.id) == [task.id])
+        #expect(repository.buckets[0].tasks.isEmpty)
+
+        repository.fetchError = nil
+        await viewModel.load()
+        #expect(viewModel.buckets[0].tasks.isEmpty)
+        #expect(viewModel.buckets[1].tasks.map(\.id) == [task.id])
     }
 
     @Test(arguments: [false, true])
