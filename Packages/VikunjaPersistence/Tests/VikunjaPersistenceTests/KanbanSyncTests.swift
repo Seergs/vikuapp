@@ -33,6 +33,10 @@ actor KanbanDownloadFake: BucketRepositoryProtocol {
         failure = .offline
     }
 
+    func setTaskPosition(taskID: Int, viewID: Int, position: Double) async throws -> TaskViewPosition {
+        throw VikunjaError.notFound
+    }
+
     func downloadBoard(projectID: Int, viewID: Int?) async throws -> KanbanDownload {
         calls += 1
         if delay {

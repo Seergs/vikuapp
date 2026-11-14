@@ -6,6 +6,17 @@ import VikunjaCore
 /// `VikunjaEndpoints+V2.swift`, so Kanban's surface stays easy to tell apart
 /// from the per-resource v1/v2 migration.
 extension VikunjaEndpoints {
+    static func setTaskPositionV2(taskID: Int, viewID: Int, position: Double) throws -> Endpoint {
+        var endpoint = try Endpoint.encoding(
+            path: "/api/v2/tasks/\(taskID)/position", method: .put,
+            body: TaskPositionRequestDTO(projectViewID: viewID, position: position),
+        )
+        // A timed-out write can have triggered server-side position recalculation.
+        // Let synchronization reconcile its outcome before considering another write.
+        endpoint.allowsAutomaticRetry = false
+        return endpoint
+    }
+
     /// Lists a project's views so the Kanban one can be resolved by
     /// `view_kind`. Verified against a real instance's
     /// `/api/v2/openapi.json`: unlike `buckets/tasks` below, this list *is*

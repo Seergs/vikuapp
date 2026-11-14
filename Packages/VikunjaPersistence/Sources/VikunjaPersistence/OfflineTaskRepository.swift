@@ -119,7 +119,8 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateReposi
             let projectChanged = row.projectLocalID != projectLocalID
             if projectChanged {
                 try MutationQueueRecord.filter(Column("targetLocalID") == row.localID)
-                    .filter(Column("operation") == MutationOperation.moveBucket.rawValue)
+                    .filter([MutationOperation.moveBucket.rawValue, MutationOperation.setTaskPosition.rawValue]
+                        .contains(Column("operation")))
                     .filter(Column("status") != MutationStatus.inFlight.rawValue).deleteAll(db)
             }
             let completionChanged = row.isDone != task.isDone
@@ -563,7 +564,8 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateReposi
                 }
             case .removeLabel:
                 labels.removeAll { $0.id == labelID }
-            case .create, .update, .delete, .addRelation, .removeRelation, .moveBucket, .setCompletion, .setDueDate:
+            case .create, .update, .delete, .addRelation, .removeRelation, .moveBucket, .setTaskPosition,
+                 .setCompletion, .setDueDate:
                 break
             }
         }
@@ -651,7 +653,8 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateReposi
                 relationsByKind[mutation.kind] = relations
             case .removeRelation:
                 relationsByKind[mutation.kind]?.removeAll { $0.id == otherID }
-            case .create, .update, .delete, .addLabel, .removeLabel, .moveBucket, .setCompletion, .setDueDate:
+            case .create, .update, .delete, .addLabel, .removeLabel, .moveBucket, .setTaskPosition,
+                 .setCompletion, .setDueDate:
                 break
             }
         }

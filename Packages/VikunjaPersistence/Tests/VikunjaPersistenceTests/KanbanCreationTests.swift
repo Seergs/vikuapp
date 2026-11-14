@@ -76,6 +76,10 @@ private actor CreationRemote: BucketRepositoryProtocol {
         return result
     }
 
+    func setTaskPosition(taskID: Int, viewID: Int, position: Double) async throws -> TaskViewPosition {
+        throw VikunjaError.notFound
+    }
+
     func downloadBoard(projectID: Int, viewID: Int?) async throws -> KanbanDownload {
         downloadRequests += 1
         if let download {

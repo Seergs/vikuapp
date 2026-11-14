@@ -55,6 +55,12 @@ enum KanbanLocalMutations {
         try task.update(db)
         assignment.bucketLocalID = destination.localID
         try assignment.update(db)
+        // A later bucket move supersedes an unsubmitted order in the old bucket.
+        for item in queue where item.operation == .setTaskPosition && item.status != .inFlight {
+            if try KanbanPositionLocalMutations.payload(item).viewID == view.remoteID {
+                try item.delete(db)
+            }
+        }
         try enqueueMove(KanbanMovePayload(
             projectLocalID: project.localID,
             viewID: view.remoteID,
@@ -196,6 +202,10 @@ enum KanbanLocalMutations {
             for var item in queue where item.status != .inFlight {
                 if item.operation == .moveBucket,
                    try decode(KanbanMovePayload.self, item: item).viewID == view.remoteID {
+                    try item.delete(db)
+                }
+                if item.operation == .setTaskPosition,
+                   try KanbanPositionLocalMutations.payload(item).viewID == view.remoteID {
                     try item.delete(db)
                 }
                 if item.operation == .create {

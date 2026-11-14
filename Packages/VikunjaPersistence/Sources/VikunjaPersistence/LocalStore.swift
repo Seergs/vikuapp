@@ -253,7 +253,11 @@ public actor LocalStore {
                   item.accountID == accountID,
                   item.canDiscardConflict
             else { return }
-            try item.delete(db)
+            if item.operation == .setTaskPosition {
+                try KanbanPositionLocalMutations.discard(item, db: db)
+            } else {
+                try item.delete(db)
+            }
         }
     }
 }

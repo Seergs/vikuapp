@@ -85,6 +85,16 @@ final class VikunjaBucketRepository: BucketRepositoryProtocol {
         )
     }
 
+    func setTaskPosition(taskID: Int, viewID: Int, position: Double) async throws -> TaskViewPosition {
+        guard taskID > 0, viewID > 0, position.isFinite, position != 0 else { throw VikunjaError.notFound }
+        let endpoint = try VikunjaEndpoints.setTaskPositionV2(taskID: taskID, viewID: viewID, position: position)
+        let result: TaskPositionResponseDTO = try await client.send(endpoint)
+        guard result.taskID == taskID, result.viewID == viewID, result.position.isFinite, result.position > 0 else {
+            throw VikunjaError.decoding("Mismatched task position response")
+        }
+        return TaskViewPosition(taskID: result.taskID, viewID: result.viewID, position: result.position)
+    }
+
     func moveTask(taskID: Int, toBucketID: Int, projectID: Int, viewID: Int?) async throws -> VikunjaTask {
         let view = try await kanbanView(projectID: projectID, viewID: viewID)
         let endpoint = try VikunjaEndpoints.moveTaskToBucketV2(

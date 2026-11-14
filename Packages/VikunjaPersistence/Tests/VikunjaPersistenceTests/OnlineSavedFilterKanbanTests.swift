@@ -9,6 +9,8 @@ private actor FilterBoardRemote: BucketRepositoryProtocol {
         VikunjaTask(id: 11, title: "Work task", projectID: 1),
         VikunjaTask(id: 22, title: "Home task", projectID: 2),
     ]
+    var positions: [Int: Double] = [11: 100, 22: 200]
+    private(set) var positionWrites: [Int] = []
     var failure: VikunjaError?
     var mode = "manual"
     func useAutomaticBuckets() {
@@ -28,6 +30,15 @@ private actor FilterBoardRemote: BucketRepositoryProtocol {
         failure = .offline
     }
 
+    func setTaskPosition(taskID: Int, viewID: Int, position: Double) async throws -> TaskViewPosition {
+        if let failure {
+            throw failure
+        }
+        positionWrites.append(taskID)
+        positions[taskID] = position
+        return TaskViewPosition(taskID: taskID, viewID: viewID, position: position)
+    }
+
     func downloadBoard(projectID: Int, viewID: Int?) async throws -> KanbanDownload {
         requests.append((projectID, viewID))
         if let failure {
@@ -36,9 +47,11 @@ private actor FilterBoardRemote: BucketRepositoryProtocol {
         return KanbanDownload(
             viewID: 7, mode: mode, filterQuery: "priority >= 3", defaultBucketID: 10, doneBucketID: 20,
             buckets: [
-                KanbanBucket(id: 10, title: "Todo", tasks: tasks.filter { !$0.isDone }),
+                KanbanBucket(id: 10, title: "Todo", tasks: tasks.filter { !$0.isDone }.sorted {
+                    positions[$0.id.remoteValue ?? 0, default: 0] < positions[$1.id.remoteValue ?? 0, default: 0]
+                }),
                 KanbanBucket(id: 20, title: "Done", isDoneBucket: true, tasks: tasks.filter(\.isDone)),
-            ],
+            ], taskPositions: positions,
         )
     }
 
@@ -63,6 +76,22 @@ private actor FilterBoardRemote: BucketRepositoryProtocol {
 }
 
 struct OnlineSavedFilterKanbanTests {
+    @Test func `online reordering targets the selected view without moving buckets or queueing offline intent`() async throws {
+        let fixture = try await fixture()
+        try await fixture.repository.prepare()
+        try await fixture.repository.moveTaskToTop(taskID: 22, projectID: -2, viewID: 7, bucketID: 10)
+        #expect(try await board(fixture.repository).buckets[0].tasks.map(\.id) == [22, 11])
+        #expect(await fixture.remote.positionWrites == [22])
+        #expect(await fixture.remote.moves.isEmpty)
+        #expect(try await fixture.store.read { try MutationQueueRecord.fetchCount($0) } == 0)
+        await fixture.remote.fail()
+        await #expect(throws: VikunjaError.offline) {
+            try await fixture.repository.moveTaskToBottom(taskID: 22, projectID: -2, viewID: 7, bucketID: 10)
+        }
+        #expect(try await board(fixture.repository).buckets[0].tasks.map(\.id) == [22, 11])
+        #expect(try await fixture.store.read { try MutationQueueRecord.fetchCount($0) } == 0)
+    }
+
     private struct Fixture {
         let store: LocalStore
         let accountID: UUID
