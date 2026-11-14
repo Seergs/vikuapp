@@ -1655,6 +1655,22 @@
         }
       }
     },
+    "Task duplicated": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Task duplicated"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tarea duplicada"
+          }
+        }
+      }
+    },
     "Today": {
       "localizations": {
         "es": {

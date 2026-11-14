@@ -9,9 +9,9 @@ import VikunjaCore
 /// pre-filled from the source task: an editable title (defaulting to
 /// `"… (copy)"`), project, and priority, plus "Copy labels" / "Copy
 /// relations" toggles when the source has either. Confirming creates the
-/// duplicate, hands it back through `onDuplicated` (the host pushes its
-/// detail screen), and dismisses. Lives in `VikuUI` rather than
-/// `Features/Tasks` so every feature that lists tasks can offer it without
+/// duplicate, calls the optional `onDuplicated` callback, and dismisses.
+/// Lives in `VikuUI` rather than `Features/Tasks` so every feature that lists
+/// tasks can offer it without
 /// importing another feature.
 public struct DuplicateTaskSheetView: View {
     @State private var viewModel: DuplicateTaskViewModel

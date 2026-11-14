@@ -477,6 +477,7 @@ public final class TodayViewModel {
             projectRepository: projectRepository,
             toastPresenter: toastPresenter,
             hapticPresenter: hapticPresenter,
+            toastOpensTask: true,
         )
     }
 

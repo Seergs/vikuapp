@@ -183,10 +183,20 @@ final class FakeTaskRelationRepository: TaskRelationRepositoryProtocol, @uncheck
 }
 
 final class FakeToastPresenter: ToastPresenting, @unchecked Sendable {
-    private(set) var shownMessages: [(message: String, style: ToastStyle)] = []
+    struct RecordedToast {
+        let message: String
+        let style: ToastStyle
+        let action: ToastAction?
+    }
+
+    private(set) var shownMessages: [RecordedToast] = []
 
     func show(_ message: String, style: ToastStyle) {
-        shownMessages.append((message, style))
+        show(message, style: style, action: nil)
+    }
+
+    func show(_ message: String, style: ToastStyle, action: ToastAction?) {
+        shownMessages.append(RecordedToast(message: message, style: style, action: action))
     }
 }
 

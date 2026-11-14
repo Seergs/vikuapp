@@ -37,6 +37,7 @@ struct DuplicateTaskViewModelTests {
         projectRepository: FakeProjectRepository = FakeProjectRepository(),
         toastPresenter: FakeToastPresenter = FakeToastPresenter(),
         hapticPresenter: FakeHapticPresenter = FakeHapticPresenter(),
+        toastOpensTask: Bool = false,
     ) -> DuplicateTaskViewModel {
         DuplicateTaskViewModel(
             source: source,
@@ -47,6 +48,7 @@ struct DuplicateTaskViewModelTests {
             projectRepository: projectRepository,
             toastPresenter: toastPresenter,
             hapticPresenter: hapticPresenter,
+            toastOpensTask: toastOpensTask,
         )
     }
 
@@ -194,17 +196,64 @@ struct DuplicateTaskViewModelTests {
         #expect(toastPresenter.shownMessages.first?.message == "Task duplicated")
         #expect(toastPresenter.shownMessages.first?.style == .success)
         #expect(hapticPresenter.played == [.success])
+        #expect(toastPresenter.shownMessages.first?.action == nil)
+    }
+
+    @Test(arguments: [false, true])
+    func `toast opens the copy in the selected destination only when requested`(toastOpensTask: Bool) async throws {
+        let toastPresenter = FakeToastPresenter()
+        let projectRepository = FakeProjectRepository()
+        let destination = Project(id: 9, title: "Hotfixes")
+        projectRepository.projects = [destination]
+        let viewModel = makeViewModel(
+            source: makeSource(),
+            projectRepository: projectRepository,
+            toastPresenter: toastPresenter,
+            toastOpensTask: toastOpensTask,
+        )
+        await viewModel.load()
+        viewModel.selectedProjectID = 9
+
+        let created = try #require(await viewModel.duplicate())
+        let toast = try #require(toastPresenter.shownMessages.first)
+
+        #expect(toastPresenter.shownMessages.count == 1)
+        #expect(created.task.projectID == destination.id)
+        #expect(toast.action == (toastOpensTask ? .taskDetail(created.task, destination) : nil))
+    }
+
+    @Test
+    func `toast can open the copy without loading projects`() async throws {
+        let toastPresenter = FakeToastPresenter()
+        let sourceProject = Project(id: 7, title: "Release")
+        let viewModel = makeViewModel(
+            source: makeSource(),
+            sourceProject: sourceProject,
+            toastPresenter: toastPresenter,
+            toastOpensTask: true,
+        )
+
+        let created = try #require(await viewModel.duplicate())
+
+        #expect(toastPresenter.shownMessages.first?.action == .taskDetail(created.task, sourceProject))
     }
 
     @Test
     func `duplicate surfaces A friendly message when the create fails`() async {
         let taskRepository = FakeTaskRepository()
         taskRepository.createError = .network("offline")
-        let viewModel = makeViewModel(source: makeSource(), taskRepository: taskRepository)
+        let toastPresenter = FakeToastPresenter()
+        let viewModel = makeViewModel(
+            source: makeSource(),
+            taskRepository: taskRepository,
+            toastPresenter: toastPresenter,
+            toastOpensTask: true,
+        )
 
         let created = await viewModel.duplicate()
 
         #expect(created == nil)
+        #expect(toastPresenter.shownMessages.isEmpty)
         #expect(viewModel.saveErrorMessage == "Couldn't reach that server. Check the address and your connection.")
         #expect(viewModel.isSaving == false)
     }

@@ -52,6 +52,11 @@ struct LocalizationTests {
         return unit["value"] as? String
     }
 
+    @Test
+    func `duplication toast has a Spanish translation`() {
+        #expect(Self.es("Task duplicated") == "Tarea duplicada")
+    }
+
     @Test(arguments: [
         "%lld selected", "Delete %lld tasks?", "Delete %lld tasks",
         "%lld tasks deleted", "%lld tasks were not deleted. Try again.",
