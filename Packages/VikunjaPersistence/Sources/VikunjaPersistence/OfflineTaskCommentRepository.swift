@@ -2,9 +2,9 @@ import Foundation
 import GRDB
 import VikunjaCore
 
-/// Local-first `TaskCommentRepositoryProtocol` — comments are the last task
-/// sub-resource Slice 4 brings offline (attachments stay online-only by
-/// design). Reads only query the local comment cache; the screen explicitly
+/// Local-first `TaskCommentRepositoryProtocol`. Attachment metadata has a
+/// separate read cache; file transfers remain online-only.
+/// Reads only query the local comment cache; the screen explicitly
 /// requests a thread refresh through the account coordinator. Writes are applied locally and
 /// queued as their own `.comment` mutations, which
 /// `SyncEngine.drainCommentMutations()` replays once the task itself has a

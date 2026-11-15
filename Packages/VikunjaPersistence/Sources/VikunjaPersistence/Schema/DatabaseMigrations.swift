@@ -51,6 +51,34 @@ enum DatabaseMigrations {
                 table.column("revision", .text).notNull()
             }
         }
+        migrator.registerMigration("createTaskAttachmentMetadata", migrate: createTaskAttachmentMetadata)
+    }
+
+    private static func createTaskAttachmentMetadata(_ db: Database) throws {
+        try db.create(table: "taskAttachmentCatalog") { table in
+            table.column("accountID", .text).notNull().indexed()
+            table.column("taskLocalID", .text).notNull()
+                .references("task", column: "localID", onDelete: .cascade)
+            table.column("revision", .text).notNull()
+            table.column("lastSuccessfulDownloadAt", .datetime)
+            table.primaryKey(["accountID", "taskLocalID"])
+        }
+        try db.create(table: "taskAttachment") { table in
+            table.column("accountID", .text).notNull().indexed()
+            table.column("taskLocalID", .text).notNull()
+                .references("task", column: "localID", onDelete: .cascade)
+            table.column("remoteID", .integer).notNull()
+            table.column("position", .integer).notNull()
+            table.column("fileName", .text).notNull()
+            table.column("mimeType", .text).notNull()
+            table.column("sizeBytes", .integer).notNull()
+            table.column("created", .datetime).notNull()
+            table.column("authorID", .integer).notNull()
+            table.column("authorUsername", .text).notNull()
+            table.column("authorName", .text)
+            table.column("authorEmail", .text)
+            table.primaryKey(["accountID", "taskLocalID", "remoteID"])
+        }
     }
 
     private static func createProject(_ db: Database) throws {

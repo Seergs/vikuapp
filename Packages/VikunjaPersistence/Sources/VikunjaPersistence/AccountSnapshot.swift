@@ -9,6 +9,8 @@ struct AccountSnapshot: Equatable, Sendable {
     let labels: [LabelRecord]
     let commentSyncStates: [TaskCommentSyncRecord]
     let comments: [TaskCommentRecord]
+    let attachmentCatalogs: [TaskAttachmentCatalogRecord]
+    let attachments: [TaskAttachmentRecord]
     let filters: [SavedFilterRecord]
     let reminders: [TaskReminderRecord]
     let memberships: [VirtualProjectTaskRecord]
@@ -32,6 +34,8 @@ struct AccountSnapshot: Equatable, Sendable {
         self.tasks = try TaskRecord.filter(Column("accountID") == accountID).fetchAll(db)
         self.labels = try LabelRecord.filter(Column("accountID") == accountID).fetchAll(db)
         self.commentSyncStates = try TaskCommentSyncRecord.filter(Column("accountID") == accountID).fetchAll(db)
+        self.attachmentCatalogs = try TaskAttachmentCatalogRecord.filter(Column("accountID") == accountID).fetchAll(db)
+        self.attachments = try TaskAttachmentRecord.filter(Column("accountID") == accountID).fetchAll(db)
         self.comments = try TaskCommentRecord.filter(Column("accountID") == accountID).fetchAll(db)
         self.filters = try SavedFilterRecord.filter(Column("accountID") == accountID).fetchAll(db)
         self.reminders = try TaskReminderRecord.filter(Column("accountID") == accountID).fetchAll(db)
@@ -71,6 +75,8 @@ struct AccountSnapshot: Equatable, Sendable {
         try insert(filters, db: db)
         try insert(comments, db: db)
         try insert(commentSyncStates, db: db)
+        try insert(attachmentCatalogs, db: db)
+        try insert(attachments, db: db)
         try insert(reminders, db: db)
         try insert(memberships, db: db)
         try insert(relations, db: db)

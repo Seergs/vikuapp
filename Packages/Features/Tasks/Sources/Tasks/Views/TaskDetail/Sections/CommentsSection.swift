@@ -52,7 +52,7 @@ private struct CommentsList: View {
         VStack(alignment: .leading, spacing: VikuSpacing.md - VikuSpacing.xxs) {
             if let notice {
                 Text(verbatim: notice)
-                    .font(VikuFont.subheadline)
+                    .font(VikuFont.caption)
                     .foregroundStyle(palette.textTertiary)
                 if canRetry {
                     Button(action: onRetry) {

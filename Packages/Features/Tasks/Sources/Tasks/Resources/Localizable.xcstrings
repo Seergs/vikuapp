@@ -1260,6 +1260,102 @@
           }
         }
       }
+    },
+    "You're offline. Connect to update attachments or open files.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You're offline. Connect to update attachments or open files."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No tienes conexión. Conéctate para actualizar los adjuntos o abrir archivos."
+          }
+        }
+      }
+    },
+    "Couldn't update attachments. Showing saved information.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't update attachments. Showing saved information."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron actualizar los adjuntos. Se muestra la información guardada."
+          }
+        }
+      }
+    },
+    "Opening…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opening…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abriendo…"
+          }
+        }
+      }
+    },
+    "Retrying…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retrying…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reintentando…"
+          }
+        }
+      }
+    },
+    "Connect to open this file.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect to open this file."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conéctate para abrir este archivo."
+          }
+        }
+      }
+    },
+    "Connect to download this task's attachment list.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect to download this task's attachment list."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conéctate para descargar la lista de adjuntos de esta tarea."
+          }
+        }
+      }
     }
   },
   "version": "1.0"
