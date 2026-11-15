@@ -153,7 +153,6 @@ struct MainTabView: View {
                         isDevBuild: BuildConfig.isDevBuild,
                         devBadgeStore: container.devToolsCenter,
                         networkLoggingStore: container.devToolsCenter,
-                        datePreviewStore: container.devToolsCenter,
                         whatsNewSeenVersionStore: container.whatsNewSeenVersionStore,
                         onPreviewOnboarding: onPreviewOnboarding,
                         makeConnectionsListViewModel: {
