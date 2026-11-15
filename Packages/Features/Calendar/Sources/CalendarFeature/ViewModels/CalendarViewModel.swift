@@ -56,11 +56,9 @@ public final class CalendarViewModel {
             taskRepository: taskRepository,
             projectRepository: projectRepository,
         )
-        // The Calendar screen surfaces no toasts of its own yet — only
-        // `persistToggleDone` is used, which never toasts.
         self.mutator = TaskListMutator(
             repository: taskRepository,
-            toastPresenter: NoopToastPresenter(),
+            toastPresenter: toastPresenter,
             hapticPresenter: hapticPresenter,
         )
     }

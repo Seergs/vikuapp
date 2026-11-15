@@ -83,7 +83,7 @@ extension SyncEngine {
             return .pushed
         } catch {
             try checkSyncInterruption(error)
-            if (error as? VikunjaError) == .bucketFull {
+            if (error as? VikunjaError)?.isBucketCapacityError == true {
                 try await handleFullCreation(item, task: task)
                 return .skipped
             }

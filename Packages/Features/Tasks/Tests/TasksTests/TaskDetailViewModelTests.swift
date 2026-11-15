@@ -295,6 +295,34 @@ struct TaskDetailViewModelTests {
     }
 
     @Test
+    func `reopening a task rejected for capacity reverts and shows one error toast`() async {
+        let repository = FakeTaskRepository()
+        repository.updateError = .bucketCapacity(column: "Por hacer", project: "Trabajo")
+        let toast = FakeToastPresenter()
+        let viewModel = TaskDetailViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
+            task: VikunjaTask(id: 1, title: "Write report", isDone: true, projectID: 1),
+            project: Project(id: 1, title: "Work"),
+            repository: repository,
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            commentRepository: FakeTaskCommentRepository(),
+            attachmentRepository: FakeTaskAttachmentRepository(),
+            projectRepository: FakeProjectRepository(),
+            toastPresenter: toast,
+        )
+
+        await viewModel.toggleDone()
+
+        #expect(viewModel.task.isDone)
+        #expect(toast.shownMessages.count == 1)
+        let capacityError = VikunjaError.bucketCapacity(column: "Por hacer", project: "Trabajo")
+        #expect(toast.shownMessages.first?.message == capacityError
+            .completionFailureMessage(isDone: false))
+        #expect(toast.shownMessages.first?.style == .error)
+    }
+
+    @Test
     func `completing a task plays a success haptic but un-completing does not`() async {
         let haptics = FakeHapticPresenter()
         let viewModel = TaskDetailViewModel(

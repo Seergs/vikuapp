@@ -286,10 +286,11 @@ public final class TaskDetailViewModel {
     public func toggleDone() async {
         let previous = task
         task.isDone.toggle()
-        if task.isDone {
+        if let message = await persist(previous: previous, completionTarget: !previous.isDone) {
+            toastPresenter.show(message, style: .error)
+        } else if task.isDone {
             hapticPresenter.play(.success)
         }
-        await persist(previous: previous)
     }
 
     /// Sets (or clears, via `nil`) the due date and persists it, rolling back
@@ -1018,7 +1019,7 @@ public final class TaskDetailViewModel {
     /// response as-is is what keeps those sections from disappearing after an
     /// edit.
     @discardableResult
-    private func persist(previous: VikunjaTask) async -> String? {
+    private func persist(previous: VikunjaTask, completionTarget: Bool? = nil) async -> String? {
         taskWriteToken += 1
         let token = taskWriteToken
         do {
@@ -1032,6 +1033,9 @@ public final class TaskDetailViewModel {
         } catch {
             guard token == taskWriteToken else { return nil }
             task = previous
+            if let completionTarget, let error = error as? VikunjaError {
+                return error.completionFailureMessage(isDone: completionTarget)
+            }
             return (error as? VikunjaError)?.displayMessage ?? error.localizedDescription
         }
         return nil

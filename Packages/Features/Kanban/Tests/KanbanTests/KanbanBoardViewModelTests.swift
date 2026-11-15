@@ -331,7 +331,7 @@ struct KanbanBoardViewModelTests {
     }
 
     @Test
-    func `toggle done on a completed task moves it back to the first non done bucket`() async {
+    func `toggle done on a completed task uses the default bucket fallback`() async {
         let repository = FakeBucketRepository()
         let task = VikunjaTask(id: 1, title: "Ship release", isDone: true, projectID: 4)
         repository.buckets = [
@@ -354,7 +354,7 @@ struct KanbanBoardViewModelTests {
     }
 
     @Test
-    func `toggle done is a no op when the view has no done bucket`() async {
+    func `completion without a done bucket changes state without moving`() async {
         let repository = FakeBucketRepository()
         let task = VikunjaTask(id: 1, title: "Write report", projectID: 4)
         repository.buckets = [KanbanBucket(id: 1, title: "To Do", tasks: [task])]
@@ -369,6 +369,7 @@ struct KanbanBoardViewModelTests {
         await viewModel.toggleDone(task)
 
         #expect(repository.movedTaskIDs.isEmpty)
+        #expect(viewModel.task(id: task.id)?.isDone == true)
     }
 
     @Test func `creation checks current occupancy even when the caller holds an older bucket`() async {
@@ -387,5 +388,52 @@ struct KanbanBoardViewModelTests {
         #expect(repository.createdTasks.count == 1)
         #expect(viewModel.buckets[0].isFull)
         #expect(toast.shownMessages.map(\.style) == [.error])
+    }
+}
+
+extension KanbanBoardViewModelTests {
+    @Test func `reopening uses the configured default even when another column is first`() async {
+        let repository = FakeBucketRepository()
+        let task = VikunjaTask(id: 1, title: "Task", isDone: true, projectID: 4)
+        repository.defaultBucketID = 3
+        repository.buckets = [
+            KanbanBucket(id: 1, title: "First"),
+            KanbanBucket(id: 2, title: "Done", isDoneBucket: true, tasks: [task]),
+            KanbanBucket(id: 3, title: "Default"),
+        ]
+        let toast = FakeToastPresenter()
+        let viewModel = KanbanBoardViewModel(
+            project: Project(id: 4, title: "Work"), repository: repository,
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(), toastPresenter: toast,
+        )
+        await viewModel.load()
+        await viewModel.setCompletion(task, isDone: false)
+        #expect(repository.movedTaskIDs.map(\.bucketID) == [3])
+        #expect(viewModel.task(id: task.id)?.isDone == false)
+        #expect(toast.shownMessages.isEmpty)
+    }
+
+    @Test func `reopening into a full default shows one toast and preserves the task`() async {
+        let repository = FakeBucketRepository()
+        let task = VikunjaTask(id: 1, title: "Task", isDone: true, projectID: 4)
+        repository.buckets = [
+            KanbanBucket(
+                id: 1, title: "Default", limit: 1, tasks: [VikunjaTask(id: 2, title: "Occupant", projectID: 4)],
+            ),
+            KanbanBucket(id: 2, title: "Done", isDoneBucket: true, tasks: [task]),
+        ]
+        let toast = FakeToastPresenter()
+        let viewModel = KanbanBoardViewModel(
+            project: Project(id: 4, title: "Work"), repository: repository,
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(), toastPresenter: toast,
+        )
+        await viewModel.load()
+        await viewModel.toggleDone(task)
+        #expect(viewModel.task(id: task.id)?.isDone == true)
+        #expect(repository.movedTaskIDs.isEmpty)
+        #expect(toast.shownMessages.count == 1)
+        let capacityError = VikunjaError.bucketCapacity(column: "Default", project: "Work")
+        let expected = capacityError.completionFailureMessage(isDone: false)
+        #expect(toast.shownMessages.first?.message == expected)
     }
 }

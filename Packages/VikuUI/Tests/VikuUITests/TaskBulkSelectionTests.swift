@@ -207,6 +207,24 @@ struct TaskBulkCompletionSelectionTests {
         #expect(!selection.isSelecting)
     }
 
+    @Test func `capacity rejection keeps every selected task and explains the failure once`() async {
+        let toast = FakeToastPresenter()
+        let selection = TaskBulkSelection(toastPresenter: toast)
+        selection.begin()
+        selection.selectAll(tasks)
+        await selection.setCompletion(visibleTasks: tasks, isDone: false) { _ in
+            throw VikunjaError.bucketCapacity(column: "Por hacer", project: "Trabajo")
+        }
+        #expect(selection.selectedIDs == [1, 2, 3])
+        #expect(selection.isSelecting)
+        #expect(!selection.isPerformingAction)
+        #expect(toast.shownMessages.count == 1)
+        #expect(toast.shownMessages.first?.style == .error)
+        let capacityError = VikunjaError.bucketCapacity(column: "Por hacer", project: "Trabajo")
+        #expect(toast.shownMessages.first?.message == capacityError
+            .completionFailureMessage(isDone: false, isBulk: true))
+    }
+
     @Test func `cancellation preserves selection without a failure toast`() async {
         let toast = FakeToastPresenter()
         let selection = TaskBulkSelection(toastPresenter: toast)

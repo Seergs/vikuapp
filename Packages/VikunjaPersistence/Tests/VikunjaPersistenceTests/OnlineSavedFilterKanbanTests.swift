@@ -96,6 +96,7 @@ struct OnlineSavedFilterKanbanTests {
         let store: LocalStore
         let accountID: UUID
         let remote: FilterBoardRemote
+        let taskRemote: FakeTaskRepository
         let repository: OnlineSavedFilterKanbanRepository
     }
 
@@ -113,10 +114,14 @@ struct OnlineSavedFilterKanbanTests {
             }
         }
         let remote = FilterBoardRemote()
+        let taskRemote = FakeTaskRepository()
         let repository = OnlineSavedFilterKanbanRepository(
             projectID: .remote(-2), localStore: store, accountID: accountID, transport: remote,
+            taskRepository: taskRemote,
         )
-        return Fixture(store: store, accountID: accountID, remote: remote, repository: repository)
+        return Fixture(
+            store: store, accountID: accountID, remote: remote, taskRemote: taskRemote, repository: repository,
+        )
     }
 
     private func board(_ repository: OnlineSavedFilterKanbanRepository) async throws -> KanbanBoard {
@@ -148,6 +153,7 @@ struct OnlineSavedFilterKanbanTests {
         }
         let reopened = OnlineSavedFilterKanbanRepository(
             projectID: .remote(-2), localStore: store, accountID: accountID, transport: remote,
+            taskRepository: FakeTaskRepository(),
         )
         #expect(try await reopened.fetchBoard(projectID: .remote(-2), viewID: nil) == .unavailable)
         #expect(try await repository.fetchBoard(projectID: .remote(-3), viewID: nil) == .unavailable)
@@ -171,6 +177,36 @@ struct OnlineSavedFilterKanbanTests {
             #expect(task?.isDone == true)
             #expect(queueCount == 0)
         }
+    }
+
+    @Test func `online completion and reopening use the filter done and default destinations`() async throws {
+        let fixture = try await fixture()
+        try await fixture.repository.prepare()
+        _ = try await fixture.repository.setCompletion(taskID: 22, projectID: -2, viewID: 7, isDone: true)
+        _ = try await fixture.repository.setCompletion(taskID: 22, projectID: -2, viewID: 7, isDone: false)
+        #expect(await fixture.remote.moves.map(\.bucketID) == [20, 10])
+        #expect(try await fixture.store.read { try MutationQueueRecord.fetchCount($0) } == 0)
+        await fixture.remote.fail()
+        await #expect(throws: VikunjaError.offline) {
+            _ = try await fixture.repository.setCompletion(taskID: 22, projectID: -2, viewID: 7, isDone: true)
+        }
+        #expect(try await board(fixture.repository).buckets.first?.tasks.contains { $0.id == .remote(22) } == true)
+        #expect(try await fixture.store.read { try MutationQueueRecord.fetchCount($0) } == 0)
+    }
+
+    @Test func `online reopening outside done updates completion without choosing another bucket`() async throws {
+        let fixture = try await fixture()
+        try await fixture.repository.prepare()
+        try await fixture.store.write { db in
+            var task = try #require(try TaskRecord.filter(Column("remoteID") == 22).fetchOne(db))
+            task.isDone = true
+            try task.update(db)
+        }
+        _ = try await fixture.repository.setCompletion(taskID: 22, projectID: -2, viewID: 7, isDone: false)
+        #expect(fixture.taskRemote.updatedTasks.map(\.isDone) == [false])
+        #expect(fixture.taskRemote.updatedTasks.first?.projectID == .remote(2))
+        #expect(await fixture.remote.moves.isEmpty)
+        #expect(try await fixture.store.read { try MutationQueueRecord.fetchCount($0) } == 0)
     }
 
     @Test func `offline writes fail without queuing and failed refresh preserves the visible snapshot`() async throws {

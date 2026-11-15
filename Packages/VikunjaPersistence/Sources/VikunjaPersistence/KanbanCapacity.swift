@@ -10,6 +10,11 @@ enum KanbanCapacity {
             .fetchAll(db).filter { $0.entityType == .task && $0.operation == .delete }.map(\.targetLocalID))
         let count = try KanbanAssignmentRecord.filter(Column("bucketLocalID") == bucket.localID)
             .fetchAll(db).filter { $0.taskLocalID != taskID && !hidden.contains($0.taskLocalID) }.count
-        guard count < bucket.limit else { throw VikunjaError.bucketFull }
+        guard count < bucket.limit else {
+            guard let project = try ProjectRecord.fetchOne(db, key: bucket.projectLocalID) else {
+                throw VikunjaError.bucketFull
+            }
+            throw VikunjaError.bucketCapacity(column: bucket.title, project: project.title)
+        }
     }
 }

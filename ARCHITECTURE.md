@@ -865,7 +865,7 @@ as task updates, with its existing retry/conflict recovery behavior.
 List and Kanban share the project overview's task menu and sheet presentations.
 `KanbanBoardView` accepts resolved `ContextMenuItem` values from its host; it does not own a
 second set of task-editing repositories. Board write capabilities gate the menu,
-and completion still uses the board's bucket-movement command. Other actions use
+and completion uses the board's explicit completion command. Other actions use
 the overview's existing protocol-backed repositories and offline queue. Task edits
 resolve canonical records even when the board contains a task absent from the
 local List query, without inserting it into that list. The label sheet reads live
@@ -1028,6 +1028,26 @@ full task editing. Their shared selection bar offers Complete or Reopen for a
 uniform selection and an explicit choice for mixed selections. One target state
 is submitted for every selected task currently shown by the list; hidden tasks
 are excluded. The existing confirmation remains exclusive to deletion.
+
+Kanban cards submit explicit completion intent through their board source. Durable
+boards use `OfflineTaskRepository`, sharing the same transaction and capacity checks
+as task detail and bulk completion. `KanbanCompletion` resolves placement: completing
+uses the configured done bucket; reopening moves from Done to the configured default
+(or leftmost fallback), and otherwise preserves the current bucket. Cached manual
+views are checked together, including local-only tasks and excluding pending deletions.
+A full destination rejects the entire local write or batch without changing tasks,
+placements, or existing queue entries. Selection remains available with one error toast.
+Local capacity errors include the column and project names. Completion feedback
+identifies the rejected action and destination, including outside Kanban. Bulk
+feedback states that no tasks changed. Server errors without destination metadata
+use a Kanban-specific fallback; stored failures retain optional destination context
+and remain compatible with existing queue diagnostics.
+List checkboxes and context-menu completion actions share `TaskListMutator`, which
+restores the original task and shows the capacity error once when local acceptance
+fails. Success haptics follow acceptance. Calendar uses the same injected toast
+presenter as the other lists.
+Accepted server responses reconcile placement without repeating local capacity checks.
+Saved-filter boards retain their online-only commands and pending-intent safeguards.
 
 Completion actions stay disabled during local acceptance, without blocking the
 main thread or showing a spinner. Accepted writes clear selection; local failures

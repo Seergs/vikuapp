@@ -90,10 +90,12 @@ public final class TaskBulkSelection {
         } catch is CancellationError {
             // No accepted write: keep the selection available to retry.
         } catch {
-            toastPresenter.show(
-                String(localized: "Couldn’t update selected tasks. Try again.", bundle: .module),
-                style: .error,
-            )
+            let message: String = if let error = error as? VikunjaError, error.isBucketCapacityError {
+                error.completionFailureMessage(isDone: isDone, isBulk: true)
+            } else {
+                String(localized: "Couldn’t update selected tasks. Try again.", bundle: .module)
+            }
+            toastPresenter.show(message, style: .error)
         }
     }
 

@@ -29,7 +29,7 @@ public struct OfflineKanbanCreationRecovery: KanbanCreationRecovering {
                     do {
                         try KanbanCapacity.check(bucket, excluding: item.targetLocalID, db: db)
                         available = true
-                    } catch VikunjaError.bucketFull {
+                    } catch let error as VikunjaError where error.isBucketCapacityError {
                         available = false
                     }
                     return KanbanCreationBucket(id: bucket.remoteID, title: bucket.title, isFull: !available)

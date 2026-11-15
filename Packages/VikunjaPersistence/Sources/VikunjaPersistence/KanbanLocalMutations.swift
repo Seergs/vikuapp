@@ -41,6 +41,7 @@ enum KanbanLocalMutations {
         guard source.localID != destination.localID else {
             return try (domain(task, db: db), false)
         }
+        try KanbanCapacity.check(destination, excluding: task.localID, db: db)
         let wasDone = task.isDone
         if destination.remoteID == view.doneBucketID {
             task.isDone = true
@@ -189,14 +190,26 @@ enum KanbanLocalMutations {
     }
 
     /// Completion updates cached placement without a redundant bucket request.
-    static func applyCompletion(_ task: TaskRecord, db: Database) throws {
+    static func applyCompletion(_ task: TaskRecord, validateCapacity: Bool = true, db: Database) throws {
         let views = try KanbanViewRecord.filter(Column("projectLocalID") == task.projectLocalID).fetchAll(db)
         for view in views where supports(view) {
             let buckets = try KanbanBucketRecord.filter(Column("viewLocalID") == view.localID)
                 .order(Column("position"), Column("remoteID")).fetchAll(db)
-            let target = task.isDone ? view.doneBucketID : (view.defaultBucketID ?? buckets.first?.remoteID)
+            let assignment = try KanbanAssignmentRecord.filter(Column("viewLocalID") == view.localID)
+                .filter(Column("taskLocalID") == task.localID).fetchOne(db)
+            let current = buckets.first { $0.localID == assignment?.bucketLocalID }
+            let target = KanbanCompletion.destination(
+                isDone: task.isDone, currentBucketID: current?.remoteID,
+                doneBucketID: view.doneBucketID, defaultBucketID: view.defaultBucketID,
+                firstBucketID: buckets.first?.remoteID,
+            )
             guard let bucket = buckets.first(where: { $0.remoteID == target }) else { continue }
-            try place(task, in: bucket, db: db)
+            if bucket.localID != assignment?.bucketLocalID {
+                if validateCapacity {
+                    try KanbanCapacity.check(bucket, excluding: task.localID, db: db)
+                }
+                try place(task, in: bucket, db: db)
+            }
             let queue = try MutationQueueRecord.filter(Column("accountID") == task.accountID)
                 .filter(Column("targetLocalID") == task.localID).fetchAll(db)
             for var item in queue where item.status != .inFlight {

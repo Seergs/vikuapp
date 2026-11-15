@@ -65,6 +65,27 @@ struct TaskListMutatorTests {
         #expect(toast.shown.isEmpty)
     }
 
+    @Test(arguments: [true, false])
+    func `capacity rejection restores the list task and shows one toast without success feedback`(wasDone: Bool) async {
+        let repository = FakeTaskRepository()
+        repository.updateError = .bucketCapacity(column: "Por hacer", project: "Trabajo")
+        let toast = FakeToastPresenter()
+        let haptics = FakeHapticPresenter()
+        let mutator = makeMutator(repository: repository, toast: toast, haptics: haptics)
+        let original = VikunjaTask(id: 1, title: "Task", isDone: wasDone, projectID: 1)
+        var flipped = original
+        flipped.isDone.toggle()
+
+        let resolved = await mutator.persistToggleDone(flipped: flipped, original: original)
+
+        #expect(resolved == original)
+        #expect(toast.shown.count == 1)
+        #expect(toast.shown.first?.message == VikunjaError.bucketCapacity(column: "Por hacer", project: "Trabajo")
+            .completionFailureMessage(isDone: !wasDone))
+        #expect(toast.shown.first?.style == .error)
+        #expect(haptics.played.isEmpty)
+    }
+
     // MARK: persistSetPriority
 
     @Test

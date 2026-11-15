@@ -40,6 +40,18 @@ public struct OfflineKanbanBoardRepository: KanbanBoardRepositoryProtocol {
         return task
     }
 
+    public func setCompletion(
+        taskID: EntityID, projectID: EntityID, viewID: Int, isDone: Bool,
+    ) async throws -> VikunjaTask {
+        guard case let .available(board) = try await fetchBoard(projectID: projectID, viewID: viewID),
+              board.supportsWrites, board.buckets.contains(where: { $0.tasks.contains { $0.id == taskID } })
+        else { throw VikunjaError.notFound }
+        let tasks = OfflineTaskRepository(localStore: localStore, accountID: accountID, syncRequester: syncRequester)
+        let updated = try await tasks.setCompletion(taskIDs: [taskID], isDone: isDone)
+        guard let task = updated.first else { throw VikunjaError.notFound }
+        return task
+    }
+
     public func createTask(
         title: String, projectID: EntityID, viewID: Int, bucketID: Int,
     ) async throws -> VikunjaTask {
