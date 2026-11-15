@@ -133,7 +133,9 @@ private struct AttachmentsList: View {
                         onOpen: { onOpen(attachment) },
                         onDelete: { onDelete(attachment) },
                     )
-                    .disabled(openingAttachmentID != nil)
+                    // Only the opening file changes appearance. The view model
+                    // rejects concurrent opens without dimming unrelated rows.
+                    .disabled(openingAttachmentID == attachment.id)
                 }
             }
 

@@ -242,7 +242,7 @@ struct AttachmentMetadataPresentationTests {
     }
 
     @Test
-    func `opening a file provides immediate state and ignores duplicate taps until completion`() async {
+    func `opening a file keeps feedback scoped and ignores concurrent taps until completion`() async {
         let repository = FakeTaskAttachmentRepository()
         repository.downloadData = [1: Data("PDF".utf8)]
         let pause = AttachmentFetchPause()
@@ -252,9 +252,16 @@ struct AttachmentMetadataPresentationTests {
         await pause.waitUntilPaused()
         #expect(vm.openingAttachmentID == 1)
         #expect(await vm.attachmentData(for: attachment()) == nil)
+        #expect(await vm.attachmentData(for: attachment(2)) == nil)
+        #expect(vm.openingAttachmentID == 1)
         #expect(repository.downloadedPreviewSizes.count == 1)
         await pause.resume()
         #expect(await download.value == Data("PDF".utf8))
+        #expect(vm.openingAttachmentID == nil)
+        repository.onDownload = nil
+        repository.downloadData[2] = Data("Other PDF".utf8)
+        #expect(await vm.attachmentData(for: attachment(2)) == Data("Other PDF".utf8))
+        #expect(repository.downloadedPreviewSizes.count == 2)
         #expect(vm.openingAttachmentID == nil)
     }
 
