@@ -12,6 +12,7 @@ struct CalendarViewModelTests {
         projectFetchError: VikunjaError? = nil,
         updateError: VikunjaError? = nil,
         haptics: FakeHapticPresenter = FakeHapticPresenter(),
+        toast: CalendarToastRecorder = CalendarToastRecorder(),
     ) -> CalendarViewModel {
         let projectRepo = FakeProjectRepository()
         projectRepo.projects = projects
@@ -25,6 +26,7 @@ struct CalendarViewModelTests {
             taskRepository: taskRepo,
             projectRepository: projectRepo,
             hapticPresenter: haptics,
+            toastPresenter: toast,
         )
     }
 
@@ -119,5 +121,28 @@ struct CalendarViewModelTests {
 
         #expect(viewModel.tasks[0].isDone == false)
         #expect(haptics.played.isEmpty)
+    }
+}
+
+@MainActor
+private final class CalendarToastRecorder: ToastPresenting {
+    private(set) var messages: [String] = []
+
+    func show(_ message: String, style: ToastStyle) {
+        messages.append(message)
+    }
+}
+
+extension CalendarViewModelTests {
+    @Test func `a full destination restores the calendar row and shows the capacity toast`() async {
+        let toast = CalendarToastRecorder()
+        let capacityError = VikunjaError.bucketCapacity(column: "Por hacer", project: "Trabajo")
+        let viewModel = makeViewModel(tasks: [dated(1, done: true)], updateError: capacityError, toast: toast)
+        await viewModel.load()
+
+        await viewModel.toggleDone(viewModel.tasks[0])
+
+        #expect(viewModel.tasks[0].isDone)
+        #expect(toast.messages == [capacityError.completionFailureMessage(isDone: false)])
     }
 }

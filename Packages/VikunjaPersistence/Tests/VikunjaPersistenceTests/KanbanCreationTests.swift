@@ -420,7 +420,7 @@ struct KanbanCreationTests {
         )
         let results = await [first, second].compactMap(\.self)
         #expect(results.count == 1)
-        await #expect(throws: VikunjaError.bucketFull) {
+        await #expect(throws: VikunjaError.bucketCapacity(column: "Column", project: "Work")) {
             try await fixture.board.createTask(title: "Third", projectID: .remote(1), viewID: 10, bucketID: 20)
         }
         #expect(try await fixture.store.read { try TaskRecord.fetchCount($0) } == 1)
@@ -505,7 +505,7 @@ struct KanbanCreationTests {
         let recovery = recovery(fixture)
         let buckets = try await recovery.recoveryBuckets(operationID: pending.id)
         #expect(buckets.map(\.isFull) == [false, true])
-        await #expect(throws: VikunjaError.bucketFull) {
+        await #expect(throws: VikunjaError.bucketCapacity(column: "Column", project: "Work")) {
             try await recovery.retryCreation(operationID: pending.id, bucketID: 21)
         }
         #expect(try await fixture.tasks.fetchTask(id: task.id).isDone == false)
@@ -594,7 +594,7 @@ struct KanbanCreationTests {
         else { Issue.record("Missing refreshed board"); return }
         #expect(board.buckets[0].isFull)
         #expect(board.buckets[0].tasks.map(\.id) == [.remote(123)])
-        await #expect(throws: VikunjaError.bucketFull) {
+        await #expect(throws: VikunjaError.bucketCapacity(column: "Full", project: "Work")) {
             try await fixture.board.createTask(title: "Blocked", projectID: .remote(1), viewID: 10, bucketID: 20)
         }
         #expect(try await fixture.store.read { try MutationQueueRecord.fetchCount($0) } == 0)

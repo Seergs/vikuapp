@@ -141,7 +141,8 @@ extension SyncEngine {
         context: KanbanMoveFailureContext,
     ) async throws -> DrainOutcome {
         let reason: KanbanMoveFailure = switch error {
-        case VikunjaError.notFound, VikunjaError.unauthorized, VikunjaError.bucketFull: .rejected
+        case VikunjaError.notFound, VikunjaError.unauthorized,
+             VikunjaError.bucketFull, VikunjaError.bucketCapacity: .rejected
         case let VikunjaError.server(_, code) where (400 ..< 500).contains(code): .rejected
         default: .ambiguous
         }

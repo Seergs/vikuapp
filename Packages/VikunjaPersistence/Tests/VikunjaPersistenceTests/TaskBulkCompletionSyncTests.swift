@@ -250,10 +250,11 @@ struct TaskBulkCompletionSyncTests {
         #expect(try await queue(fixture).isEmpty)
     }
 
-    @Test func `server rejection preserves every task for retry and exposes failure diagnostics`() async throws {
+    @Test(arguments: [VikunjaError.server(message: "Forbidden", statusCode: 403), .bucketFull])
+    func `server rejection preserves every task for retry and exposes failure diagnostics`(error: VikunjaError) async throws {
         let fixture = try await fixture()
         _ = try await fixture.local.setCompletion(taskIDs: fixture.tasks.map(\.id), isDone: true)
-        fixture.remote.bulkUpdateError = VikunjaError.server(message: "Forbidden", statusCode: 403)
+        fixture.remote.bulkUpdateError = error
         try await fixture.engine.drainTaskMutations()
         let failed = try await queue(fixture)
         #expect(failed.count == 2)

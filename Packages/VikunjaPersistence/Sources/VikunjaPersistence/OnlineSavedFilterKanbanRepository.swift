@@ -10,6 +10,7 @@ public actor OnlineSavedFilterKanbanRepository: KanbanBoardRepositoryProtocol,
     private let projectID: EntityID
     private let localStore: LocalStore
     private let accountID: UUID
+    private let taskRepository: TaskRepositoryProtocol
     private let transport: BucketRepositoryProtocol
     private var board: KanbanBoard?
     private var taskPositions: [Int: Double] = [:]
@@ -17,11 +18,13 @@ public actor OnlineSavedFilterKanbanRepository: KanbanBoardRepositoryProtocol,
 
     public init(
         projectID: EntityID, localStore: LocalStore, accountID: UUID, transport: BucketRepositoryProtocol,
+        taskRepository: TaskRepositoryProtocol,
     ) {
         self.projectID = projectID
         self.localStore = localStore
         self.accountID = accountID
         self.transport = transport
+        self.taskRepository = taskRepository
     }
 
     public func hasCachedKanbanSupport() async throws -> Bool {
@@ -116,7 +119,61 @@ public actor OnlineSavedFilterKanbanRepository: KanbanBoardRepositoryProtocol,
               board.buckets.contains(where: { $0.id == bucketID }),
               board.buckets.contains(where: { $0.tasks.contains { $0.id == taskID } })
         else { throw VikunjaError.notFound }
-        // Do not bypass a queued edit/delete/movement for the same canonical task.
+        try await ensureNoPendingIntent(taskRemoteID: taskRemoteID)
+        let moved = try await transport.moveTask(
+            taskID: taskRemoteID, toBucketID: bucketID, projectID: remoteID, viewID: viewID,
+        )
+        try await cache([moved])
+        // Server rules may change membership or completion; always reload the authoritative board.
+        try await refresh(scope: .kanban(projectID: projectID))
+        return moved
+    }
+
+    public func setCompletion(
+        taskID: EntityID, projectID: EntityID, viewID: Int, isDone: Bool,
+    ) async throws -> VikunjaTask {
+        guard case let .available(board) = try await fetchBoard(projectID: projectID, viewID: viewID),
+              board.supportsWrites,
+              let source = board.buckets.first(where: { $0.tasks.contains { $0.id == taskID } }),
+              var task = source.tasks.first(where: { $0.id == taskID }) else { throw VikunjaError.notFound }
+        guard task.isDone != isDone else { return task }
+        let target = KanbanCompletion.destination(
+            isDone: isDone, currentBucketID: source.id,
+            doneBucketID: board.buckets.first(where: \.isDoneBucket)?.id,
+            defaultBucketID: board.defaultBucketID, firstBucketID: board.buckets.first?.id,
+        )
+        if let target, target != source.id {
+            if let destination = board.buckets.first(where: { $0.id == target }), destination.isFull {
+                let title = try await localStore.read { db in
+                    try ProjectRecord.filter(Column("accountID") == self.accountID).fetchAll(db)
+                        .first {
+                            projectID == .local($0.localID) || $0.remoteID.map(EntityID.remote) == projectID
+                        }?.title
+                }
+                if let title {
+                    throw VikunjaError.bucketCapacity(column: destination.title, project: title)
+                }
+                throw VikunjaError.bucketFull
+            }
+            return try await moveTask(taskID: taskID, projectID: projectID, viewID: viewID, bucketID: target)
+        }
+        guard let remoteID = taskID.remoteValue else { throw VikunjaError.notFound }
+        try await ensureNoPendingIntent(taskRemoteID: remoteID)
+        task.isDone = isDone
+        let updated = try await taskRepository.update(task)
+        try await cache([updated])
+        try await refresh(scope: .kanban(projectID: projectID))
+        return updated
+    }
+
+    public func createTask(
+        title: String, projectID: EntityID, viewID: Int, bucketID: Int,
+    ) async throws -> VikunjaTask {
+        // A saved filter cannot choose the owning real project for a new task.
+        throw VikunjaError.notFound
+    }
+
+    private func ensureNoPendingIntent(taskRemoteID: Int) async throws {
         try await localStore.read { db in
             let deleted = try SyncEngine.pendingDeleteRemoteIDs(accountID: self.accountID, entityType: .task, db: db)
             guard !deleted.contains(taskRemoteID) else { throw SyncIncompleteError() }
@@ -128,20 +185,6 @@ public actor OnlineSavedFilterKanbanRepository: KanbanBoardRepositoryProtocol,
                 throw SyncIncompleteError()
             }
         }
-        let moved = try await transport.moveTask(
-            taskID: taskRemoteID, toBucketID: bucketID, projectID: remoteID, viewID: viewID,
-        )
-        try await cache([moved])
-        // Server rules may change membership or completion; always reload the authoritative board.
-        try await refresh(scope: .kanban(projectID: projectID))
-        return moved
-    }
-
-    public func createTask(
-        title: String, projectID: EntityID, viewID: Int, bucketID: Int,
-    ) async throws -> VikunjaTask {
-        // A saved filter cannot choose the owning real project for a new task.
-        throw VikunjaError.notFound
     }
 
     private func cache(_ tasks: [VikunjaTask]) async throws {

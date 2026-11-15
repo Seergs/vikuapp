@@ -20,7 +20,12 @@ public extension VikunjaError {
             String(localized: "That address didn't respond like a Vikunja instance.", bundle: .module)
         case .bucketFull:
             String(
-                localized: "This column is full. Choose another column or try again when space is available.",
+                localized: "A Kanban column has reached its task limit. Free up space in the board and try again.",
+                bundle: .module,
+            )
+        case let .bucketCapacity(column, project):
+            String(
+                localized: "Column “\(column)” in the “\(project)” Kanban board has reached its task limit.",
                 bundle: .module,
             )
         case .unauthorized:

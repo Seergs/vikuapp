@@ -1,6 +1,134 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "A Kanban column has reached its task limit. Free up space in the board and try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A Kanban column has reached its task limit. Free up space in the board and try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una columna Kanban alcanzó su límite de tareas. Libera espacio en el tablero y vuelve a intentarlo."
+          }
+        }
+      }
+    },
+    "Column “%@” in the “%@” Kanban board has reached its task limit.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Column “%@” in the “%@” Kanban board has reached its task limit."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La columna «%1$@» del tablero de «%2$@» alcanzó su límite de tareas."
+          }
+        }
+      }
+    },
+    "No tasks were changed. Column “%@” in the “%@” Kanban board cannot fit the selection.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No tasks were changed. Column “%@” in the “%@” Kanban board cannot fit the selection."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se modificó ninguna tarea. La columna «%1$@» del tablero de «%2$@» no tiene espacio para todas las tareas seleccionadas."
+          }
+        }
+      }
+    },
+    "Couldn’t complete. Column “%@” in the “%@” Kanban board is full.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t complete. Column “%@” in the “%@” Kanban board is full."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo completar la tarea. La columna «%1$@» del tablero de «%2$@» alcanzó su límite de tareas."
+          }
+        }
+      }
+    },
+    "Couldn’t mark as pending. Column “%@” in the “%@” Kanban board is full.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t mark as pending. Column “%@” in the “%@” Kanban board is full."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo marcar como pendiente. La columna «%1$@» del tablero de «%2$@» alcanzó su límite de tareas."
+          }
+        }
+      }
+    },
+    "No tasks were changed. A destination column in the Kanban board cannot fit the selection.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No tasks were changed. A destination column in the Kanban board cannot fit the selection."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se modificó ninguna tarea. Una columna de destino del tablero Kanban no tiene espacio para todas las tareas seleccionadas."
+          }
+        }
+      }
+    },
+    "Couldn’t complete. A destination column in this task’s Kanban board is full.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t complete. A destination column in this task’s Kanban board is full."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo completar la tarea. Una columna de destino de su tablero Kanban alcanzó su límite de tareas."
+          }
+        }
+      }
+    },
+    "Couldn’t mark as pending. A destination column in this task’s Kanban board is full.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t mark as pending. A destination column in this task’s Kanban board is full."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo marcar como pendiente. Una columna de destino de su tablero Kanban alcanzó su límite de tareas."
+          }
+        }
+      }
+    },
     "This column is full. Choose another column or try again when space is available.": {
       "localizations": {
         "en": {

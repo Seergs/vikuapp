@@ -634,6 +634,35 @@ struct ProjectOverviewViewModelTests {
         #expect(viewModel.tasks[0].isDone == false)
     }
 
+    @Test(arguments: [true, false])
+    func `list completion rejected for capacity restores the row and shows one toast`(wasDone: Bool) async {
+        let repository = FakeTaskRepository()
+        repository.tasks = [VikunjaTask(id: 1, title: "Write report", isDone: wasDone, projectID: 1)]
+        let toast = FakeToastPresenter()
+        let viewModel = ProjectOverviewViewModel(
+            syncTrigger: TestScreenSync(), localData: TestScreenSync(),
+            project: Project(id: 1, title: "Work"),
+            repository: repository, bulkUpdateRepository: repository,
+            projectRepository: FakeProjectRepository(),
+            labelRepository: FakeLabelRepository(),
+            relationRepository: FakeTaskRelationRepository(),
+            filterRepository: FakeFilterRepository(),
+            toastPresenter: toast,
+            taskSortStore: FakeTaskSortStore(),
+        )
+        await viewModel.load()
+        repository.updateError = .bucketCapacity(column: "Por hacer", project: "Trabajo")
+
+        await viewModel.toggleDone(viewModel.tasks[0])
+
+        #expect(viewModel.tasks[0].isDone == wasDone)
+        #expect(toast.shownMessages.count == 1)
+        let capacityError = VikunjaError.bucketCapacity(column: "Por hacer", project: "Trabajo")
+        #expect(toast.shownMessages.first?.message == capacityError
+            .completionFailureMessage(isDone: !wasDone))
+        #expect(toast.shownMessages.first?.style == .error)
+    }
+
     @Test
     func `set priority persists the new priority through the repository`() async {
         let repository = FakeTaskRepository()
@@ -1262,6 +1291,12 @@ private struct CachedKanbanRepository: KanbanBoardRepositoryProtocol {
     }
 
     func createTask(title: String, projectID: EntityID, viewID: Int, bucketID: Int) async throws -> VikunjaTask {
+        throw VikunjaError.notFound
+    }
+
+    func setCompletion(
+        taskID: EntityID, projectID: EntityID, viewID: Int, isDone: Bool,
+    ) async throws -> VikunjaTask {
         throw VikunjaError.notFound
     }
 

@@ -211,6 +211,12 @@ private actor PreviewBucketRepository: KanbanBoardRepositoryProtocol {
         VikunjaTask(id: .local(UUID()), title: title, projectID: projectID)
     }
 
+    func setCompletion(
+        taskID: EntityID, projectID: EntityID, viewID: Int, isDone: Bool,
+    ) async throws -> VikunjaTask {
+        throw VikunjaError.notFound
+    }
+
     func moveTask(taskID: EntityID, projectID: EntityID, viewID: Int, bucketID: Int) async throws -> VikunjaTask {
         VikunjaTask(id: taskID, title: "Write proposal", isDone: bucketID == 2, projectID: projectID)
     }

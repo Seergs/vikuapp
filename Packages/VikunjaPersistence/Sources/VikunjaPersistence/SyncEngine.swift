@@ -1833,7 +1833,7 @@ public actor SyncEngine {
                 row.isDone = task.isDone
                 row.dueDate = task.dueDate
                 if completionChanged || projectChanged {
-                    try KanbanLocalMutations.applyCompletion(row, db: db)
+                    try KanbanLocalMutations.applyCompletion(row, validateCapacity: false, db: db)
                 }
             }
             try row.save(db)

@@ -20,11 +20,15 @@ struct StoredSyncFailure: Codable, Sendable {
     let kind: Kind
     let detail: String
     let statusCode: Int?
+    let column: String?
+    let project: String?
     let occurredAt: Date
 
     init(error: any Error, occurredAt: Date = Date()) {
         self.occurredAt = occurredAt
         var code: Int?
+        var column: String?
+        var project: String?
         switch error {
         case let VikunjaError.server(message, statusCode):
             self.kind = .server
@@ -39,6 +43,11 @@ struct StoredSyncFailure: Codable, Sendable {
         case VikunjaError.bucketFull:
             self.kind = .bucketFull
             self.detail = String(describing: error)
+        case let VikunjaError.bucketCapacity(columnTitle, projectTitle):
+            self.kind = .bucketFull
+            self.detail = String(describing: error)
+            column = columnTitle
+            project = projectTitle
         case VikunjaError.offline:
             self.kind = .offline
             self.detail = String(describing: error)
@@ -59,6 +68,8 @@ struct StoredSyncFailure: Codable, Sendable {
             self.detail = String(describing: error)
         }
         self.statusCode = code
+        self.column = column
+        self.project = project
     }
 
     var encoded: String? {
@@ -80,7 +91,11 @@ struct StoredSyncFailure: Codable, Sendable {
         case .unauthorized: return VikunjaError.unauthorized.displayMessage
         case .notFound:
             return String(localized: "The item is no longer available.", bundle: .module)
-        case .bucketFull: return VikunjaError.bucketFull.displayMessage
+        case .bucketFull:
+            if let column, let project {
+                return VikunjaError.bucketCapacity(column: column, project: project).displayMessage
+            }
+            return VikunjaError.bucketFull.displayMessage
         case .offline: return VikunjaError.offline.displayMessage
         case .network: return VikunjaError.network(detail).displayMessage
         case .timeout: return VikunjaError.timeout.displayMessage

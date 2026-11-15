@@ -63,6 +63,44 @@ struct LocalizationTests {
     }
 
     @Test(arguments: [
+        (
+            "A Kanban column has reached its task limit. Free up space in the board and try again.",
+            "Una columna Kanban alcanzó su límite de tareas. Libera espacio en el tablero y vuelve a intentarlo.",
+        ),
+        (
+            "Column “%@” in the “%@” Kanban board has reached its task limit.",
+            "La columna «%1$@» del tablero de «%2$@» alcanzó su límite de tareas.",
+        ),
+        (
+            "No tasks were changed. Column “%@” in the “%@” Kanban board cannot fit the selection.",
+            "No se modificó ninguna tarea. La columna «%1$@» del tablero de «%2$@» no tiene espacio para todas las tareas seleccionadas.",
+        ),
+        (
+            "Couldn’t complete. Column “%@” in the “%@” Kanban board is full.",
+            "No se pudo completar la tarea. La columna «%1$@» del tablero de «%2$@» alcanzó su límite de tareas.",
+        ),
+        (
+            "Couldn’t mark as pending. Column “%@” in the “%@” Kanban board is full.",
+            "No se pudo marcar como pendiente. La columna «%1$@» del tablero de «%2$@» alcanzó su límite de tareas.",
+        ),
+        (
+            "No tasks were changed. A destination column in the Kanban board cannot fit the selection.",
+            "No se modificó ninguna tarea. Una columna de destino del tablero Kanban no tiene espacio para todas las tareas seleccionadas.",
+        ),
+        (
+            "Couldn’t complete. A destination column in this task’s Kanban board is full.",
+            "No se pudo completar la tarea. Una columna de destino de su tablero Kanban alcanzó su límite de tareas.",
+        ),
+        (
+            "Couldn’t mark as pending. A destination column in this task’s Kanban board is full.",
+            "No se pudo marcar como pendiente. Una columna de destino de su tablero Kanban alcanzó su límite de tareas.",
+        ),
+    ])
+    func `capacity feedback has the expected Spanish translation`(key: String, expected: String) {
+        #expect(Self.es(key) == expected)
+    }
+
+    @Test(arguments: [
         ("That doesn't look like a valid instance address.", "Eso no parece una dirección de instancia válida."),
         ("That address uses an insecure http connection.", "Esa dirección usa una conexión http insegura."),
         (

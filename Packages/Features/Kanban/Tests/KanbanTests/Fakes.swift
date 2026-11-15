@@ -15,6 +15,7 @@ final class FakeBucketRepository: KanbanBoardRepositoryProtocol, KanbanTaskOrder
     var createError: (any Error)?
     var reorderError: (any Error)?
     var beforeReorder: (@MainActor () async throws -> Void)?
+    var defaultBucketID: Int?
     var viewID = 7
     var hasSnapshot = true
     var waitingForProject = false
@@ -62,7 +63,7 @@ final class FakeBucketRepository: KanbanBoardRepositoryProtocol, KanbanTaskOrder
         return .available(KanbanBoard(
             viewID: self.viewID,
             buckets: buckets,
-            defaultBucketID: buckets.first?.id,
+            defaultBucketID: defaultBucketID ?? buckets.first?.id,
             supportsWrites: supportsWrites,
             lastPulledAt: Date(timeIntervalSince1970: 1_700_000_000),
             supportsTaskCreation: supportsTaskCreation, requiresConnection: requiresConnection,
@@ -86,6 +87,33 @@ final class FakeBucketRepository: KanbanBoardRepositoryProtocol, KanbanTaskOrder
         buckets[destination].tasks.append(task)
         afterMove?()
         return task
+    }
+
+    func setCompletion(
+        taskID: EntityID, projectID: EntityID, viewID: Int, isDone: Bool,
+    ) async throws -> VikunjaTask {
+        if let moveError {
+            throw moveError
+        }
+        guard let source = buckets.firstIndex(where: { $0.tasks.contains { $0.id == taskID } }),
+              let index = buckets[source].tasks.firstIndex(where: { $0.id == taskID }) else {
+            throw VikunjaError.notFound
+        }
+        let target = KanbanCompletion.destination(
+            isDone: isDone, currentBucketID: buckets[source].id,
+            doneBucketID: buckets.first(where: \.isDoneBucket)?.id,
+            defaultBucketID: defaultBucketID, firstBucketID: buckets.first?.id,
+        )
+        if let target, target != buckets[source].id {
+            guard buckets.first(where: { $0.id == target })?.isFull == false else {
+                throw VikunjaError.bucketCapacity(
+                    column: buckets.first(where: { $0.id == target })?.title ?? "", project: "Work",
+                )
+            }
+            return try await moveTask(taskID: taskID, projectID: projectID, viewID: viewID, bucketID: target)
+        }
+        buckets[source].tasks[index].isDone = isDone
+        return buckets[source].tasks[index]
     }
 
     func createTask(title: String, projectID: EntityID, viewID: Int, bucketID: Int) async throws -> VikunjaTask {

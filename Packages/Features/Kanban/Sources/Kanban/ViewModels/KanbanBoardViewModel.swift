@@ -158,7 +158,10 @@ public final class KanbanBoardViewModel {
         let previousDone = source?.tasks.first { $0.id == taskID }?.isDone
         guard supportsWrites, let viewID, let source, source.id != bucket.id,
               let current = buckets.first(where: { $0.id == bucket.id }) else { return false }
-        guard !current.isFull else { show(VikunjaError.bucketFull); return false }
+        guard !current.isFull else {
+            show(VikunjaError.bucketCapacity(column: current.title, project: project.title))
+            return false
+        }
         guard pendingActions.insert(taskID).inserted else { return false }
         defer { pendingActions.remove(taskID) }
         do {
@@ -224,10 +227,25 @@ public final class KanbanBoardViewModel {
     /// Menus carry an explicit target state. If sync already applied that state
     /// while the menu was open, its command must not accidentally toggle it back.
     public func setCompletion(_ task: VikunjaTask, isDone: Bool) async {
-        guard let current = self.task(id: task.id), current.isDone != isDone else { return }
-        let target = isDone ? buckets.first { $0.isDoneBucket } : buckets.first { !$0.isDoneBucket }
-        guard let target else { return }
-        await moveTask(current, to: target)
+        guard supportsWrites, let viewID, let current = self.task(id: task.id), current.isDone != isDone,
+              pendingActions.insert(task.id).inserted else { return }
+        defer { pendingActions.remove(task.id) }
+        do {
+            let updated = try await repository.setCompletion(
+                taskID: task.id, projectID: project.id, viewID: viewID, isDone: isDone,
+            )
+            if !current.isDone, updated.isDone {
+                hapticPresenter.play(.success)
+            }
+            await load()
+        } catch is CancellationError {
+        } catch {
+            if let error = error as? VikunjaError {
+                toastPresenter.show(error.completionFailureMessage(isDone: isDone), style: .error)
+            } else {
+                show(error)
+            }
+        }
     }
 
     /// Resolves live card fields for sheets that remain open during local updates.
@@ -240,7 +258,10 @@ public final class KanbanBoardViewModel {
     public func createTask(title: String, in bucket: KanbanBucket) async -> Bool {
         guard supportsWrites, supportsTaskCreation, let viewID,
               let current = buckets.first(where: { $0.id == bucket.id }) else { return false }
-        guard !current.isFull else { show(VikunjaError.bucketFull); return false }
+        guard !current.isFull else {
+            show(VikunjaError.bucketCapacity(column: current.title, project: project.title))
+            return false
+        }
         do {
             _ = try await repository.createTask(
                 title: title, projectID: project.id, viewID: viewID, bucketID: bucket.id,

@@ -37,17 +37,22 @@ public struct TaskListMutator {
     /// Persists a completion flip the caller has already applied optimistically.
     /// Plays a success haptic when the task is now done, and returns the task
     /// the list should show: the server's copy on success, `original` on
-    /// failure (a silent rollback — a rejected toggle isn't worth a toast).
+    /// failure. Capacity rejections explain the rollback with an error toast;
+    /// other failures keep the existing silent rollback behavior.
     public func persistToggleDone(
         flipped: VikunjaTask,
         original: VikunjaTask,
     ) async -> VikunjaTask {
-        if flipped.isDone {
-            hapticPresenter.play(.success)
-        }
         do {
-            return try await repository.update(flipped)
+            let updated = try await repository.update(flipped)
+            if !original.isDone, updated.isDone {
+                hapticPresenter.play(.success)
+            }
+            return updated
         } catch {
+            if let error = error as? VikunjaError, error.isBucketCapacityError {
+                toastPresenter.show(error.completionFailureMessage(isDone: flipped.isDone), style: .error)
+            }
             return original
         }
     }

@@ -589,3 +589,170 @@ struct KanbanMovementTests {
         #expect(try await queue(fixture).first?.status == .failed)
     }
 }
+
+extension KanbanMovementTests {
+    private func setLimit(_ fixture: Fixture, bucketID: Int, limit: Int) async throws {
+        try await fixture.store.write { db in
+            var bucket = try #require(try KanbanBucketRecord.filter(Column("remoteID") == bucketID).fetchOne(db))
+            bucket.limit = limit
+            try bucket.update(db)
+        }
+    }
+
+    @Test(arguments: [true, false])
+    func `detail and board reopening reject a full default without changing queued intent`(fromBoard: Bool) async throws {
+        let fixture = try await fixture()
+        _ = try await fixture.tasks.setCompletion(taskIDs: [100], isDone: true)
+        _ = try await fixture.board.createTask(title: "Occupant", projectID: 1, viewID: 10, bucketID: 20)
+        try await setLimit(fixture, bucketID: 20, limit: 1)
+        let before = try await queue(fixture)
+        await #expect(throws: VikunjaError.bucketCapacity(column: "Column", project: "Work")) {
+            if fromBoard {
+                _ = try await fixture.board.setCompletion(taskID: 100, projectID: 1, viewID: 10, isDone: false)
+            } else {
+                var task = try await fixture.tasks.fetchTask(id: 100)
+                task.isDone = false
+                _ = try await fixture.tasks.update(task)
+            }
+        }
+        #expect(try await fixture.tasks.fetchTask(id: 100).isDone)
+        #expect(try await location(fixture) == 22)
+        #expect(try await queue(fixture).map(\.payload) == before.map(\.payload))
+        #expect(try await queue(fixture).map(\.id) == before.map(\.id))
+    }
+
+    @Test func `completion uses an explicit default different from the first bucket`() async throws {
+        let fixture = try await fixture()
+        try await fixture.store.write { db in
+            var view = try #require(try KanbanViewRecord.fetchOne(db))
+            view.defaultBucketID = 21
+            try view.update(db)
+        }
+        _ = try await fixture.board.setCompletion(taskID: 100, projectID: 1, viewID: 10, isDone: true)
+        _ = try await fixture.board.setCompletion(taskID: 100, projectID: 1, viewID: 10, isDone: false)
+        #expect(try await location(fixture) == 21)
+    }
+
+    @Test func `reopening outside done preserves the full current bucket`() async throws {
+        let fixture = try await fixture()
+        try await move(fixture, to: 21)
+        try await fixture.store.write { db in
+            var row = try #require(try TaskRecord.filter(Column("remoteID") == 100).fetchOne(db))
+            row.isDone = true // A completed task may have been placed outside Done by another client.
+            try row.update(db)
+        }
+        try await setLimit(fixture, bucketID: 21, limit: 1)
+        _ = try await fixture.board.setCompletion(taskID: 100, projectID: 1, viewID: 10, isDone: false)
+        #expect(try await location(fixture) == 21)
+        #expect(try await fixture.tasks.fetchTask(id: 100).isDone == false)
+    }
+
+    @Test(arguments: [true, false])
+    func `completion rejects full done buckets through detail and bulk`(bulk: Bool) async throws {
+        let fixture = try await fixture()
+        _ = try await fixture.board.createTask(title: "Occupant", projectID: 1, viewID: 10, bucketID: 22)
+        try await setLimit(fixture, bucketID: 22, limit: 1)
+        let before = try await queue(fixture).map(\.payload)
+        await #expect(throws: VikunjaError.bucketCapacity(column: "Column", project: "Work")) {
+            if bulk {
+                _ = try await fixture.tasks.setCompletion(taskIDs: [100], isDone: true)
+            } else {
+                var task = try await fixture.tasks.fetchTask(id: 100)
+                task.isDone = true
+                _ = try await fixture.tasks.update(task)
+            }
+        }
+        #expect(try await location(fixture) == 20)
+        #expect(try await fixture.tasks.fetchTask(id: 100).isDone == false)
+        #expect(try await queue(fixture).map(\.payload) == before)
+    }
+
+    @Test func `ten task batch rolls back when only nine fit and succeeds after freeing capacity`() async throws {
+        let fixture = try await fixture()
+        var ids: [EntityID] = []
+        for index in 0 ..< 10 {
+            let task = try await fixture.board.createTask(title: "Task \(index)", projectID: 1, viewID: 10, bucketID: 22)
+            ids.append(task.id)
+        }
+        try await setLimit(fixture, bucketID: 20, limit: 10) // One existing task, nine free slots.
+        let selected = ids
+        let before = try await queue(fixture).map(\.payload)
+        await #expect(throws: VikunjaError.bucketCapacity(column: "Column", project: "Work")) {
+            _ = try await fixture.tasks.setCompletion(taskIDs: selected, isDone: false)
+        }
+        #expect(try await queue(fixture).map(\.payload) == before)
+        for id in selected {
+            #expect(try await fixture.tasks.fetchTask(id: id).isDone)
+            #expect(try await location(fixture, taskID: id) == 22)
+        }
+        // Pending deletion releases its slot, without a network connection.
+        try await fixture.tasks.delete(id: 100)
+        let result = try await fixture.tasks.setCompletion(taskIDs: selected, isDone: false)
+        #expect(result.count == 10)
+        #expect(result.allSatisfy { !$0.isDone })
+        let reopened = try OfflineTaskRepository(
+            localStore: LocalStore(directory: fixture.directory), accountID: fixture.accountID,
+            syncRequester: NoopKanbanSyncRequester(),
+        )
+        #expect(try await reopened.fetchTask(id: selected[0]).isDone == false)
+    }
+
+    @Test func `capacity failure in another view rolls back every placement`() async throws {
+        let fixture = try await fixture()
+        try await fixture.store.write { db in
+            let original = try #require(try KanbanViewRecord.fetchOne(db))
+            var view = original
+            view.localID = UUID()
+            view.remoteID = 11
+            view.doneBucketID = 30
+            try view.insert(db)
+            let originalBucket = try #require(try KanbanBucketRecord.filter(Column("remoteID") == 22).fetchOne(db))
+            var bucket = originalBucket
+            bucket.localID = UUID()
+            bucket.viewLocalID = view.localID
+            bucket.remoteID = 30
+            bucket.limit = 1
+            try bucket.insert(db)
+            var occupant = try #require(try TaskRecord.fetchOne(db))
+            occupant.localID = UUID()
+            occupant.remoteID = 200
+            try occupant.insert(db)
+            try KanbanAssignmentRecord(
+                accountID: fixture.accountID, projectLocalID: occupant.projectLocalID,
+                viewLocalID: view.localID, bucketLocalID: bucket.localID,
+                taskLocalID: occupant.localID, position: 1,
+            ).insert(db)
+        }
+        await #expect(throws: VikunjaError.bucketCapacity(column: "Column", project: "Work")) {
+            _ = try await fixture.board.setCompletion(taskID: 100, projectID: 1, viewID: 10, isDone: true)
+        }
+        #expect(try await location(fixture) == 20)
+        #expect(try await fixture.tasks.fetchTask(id: 100).isDone == false)
+        #expect(try await queue(fixture).isEmpty)
+    }
+
+    @Test func `an acknowledged server completion is applied even if the cached destination is full`() async throws {
+        let fixture = try await fixture()
+        var task = try await fixture.tasks.fetchTask(id: 100)
+        task.isDone = true
+        _ = try await fixture.tasks.update(task)
+        let item = try #require(try await queue(fixture).first)
+        _ = try await fixture.board.createTask(title: "Occupant", projectID: 1, viewID: 10, bucketID: 20)
+        try await setLimit(fixture, bucketID: 20, limit: 1)
+        task.isDone = false // The authoritative response can reopen a recurring task.
+        try await fixture.engine.applyTaskPushResult(task, deleting: item)
+        #expect(try await fixture.tasks.fetchTask(id: 100).isDone == false)
+        #expect(try await location(fixture) == 20)
+        #expect(try await queue(fixture).map(\.operation) == [.create])
+    }
+
+    @Test func `direct bucket movement cannot bypass cached capacity`() async throws {
+        let fixture = try await fixture()
+        _ = try await fixture.board.createTask(title: "Occupant", projectID: 1, viewID: 10, bucketID: 21)
+        try await setLimit(fixture, bucketID: 21, limit: 1)
+        await #expect(throws: VikunjaError.bucketCapacity(column: "Column", project: "Work")) {
+            try await move(fixture, to: 21)
+        }
+        #expect(try await location(fixture) == 20)
+    }
+}

@@ -542,6 +542,9 @@ final class AppContainer {
                 transport: clientFactory.makeBucketRepository(
                     baseURL: account.baseURL, tokenProvider: tokenProvider(for: account),
                 ),
+                taskRepository: clientFactory.makeTaskRepository(
+                    baseURL: account.baseURL, tokenProvider: tokenProvider(for: account),
+                ),
             )
             return KanbanBoardViewModel(
                 project: project, repository: repository, orderingRepository: repository,
