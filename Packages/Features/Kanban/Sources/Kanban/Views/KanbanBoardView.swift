@@ -28,7 +28,6 @@ public struct KanbanBoardView: View {
     @State private var presentationOrigin = ContinuousClock.now
     @State private var dropTarget = KanbanDropTarget()
     @State private var dragPresentation = CardDragPresentation()
-    @State private var horizontalScrollPosition: Int?
     @Environment(\.vikuPalette) private var palette
 
     public init(
@@ -147,7 +146,7 @@ public struct KanbanBoardView: View {
     }
 
     private var board: some View {
-        ScrollView(.horizontal) {
+        KanbanHorizontalScroll {
             HStack(alignment: .top, spacing: VikuSpacing.md) {
                 ForEach(viewModel.buckets) { bucket in
                     KanbanColumnView(
@@ -172,9 +171,6 @@ public struct KanbanBoardView: View {
             .scrollTargetLayout()
             .frame(maxHeight: .infinity, alignment: .top)
         }
-        // Keep the visible bucket anchored as card content changes during a drag.
-        .scrollPosition(id: $horizontalScrollPosition)
-        .scrollIndicators(.hidden)
     }
 }
 
