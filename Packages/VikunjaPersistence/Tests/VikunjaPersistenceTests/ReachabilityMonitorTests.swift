@@ -64,6 +64,20 @@ struct ReachabilityMonitorTests {
     }
 
     @Test
+    func `known offline distinguishes startup uncertainty from confirmed disconnection and recovery`() async {
+        let path = FakePathMonitor()
+        let monitor = NWPathReachabilityMonitor(pathMonitor: path, queue: .main)
+        #expect(await monitor.isKnownOffline == false)
+        var updates = await monitor.reachabilityUpdates().makeAsyncIterator()
+        path.report(isSatisfied: false)
+        #expect(await updates.next() == false)
+        #expect(await monitor.isKnownOffline == true)
+        path.report(isSatisfied: true)
+        #expect(await updates.next() == true)
+        #expect(await monitor.isKnownOffline == false)
+    }
+
+    @Test
     func `reachabilityRegained fires on the first offline to online transition`() async {
         let pathMonitor = FakePathMonitor()
         let monitor = NWPathReachabilityMonitor(pathMonitor: pathMonitor, queue: .main)

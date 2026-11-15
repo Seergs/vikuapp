@@ -12,7 +12,23 @@ struct AttachmentLoadingPresentationTests {
         #expect(!presentation.showsSpinner)
     }
 
-    @Test func `spinner appears at half a second and completion at one second reveals results at one and a half`() {
+    @Test func `cached content is ready without waiting for the presentation task`() {
+        let presentation = AttachmentLoadingPresentation()
+        #expect(!presentation.shouldWait(isLoading: false))
+        #expect(presentation.shouldWait(isLoading: true))
+    }
+
+    @Test func `only an actually visible spinner can delay ready content`() {
+        var presentation = AttachmentLoadingPresentation()
+        _ = presentation.update(isLoading: true, at: .zero)
+        #expect(!presentation.shouldWait(isLoading: false))
+        _ = presentation.update(isLoading: true, at: .milliseconds(500))
+        #expect(presentation.shouldWait(isLoading: false))
+        _ = presentation.update(isLoading: false, at: .seconds(2))
+        #expect(!presentation.shouldWait(isLoading: false))
+    }
+
+    @Test func `spinner appears at half a second and remains visible for at least one second`() {
         var presentation = AttachmentLoadingPresentation()
         _ = presentation.update(isLoading: true, at: .zero)
         _ = presentation.update(isLoading: true, at: .milliseconds(500))

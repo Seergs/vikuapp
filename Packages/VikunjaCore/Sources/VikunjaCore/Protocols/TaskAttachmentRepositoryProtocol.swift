@@ -5,6 +5,10 @@ import Foundation
 /// endpoint (`/tasks/{id}/attachments`), the same split `TaskCommentRepositoryProtocol`
 /// has.
 public protocol TaskAttachmentRepositoryProtocol: Sendable {
+    /// Reads persisted metadata only. Nil means this task has no saved catalog.
+    func cachedAttachmentSnapshot(taskID: Int) async throws -> TaskAttachmentSnapshot?
+
+    /// Downloads the complete catalog and replaces any persisted metadata atomically.
     func fetchAttachments(taskID: Int) async throws -> [TaskAttachment]
 
     /// Uploads one file. Vikunja's endpoint accepts and echoes back several at
@@ -27,4 +31,11 @@ public protocol TaskAttachmentRepositoryProtocol: Sendable {
     ) async throws -> Data
 
     func deleteAttachment(_ id: Int, fromTask taskID: Int) async throws
+}
+
+public extension TaskAttachmentRepositoryProtocol {
+    /// Transport-only repositories have no local metadata store.
+    func cachedAttachmentSnapshot(taskID: Int) async throws -> TaskAttachmentSnapshot? {
+        nil
+    }
 }

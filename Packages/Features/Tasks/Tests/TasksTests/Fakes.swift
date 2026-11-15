@@ -331,6 +331,10 @@ final class FakeTaskCommentRepository: TaskCommentRepositoryProtocol, @unchecked
 }
 
 final class FakeTaskAttachmentRepository: TaskAttachmentRepositoryProtocol, @unchecked Sendable {
+    var cachedSnapshot: TaskAttachmentSnapshot?
+    var cacheError: (any Error)?
+    var onFetch: (@Sendable () async -> Void)?
+    var onDownload: (@Sendable () async -> Void)?
     var attachments: [TaskAttachment] = []
     var downloadData: [Int: Data] = [:]
     var fetchError: (any Error)?
@@ -348,11 +352,20 @@ final class FakeTaskAttachmentRepository: TaskAttachmentRepositoryProtocol, @unc
     private(set) var downloadedPreviewSizes: [AttachmentPreviewSize?] = []
     private var nextID = 100
 
+    func cachedAttachmentSnapshot(taskID: Int) async throws -> TaskAttachmentSnapshot? {
+        if let cacheError {
+            throw cacheError
+        }
+        return cachedSnapshot
+    }
+
     func fetchAttachments(taskID _: Int) async throws -> [TaskAttachment] {
+        let response = attachments
+        await onFetch?()
         if let fetchError {
             throw fetchError
         }
-        return attachments
+        return response
     }
 
     func uploadAttachment(
@@ -385,6 +398,7 @@ final class FakeTaskAttachmentRepository: TaskAttachmentRepositoryProtocol, @unc
         previewSize: AttachmentPreviewSize?,
     ) async throws -> Data {
         downloadedPreviewSizes.append(previewSize)
+        await onDownload?()
         if let downloadError {
             throw downloadError
         }

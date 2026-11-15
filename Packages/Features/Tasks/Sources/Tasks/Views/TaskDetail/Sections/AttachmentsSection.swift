@@ -23,7 +23,7 @@ struct AttachmentsSection: View {
     }
 
     private var isWaiting: Bool {
-        isLoading || presentation.isWaiting
+        presentation.shouldWait(isLoading: isLoading)
     }
 
     var body: some View {
@@ -38,29 +38,42 @@ struct AttachmentsSection: View {
             if isWaiting {
                 HStack(spacing: VikuSpacing.sm) {
                     ProgressView()
-                    Text("Loading attachments…", bundle: .module)
-                        .font(VikuFont.subheadline)
-                        .foregroundStyle(palette.textTertiary)
+                        .opacity(presentation.showsSpinner ? 1 : 0)
+                        .accessibilityHidden(!presentation.showsSpinner)
+                    Group {
+                        if viewModel.isRetryingAttachments {
+                            Text("Retrying…", bundle: .module)
+                        } else {
+                            Text("Loading attachments…", bundle: .module)
+                        }
+                    }
+                    .font(VikuFont.subheadline)
+                    .foregroundStyle(palette.textTertiary)
+                    .opacity(presentation.showsSpinner || viewModel.isRetryingAttachments ? 1 : 0)
                     Spacer(minLength: 0)
                 }
                 .frame(minHeight: VikuSpacing.xxl)
-                .opacity(presentation.showsSpinner ? 1 : 0)
-                .accessibilityHidden(!presentation.showsSpinner)
+                .accessibilityHidden(!presentation.showsSpinner && !viewModel.isRetryingAttachments)
                 .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: presentation.showsSpinner)
-                .transition(.opacity)
+                .transition(.identity)
             } else {
                 AttachmentsList(
                     attachments: viewModel.attachments,
                     loadState: viewModel.attachmentsLoadState,
                     isUploading: viewModel.isUploadingAttachment,
+                    notice: viewModel.attachmentsNotice,
+                    canRetry: !viewModel.isRefreshingAttachments,
+                    isRetrying: viewModel.isRetryingAttachments,
+                    openingAttachmentID: viewModel.openingAttachmentID,
                     onOpen: onOpen,
                     onDelete: onDelete,
-                    onRetry: { Task { await viewModel.loadAttachments() } },
+                    onRetry: { Task { await viewModel.retryAttachmentsDownload() } },
                 )
-                .transition(.opacity)
+                .transition(.identity)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: viewModel.attachments)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: viewModel.attachmentsNotice)
             }
         }
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: isWaiting)
         .task(id: isLoading) { await updatePresentation() }
         .onDisappear {
             presentation = AttachmentLoadingPresentation()
@@ -85,6 +98,10 @@ private struct AttachmentsList: View {
     let attachments: [TaskAttachment]
     let loadState: ScreenLoadState<Void>
     var isUploading = false
+    let notice: String?
+    let canRetry: Bool
+    let isRetrying: Bool
+    let openingAttachmentID: Int?
     let onOpen: (TaskAttachment) -> Void
     let onDelete: (TaskAttachment) -> Void
 
@@ -103,29 +120,49 @@ private struct AttachmentsList: View {
         VStack(alignment: .leading, spacing: VikuSpacing.xs) {
             if attachments.isEmpty, !isUploading {
                 Text(verbatim: emptyStateMessage)
-                    .font(VikuFont.subheadline)
+                    .font(loadState.failureMessage == nil ? VikuFont.subheadline : VikuFont.caption)
                     .foregroundStyle(palette.textTertiary)
                 if case .failure = loadState {
-                    Button(action: onRetry) {
-                        Text("Retry", bundle: .module)
-                    }
-                    .font(VikuFont.subheadline)
-                    .foregroundStyle(palette.brand)
+                    retryButton
                 }
             } else {
                 ForEach(attachments) { attachment in
                     AttachmentRow(
                         attachment: attachment,
+                        isOpening: openingAttachmentID == attachment.id,
                         onOpen: { onOpen(attachment) },
                         onDelete: { onDelete(attachment) },
                     )
+                    .disabled(openingAttachmentID != nil)
                 }
+            }
+
+            if let notice {
+                Text(verbatim: notice)
+                    .font(VikuFont.caption)
+                    .foregroundStyle(palette.textTertiary)
+            }
+            if loadState == .loaded, notice != nil || isRetrying {
+                retryButton
             }
 
             if isUploading {
                 AttachmentUploadingRow()
             }
         }
+    }
+
+    private var retryButton: some View {
+        Button(action: onRetry) {
+            if isRetrying {
+                Text("Retrying…", bundle: .module)
+            } else {
+                Text("Retry", bundle: .module)
+            }
+        }
+        .font(VikuFont.subheadline)
+        .foregroundStyle(palette.brand)
+        .disabled(!canRetry)
     }
 }
 
@@ -150,6 +187,7 @@ private struct AttachmentUploadingRow: View {
 
 private struct AttachmentRow: View {
     let attachment: TaskAttachment
+    let isOpening: Bool
     let onOpen: () -> Void
     let onDelete: () -> Void
 
@@ -175,9 +213,15 @@ private struct AttachmentRow: View {
                         .foregroundStyle(Color.primary)
                         .lineLimit(1)
                         .truncationMode(.middle)
-                    Text(verbatim: subtitle)
-                        .font(.system(size: 12))
-                        .foregroundStyle(palette.textTertiary)
+                    Group {
+                        if isOpening {
+                            Text("Opening…", bundle: .module)
+                        } else {
+                            Text(verbatim: subtitle)
+                        }
+                    }
+                    .font(VikuFont.caption)
+                    .foregroundStyle(palette.textTertiary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 

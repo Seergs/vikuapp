@@ -1156,3 +1156,57 @@ Remote downloads continue to replace each fetched task's complete relation set.
 A missing local target alone is not proof of deletion: a partial download can
 omit an uncached task or a task moved to an unavailable project. Such relations
 retain their server-provided summary until an authoritative refresh replaces them.
+
+## Attachment metadata cache
+
+`CachedTaskAttachmentRepository`, composed by `AppContainer`, wraps the existing
+API adapter and persists metadata in `VikunjaPersistence`. Features access it
+through `TaskAttachmentRepositoryProtocol`: `cachedAttachmentSnapshot` is a local
+read, while `fetchAttachments` explicitly downloads the complete remote catalog.
+File bytes are never stored in this cache; opening, uploading and deleting files
+continue to require the server. Existing temporary QuickLook files are unchanged.
+
+`taskAttachment` preserves the server's ordering and the displayed file metadata.
+`taskAttachmentCatalog` tracks complete-download coverage, including confirmed
+empty lists. Upload responses can establish individual entries without claiming
+complete coverage. Tables are scoped to account and canonical task identity and
+cascade when tasks/projects are removed. Account snapshots include these records
+for reload guards and replacement; account recovery clears this demand-loaded
+cache rather than adding attachment downloads to the account sync.
+
+Task details display saved rows or a confirmed empty list before requesting the
+server, without showing a refresh spinner or clearing the section. Failed updates
+retain the saved information and offer an inline notice and retry; cancellation
+does not show an error. Without cached metadata, the initial request uses the
+half-second spinner delay and minimum one-second visibility. Downloads finishing
+before that delay never show a spinner. Presentation respects Reduce Motion and
+does not delay networking or persistence. Reopening details, explicit retry and
+refresh request a fresh catalog; there is no global attachment prefetch or
+attachment mutation queue.
+
+A full catalog and its coverage commit in one transaction only after every API
+page succeeds. Persisted request revisions prevent late reads, including reads
+from another repository instance, from overwriting a newer request or a successful
+upload/deletion. Writes invalidate reads at their start and again when confirmed.
+A removed task or replaced account cache cannot be recreated by a late response.
+
+After server confirmation, metadata reconciliation is awaited independently of
+caller cancellation and still respects database suspension/reload guards. A local
+cache rejection cannot turn a confirmed remote mutation into a reported failure;
+the next complete refresh repairs any stale metadata.
+
+Cached attachment content uses an identity transition and bypasses the initial
+presentation wait unless a spinner was actually shown. Only subsequent catalog
+changes animate. Attachment notices use the catalog request's own outcome, never
+the historical offline state of comment synchronization. Unknown catalogs render
+one failure message; saved catalogs render one secondary note. Connection notes
+in both attachment and comment sections use caption typography. Explicit retry
+shows immediate text feedback and clears its own stale error on success.
+
+The attachment adapter consults the injected reachability monitor before remote
+operations and rejects a confirmed disconnected path immediately. Startup unknown
+status does not reject an explicit request, and every retry reads the current
+path again. A reachable path does not guarantee that the server responds; opening
+a file immediately marks its row as opening, prevents duplicate taps and clears
+that feedback on success, error or cancellation. File failures use action-specific
+feedback rather than the generic automatic-sync promise.

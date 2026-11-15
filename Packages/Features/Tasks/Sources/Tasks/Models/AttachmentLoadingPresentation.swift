@@ -5,6 +5,12 @@ struct AttachmentLoadingPresentation {
     private var startedAt: Duration?
     private var shownAt: Duration?
 
+    /// A ready local snapshot needs no presentation task or extra render pass.
+    /// Only a spinner that was actually shown can hold completed content back.
+    func shouldWait(isLoading: Bool) -> Bool {
+        isLoading || (showsSpinner && isWaiting)
+    }
+
     mutating func update(isLoading: Bool, at now: Duration) -> Duration? {
         if isLoading {
             isWaiting = true

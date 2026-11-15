@@ -81,6 +81,22 @@ public final class TaskDetailViewModel {
     /// as `comments`: a failure here shouldn't blank the rest of the screen.
     public private(set) var attachments: [TaskAttachment] = []
     public private(set) var attachmentsLoadState: ScreenLoadState<Void> = .idle
+    public private(set) var isRefreshingAttachments = false
+    public private(set) var attachmentsRefreshFailed = false
+    public private(set) var isRetryingAttachments = false
+    public private(set) var openingAttachmentID: Int?
+    private var attachmentsAreOffline = false
+
+    public var attachmentsNotice: String? {
+        // Catalog failures own their notice. A comment sync failure is not
+        // evidence that a later attachment request is still offline.
+        guard attachmentsLoadState == .loaded, attachmentsRefreshFailed else { return nil }
+        if attachmentsAreOffline {
+            return String(localized: "You're offline. Connect to update attachments or open files.", bundle: .module)
+        }
+        return String(localized: "Couldn't update attachments. Showing saved information.", bundle: .module)
+    }
+
     /// `true` while an upload request is in flight — the view disables the
     /// add affordance and shows a progress row.
     public private(set) var isUploadingAttachment = false
@@ -714,12 +730,10 @@ public final class TaskDetailViewModel {
         }
     }
 
-    /// Loads this task's attachments. Failures surface into
-    /// `attachmentsLoadState`, the same as `loadComments()`.
+    /// Shows saved metadata before requesting a complete server catalog.
+    /// Background failures preserve the list and use an inline notice.
     public func loadAttachments() async {
         guard !isDeletingOrDeleted else { return }
-        // Same reasoning as `loadComments()`'s early exit - no attachments
-        // can exist server-side before the task itself does.
         guard let taskID else {
             attachments = []
             attachmentsLoadState = .loaded
@@ -727,28 +741,63 @@ public final class TaskDetailViewModel {
         }
         attachmentsWriteToken += 1
         let token = attachmentsWriteToken
-        let hadContent = attachmentsLoadState == .loaded
+        var hadContent = attachmentsLoadState == .loaded || !attachments.isEmpty
+        attachmentsRefreshFailed = false
+        attachmentsAreOffline = false
+        isRefreshingAttachments = true
+        defer {
+            if token == attachmentsWriteToken {
+                isRefreshingAttachments = false
+            }
+        }
         if !hadContent {
             attachmentsLoadState = .loading
         }
         do {
+            if !hadContent {
+                hadContent = await restoreCachedAttachments(taskID: taskID, token: token)
+            }
+            try Task.checkCancellation()
+            guard token == attachmentsWriteToken else { return }
             let fetched = try await attachmentRepository.fetchAttachments(taskID: taskID)
             try Task.checkCancellation()
             guard token == attachmentsWriteToken else { return }
             attachments = fetched
             attachmentsLoadState = .loaded
-        } catch is CancellationError {
-            guard token == attachmentsWriteToken else { return }
-            attachmentsLoadState = hadContent ? .loaded : .idle
         } catch {
             guard token == attachmentsWriteToken else { return }
-            let message = (error as? VikunjaError)?.displayMessage ?? error.localizedDescription
-            if hadContent {
-                toastPresenter.show(message, style: .error)
-            } else {
-                attachmentsLoadState = .failure(message)
-            }
+            handleAttachmentLoadFailure(error, hadContent: hadContent)
         }
+    }
+
+    public func retryAttachmentsDownload() async {
+        guard !isRetryingAttachments, !isRefreshingAttachments else { return }
+        isRetryingAttachments = true
+        defer { isRetryingAttachments = false }
+        await loadAttachments()
+    }
+
+    private func handleAttachmentLoadFailure(_ error: any Error, hadContent: Bool) {
+        if error is CancellationError {
+            attachmentsLoadState = hadContent ? .loaded : .idle
+        } else if hadContent {
+            attachmentsAreOffline = (error as? VikunjaError) == .offline
+            attachmentsRefreshFailed = true
+        } else {
+            let message = (error as? VikunjaError) == .offline
+                ? String(localized: "Connect to download this task's attachment list.", bundle: .module)
+                : (error as? VikunjaError)?.displayMessage ?? error.localizedDescription
+            attachmentsLoadState = .failure(message)
+        }
+    }
+
+    private func restoreCachedAttachments(taskID: Int, token: Int) async -> Bool {
+        // Cache read failures must not prevent trying the server.
+        guard let snapshot = try? await attachmentRepository.cachedAttachmentSnapshot(taskID: taskID),
+              !Task.isCancelled, token == attachmentsWriteToken else { return false }
+        attachments = snapshot.attachments
+        attachmentsLoadState = .loaded
+        return true
     }
 
     /// Reads the file the user picked through `.fileImporter` off disk and
@@ -770,8 +819,10 @@ public final class TaskDetailViewModel {
     public func uploadAttachment(data: Data, fileName: String, mimeType: String) async {
         guard let taskID = requireSyncedTaskID() else { return }
         isUploadingAttachment = true
+        let needsCatalog = attachmentsLoadState != .loaded
         defer { isUploadingAttachment = false }
         attachmentsWriteToken += 1
+        isRefreshingAttachments = false
         do {
             let created = try await attachmentRepository.uploadAttachment(
                 data: data,
@@ -783,12 +834,18 @@ public final class TaskDetailViewModel {
             // already landed this same attachment by the time the upload
             // response comes back.
             let newAttachments = created.filter { new in !attachments.contains { $0.id == new.id } }
+            attachmentsWriteToken += 1
+            isRefreshingAttachments = false
             attachments.append(contentsOf: newAttachments)
+            attachmentsLoadState = .loaded
             toastPresenter.show(String(localized: "Attachment added", bundle: .module), style: .success)
         } catch let error as VikunjaError {
             toastPresenter.show(error.displayMessage, style: .error)
         } catch {
             toastPresenter.show(error.localizedDescription, style: .error)
+        }
+        if needsCatalog {
+            await loadAttachments()
         }
     }
 
@@ -796,15 +853,23 @@ public final class TaskDetailViewModel {
     /// and surfaces a toast on failure — the caller shows nothing rather than
     /// a broken preview.
     public func attachmentData(for attachment: TaskAttachment) async -> Data? {
-        guard let taskID = requireSyncedTaskID() else { return nil }
+        guard let taskID = requireSyncedTaskID(), openingAttachmentID == nil else { return nil }
+        openingAttachmentID = attachment.id
+        defer { openingAttachmentID = nil }
         do {
-            return try await attachmentRepository.downloadAttachment(
+            let data = try await attachmentRepository.downloadAttachment(
                 attachment.id,
                 fromTask: taskID,
                 previewSize: nil,
             )
+            try Task.checkCancellation()
+            return data
+        } catch is CancellationError {
+            return nil
         } catch let error as VikunjaError {
-            toastPresenter.show(error.displayMessage, style: .error)
+            let message = error == .offline
+                ? String(localized: "Connect to open this file.", bundle: .module) : error.displayMessage
+            toastPresenter.show(message, style: .error)
             return nil
         } catch {
             toastPresenter.show(error.localizedDescription, style: .error)
@@ -849,9 +914,13 @@ public final class TaskDetailViewModel {
         let previous = attachments
         attachmentsWriteToken += 1
         let token = attachmentsWriteToken
+        isRefreshingAttachments = false
         attachments.removeAll { $0.id == attachment.id }
         do {
             try await attachmentRepository.deleteAttachment(attachment.id, fromTask: taskID)
+            attachmentsWriteToken += 1
+            isRefreshingAttachments = false
+            attachments.removeAll { $0.id == attachment.id }
             toastPresenter.show(String(localized: "Attachment deleted", bundle: .module), style: .success)
         } catch {
             guard token == attachmentsWriteToken else { return }

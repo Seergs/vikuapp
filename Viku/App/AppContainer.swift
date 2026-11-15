@@ -572,9 +572,10 @@ final class AppContainer {
         let labelRepository = offlineLabelRepository(for: account)
         let relationRepository = offlineTaskRelationRepository(for: account)
         let commentRepository = offlineTaskCommentRepository(for: account)
-        let attachmentRepository = clientFactory.makeTaskAttachmentRepository(
-            baseURL: account.baseURL,
-            tokenProvider: tokenProvider,
+        let attachmentRepository = CachedTaskAttachmentRepository(
+            localStore: localStore, accountID: account.id,
+            remote: clientFactory.makeTaskAttachmentRepository(baseURL: account.baseURL, tokenProvider: tokenProvider),
+            reachability: reachabilityMonitor,
         )
         let projectRepository = offlineProjectRepository(for: account)
         return TaskDetailViewModel(

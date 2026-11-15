@@ -7,6 +7,10 @@ public protocol ReachabilityMonitoring: Sendable {
     /// Whether the network is reachable right now.
     var isReachable: Bool { get async }
 
+    /// True only when the monitor has established that no network path exists.
+    /// An initial unknown path must not reject an explicit user request.
+    var isKnownOffline: Bool { get async }
+
     /// Yields once per transition from unreachable to reachable. Never
     /// fires for the initial status report on startup (there's no prior
     /// "unreachable" to transition from), and never more than once per
@@ -18,6 +22,10 @@ public protocol ReachabilityMonitoring: Sendable {
 }
 
 public extension ReachabilityMonitoring {
+    var isKnownOffline: Bool {
+        get async { await !isReachable }
+    }
+
     func reachabilityUpdates() async -> AsyncStream<Bool> {
         AsyncStream { continuation in
             let task = Task {
@@ -80,6 +88,10 @@ public actor NWPathReachabilityMonitor: ReachabilityMonitoring {
 
     public var isReachable: Bool {
         satisfied ?? false
+    }
+
+    public var isKnownOffline: Bool {
+        satisfied == false
     }
 
     public func reachabilityRegained() async -> AsyncStream<Void> {

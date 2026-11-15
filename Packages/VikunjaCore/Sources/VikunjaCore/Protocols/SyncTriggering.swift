@@ -13,7 +13,7 @@ public enum SyncScope: Hashable, Sendable {
     /// Upload queued changes before downloading the board.
     case kanban(projectID: EntityID)
     case account
-    /// Also refresh the task's comment thread; attachments remain online-only.
+    /// Also refresh the task's comment thread; attachment metadata refreshes separately on demand.
     case task(EntityID)
     /// Demand-load a comment thread without refreshing the entire account.
     case comments(EntityID)
