@@ -12,7 +12,6 @@ public struct SettingsRootView: View {
     private let isDevBuild: Bool
     private let devBadgeStore: DevBadgeVisibilityStoring
     private let networkLoggingStore: NetworkRequestLoggingStoring
-    private let datePreviewStore: QuickAddDatePreviewStoring
     private let whatsNewSeenVersionStore: WhatsNewSeenVersionStoring
     private let onPreviewOnboarding: () -> Void
     private let makeConnectionsListViewModel: () -> ConnectionsListViewModel
@@ -20,7 +19,6 @@ public struct SettingsRootView: View {
     private let makeManageLabelsViewModel: () -> ManageLabelsViewModel
     private let makePendingSyncViewModel: () -> PendingSyncViewModel
     private let makeNotificationsViewModel: () -> NotificationsViewModel
-    @State private var pendingSyncViewModel: PendingSyncViewModel
     /// Built once in `init`, not lazily like `notificationsViewModelCache` —
     /// unlike Notifications, the badge toggle lives directly on this
     /// landing screen, so its view model needs to exist from the start.
@@ -42,7 +40,7 @@ public struct SettingsRootView: View {
     /// other tab routers, so it can push a reconnect screen onto this stack
     /// itself. `account` is the currently active connection — shown on the
     /// landing screen's "Connections" row. `themeStore` backs the
-    /// "Appearance" row. `isDevBuild`/`devBadgeStore`/`networkLoggingStore`/`datePreviewStore`/
+    /// "Appearance" row. `isDevBuild`/`devBadgeStore`/`networkLoggingStore`/
     /// `whatsNewSeenVersionStore`/`onPreviewOnboarding` back the Developer
     /// section, shown only in dev builds (see `BuildConfig.isDevBuild` in
     /// the app target).
@@ -58,7 +56,6 @@ public struct SettingsRootView: View {
         isDevBuild: Bool,
         devBadgeStore: DevBadgeVisibilityStoring,
         networkLoggingStore: NetworkRequestLoggingStoring,
-        datePreviewStore: QuickAddDatePreviewStoring,
         whatsNewSeenVersionStore: WhatsNewSeenVersionStoring,
         onPreviewOnboarding: @escaping () -> Void,
         makeConnectionsListViewModel: @escaping () -> ConnectionsListViewModel,
@@ -78,7 +75,6 @@ public struct SettingsRootView: View {
         self.isDevBuild = isDevBuild
         self.devBadgeStore = devBadgeStore
         self.networkLoggingStore = networkLoggingStore
-        self.datePreviewStore = datePreviewStore
         self.whatsNewSeenVersionStore = whatsNewSeenVersionStore
         self.onPreviewOnboarding = onPreviewOnboarding
         self.makeConnectionsListViewModel = makeConnectionsListViewModel
@@ -86,7 +82,6 @@ public struct SettingsRootView: View {
         self.makeManageLabelsViewModel = makeManageLabelsViewModel
         self.makePendingSyncViewModel = makePendingSyncViewModel
         self.makeNotificationsViewModel = makeNotificationsViewModel
-        self._pendingSyncViewModel = State(initialValue: makePendingSyncViewModel())
         self._badgeViewModel = State(initialValue: makeAppIconBadgeViewModel())
         self._groupOverdueNotificationsViewModel = State(initialValue: makeGroupOverdueNotificationsViewModel())
         self._defaultProjectViewModel = State(initialValue: makeDefaultProjectSettingsViewModel())
@@ -111,14 +106,12 @@ public struct SettingsRootView: View {
             themeStore: themeStore,
             quickAddSyntaxStore: quickAddSyntaxStore,
             badgeViewModel: badgeViewModel,
-            pendingSyncViewModel: pendingSyncViewModel,
             groupOverdueNotificationsViewModel: groupOverdueNotificationsViewModel,
             defaultProjectViewModel: defaultProjectViewModel,
             homeSelectionViewModel: homeSelectionViewModel,
             isDevBuild: isDevBuild,
             devBadgeStore: devBadgeStore,
             networkLoggingStore: networkLoggingStore,
-            datePreviewStore: datePreviewStore,
             whatsNewSeenVersionStore: whatsNewSeenVersionStore,
             onPreviewOnboarding: onPreviewOnboarding,
             router: router,

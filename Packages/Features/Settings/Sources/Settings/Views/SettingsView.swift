@@ -16,14 +16,12 @@ struct SettingsView: View {
     let themeStore: AppThemeStoring
     let quickAddSyntaxStore: QuickAddSyntaxStore
     let badgeViewModel: AppIconBadgeViewModel
-    let pendingSyncViewModel: PendingSyncViewModel
     let groupOverdueNotificationsViewModel: GroupOverdueNotificationsViewModel
     let defaultProjectViewModel: DefaultProjectSettingsViewModel
     let homeSelectionViewModel: HomeSelectionSettingsViewModel
     let isDevBuild: Bool
     let devBadgeStore: DevBadgeVisibilityStoring
     let networkLoggingStore: NetworkRequestLoggingStoring
-    let datePreviewStore: QuickAddDatePreviewStoring
     let whatsNewSeenVersionStore: WhatsNewSeenVersionStoring
     let onPreviewOnboarding: () -> Void
     let router: AppRouter
@@ -221,19 +219,6 @@ struct SettingsView: View {
             // `BuildConfig.isDevBuild`.
             if isDevBuild {
                 Section {
-                    #if DEBUG
-                    Button(role: .destructive) {
-                        Task { await pendingSyncViewModel.clearQueue() }
-                    } label: {
-                        Label {
-                            Text("Clear Pending Sync Queue", bundle: .module)
-                        } icon: {
-                            Image(systemName: "trash")
-                        }
-                    }
-                    .disabled(pendingSyncViewModel.isClearingQueue)
-                    #endif
-
                     Toggle(isOn: devBadgeBinding) {
                         HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
                             SettingsRowIcon(systemName: "ladybug")
@@ -245,18 +230,6 @@ struct SettingsView: View {
                         HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
                             SettingsRowIcon(systemName: "network")
                             Text("Log Network Requests", bundle: .module)
-                        }
-                    }
-
-                    Toggle(isOn: datePreviewBinding) {
-                        HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
-                            SettingsRowIcon(systemName: "calendar.badge.clock")
-                            VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
-                                Text("Show Quick Add Date Preview", bundle: .module)
-                                Text("This session only. Show date interpretation details.", bundle: .module)
-                                    .font(VikuFont.footnote)
-                                    .foregroundStyle(palette.textTertiary)
-                            }
                         }
                     }
 
@@ -370,13 +343,6 @@ struct SettingsView: View {
         Binding(
             get: { networkLoggingStore.isNetworkRequestLoggingEnabled },
             set: { networkLoggingStore.setNetworkRequestLoggingEnabled($0) },
-        )
-    }
-
-    private var datePreviewBinding: Binding<Bool> {
-        Binding(
-            get: { datePreviewStore.isQuickAddDatePreviewVisible },
-            set: { datePreviewStore.setQuickAddDatePreviewVisible($0) },
         )
     }
 }
