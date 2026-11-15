@@ -199,9 +199,15 @@ private struct VikuMarkdownTableStyle: StructuredText.TableStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         Overflow { state in
+            let width = state.containerWidth.map { max(0, $0 - 2 * VikuSpacing.xxs) }
+
             configuration.label
                 .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: state.containerWidth, alignment: .leading)
+                // A scroll view proposes no horizontal size. Supply an ideal
+                // width so Grid expands its columns, and a minimum so short
+                // tables fill the article. Leave the maximum unconstrained so
+                // columns that cannot fit can still scroll horizontally.
+                .frame(minWidth: width, idealWidth: width, alignment: .leading)
                 .padding(VikuSpacing.xxs)
                 .background(palette.fieldBackground)
                 .clipShape(RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))

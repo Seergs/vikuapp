@@ -23,6 +23,9 @@
 		C0A0235CF7A4953CBF6775E2 /* VikuDesignSystem in Frameworks */ = {isa = PBXBuildFile; productRef = 887DB5E3A518911BD1897E4B /* VikuDesignSystem */; };
 		CA1EDA0000000000000000B2 /* CalendarFeature in Frameworks */ = {isa = PBXBuildFile; productRef = CA1EDA0000000000000000C3 /* CalendarFeature */; };
 		CFBB516F15E3030F653FBDC1 /* VikuWidgetKit in Frameworks */ = {isa = PBXBuildFile; productRef = E436BCA8C1BEFFBB4869643D /* VikuWidgetKit */; };
+		D0C000000000000000000001 /* Viku/Documentation/Styles/VikuMarkdownStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0C000000000000000000002 /* Viku/Documentation/Styles/VikuMarkdownStyle.swift */; };
+		D0C000000000000000000003 /* Textual in Frameworks */ = {isa = PBXBuildFile; productRef = AB128ECA62FD4D2ABAB9D002 /* Textual */; };
+		D0C000000000000000000004 /* VikuDesignSystem in Frameworks */ = {isa = PBXBuildFile; productRef = 887DB5E3A518911BD1897E4B /* VikuDesignSystem */; };
 		EB2D2DA5CFF441EFB4450EF5 /* Onboarding in Frameworks */ = {isa = PBXBuildFile; productRef = 691135973B8B496295E14896 /* Onboarding */; };
 		F8DCC6D8B7369D0CF81969F6 /* VikuWidgetKit in Frameworks */ = {isa = PBXBuildFile; productRef = 8A10F10FDD4DC2CAF301F579 /* VikuWidgetKit */; };
 		FC49B15C464C63D2C6F9801F /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3FEBFEFA7653B73106F763DB /* Foundation.framework */; };
@@ -56,6 +59,8 @@
 /* Begin PBXFileReference section */
 		092ABB4ABC46663D77A4333A /* Viku-widgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Viku-widgets.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		3FEBFEFA7653B73106F763DB /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		D0C000000000000000000002 /* Viku/Documentation/Styles/VikuMarkdownStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Viku/Documentation/Styles/VikuMarkdownStyle.swift; sourceTree = SOURCE_ROOT; };
+		D0C000000000000000000005 /* VikuDocumentationTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = VikuDocumentationTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		EC3BB466303D1EF6002753FC /* Viku.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Viku.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -85,6 +90,11 @@
 			path = "Viku-widgets";
 			sourceTree = "<group>";
 		};
+		D0C000000000000000000006 /* VikuDocumentationTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = VikuDocumentationTests;
+			sourceTree = "<group>";
+		};
 		EC3BB468303D1EF6002753FC /* Viku */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -102,6 +112,15 @@
 			files = (
 				FC49B15C464C63D2C6F9801F /* Foundation.framework in Frameworks */,
 				CFBB516F15E3030F653FBDC1 /* VikuWidgetKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D0C000000000000000000007 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D0C000000000000000000003 /* Textual in Frameworks */,
+				D0C000000000000000000004 /* VikuDesignSystem in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -148,13 +167,23 @@
 			name = iOS;
 			sourceTree = "<group>";
 		};
+		D0C00000000000000000000D /* Documentation test sources */ = {
+			isa = PBXGroup;
+			children = (
+				D0C000000000000000000002 /* Viku/Documentation/Styles/VikuMarkdownStyle.swift */,
+			);
+			name = "Documentation test sources";
+			sourceTree = "<group>";
+		};
 		EC3BB45D303D1EF6002753FC = {
 			isa = PBXGroup;
 			children = (
 				EC3BB468303D1EF6002753FC /* Viku */,
+				D0C000000000000000000006 /* VikuDocumentationTests */,
 				EC3BB467303D1EF6002753FC /* Products */,
 				A03D783F2F3D3EDE08C934C1 /* Frameworks */,
 				B92C853A6FE7E809CD2F2E95 /* Viku-widgets */,
+				D0C00000000000000000000D /* Documentation test sources */,
 			);
 			sourceTree = "<group>";
 		};
@@ -162,6 +191,7 @@
 			isa = PBXGroup;
 			children = (
 				EC3BB466303D1EF6002753FC /* Viku.app */,
+				D0C000000000000000000005 /* VikuDocumentationTests.xctest */,
 				092ABB4ABC46663D77A4333A /* Viku-widgets.appex */,
 			);
 			name = Products;
@@ -192,6 +222,29 @@
 			productName = "Viku-widgets";
 			productReference = 092ABB4ABC46663D77A4333A /* Viku-widgets.appex */;
 			productType = "com.apple.product-type.app-extension";
+		};
+		D0C000000000000000000009 /* VikuDocumentationTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D0C00000000000000000000A /* Build configuration list for PBXNativeTarget "VikuDocumentationTests" */;
+			buildPhases = (
+				D0C000000000000000000008 /* Sources */,
+				D0C000000000000000000007 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				D0C000000000000000000006 /* VikuDocumentationTests */,
+			);
+			name = VikuDocumentationTests;
+			packageProductDependencies = (
+				AB128ECA62FD4D2ABAB9D002 /* Textual */,
+				887DB5E3A518911BD1897E4B /* VikuDesignSystem */,
+			);
+			productName = VikuDocumentationTests;
+			productReference = D0C000000000000000000005 /* VikuDocumentationTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		EC3BB465303D1EF6002753FC /* Viku */ = {
 			isa = PBXNativeTarget;
@@ -283,6 +336,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				D0C000000000000000000009 /* VikuDocumentationTests */,
 				EC3BB465303D1EF6002753FC /* Viku */,
 				9F1A298945A4417C5C239F1C /* Viku-widgets */,
 			);
@@ -311,6 +365,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D0C000000000000000000008 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D0C000000000000000000001 /* Viku/Documentation/Styles/VikuMarkdownStyle.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -402,6 +464,30 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		D0C00000000000000000000B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(VIKU_ID_PREFIX).documentation-tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D0C00000000000000000000C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(VIKU_ID_PREFIX).documentation-tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
@@ -612,6 +698,15 @@
 			buildConfigurations = (
 				243F271EDA1347E4E230F01A /* Release */,
 				08A2B29D93B7E700DA94CA50 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D0C00000000000000000000A /* Build configuration list for PBXNativeTarget "VikuDocumentationTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D0C00000000000000000000B /* Debug */,
+				D0C00000000000000000000C /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
