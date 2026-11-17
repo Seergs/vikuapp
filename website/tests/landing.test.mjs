@@ -13,16 +13,64 @@ function page() {
   return window;
 }
 
-test('landing offers the beta and keeps screenshots explicitly pending', () => {
+test('landing offers the beta and shows the app screenshot', () => {
   const { document } = page();
   assert.equal(document.documentElement.lang, 'en');
   assert.equal(document.querySelectorAll('h1').length, 1);
   const betaLinks = [...document.querySelectorAll('a')].filter(a => a.textContent.includes('beta'));
   assert.equal(betaLinks.length, 3);
   betaLinks.forEach(a => assert.equal(a.href, 'https://testflight.apple.com/join/aby3Bh4d'));
-  assert.ok(document.querySelector('[aria-label="App screenshot coming soon"]'));
+  assert.ok(document.querySelector('.hero picture img[alt*="Viku on iPhone"]'));
+  assert.doesNotMatch(document.querySelector('.hero').textContent, /screenshot coming soon|A closer look, soon/);
   assert.match(document.body.textContent, /iOS 26\.2/);
   assert.doesNotMatch(html, /support\.js|todo-app-scene|<x-dc|<sc-if/);
+});
+
+test('hero provides correctly sized, transparent AVIF and WebP assets with reserved space', async () => {
+  const { document } = page();
+  const picture = document.querySelector('[data-hero-screenshot]');
+  const image = picture.querySelector('img');
+  assert.equal(image.loading, 'eager');
+  assert.equal(image.getAttribute('fetchpriority'), 'high');
+  assert.ok(image.width > 0 && image.height > 0);
+  assert.equal(picture.querySelector('source').type, 'image/avif');
+  for (const source of picture.querySelectorAll('source, img')) {
+    assert.ok(source.getAttribute('sizes'));
+    const candidates = source.getAttribute('srcset').split(',');
+    for (const candidate of candidates) {
+      const [path, descriptor] = candidate.trim().split(/\s+/);
+      const bytes = await readFile(new URL(path.slice(1), dist));
+      const metadata = await sharp(bytes).metadata();
+      assert.equal(metadata.width, Number.parseInt(descriptor, 10));
+      assert.equal(metadata.height / metadata.width, image.height / image.width);
+      assert.equal(metadata.hasAlpha, true);
+    }
+  }
+  await access(new URL(image.getAttribute('src').slice(1), dist));
+});
+
+test('hero follows explicit theme overrides and restores system selection', async () => {
+  for (const initialTheme of ['light', 'dark', undefined]) {
+    const window = page();
+    const { document } = window;
+    const picture = document.querySelector('[data-hero-screenshot]');
+    const sources = picture.querySelectorAll('[data-dark]');
+    sources.forEach(source => assert.equal(source.media, '(prefers-color-scheme: dark)'));
+    if (initialTheme) document.documentElement.dataset.theme = initialTheme;
+    window.eval(picture.querySelector('script').textContent);
+    const assertMedia = expected => sources.forEach(source => assert.equal(source.media, expected));
+    assertMedia(initialTheme === 'dark' ? 'all' : initialTheme === 'light' ? 'not all' : '(prefers-color-scheme: dark)');
+    document.documentElement.dataset.theme = 'dark';
+    await window.happyDOM.waitUntilComplete();
+    assertMedia('all');
+    document.documentElement.dataset.theme = 'light';
+    await window.happyDOM.waitUntilComplete();
+    assertMedia('not all');
+    delete document.documentElement.dataset.theme;
+    await window.happyDOM.waitUntilComplete();
+    assertMedia('(prefers-color-scheme: dark)');
+    await window.happyDOM.close();
+  }
 });
 
 test('all internal landing links resolve to built pages or anchors', async () => {

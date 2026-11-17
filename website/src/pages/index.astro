@@ -5,20 +5,17 @@ import BetaLink from '../components/ui/BetaLink.astro';
 import ProjectDemo from '../components/landing/ProjectDemo.astro';
 import ServerIcon from '../components/ui/ServerIcon.astro';
 import QuickAddIcon from '../components/ui/QuickAddIcon.astro';
+import HeroScreenshot from '../components/landing/HeroScreenshot.astro';
 ---
 <MarketingLayout title="Viku - Vikunja for iPhone" description="Your Vikunja tasks, at home on iPhone. Connect to your own server, work offline, and get optional push notifications. Join the Viku TestFlight beta.">
   <section class="hero">
     <div class="container hero-inner">
       <AppIcon size={104} />
-      <h1>Vikunja, on iPhone.<br /><span>Finally.</span></h1>
-      <p class="hero-description">Your server. Your tasks. A modern, native app that feels right at home on iPhone.</p>
+      <h1>Your Vikunja tasks.<br /><span>On your iPhone.</span></h1>
+      <p class="hero-description">Your server. A modern, native app built around everyday life.</p>
       <div class="hero-actions"><BetaLink /><a href="/docs/">See how it connects <span aria-hidden="true">›</span></a></div>
       <p class="caption">Available in beta · Requires iOS 26.2 or later</p>
-      <!-- TODO: Replace this reserved frame with a real app screenshot. -->
-      <div class="phone-frame" role="img" aria-label="App screenshot coming soon">
-        <div class="camera" aria-hidden="true"></div>
-        <div class="screenshot-placeholder"><AppIcon size={56} /><span>A closer look, soon.</span><span class="caption">App screenshot coming soon</span></div>
-      </div>
+      <HeroScreenshot />
     </div>
   </section>
 
@@ -57,7 +54,7 @@ import QuickAddIcon from '../components/ui/QuickAddIcon.astro';
           <span class="send-icon" aria-hidden="true"><QuickAddIcon name="create" size={22} /></span>
         </div>
       </div>
-      <div class="section-copy"><p class="eyebrow">Experimental · Opt in from Settings</p><h2>Type it.<br />Make it a task.</h2><p>Add a date, priority, project, and labels as you type. Quick Add recognizes shortcuts in your preferred Vikunja or Todoist dialect.</p><a href="/docs/quick-add-shortcuts/">Explore Quick Add shortcuts <span aria-hidden="true">›</span></a></div>
+      <div class="section-copy"><p class="eyebrow">Opt in from Settings</p><h2>Type it.<br />Make it a task.</h2><p>Add a date, priority, project, and labels as you type. Quick Add Magic recognizes shortcuts in your preferred Vikunja or Todoist dialect.</p><a href="/docs/quick-add-shortcuts/">Explore Magic <span aria-hidden="true">›</span></a></div>
     </div>
   </section>
 
@@ -96,10 +93,6 @@ import QuickAddIcon from '../components/ui/QuickAddIcon.astro';
   .hero-description { max-width: 35rem; margin-top: var(--viku-space-5); font-size: 1.25rem; color: var(--viku-color-text-secondary); }
   .hero-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--viku-space-5); margin-top: var(--viku-space-6); }
   .hero-actions > a { font-weight: 500; }
-  .phone-frame { position: relative; width: min(20rem, calc(100% - 1.5rem)); height: 30rem; margin-top: var(--viku-space-8); border: 0.625rem solid var(--viku-color-text); border-bottom: 0; border-radius: 2.75rem 2.75rem 0 0; background: var(--viku-color-surface); box-shadow: var(--viku-shadow-sheet); }
-  .camera { width: 6.5rem; height: 1.75rem; border-radius: var(--viku-radius-pill); position: absolute; top: var(--viku-space-3); left: 50%; transform: translateX(-50%); background: var(--viku-color-text); }
-  .screenshot-placeholder { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--viku-space-4); color: var(--viku-color-text-secondary); }
-  .screenshot-placeholder .caption { margin: 0; }
   .connection { display: flex; align-items: center; gap: var(--viku-space-3); padding: var(--viku-space-4); }
   .connection + .connection { border-top: 1px solid var(--viku-color-border); }
   .connection > div { min-width: 0; }
