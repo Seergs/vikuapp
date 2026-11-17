@@ -17,6 +17,16 @@ public protocol AccountStoreProtocol: Sendable {
     /// `account.id` isn't a saved account.
     func updateAccount(_ account: InstanceAccount, token: String?) async throws
 
+    /// Commits a renewal only if the account and credential still match the
+    /// request's snapshot. Implementations serialize the comparison and write
+    /// with other account updates. A replaced/deleted session returns false.
+    func updateSession(
+        for account: InstanceAccount,
+        matchingToken: String,
+        token: String?,
+        needsReauthentication: Bool,
+    ) async throws -> Bool
+
     func removeAccount(id: InstanceAccount.ID) async throws
     func setActiveAccount(id: InstanceAccount.ID) async throws
     func token(forAccountID id: InstanceAccount.ID) async throws -> String?

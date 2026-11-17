@@ -13,6 +13,9 @@ import WhatsNew
 struct RootView: View {
     let container: AppContainer
 
+    // Credentials are intentionally absent from InstanceAccount equality.
+    // A successful edit must restart screen lifecycles even if metadata matches.
+    @State private var connectionRevision: UUID?
     @State private var connectedAccount: InstanceAccount?
     @State private var hasCheckedForSavedAccount = false
     /// Drives the dev-only "Preview Onboarding" row in Settings — see
@@ -41,6 +44,7 @@ struct RootView: View {
                     onPreviewOnboarding: { isPreviewingOnboarding = true },
                 )
                 .id(connectedAccount)
+                .id(connectionRevision)
             } else if hasCheckedForSavedAccount {
                 NavigationStack {
                     InstanceSetupView(
@@ -163,6 +167,7 @@ struct RootView: View {
     /// `MainTabView.onAccountsChanged` wraps this in its own `Task`.
     private func refreshActiveAccount() async {
         connectedAccount = try? await container.accountStore.activeAccount()
+        connectionRevision = connectedAccount.flatMap { container.credentialRevisions[$0.id] }
         // Refresh the cached default project once per launch and on every
         // account switch — quick-add reads the cache, never the network.
         if let connectedAccount {

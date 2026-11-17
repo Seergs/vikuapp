@@ -23,6 +23,9 @@ public actor SyncCoordinator {
         var pendingThreads: Set<EntityID> = []
     }
 
+    /// A saved credential must receive a successful pass even with an existing
+    /// snapshot. Revisions prevent an older pass acknowledging a newer login.
+    private var authenticationRefreshes: [UUID: UUID] = [:]
     private var reloadingAccounts: Set<UUID> = []
     private var workByAccount: [UUID: Work] = [:]
     private var reschedulingAccounts: Set<UUID> = []
@@ -102,8 +105,14 @@ public actor SyncCoordinator {
         return tasks
     }
 
+    public func credentialsDidChange(accountID: UUID) async {
+        authenticationRefreshes[accountID] = UUID()
+        await requestSync(accountID: accountID)
+    }
+
     public func hasInitialSnapshot(accountID: UUID) async throws -> Bool {
-        try await localStore.read { db in
+        guard authenticationRefreshes[accountID] == nil else { return false }
+        return try await localStore.read { db in
             let states = try SyncStateRecord.fetchAll(db).filter { $0.accountID == accountID }
             return states.contains { $0.entityType == .project }
                 && states.contains { $0.entityType == .task }
@@ -213,20 +222,22 @@ public actor SyncCoordinator {
 
     private func run(accountID: UUID) async throws {
         defer { workByAccount[accountID] = nil }
-        guard let account = try await accountStore.fetchAccounts().first(where: { $0.id == accountID }) else {
-            throw VikunjaError.notFound
-        }
-        let engine = makeEngine(account)
         var failure: (any Error)?
         var boardFailures: [EntityID: any Error] = [:]
         var threadFailures: [EntityID: any Error] = [:]
         while true {
             try Task.checkCancellation()
+            guard let account = try await accountStore.fetchAccounts().first(where: { $0.id == accountID }) else {
+                throw VikunjaError.notFound
+            }
+            let engine = makeEngine(account)
+            let authenticationRevision = authenticationRefreshes[accountID]
             let needsPass = workByAccount[accountID]?.needsAnotherPass ?? false
             workByAccount[accountID]?.needsAnotherPass = false
             if needsPass {
                 do {
                     try await engine.synchronize()
+                    acknowledgeAuthenticationRefresh(authenticationRevision, accountID: accountID)
                     failure = nil
                 } catch {
                     try checkSyncInterruption(error)
@@ -263,6 +274,11 @@ public actor SyncCoordinator {
         if let failure = failure ?? threadFailures.values.first ?? boardFailures.values.first {
             throw failure
         }
+    }
+
+    private func acknowledgeAuthenticationRefresh(_ revision: UUID?, accountID: UUID) {
+        guard authenticationRefreshes[accountID] == revision else { return }
+        authenticationRefreshes[accountID] = nil
     }
 
     private func pullPendingBoards(

@@ -1785,7 +1785,7 @@ struct URLSessionAPIClientTests {
     @Test
     func `password refresher passes an api token account through with no refresh attempt`() async throws {
         let account = try PasswordRefresherFixtures.makeAccount(authMethod: .apiToken)
-        let store = PasswordRefresherFixtures.FakeAccountStore(tokens: [account.id: "raw-api-token"])
+        let store = PasswordRefresherFixtures.FakeAccountStore(account: account, tokens: [account.id: "raw-api-token"])
         let refresher = PasswordSessionRefresher(accountStore: store)
 
         let token = try await refresher.validToken(for: account)
@@ -1799,6 +1799,7 @@ struct URLSessionAPIClientTests {
         let jwt = PasswordRefresherFixtures.makeJWT(exp: Date().addingTimeInterval(3600).timeIntervalSince1970)
         let account = try PasswordRefresherFixtures.makeAccount(authMethod: .password)
         let store = try PasswordRefresherFixtures.FakeAccountStore(
+            account: account,
             tokens: [account.id: PasswordRefresherFixtures.encode(accessToken: jwt, refreshToken: nil)],
         )
         let refresher = PasswordSessionRefresher(accountStore: store, session: session)
@@ -1815,6 +1816,7 @@ struct URLSessionAPIClientTests {
         let expiringJWT = PasswordRefresherFixtures.makeJWT(exp: Date().addingTimeInterval(10).timeIntervalSince1970)
         let account = try PasswordRefresherFixtures.makeAccount(authMethod: .oidc)
         let store = try PasswordRefresherFixtures.FakeAccountStore(
+            account: account,
             tokens: [account.id: PasswordRefresherFixtures.encode(accessToken: expiringJWT, refreshToken: nil)],
         )
         let refresher = PasswordSessionRefresher(accountStore: store, session: session)
@@ -1832,6 +1834,7 @@ struct URLSessionAPIClientTests {
         let expiringJWT = PasswordRefresherFixtures.makeJWT(exp: Date().addingTimeInterval(10).timeIntervalSince1970)
         let account = try PasswordRefresherFixtures.makeAccount(authMethod: .password)
         let store = try PasswordRefresherFixtures.FakeAccountStore(
+            account: account,
             tokens: [account.id: PasswordRefresherFixtures.encode(accessToken: expiringJWT, refreshToken: nil)],
         )
         let refresher = PasswordSessionRefresher(accountStore: store, session: session)
@@ -1856,7 +1859,7 @@ struct URLSessionAPIClientTests {
         let expiringJWT = PasswordRefresherFixtures.makeJWT(exp: Date().addingTimeInterval(10).timeIntervalSince1970)
         let account = try PasswordRefresherFixtures.makeAccount(authMethod: .password)
         let credential = try PasswordRefresherFixtures.encode(accessToken: expiringJWT, refreshToken: "old-refresh")
-        let store = PasswordRefresherFixtures.FakeAccountStore(tokens: [account.id: credential])
+        let store = PasswordRefresherFixtures.FakeAccountStore(account: account, tokens: [account.id: credential])
         let refresher = PasswordSessionRefresher(accountStore: store, session: session)
 
         let token = try await refresher.validToken(for: account)
@@ -1880,7 +1883,7 @@ struct URLSessionAPIClientTests {
         let expiringJWT = PasswordRefresherFixtures.makeJWT(exp: Date().addingTimeInterval(10).timeIntervalSince1970)
         let account = try PasswordRefresherFixtures.makeAccount(authMethod: .password)
         let credential = try PasswordRefresherFixtures.encode(accessToken: expiringJWT, refreshToken: "old-refresh")
-        let store = PasswordRefresherFixtures.FakeAccountStore(tokens: [account.id: credential])
+        let store = PasswordRefresherFixtures.FakeAccountStore(account: account, tokens: [account.id: credential])
         let refresher = PasswordSessionRefresher(accountStore: store, session: session)
 
         let token = try await refresher.validToken(for: account)
@@ -1899,6 +1902,7 @@ struct URLSessionAPIClientTests {
         let expiringJWT = PasswordRefresherFixtures.makeJWT(exp: Date().addingTimeInterval(10).timeIntervalSince1970)
         let account = try PasswordRefresherFixtures.makeAccount(authMethod: .password)
         let store = try PasswordRefresherFixtures.FakeAccountStore(
+            account: account,
             tokens: [account.id: PasswordRefresherFixtures.encode(accessToken: expiringJWT, refreshToken: nil)],
         )
         let refresher = PasswordSessionRefresher(accountStore: store, session: session)
@@ -1918,7 +1922,7 @@ struct URLSessionAPIClientTests {
         let expiringJWT = PasswordRefresherFixtures.makeJWT(exp: Date().addingTimeInterval(10).timeIntervalSince1970)
         let account = try PasswordRefresherFixtures.makeAccount(authMethod: .oidc)
         let credential = try PasswordRefresherFixtures.encode(accessToken: expiringJWT, refreshToken: "old-refresh")
-        let store = PasswordRefresherFixtures.FakeAccountStore(tokens: [account.id: credential])
+        let store = PasswordRefresherFixtures.FakeAccountStore(account: account, tokens: [account.id: credential])
         let reporter = PasswordRefresherFixtures.FakeSessionExpiryReporter()
         let refresher = PasswordSessionRefresher(accountStore: store, session: session, sessionExpiryReporter: reporter)
 
@@ -1935,7 +1939,7 @@ struct URLSessionAPIClientTests {
         let expiringJWT = PasswordRefresherFixtures.makeJWT(exp: Date().addingTimeInterval(10).timeIntervalSince1970)
         let account = try PasswordRefresherFixtures.makeAccount(authMethod: .password)
         let credential = try PasswordRefresherFixtures.encode(accessToken: expiringJWT, refreshToken: "old-refresh")
-        let store = PasswordRefresherFixtures.FakeAccountStore(tokens: [account.id: credential])
+        let store = PasswordRefresherFixtures.FakeAccountStore(account: account, tokens: [account.id: credential])
         let reporter = PasswordRefresherFixtures.FakeSessionExpiryReporter()
         let refresher = PasswordSessionRefresher(accountStore: store, session: session, sessionExpiryReporter: reporter)
 
@@ -1950,7 +1954,7 @@ struct URLSessionAPIClientTests {
     func `password refresher throws sessionExpired without A network call once already flagged`() async throws {
         let account = try PasswordRefresherFixtures.makeAccount(authMethod: .password, needsReauthentication: true)
         let credential = try PasswordRefresherFixtures.encode(accessToken: "whatever", refreshToken: "old-refresh")
-        let store = PasswordRefresherFixtures.FakeAccountStore(tokens: [account.id: credential])
+        let store = PasswordRefresherFixtures.FakeAccountStore(account: account, tokens: [account.id: credential])
         let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: #"{"token":"renewed-jwt"}"#)
         let refresher = PasswordSessionRefresher(accountStore: store, session: session)
 
@@ -1958,6 +1962,47 @@ struct URLSessionAPIClientTests {
             try await refresher.validToken(for: account)
         }
         #expect(await capture.requests.isEmpty)
+    }
+
+    @Test
+    func `saved credentials supersede a flagged account captured by an existing repository`() async throws {
+        let old = try PasswordRefresherFixtures.makeAccount(authMethod: .password, needsReauthentication: true)
+        var current = old
+        current.needsReauthentication = false
+        let jwt = PasswordRefresherFixtures.makeJWT(exp: Date().addingTimeInterval(3600).timeIntervalSince1970)
+        let credential = try PasswordRefresherFixtures.encode(accessToken: jwt, refreshToken: "new-refresh")
+        let store = PasswordRefresherFixtures.FakeAccountStore(account: current, tokens: [current.id: credential])
+        let (session, capture) = MockURLProtocol.makeSession(statusCode: 401, body: "")
+        let refresher = PasswordSessionRefresher(accountStore: store, session: session)
+        #expect(try await refresher.validToken(for: old) == jwt)
+        #expect(await capture.requests.isEmpty)
+    }
+
+    @Test(arguments: [200, 401])
+    func `late renewal response cannot overwrite or expire a newly saved session`(status: Int) async throws {
+        let account = try PasswordRefresherFixtures.makeAccount(authMethod: .password)
+        let oldJWT = PasswordRefresherFixtures.makeJWT(exp: Date().addingTimeInterval(10).timeIntervalSince1970)
+        let oldCredential = try PasswordRefresherFixtures.encode(accessToken: oldJWT, refreshToken: nil)
+        let store = PasswordRefresherFixtures.FakeAccountStore(account: account, tokens: [account.id: oldCredential])
+        let entered = AsyncStream<Void>.makeStream()
+        let release = AsyncStream<Void>.makeStream()
+        await store.setBeforeSessionUpdate {
+            entered.continuation.finish()
+            for await _ in release.stream {}
+        }
+        let (session, _) = MockURLProtocol.makeSession(statusCode: status, body: #"{"token":"old-renewal-result"}"#)
+        let reporter = PasswordRefresherFixtures.FakeSessionExpiryReporter()
+        let refresher = PasswordSessionRefresher(accountStore: store, session: session, sessionExpiryReporter: reporter)
+        let request = Task { try await refresher.validToken(for: account) }
+        for await _ in entered.stream {}
+        let newJWT = PasswordRefresherFixtures.makeJWT(exp: Date().addingTimeInterval(3600).timeIntervalSince1970)
+        let newCredential = try PasswordRefresherFixtures.encode(accessToken: newJWT, refreshToken: "new-refresh")
+        try await store.updateAccount(account, token: newCredential)
+        release.continuation.finish()
+        #expect(try await request.value == newJWT)
+        #expect(try await store.token(forAccountID: account.id) == newCredential)
+        #expect(try await store.fetchAccounts().first?.needsReauthentication == false)
+        #expect(await reporter.reportedAccountIDs.isEmpty)
     }
 
     // `VikunjaBucketRepository` is tested here for the same reason as
@@ -2351,12 +2396,15 @@ private enum PasswordRefresherFixtures {
         /// persisted, which `tokens` alone can't show.
         private(set) var updatedAccounts: [InstanceAccount.ID: InstanceAccount] = [:]
 
-        init(tokens: [InstanceAccount.ID: String]) {
+        private var accounts: [InstanceAccount]
+
+        init(account: InstanceAccount, tokens: [InstanceAccount.ID: String]) {
+            self.accounts = [account]
             self.tokens = tokens
         }
 
         func fetchAccounts() async throws -> [InstanceAccount] {
-            []
+            accounts
         }
 
         func activeAccount() async throws -> InstanceAccount? {
@@ -2368,13 +2416,39 @@ private enum PasswordRefresherFixtures {
         }
 
         func updateAccount(_ account: InstanceAccount, token: String?) async throws {
+            if let index = accounts.firstIndex(where: { $0.id == account.id }) {
+                accounts[index] = account
+            }
             updatedAccounts[account.id] = account
             if let token {
                 tokens[account.id] = token
             }
         }
 
+        private var beforeSessionUpdate: (@Sendable () async -> Void)?
+
+        func setBeforeSessionUpdate(_ action: @escaping @Sendable () async -> Void) {
+            beforeSessionUpdate = action
+        }
+
+        func updateSession(
+            for account: InstanceAccount, matchingToken: String, token: String?, needsReauthentication: Bool,
+        ) async -> Bool {
+            await beforeSessionUpdate?()
+            guard let index = accounts.firstIndex(where: { $0 == account }),
+                  tokens[account.id] == matchingToken else { return false }
+            var updated = account
+            updated.needsReauthentication = needsReauthentication
+            accounts[index] = updated
+            updatedAccounts[account.id] = updated
+            if let token {
+                tokens[account.id] = token
+            }
+            return true
+        }
+
         func removeAccount(id: InstanceAccount.ID) async throws {
+            accounts.removeAll { $0.id == id }
             tokens[id] = nil
         }
 

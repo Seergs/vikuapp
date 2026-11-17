@@ -18,6 +18,7 @@ struct ConnectionFormViewModelTests {
         toastPresenter: FakeToastPresenter = FakeToastPresenter(),
         oidcAuthenticator: FakeOIDCAuthenticating = FakeOIDCAuthenticating(),
         onActiveAccountChanged: @escaping () -> Void = {},
+        onCredentialsStored: @escaping (InstanceAccount) async -> Void = { _ in },
     ) -> ConnectionFormViewModel {
         ConnectionFormViewModel(
             mode: mode,
@@ -29,7 +30,72 @@ struct ConnectionFormViewModelTests {
             oidcAuthenticator: oidcAuthenticator,
             oidcRedirectURI: URL(string: "viku://oidc-callback")!,
             onActiveAccountChanged: onActiveAccountChanged,
+            onCredentialsStored: onCredentialsStored,
         )
+    }
+
+    @Test(arguments: [InstanceAccount.AuthMethod.apiToken, .password, .oidc])
+    func `credential replacement registers recovery after storage and before navigation`(
+        method: InstanceAccount.AuthMethod,
+    ) async throws {
+        let store = FakeAccountStore()
+        var account = makeAccount()
+        account.authMethod = method
+        account.needsReauthentication = true
+        try await store.addAccount(account, token: "expired")
+        let factory = FakeInstanceClientFactory()
+        factory.authService.loginResult = .success(AuthSession(token: "fresh", user: User(id: 1, username: "sergio")))
+        let authenticator = FakeOIDCAuthenticating()
+        authenticator.result = .success("code")
+        var events: [String] = []
+        let viewModel = makeViewModel(
+            mode: .edit(account), store: store, factory: factory, oidcAuthenticator: authenticator,
+            onActiveAccountChanged: { events.append("navigation") },
+            onCredentialsStored: { saved in
+                #expect(!saved.needsReauthentication)
+                #expect(await (try? store.token(forAccountID: saved.id)) == "fresh")
+                events.append("recovery")
+            },
+        )
+        viewModel.apiToken = "fresh"
+        viewModel.username = "sergio"
+        viewModel.password = "password"
+        if method == .oidc {
+            await viewModel.signInWithOIDC(Self.oidcProvider)
+        } else {
+            await viewModel.save()
+        }
+        #expect(viewModel.validationState == .success)
+        #expect(events == ["recovery", "navigation"])
+    }
+
+    @Test func `failed credential save does not schedule recovery or navigate`() async throws {
+        let store = FakeAccountStore()
+        let account = makeAccount()
+        try await store.addAccount(account, token: "expired")
+        store.updateError = .network("Keychain write failed")
+        var events: [String] = []
+        let viewModel = makeViewModel(
+            mode: .edit(account), store: store,
+            onActiveAccountChanged: { events.append("navigation") },
+            onCredentialsStored: { _ in events.append("recovery") },
+        )
+        viewModel.apiToken = "fresh"
+        await viewModel.save()
+        #expect(events.isEmpty)
+        #expect(viewModel.savedAccount == nil)
+        #expect(try await store.token(forAccountID: account.id) == "expired")
+    }
+
+    @Test func `new connections retain the initial download flow`() async {
+        var didRecover = false
+        let viewModel = makeViewModel(mode: .create, onCredentialsStored: { _ in didRecover = true })
+        viewModel.displayName = "New"
+        viewModel.urlText = "https://tasks.example.com"
+        viewModel.apiToken = "token"
+        await viewModel.save()
+        #expect(viewModel.validationState == .success)
+        #expect(!didRecover)
     }
 
     // MARK: - create mode

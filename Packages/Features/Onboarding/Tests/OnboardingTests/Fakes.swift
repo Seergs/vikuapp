@@ -34,6 +34,18 @@ final class FakeAccountStore: AccountStoreProtocol, @unchecked Sendable {
         }
     }
 
+    func updateSession(
+        for account: InstanceAccount, matchingToken: String, token: String?, needsReauthentication: Bool,
+    ) throws -> Bool {
+        guard let index = accounts.firstIndex(where: { $0 == account }),
+              tokens[account.id] == matchingToken else { return false }
+        accounts[index].needsReauthentication = needsReauthentication
+        if let token {
+            tokens[account.id] = token
+        }
+        return true
+    }
+
     func removeAccount(id: InstanceAccount.ID) async throws {
         accounts.removeAll { $0.id == id }
         tokens[id] = nil

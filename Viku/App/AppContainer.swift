@@ -24,6 +24,9 @@ import WidgetKit
 @MainActor
 final class AppContainer {
     let accountStore: AccountStoreProtocol
+    /// Session-only identity for rebuilding the active shell after credential
+    /// replacement, including when the account's public metadata is unchanged.
+    private(set) var credentialRevisions: [InstanceAccount.ID: UUID] = [:]
     let clientFactory: InstanceClientFactoryProtocol
     /// Every saved account's offline cache (projects, saved-filter queries,
     /// their mutation queue and sync bookkeeping) in one shared SQLite
@@ -830,6 +833,11 @@ final class AppContainer {
             oidcAuthenticator: oidcAuthCoordinator,
             oidcRedirectURI: oidcRedirectURI,
             onActiveAccountChanged: onActiveAccountChanged,
+            onCredentialsStored: { [weak self] account in
+                guard let self else { return }
+                await syncCoordinator.credentialsDidChange(accountID: account.id)
+                credentialRevisions[account.id] = UUID()
+            },
         )
     }
 

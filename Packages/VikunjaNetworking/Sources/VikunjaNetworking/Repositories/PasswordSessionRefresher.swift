@@ -40,6 +40,8 @@ public actor PasswordSessionRefresher {
         self.sessionExpiryReporter = sessionExpiryReporter
     }
 
+    private struct SessionReplaced: Error {}
+
     /// - Throws: `VikunjaError.sessionExpired` when this account's session
     ///   was already flagged unrecoverable (short-circuits without a network
     ///   call — a refresh attempt would only fail the same way again) or
@@ -48,33 +50,37 @@ public actor PasswordSessionRefresher {
     ///   falls back to the stale stored token instead of throwing, so a
     ///   momentary connectivity blip doesn't force a re-login.
     public func validToken(for account: InstanceAccount) async throws -> String? {
-        guard account.authMethod != .apiToken else {
-            return try? await accountStore.token(forAccountID: account.id)
+        while true {
+            guard let current = try await accountStore.fetchAccounts().first(where: { $0.id == account.id }),
+                  let stored = try await accountStore.token(forAccountID: account.id) else { return nil }
+            guard current.authMethod != .apiToken else { return stored }
+            guard !current.needsReauthentication else { throw VikunjaError.sessionExpired }
+            guard let credential = try? JSONDecoder().decode(
+                PasswordSessionCredential.self, from: Data(stored.utf8),
+            ) else { return nil }
+            if let expiry = JWTExpiryReader.expiry(of: credential.accessToken),
+               expiry.timeIntervalSinceNow > Self.refreshMargin {
+                return credential.accessToken
+            }
+            do {
+                return try await coordinatedRefresh(account: current, credential: credential, stored: stored)
+            } catch is SessionReplaced {
+                // A login replaced this attempt while its response was in flight.
+                // Resolve the current session after leaving the old single flight.
+                try Task.checkCancellation()
+            }
         }
-        guard let stored = try? await accountStore.token(forAccountID: account.id),
-              let credential = try? JSONDecoder().decode(PasswordSessionCredential.self, from: Data(stored.utf8))
-        else {
-            return nil
-        }
-        guard !account.needsReauthentication else {
-            throw VikunjaError.sessionExpired
-        }
-
-        if let expiry = JWTExpiryReader.expiry(of: credential.accessToken),
-           expiry.timeIntervalSinceNow > Self.refreshMargin {
-            return credential.accessToken
-        }
-        return try await coordinatedRefresh(account: account, credential: credential)
     }
 
     private func coordinatedRefresh(
         account: InstanceAccount,
         credential: PasswordSessionCredential,
+        stored: String,
     ) async throws -> String? {
         if let existing = inFlight[account.id] {
             return try await existing.value.get()
         }
-        let task = Task { await self.performRefresh(account: account, credential: credential) }
+        let task = Task { await self.performRefresh(account: account, credential: credential, stored: stored) }
         inFlight[account.id] = task
         defer { inFlight[account.id] = nil }
         return try await task.value.get()
@@ -91,6 +97,7 @@ public actor PasswordSessionRefresher {
     private func performRefresh(
         account: InstanceAccount,
         credential: PasswordSessionCredential,
+        stored: String,
     ) async -> Result<String?, Error> {
         let client = URLSessionAPIClient(baseURL: account.baseURL, session: session)
         do {
@@ -101,21 +108,26 @@ public actor PasswordSessionRefresher {
             }
             let encodedData = try JSONEncoder().encode(updated)
             let encoded = String(data: encodedData, encoding: .utf8) ?? ""
-            try? await accountStore.updateAccount(account, token: encoded)
+            guard try await accountStore.updateSession(
+                for: account, matchingToken: stored, token: encoded, needsReauthentication: false,
+            ) else { return .failure(SessionReplaced()) }
             return .success(updated.accessToken)
         } catch VikunjaError.unauthorized {
-            await flagNeedsReauthentication(account)
-            return .failure(VikunjaError.sessionExpired)
+            do {
+                guard try await accountStore.updateSession(
+                    for: account, matchingToken: stored, token: nil, needsReauthentication: true,
+                ) else { return .failure(SessionReplaced()) }
+                await sessionExpiryReporter?.reportSessionExpired(accountID: account.id)
+                return .failure(VikunjaError.sessionExpired)
+            } catch {
+                return .failure(error)
+            }
         } catch {
+            guard await (try? accountStore.token(forAccountID: account.id)) == stored else {
+                return .failure(SessionReplaced())
+            }
             return .success(credential.accessToken)
         }
-    }
-
-    private func flagNeedsReauthentication(_ account: InstanceAccount) async {
-        var flagged = account
-        flagged.needsReauthentication = true
-        try? await accountStore.updateAccount(flagged, token: nil)
-        await sessionExpiryReporter?.reportSessionExpired(accountID: account.id)
     }
 
     /// `/user/token/refresh` keeps its v1 meaning in v2 (see

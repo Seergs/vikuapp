@@ -79,6 +79,20 @@ public actor KeychainAccountStore: AccountStoreProtocol {
         }
     }
 
+    public func updateSession(
+        for account: InstanceAccount,
+        matchingToken: String,
+        token: String?,
+        needsReauthentication: Bool,
+    ) throws -> Bool {
+        guard try loadIndex().first(where: { $0.id == account.id }) == account,
+              try self.token(forAccountID: account.id) == matchingToken else { return false }
+        var updated = account
+        updated.needsReauthentication = needsReauthentication
+        try updateAccount(updated, token: token)
+        return true
+    }
+
     public func removeAccount(id: InstanceAccount.ID) throws {
         var accounts = try loadIndex()
         accounts.removeAll { $0.id == id }
