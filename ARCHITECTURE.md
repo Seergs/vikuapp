@@ -681,6 +681,11 @@ the same `VikunjaCore` protocols), and reinforces the central idea: anything
   private test route enum), independent of any Feature that uses it.
 - `Features/*` test their ViewModels against fake implementations of `Core`'s
   protocols (no need to spin up networking or mock HTTP).
+- `VikuUITests` runs local XCUITest smoke coverage through Page Objects. A
+  Debug-only `-UITesting` launch builds an isolated `AppContainer` with an
+  in-memory account and fake server factory, a temporary SQLite database and
+  separate preferences. Features retain the real offline repositories and sync
+  pipeline.
 
 ---
 

@@ -41,7 +41,8 @@ final class AppContainer {
     /// Shared by `syncCoordinator` and every local-first repository this
     /// container builds, so they agree on whether the network is up right
     /// now.
-    let reachabilityMonitor: ReachabilityMonitoring = NWPathReachabilityMonitor()
+    let reachabilityMonitor: ReachabilityMonitoring
+    let isUITesting: Bool
     /// Keeps every saved account's offline queue draining and local cache
     /// refreshed whenever the network is reachable, independent of which
     /// account is currently active — see `SyncCoordinator`. Started once in
@@ -83,7 +84,7 @@ final class AppContainer {
     /// The app's single theme preference (light/dark/automatic), read
     /// directly by `RootView` to drive `.preferredColorScheme(_:)` and passed
     /// to `Settings` as `AppThemeStoring` so it can offer the picker.
-    let themeCenter = ThemeCenter()
+    let themeCenter: ThemeCenter
     /// Carries a `viku://` deep link (or an `OpenQuickAddIntent`) from
     /// `RootView`'s `.onOpenURL` to the screen that acts on it. The shared
     /// instance, so the App Intent's `perform()` reaches the same router.
@@ -91,31 +92,31 @@ final class AppContainer {
     /// On-device cache of each account's Vikunja default project, refreshed
     /// once per launch by `refreshDefaultProject(account:)` and read
     /// synchronously by `makeQuickAddTaskViewModel`.
-    let defaultProjectStore = DefaultProjectStore()
+    let defaultProjectStore: DefaultProjectStore
     /// On-device cache of each account's Vikunja time zone, backing
     /// `DefaultProjectSettingsViewModel`'s "Time Zone" row the same way
     /// `defaultProjectStore` backs its "Default Project" row.
-    let accountTimezoneStore = AccountTimezoneStore()
+    let accountTimezoneStore: AccountTimezoneStore
     /// On-device cache of each account's display name, backing the avatar
     /// initials shown on the Settings landing screen the same way
     /// `accountTimezoneStore` backs its "Time Zone" row.
-    let accountDisplayNameStore = AccountDisplayNameStore()
+    let accountDisplayNameStore: AccountDisplayNameStore
     /// On-device cache of each account's signed-in user, so an offline-created
     /// comment can show its real author without a network round trip.
-    let currentUserStore = CurrentUserStore()
+    let currentUserStore: CurrentUserStore
     /// On-device cache of each account's last known per-project
     /// task-completion tallies, shown instantly on the Projects list before
     /// each project's own count request resolves.
-    let projectTaskSummaryStore = ProjectTaskSummaryStore()
+    let projectTaskSummaryStore: ProjectTaskSummaryStore
     /// On-device cache of each account's last known Vikunja server version,
     /// shown instantly on the Connections screen before each account's own
     /// probe resolves. See `ServerVersionStore`.
-    let serverVersionStore: ServerVersionCaching = ServerVersionStore()
+    let serverVersionStore: ServerVersionCaching
     /// On-device storage of the project or saved filter pinned as the Home
     /// tab's content, backing Settings' "Home Screen" row. Unlike
     /// `defaultProjectStore`, this one has no server-side value to
     /// reconcile against — it's the pin's only source of truth.
-    let homeSelectionStore = HomeSelectionStore()
+    let homeSelectionStore: HomeSelectionStore
     /// The app's single OIDC browser-authentication coordinator — see
     /// `OIDCAuthCoordinator`. Pass this as `OIDCAuthenticating` to any
     /// ViewModel that offers OIDC sign-in.
@@ -133,7 +134,7 @@ final class AppContainer {
 
     /// The app's single task sort preference store, read/written by project
     /// overview view models.
-    let taskSortStore: TaskSortStore = TaskSortCenter()
+    let taskSortStore: TaskSortStore
 
     /// The shortcut dialect quick-add parses with, chosen in Settings.
     private var quickAddSyntaxStores: [UUID: QuickAddSyntaxCenter] = [:]
@@ -156,7 +157,7 @@ final class AppContainer {
     /// already shown — see `WhatsNewSeenVersionStore`. Passed to `Settings`
     /// as `WhatsNewSeenVersionStoring` so its Developer section can offer a
     /// reset, for re-triggering the sheet during manual testing.
-    let whatsNewSeenVersionStore: WhatsNewSeenVersionStoring = WhatsNewSeenVersionStore()
+    let whatsNewSeenVersionStore: WhatsNewSeenVersionStoring
     /// Decides whether there's a "What's New" release to present right now
     /// — see `WhatsNewPresentationResolver`. Built in `init` (not a default
     /// value) so it can share `whatsNewSeenVersionStore` above rather than
@@ -174,7 +175,7 @@ final class AppContainer {
     /// The user's notification preferences (master switch, user-level
     /// toggle, enabled projects/events) — see `NotificationSettingsCenter`.
     /// Pass this as `NotificationSettingsStore` to `makeNotificationsViewModel`.
-    let notificationSettingsStore: NotificationSettingsStore = NotificationSettingsCenter()
+    let notificationSettingsStore: NotificationSettingsStore
     /// Device-wide preference for whether overdue-task pushes arrive as one
     /// combined push instead of one per task — see
     /// `GroupOverdueNotificationsStoring`'s doc comment for why this is a
@@ -185,13 +186,13 @@ final class AppContainer {
     /// for); also read directly below so a newly (or already) enabled
     /// account's relay registration is kept in sync with it, not just a
     /// freshly toggled one.
-    let groupOverdueNotificationsStore: GroupOverdueNotificationsStoring = GroupOverdueNotificationsStore()
+    let groupOverdueNotificationsStore: GroupOverdueNotificationsStoring
     /// The user's app-icon-badge preference, and the only thing that calls
     /// `setBadgeCount` — see `AppIconBadgeCenter`. Kept as the concrete type
     /// (not just `AppIconBadgeStoring`) since `refreshWidgetSnapshots()`
     /// below calls its `updateBadge(from:)`, which isn't part of that
     /// protocol.
-    let appIconBadgeCenter = AppIconBadgeCenter()
+    let appIconBadgeCenter: AppIconBadgeCenter
     /// Requests the OS authorization the app icon badge needs — shared with
     /// push notifications, since iOS exposes one combined permission. Pass
     /// this as `AppIconBadgePermissionRequesting` to `makeAppIconBadgeViewModel`.
@@ -203,8 +204,35 @@ final class AppContainer {
             accessGroup: VikuWidgetConfig.keychainAccessGroup,
         ),
         clientFactory: InstanceClientFactoryProtocol = VikunjaInstanceClientFactory(),
+        localStoreDirectory: URL? = nil,
+        defaults: UserDefaults = .standard,
+        reachabilityMonitor: ReachabilityMonitoring = NWPathReachabilityMonitor(),
+        isUITesting: Bool = false,
     ) {
-        self.localStore = Self.makeLocalStore(executionLifecycle: executionLifecycle)
+        self.isUITesting = isUITesting
+        self.reachabilityMonitor = reachabilityMonitor
+        if let localStoreDirectory {
+            do {
+                self.localStore = try LocalStore(directory: localStoreDirectory, executionLifecycle: executionLifecycle)
+            } catch {
+                fatalError("Failed to open isolated local store: \(error)")
+            }
+        } else {
+            self.localStore = Self.makeLocalStore(executionLifecycle: executionLifecycle)
+        }
+        self.themeCenter = ThemeCenter(defaults: defaults)
+        self.defaultProjectStore = DefaultProjectStore(defaults: defaults)
+        self.accountTimezoneStore = AccountTimezoneStore(defaults: defaults)
+        self.accountDisplayNameStore = AccountDisplayNameStore(defaults: defaults)
+        self.currentUserStore = CurrentUserStore(defaults: defaults)
+        self.projectTaskSummaryStore = ProjectTaskSummaryStore(defaults: defaults)
+        self.homeSelectionStore = HomeSelectionStore(defaults: defaults)
+        self.appIconBadgeCenter = AppIconBadgeCenter(defaults: defaults)
+        self.serverVersionStore = ServerVersionStore(defaults: defaults)
+        self.taskSortStore = TaskSortCenter(defaults: defaults)
+        self.whatsNewSeenVersionStore = WhatsNewSeenVersionStore(defaults: defaults)
+        self.notificationSettingsStore = NotificationSettingsCenter(defaults: defaults)
+        self.groupOverdueNotificationsStore = GroupOverdueNotificationsStore(defaults: defaults)
         self.accountStore = accountStore
         self.clientFactory = clientFactory
         let sessionRefresher = PasswordSessionRefresher(
@@ -268,6 +296,7 @@ final class AppContainer {
     /// that's what keeps a fresh install from ever seeing content that
     /// predates its own first launch.
     func whatsNewContentToPresent(hasCompletedOnboarding: Bool) -> WhatsNewContent? {
+        guard !isUITesting else { return nil }
         #if DEBUG
         let bypassMinimumVersion = true
         #else
@@ -288,6 +317,7 @@ final class AppContainer {
     /// badge and timeline reload prompt when the app backgrounds. Call on
     /// launch and whenever the app backgrounds.
     func refreshWidgetSnapshots() async {
+        guard !isUITesting else { return }
         let sessionRefresher = sessionRefresher
         let resolver: @Sendable (InstanceAccount) async throws -> String? = {
             try await sessionRefresher.validToken(for: $0)
@@ -356,6 +386,7 @@ final class AppContainer {
     /// account's failure never blocks another's. Call once on launch, not
     /// on every foreground (see `syncNotificationWebhooks`).
     func syncNotificationWebhooksForAllAccounts() async {
+        guard !isUITesting else { return }
         guard let accounts = try? await accountStore.fetchAccounts() else { return }
         for account in accounts {
             await syncNotificationWebhooks(account: account)

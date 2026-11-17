@@ -96,6 +96,13 @@ public struct VikuTaskRow<Menu: View>: View {
         badge != nil || isOverdue || task.dueDate != nil || (inlineLabels && !task.labels.isEmpty)
     }
 
+    private var accessibilityID: String {
+        switch task.id {
+        case let .remote(id): "task.remote.\(id)"
+        case let .local(id): "task.local.\(id.uuidString)"
+        }
+    }
+
     /// The title, with the pending-sync glyph appended inline when there is no
     /// metadata row to put it in. Concatenating it into the same `Text`
     /// instead of adding a sibling view means it flows after the title's last
@@ -155,6 +162,7 @@ public struct VikuTaskRow<Menu: View>: View {
             VStack(alignment: .leading, spacing: VikuSpacing.xs + VikuSpacing.xxs) {
                 HStack(spacing: VikuSpacing.xs) {
                     titleText
+                        .accessibilityIdentifier("\(accessibilityID).title")
 
                     if !hasMetadataLine, task.hasRelations {
                         linkGlyph
@@ -198,6 +206,7 @@ public struct VikuTaskRow<Menu: View>: View {
         }
         .buttonStyle(.plain)
         .disabled(!allowsCompletionChanges)
+        .accessibilityIdentifier("\(accessibilityID).completion")
     }
 
     private var metadataRow: some View {

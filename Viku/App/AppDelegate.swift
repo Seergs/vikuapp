@@ -29,7 +29,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         UNUserNotificationCenter.current().delegate = self
         registerPushNotificationCategories()
         Self.container?.executionLifecycle.setForeground(application.applicationState != .background)
-        registerBackgroundSyncTask()
+        if Self.container?.isUITesting != true {
+            registerBackgroundSyncTask()
+        }
         return true
     }
 
@@ -59,6 +61,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     /// every time the previous one actually runs, so there's always one
     /// outstanding.
     static func scheduleNextBackgroundSync() {
+        guard container?.isUITesting != true else { return }
         let request = BGAppRefreshTaskRequest(identifier: backgroundSyncTaskIdentifier)
         request.earliestBeginDate = Date(timeIntervalSinceNow: 60 * 60)
         try? BGTaskScheduler.shared.submit(request)
