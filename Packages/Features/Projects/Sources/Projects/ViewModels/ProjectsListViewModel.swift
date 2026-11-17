@@ -79,6 +79,7 @@ public final class ProjectsListViewModel {
     /// spinner mid-refresh would tear down the `List` that owns the
     /// in-flight `.refreshable` task, cancelling its request underneath it.
     public func load() async {
+        guard !Task.isCancelled else { return }
         loadVersion += 1
         let version = loadVersion
         let hadContent = loadState == .loaded
@@ -86,30 +87,31 @@ public final class ProjectsListViewModel {
             loadState = .loading
         }
         do {
+            try Task.checkCancellation()
             let projects = try await repository.fetchProjects()
+            try Task.checkCancellation()
             guard version == loadVersion else { return }
             rootNodes = Self.tree(from: projects.realProjectsOnly())
             pseudoNodes = Self.pseudoNodes(from: projects)
             loadState = .loaded
-            let fetched = await Self.fetchTaskSummaries(for: rootNodes + pseudoNodes, repository: taskRepository)
+            let fetched = try await Self.fetchTaskSummaries(for: rootNodes + pseudoNodes, repository: taskRepository)
+            try Task.checkCancellation()
             guard version == loadVersion else { return }
             taskSummaries = fetched
             taskSummaryCache.setCachedTaskSummaries(
                 fetched.mapValues { CachedProjectTaskSummary(done: $0.done, total: $0.total) },
             )
-        } catch let error as VikunjaError {
-            guard version == loadVersion else { return }
-            if hadContent {
-                toastPresenter.show(error.displayMessage, style: .error)
-            } else {
-                loadState = .failure(error.displayMessage)
-            }
         } catch {
             guard version == loadVersion else { return }
+            if error is CancellationError || Task.isCancelled {
+                loadState = hadContent || loadState == .loaded ? .loaded : .idle
+                return
+            }
+            let message = (error as? VikunjaError)?.displayMessage ?? error.localizedDescription
             if hadContent {
-                toastPresenter.show(error.localizedDescription, style: .error)
+                toastPresenter.show(message, style: .error)
             } else {
-                loadState = .failure(error.localizedDescription)
+                loadState = .failure(message)
             }
         }
     }
@@ -161,9 +163,9 @@ public final class ProjectsListViewModel {
     private static func fetchTaskSummaries(
         for nodes: [ProjectNode],
         repository: TaskRepositoryProtocol,
-    ) async -> [Int: ProjectTaskSummary] {
+    ) async throws -> [Int: ProjectTaskSummary] {
         let ids = flattenedIDs(of: nodes)
-        return await withTaskGroup(of: (Int, ProjectTaskSummary)?.self) { group in
+        return try await withThrowingTaskGroup(of: (Int, ProjectTaskSummary)?.self) { group in
             for id in ids {
                 group.addTask {
                     // The returned dictionary is keyed by remote id (for
@@ -172,13 +174,22 @@ public final class ProjectsListViewModel {
                     // nowhere to store its summary - it just shows no badge
                     // until it syncs, even though `fetchTasks(projectID:)`
                     // itself can resolve its locally-created tasks fine.
-                    guard let remoteID = id.remoteValue,
-                          let tasks = try? await repository.fetchTasks(projectID: id) else { return nil }
-                    return (remoteID, ProjectTaskSummary(done: tasks.filter(\.isDone).count, total: tasks.count))
+                    guard let remoteID = id.remoteValue else { return nil }
+                    do {
+                        try Task.checkCancellation()
+                        let tasks = try await repository.fetchTasks(projectID: id)
+                        try Task.checkCancellation()
+                        return (remoteID, ProjectTaskSummary(done: tasks.filter(\.isDone).count, total: tasks.count))
+                    } catch {
+                        if error is CancellationError || Task.isCancelled {
+                            throw CancellationError()
+                        }
+                        return nil
+                    }
                 }
             }
             var summaries: [Int: ProjectTaskSummary] = [:]
-            for await result in group {
+            for try await result in group {
                 if let (id, summary) = result {
                     summaries[id] = summary
                 }

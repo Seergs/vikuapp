@@ -16,7 +16,7 @@ final class FakeCapabilityProvider: CapabilityProvider, @unchecked Sendable {
 
 final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendable {
     var projects: [Project] = []
-    var beforeFetchProjects: (@Sendable () async -> Void)?
+    var beforeFetchProjects: (@Sendable () async throws -> Void)?
     var fetchError: VikunjaError?
     var createError: VikunjaError?
     var deleteError: VikunjaError?
@@ -24,7 +24,7 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
     private(set) var deletedIDs: [EntityID] = []
 
     func fetchProjects() async throws -> [Project] {
-        await beforeFetchProjects?()
+        try await beforeFetchProjects?()
         if let fetchError {
             throw fetchError
         }
@@ -39,7 +39,10 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
     /// project under test itself, and `ProjectOverviewViewModel.load()`
     /// calls this for the viewed project on every load. Set
     /// `fetchProjectError` to simulate this call specifically failing.
+    var beforeFetchProject: (@Sendable () async throws -> Void)?
+
     func fetchProject(id: EntityID) async throws -> Project {
+        try await beforeFetchProject?()
         if let fetchProjectError {
             throw fetchProjectError
         }
@@ -142,7 +145,10 @@ final class FakeTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateRepository
         return result
     }
 
+    var beforeFetchTasks: (@Sendable (EntityID) async throws -> Void)?
+
     func fetchTasks(projectID: EntityID) async throws -> [VikunjaTask] {
+        try await beforeFetchTasks?(projectID)
         if let fetchError {
             throw fetchError
         }

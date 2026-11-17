@@ -137,6 +137,7 @@ public final class TodayViewModel {
     /// spinner mid-refresh would tear down the `List` that owns the
     /// in-flight `.refreshable` task, cancelling its request underneath it.
     public func load() async {
+        guard !Task.isCancelled else { return }
         loadVersion += 1
         let version = loadVersion
         let hadContent = loadState == .loaded
@@ -144,27 +145,29 @@ public final class TodayViewModel {
             loadState = .loading
         }
         do {
+            try Task.checkCancellation()
             if let pinned = homeSelectionCache.cachedHomeSelection() {
                 try await loadPinned(pinned, version: version)
             } else {
-                pinnedSelection = nil
                 try await loadDigest(version: version)
+                try Task.checkCancellation()
+                guard version == loadVersion else { return }
+                pinnedSelection = nil
             }
+            try Task.checkCancellation()
             guard version == loadVersion else { return }
             loadState = .loaded
-        } catch let error as VikunjaError {
-            guard version == loadVersion else { return }
-            if hadContent {
-                toastPresenter.show(error.displayMessage, style: .error)
-            } else {
-                loadState = .failure(error.displayMessage)
-            }
         } catch {
             guard version == loadVersion else { return }
+            if error is CancellationError || Task.isCancelled {
+                loadState = hadContent ? .loaded : .idle
+                return
+            }
+            let message = (error as? VikunjaError)?.displayMessage ?? error.localizedDescription
             if hadContent {
-                toastPresenter.show(error.localizedDescription, style: .error)
+                toastPresenter.show(message, style: .error)
             } else {
-                loadState = .failure(error.localizedDescription)
+                loadState = .failure(message)
             }
         }
     }
@@ -172,6 +175,7 @@ public final class TodayViewModel {
     private func loadDigest(version: Int) async throws {
         let result = try await taskLoader.loadAllTasks()
         await loadRequestedLabels()
+        try Task.checkCancellation()
         guard version == loadVersion else { return }
         projectsByID = result.projectsByID
         tasks = completionState.applying(to: result.tasks)
@@ -190,10 +194,12 @@ public final class TodayViewModel {
     /// Settings row and this screen's title stay current.
     private func loadPinned(_ pinned: CachedHomeSelection, version: Int) async throws {
         let projects = try await projectRepository.fetchProjects()
+        try Task.checkCancellation()
         guard version == loadVersion else { return }
         guard let current = projects.first(where: { $0.id.remoteValue == pinned.id }) else {
             // An empty, not-yet-downloaded cache cannot invalidate a saved pin.
             guard try await synchronization.hasInitialSnapshot() else { return }
+            try Task.checkCancellation()
             guard version == loadVersion else { return }
             homeSelectionCache.setCachedHomeSelection(nil)
             pinnedSelection = nil
@@ -210,6 +216,7 @@ public final class TodayViewModel {
 
         let fetchedTasks = try await taskRepository.fetchTasks(projectID: .remote(pinned.id))
         await loadRequestedLabels()
+        try Task.checkCancellation()
         guard version == loadVersion else { return }
         let refreshed = CachedHomeSelection(
             id: current.id.remoteValue ?? pinned.id, title: current.title, hexColor: current.hexColor,

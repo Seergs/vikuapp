@@ -86,3 +86,54 @@ struct AccountTaskLoaderTests {
         }
     }
 }
+
+extension AccountTaskLoaderTests {
+    @Test
+    func `a cancelled project read propagates instead of becoming an empty snapshot`() async {
+        let projects = FakeProjectRepository()
+        projects.projects = [Project(id: 1, title: "Work")]
+        let tasks = FakeTaskRepository()
+        tasks.beforeFetchTasks = { throw CancellationError() }
+        let loader = AccountTaskLoader(taskRepository: tasks, projectRepository: projects)
+        await #expect(throws: CancellationError.self) {
+            _ = try await loader.loadAllTasks()
+        }
+    }
+
+    @Test(arguments: [false, true])
+    func `caller cancellation propagates despite late success or wrapped failure`(fails: Bool) async {
+        let projects = FakeProjectRepository()
+        projects.projects = [Project(id: 1, title: "Work")]
+        let tasks = FakeTaskRepository()
+        let gate = LoaderReadGate()
+        tasks.beforeFetchTasks = {
+            await gate.wait()
+            if fails {
+                throw VikunjaError.network("cancelled dependency")
+            }
+        }
+        let loader = AccountTaskLoader(taskRepository: tasks, projectRepository: projects)
+        let request = Task { try await loader.loadAllTasks() }
+        for await _ in gate.entered.stream {
+            break
+        }
+        request.cancel()
+        await gate.release()
+        await #expect(throws: CancellationError.self) { _ = try await request.value }
+    }
+}
+
+private actor LoaderReadGate {
+    nonisolated let entered = AsyncStream<Void>.makeStream()
+    private var continuation: CheckedContinuation<Void, Never>?
+    func wait() async {
+        await withCheckedContinuation { continuation in
+            self.continuation = continuation
+            entered.continuation.yield(())
+        }
+    }
+
+    func release() {
+        continuation?.resume(); continuation = nil
+    }
+}

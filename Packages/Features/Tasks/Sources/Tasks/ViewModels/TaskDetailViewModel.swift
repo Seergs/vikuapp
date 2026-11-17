@@ -264,7 +264,7 @@ public final class TaskDetailViewModel {
     }
 
     public func load() async {
-        guard !isDeletingOrDeleted else { return }
+        guard !isDeletingOrDeleted, !Task.isCancelled else { return }
         taskWriteToken += 1
         let token = taskWriteToken
         let hadContent = loadState == .loaded
@@ -272,26 +272,27 @@ public final class TaskDetailViewModel {
             loadState = .loading
         }
         do {
+            try Task.checkCancellation()
             let fetched = try await repository.fetchTask(id: task.id)
+            try Task.checkCancellation()
             guard token == taskWriteToken else { return }
             await loadRequestedLabels()
+            try Task.checkCancellation()
             guard token == taskWriteToken else { return }
             task = fetched
             updateRelatedTaskIDsCache()
             loadState = .loaded
-        } catch let error as VikunjaError {
-            guard token == taskWriteToken else { return }
-            if hadContent {
-                toastPresenter.show(error.displayMessage, style: .error)
-            } else {
-                loadState = .failure(error.displayMessage)
-            }
         } catch {
             guard token == taskWriteToken else { return }
+            if error is CancellationError || Task.isCancelled {
+                loadState = hadContent ? .loaded : .idle
+                return
+            }
+            let message = (error as? VikunjaError)?.displayMessage ?? error.localizedDescription
             if hadContent {
-                toastPresenter.show(error.localizedDescription, style: .error)
+                toastPresenter.show(message, style: .error)
             } else {
-                loadState = .failure(error.localizedDescription)
+                loadState = .failure(message)
             }
         }
     }

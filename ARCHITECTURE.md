@@ -1109,6 +1109,14 @@ replay recovery on the next pass. Kanban's existing safeguards for unconfirmed
 non-idempotent requests remain in force; cancellation does not authorize blindly
 repeating them.
 
+Screen-bound local reads treat cancellation separately from operational errors.
+They preserve loaded content, reset interrupted initial loads to idle for retry,
+and check cancellation and load identity before publishing snapshots. A cancelled
+older load cannot reset a newer load's state. Account task reads and project
+summary groups propagate cancellation instead of interpreting it as an empty
+result; unrelated per-project failures remain best effort. `LocalScreenSync`
+stops before starting server work if its initial local reload was cancelled.
+
 Local-store observation streams recreate their GRDB iterators after a suspension
 interruption and await resumed execution without polling. Cancellation of the
 consumer still ends observation. No feature imports GRDB or handles UIKit

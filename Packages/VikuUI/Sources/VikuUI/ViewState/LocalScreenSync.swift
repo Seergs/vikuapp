@@ -43,6 +43,7 @@ public final class LocalScreenSync {
         do {
             isPreparingInitialSnapshot = try await !hasInitialSnapshot()
             await reload()
+            try Task.checkCancellation()
             // Comment threads are demand-loaded explicitly, never by a query.
             if case let .task(id) = scope {
                 let initialScope: SyncScope = isPreparingInitialSnapshot ? .task(id) : .comments(id)
@@ -99,7 +100,7 @@ public final class LocalScreenSync {
         }
         guard !Task.isCancelled else { return false }
         await reload()
-        return canLoadOnlineResources
+        return canLoadOnlineResources && !Task.isCancelled
     }
 
     private func beginRefresh() {
