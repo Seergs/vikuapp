@@ -14,6 +14,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'Viku',
+      favicon: '/favicon.png',
       customCss: ['./src/styles/starlight.css'],
       components: {
         Sidebar: './src/components/docs/Sidebar.astro',
