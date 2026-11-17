@@ -1,0 +1,38 @@
+---
+// Import URLs only: these assets are already encoded at the intended quality.
+const assets = import.meta.glob<string>('../../assets/hero/*.{avif,webp}', {
+  eager: true, query: '?url', import: 'default',
+});
+const image = (theme: string, scale: number, format: string) =>
+  assets[`../../assets/hero/viku-home-${theme}@${scale}x.${format}`];
+const candidates = (theme: string, format: string) =>
+  [1, 2, 3].map(scale => `${image(theme, scale, format)} ${450 * scale}w`).join(', ');
+const sizes = '(max-width: 399px) calc(100vw - 40px), 360px';
+---
+<picture data-hero-screenshot>
+  <source data-dark type="image/avif" media="(prefers-color-scheme: dark)" srcset={candidates('dark', 'avif')} sizes={sizes} />
+  <source data-dark type="image/webp" media="(prefers-color-scheme: dark)" srcset={candidates('dark', 'webp')} sizes={sizes} />
+  <source type="image/avif" srcset={candidates('light', 'avif')} sizes={sizes} />
+  <!-- Apply the saved theme before the img is parsed; without JS, follow the system. -->
+  <script is:inline>
+    (() => {
+      const picture = document.querySelector('[data-hero-screenshot]');
+      const updateTheme = () => {
+        const theme = document.documentElement.dataset.theme;
+        const media = theme === 'dark' ? 'all' : theme === 'light' ? 'not all' : '(prefers-color-scheme: dark)';
+        picture.querySelectorAll('[data-dark]').forEach(source => source.setAttribute('media', media));
+      };
+      updateTheme();
+      new MutationObserver(updateTheme).observe(document.documentElement, {
+        attributes: true, attributeFilter: ['data-theme'],
+      });
+    })();
+  </script>
+  <img src={image('light', 2, 'webp')} srcset={candidates('light', 'webp')} sizes={sizes}
+    width="1350" height="2760" alt="Viku on iPhone showing overdue and today's tasks, priorities, and labels."
+    loading="eager" fetchpriority="high" />
+</picture>
+<style>
+  picture { display: block; width: min(22.5rem, 100%); margin-top: var(--viku-space-8); margin-bottom: var(--viku-space-8); }
+  img { display: block; width: 100%; height: auto; }
+</style>
