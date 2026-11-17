@@ -43,6 +43,15 @@ struct TodayPage {
         app.staticTexts.matching(NSPredicate(format: "label == %@ AND identifier ENDSWITH '.title'", title))
     }
 
+    func openTask(_ title: String, file: StaticString = #filePath, line: UInt = #line) -> TaskDetailPage {
+        let row = taskTitle(title).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10), file: file, line: line)
+        row.tap()
+        let page = TaskDetailPage(app: app)
+        page.assertTaskTitle(title, file: file, line: line)
+        return page
+    }
+
     func completeOverdueTask(file: StaticString = #filePath, line: UInt = #line) {
         XCTAssertTrue(overdueTaskCompletion.waitForExistence(timeout: 5), file: file, line: line)
         overdueTaskCompletion.tap()

@@ -487,6 +487,10 @@ public struct TaskDetailView: View {
                 TaskDetailCheckbox(isDone: task.isDone, color: swatchColor(project))
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("taskDetail.completion")
+            .accessibilityLabel(task.isDone
+                ? Text("Mark as Not Done", bundle: .module)
+                : Text("Mark as Done", bundle: .module))
             .padding(.top, VikuSpacing.xxs)
 
             if isEditingTitle {
@@ -496,6 +500,7 @@ public struct TaskDetailView: View {
                     .focused($focusedField, equals: .title)
             } else {
                 Text(verbatim: task.title)
+                    .accessibilityIdentifier("taskDetail.title")
                     .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(Color.primary)
                     .strikethrough(task.isDone)
