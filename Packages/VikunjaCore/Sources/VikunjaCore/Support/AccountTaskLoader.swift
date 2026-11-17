@@ -27,36 +27,48 @@ public struct AccountTaskLoader: Sendable {
     }
 
     /// Fetches the project list, then every project's tasks concurrently and
-    /// flattens them into one list. Throws only when the project-list fetch
-    /// itself fails; a single project's task-fetch failure is swallowed (that
-    /// project just contributes no tasks).
+    /// flattens them into one list. Cancellation and project-list failures
+    /// propagate; other per-project failures contribute no tasks.
     public func loadAllTasks() async throws -> (tasks: [VikunjaTask], projectsByID: [EntityID: Project]) {
+        try Task.checkCancellation()
         let projects = try await projectRepository.fetchProjects()
+        try Task.checkCancellation()
         // Preserve local identities so unsynced tasks can resolve their
         // project for navigation, names, and colors before reaching the server.
         let projectsByID = Dictionary(
             uniqueKeysWithValues: projects.map { ($0.id, $0) },
         )
-        let tasks = await Self.fetchAllTasks(projects: projects, repository: taskRepository)
+        let tasks = try await Self.fetchAllTasks(projects: projects, repository: taskRepository)
+        try Task.checkCancellation()
         return (tasks, projectsByID)
     }
 
     private static func fetchAllTasks(
         projects: [Project],
         repository: TaskRepositoryProtocol,
-    ) async -> [VikunjaTask] {
-        await withTaskGroup(of: [VikunjaTask].self) { group in
+    ) async throws -> [VikunjaTask] {
+        try await withThrowingTaskGroup(of: [VikunjaTask].self) { group in
             // Vikunja lists virtual projects (Favorites, saved filters)
             // alongside real ones. Their tasks are views over tasks that
             // already live in a real project, so fetching them would show
             // every such task twice.
             for project in projects where project.kind == .project {
                 group.addTask {
-                    await (try? repository.fetchTasks(projectID: project.id)) ?? []
+                    do {
+                        try Task.checkCancellation()
+                        let tasks = try await repository.fetchTasks(projectID: project.id)
+                        try Task.checkCancellation()
+                        return tasks
+                    } catch {
+                        if error is CancellationError || Task.isCancelled {
+                            throw CancellationError()
+                        }
+                        return []
+                    }
                 }
             }
             var allTasks: [VikunjaTask] = []
-            for await tasks in group {
+            for try await tasks in group {
                 allTasks.append(contentsOf: tasks)
             }
             return allTasks

@@ -67,6 +67,7 @@ public final class CalendarViewModel {
     /// pull-to-refresh), so the grid doesn't swap out for a spinner mid-refresh
     /// — same reasoning as `TodayViewModel.load()`.
     public func load() async {
+        guard !Task.isCancelled else { return }
         loadVersion += 1
         let version = loadVersion
         let hadContent = loadState == .loaded
@@ -74,24 +75,24 @@ public final class CalendarViewModel {
             loadState = .loading
         }
         do {
+            try Task.checkCancellation()
             let result = try await taskLoader.loadAllTasks()
+            try Task.checkCancellation()
             guard version == loadVersion else { return }
             projectsByID = result.projectsByID
             tasks = completionState.applying(to: result.tasks)
             loadState = .loaded
-        } catch let error as VikunjaError {
-            guard version == loadVersion else { return }
-            if hadContent {
-                toastPresenter.show(error.displayMessage, style: .error)
-            } else {
-                loadState = .failure(error.displayMessage)
-            }
         } catch {
             guard version == loadVersion else { return }
+            if error is CancellationError || Task.isCancelled {
+                loadState = hadContent ? .loaded : .idle
+                return
+            }
+            let message = (error as? VikunjaError)?.displayMessage ?? error.localizedDescription
             if hadContent {
-                toastPresenter.show(error.localizedDescription, style: .error)
+                toastPresenter.show(message, style: .error)
             } else {
-                loadState = .failure(error.localizedDescription)
+                loadState = .failure(message)
             }
         }
     }

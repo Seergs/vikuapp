@@ -6,7 +6,10 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
     var projects: [Project] = []
     var fetchError: VikunjaError?
 
+    var beforeFetchProjects: (@Sendable () async throws -> Void)?
+
     func fetchProjects() async throws -> [Project] {
+        try await beforeFetchProjects?()
         if let fetchError {
             throw fetchError
         }
@@ -71,7 +74,10 @@ final class FakeTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateRepository
         return result
     }
 
+    var beforeFetchTasks: (@Sendable () async throws -> Void)?
+
     func fetchTasks(projectID: EntityID) async throws -> [VikunjaTask] {
+        try await beforeFetchTasks?()
         if let fetchError {
             throw fetchError
         }

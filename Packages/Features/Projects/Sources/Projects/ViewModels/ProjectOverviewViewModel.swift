@@ -260,6 +260,7 @@ public final class ProjectOverviewViewModel {
     /// app relaunches. A failed project re-fetch fails the whole load, same
     /// as a failed `tasks`/`subprojects` fetch already does.
     public func load() async {
+        guard !Task.isCancelled else { return }
         loadVersion += 1
         let version = loadVersion
         let hadContent = loadState == .loaded
@@ -268,12 +269,13 @@ public final class ProjectOverviewViewModel {
         }
         async let kanbanSupport = resolveKanbanSupport()
         do {
+            try Task.checkCancellation()
             let fetchedProject = try await projectRepository.fetchProject(id: project.id)
             let fetchedTasks = try await repository.fetchTasks(projectID: fetchedProject.id)
             let fetchedSubprojects = try await Self.fetchSubprojects(
                 project: fetchedProject, repository: projectRepository,
             )
-            let summaries = await Self.fetchSubprojectSummaries(fetchedSubprojects, repository: repository)
+            let summaries = try await Self.fetchSubprojectSummaries(fetchedSubprojects, repository: repository)
             let catalog = fetchedProject.kind == .savedFilter
                 ? try? await projectRepository.fetchProjects() : nil
             let owners = catalog.map { Dictionary(
@@ -282,6 +284,7 @@ public final class ProjectOverviewViewModel {
             ) } ?? projectsByID
             let query = await loadFilterQuery(for: fetchedProject, projects: Array(owners.values))
             await loadRequestedLabels()
+            try Task.checkCancellation()
             guard version == loadVersion, !Task.isCancelled else { return }
             project = fetchedProject
             projectsByID = owners
@@ -291,23 +294,21 @@ public final class ProjectOverviewViewModel {
             savedFilterQuery = query.raw
             savedFilterDisplaySegments = query.segments
             loadState = .loaded
-        } catch let error as VikunjaError {
-            guard version == loadVersion else { return }
-            if hadContent {
-                toastPresenter.show(error.displayMessage, style: .error)
-            } else {
-                loadState = .failure(error.displayMessage)
-            }
         } catch {
             guard version == loadVersion else { return }
+            if error is CancellationError || Task.isCancelled {
+                loadState = hadContent ? .loaded : .idle
+                return
+            }
+            let message = (error as? VikunjaError)?.displayMessage ?? error.localizedDescription
             if hadContent {
-                toastPresenter.show(error.localizedDescription, style: .error)
+                toastPresenter.show(message, style: .error)
             } else {
-                loadState = .failure(error.localizedDescription)
+                loadState = .failure(message)
             }
         }
         let serverSupportsKanban = await kanbanSupport
-        guard version == loadVersion else { return }
+        guard version == loadVersion, !Task.isCancelled else { return }
         hasKanbanSupport = project.kind != .favorites && serverSupportsKanban
     }
 
@@ -369,16 +370,25 @@ public final class ProjectOverviewViewModel {
     private static func fetchSubprojectSummaries(
         _ nodes: [ProjectNode],
         repository: TaskRepositoryProtocol,
-    ) async -> [EntityID: TaskSummary] {
-        await withTaskGroup(of: (EntityID, TaskSummary)?.self) { group in
+    ) async throws -> [EntityID: TaskSummary] {
+        try await withThrowingTaskGroup(of: (EntityID, TaskSummary)?.self) { group in
             for node in nodes {
                 group.addTask {
-                    guard let tasks = try? await repository.fetchTasks(projectID: node.id) else { return nil }
-                    return (node.id, TaskSummary(done: tasks.filter(\.isDone).count, total: tasks.count))
+                    do {
+                        try Task.checkCancellation()
+                        let tasks = try await repository.fetchTasks(projectID: node.id)
+                        try Task.checkCancellation()
+                        return (node.id, TaskSummary(done: tasks.filter(\.isDone).count, total: tasks.count))
+                    } catch {
+                        if error is CancellationError || Task.isCancelled {
+                            throw CancellationError()
+                        }
+                        return nil
+                    }
                 }
             }
             var summaries: [EntityID: TaskSummary] = [:]
-            for await result in group {
+            for try await result in group {
                 if let (id, summary) = result {
                     summaries[id] = summary
                 }

@@ -22,7 +22,10 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
         return _fetchedProjectIDs
     }
 
+    var beforeFetchTasks: (@Sendable () async throws -> Void)?
+
     func fetchTasks(projectID: EntityID) async throws -> [VikunjaTask] {
+        try await beforeFetchTasks?()
         if let remoteProjectID = projectID.remoteValue {
             fetchedLock.withLock { _fetchedProjectIDs.append(remoteProjectID) }
         }
