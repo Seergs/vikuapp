@@ -3,7 +3,10 @@ import Foundation
 import VikunjaCore
 
 actor UITestProjectRepository: ProjectRepositoryProtocol {
-    private var projects = [Project(id: 1, title: "UI Test Project")]
+    private var projects = [
+        Project(id: 1, title: "UI Test Project"),
+        Project(id: 2, title: "UI Test Context Project"),
+    ]
     private var nextID = 100
 
     func fetchProjects() async throws -> [Project] {

@@ -69,6 +69,7 @@ public struct QuickAddSheetView: View {
 
                 VStack(alignment: .leading, spacing: VikuSpacing.sm) {
                     titleField
+                        .accessibilityIdentifier("quickAdd.title")
                         .disabled(isSubmitting)
                     suggestions
                 }
@@ -240,6 +241,7 @@ public struct QuickAddSheetView: View {
             .buttonStyle(.plain)
             .disabled(!viewModel.canSave || isSubmitting)
             .accessibilityLabel(Text("Create Task", bundle: .module))
+            .accessibilityIdentifier("quickAdd.create")
         }
     }
 
@@ -265,6 +267,7 @@ public struct QuickAddSheetView: View {
         .buttonStyle(.plain)
         .disabled(viewModel.projects.isEmpty)
         .accessibilityLabel(Text("Choose Project", bundle: .module))
+        .accessibilityIdentifier("quickAdd.project")
         .accessibilityValue(Text(verbatim: (viewModel.selectedProject ?? viewModel.displayProject)?.title ?? ""))
     }
 
@@ -280,6 +283,7 @@ public struct QuickAddSheetView: View {
                         selectionChipLabel("calendar", title: DueDateFormatter.compact(dueDate))
                     }
                     .accessibilityLabel(Text("Due Date", bundle: .module))
+                    .accessibilityIdentifier("quickAdd.dueDate")
                     .accessibilityValue(dueDateAccessibilityValue)
                 },
             )
@@ -289,6 +293,7 @@ public struct QuickAddSheetView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Text("Due Date", bundle: .module))
+            .accessibilityIdentifier("quickAdd.dueDate")
         }
     }
 
