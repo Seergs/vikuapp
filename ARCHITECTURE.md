@@ -1210,3 +1210,34 @@ path again. A reachable path does not guarantee that the server responds; openin
 a file immediately marks its row as opening, prevents duplicate taps and clears
 that feedback on success, error or cancellation. File failures use action-specific
 feedback rather than the generic automatic-sync promise.
+
+## Session recovery synchronization
+
+Saving credentials for an existing connection registers a fresh account pass
+with `SyncCoordinator` before Settings reports the account change. Recovery is
+scheduled without awaiting networking. While it is pending, `prepare()` must
+synchronize even if project/task download markers already exist. The last local
+snapshot and pending writes remain available; failure leaves recovery pending
+for explicit retry, connectivity restoration, or the next foreground sync.
+
+Recovery shares the normal worker and does not cancel submitted mutations.
+Each pass resolves the current account again. An authentication revision can only
+be acknowledged by a successful pass started with that revision, so an older
+pass cannot suppress the new login's refresh. No recovery path clears the queue
+or bypasses conflict handling. The app tracks a session-only credential revision
+per connection to rebuild the active tab shell even when account metadata is
+unchanged; editing an inactive account does not reset the active shell.
+
+`AccountStoreProtocol.updateSession` compares the expected account and credential
+before committing automatic renewal or an expired-session flag. The Keychain
+store serializes that comparison and write with other operations on its actor.
+Late renewal responses cannot overwrite a login already saved through that store;
+token resolution re-reads account state and retries a superseded renewal against
+the new credential. This is not a cross-process Keychain transaction: app/widget
+renewal coordination across separate processes remains outside this guarantee.
+
+Today keeps cached content during recovery and displays an actionable failure
+when the empty cache cannot be refreshed. Its spinner presentation waits one
+second, then remains visible for at least one second without delaying the sync.
+New connections and onboarding keep their initial-download lifecycle. Changing
+server/user identity remains separate work (VIKU-234).

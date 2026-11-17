@@ -12,6 +12,7 @@ struct TodayView: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.vikuPalette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var loadingPresentation = LoadingPresentation()
     @State private var filter: TodayFilter = .all
     @State private var searchText = ""
     @State private var taskPendingDelete: VikunjaTask?
@@ -55,6 +56,18 @@ struct TodayView: View {
             .onChange(of: searchText) { _, _ in viewModel.bulkSelection.reset() }
             .onChange(of: viewModel.pinnedSelection?.id) { _, _ in viewModel.bulkSelection.reset() }
             .task { await viewModel.start() }
+            .task(id: viewModel.isLoading) {
+                loadingPresentation.setLoading(viewModel.isLoading)
+                do {
+                    while let deadline = loadingPresentation.nextUpdate {
+                        try await ContinuousClock().sleep(until: deadline)
+                        try Task.checkCancellation()
+                        loadingPresentation.advance()
+                    }
+                } catch is CancellationError {
+                    // A load finished, restarted, or the screen disappeared.
+                } catch {}
+            }
             .task { await viewModel.observeLocalChanges() }
             .confirmationDialog(
                 Text("This permanently deletes the task.", bundle: .module),
@@ -152,9 +165,10 @@ struct TodayView: View {
 
     private var content: some View {
         List {
-            switch viewModel.displayLoadState {
+            switch loadingPresentation.isVisible ? .loading : viewModel.displayLoadState {
             case .idle, .loading:
                 ProgressView()
+                    .opacity(loadingPresentation.isVisible ? 1 : 0)
                     .frame(maxWidth: .infinity)
                     .padding(.top, VikuSpacing.xxl)
                     .listRowSeparator(.hidden)

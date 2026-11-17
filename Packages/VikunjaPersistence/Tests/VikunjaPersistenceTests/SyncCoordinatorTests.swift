@@ -20,7 +20,25 @@ actor FakeAccountStore: AccountStoreProtocol {
         tokensByAccountID[account.id] = token
     }
 
-    func updateAccount(_ account: InstanceAccount, token: String?) async throws {}
+    func updateAccount(_ account: InstanceAccount, token: String?) async throws {
+        guard let index = accounts.firstIndex(where: { $0.id == account.id }) else { throw VikunjaError.notFound }
+        accounts[index] = account
+        if let token {
+            tokensByAccountID[account.id] = token
+        }
+    }
+
+    func updateSession(
+        for account: InstanceAccount, matchingToken: String, token: String?, needsReauthentication: Bool,
+    ) throws -> Bool {
+        guard let index = accounts.firstIndex(where: { $0 == account }),
+              tokensByAccountID[account.id] == matchingToken else { return false }
+        accounts[index].needsReauthentication = needsReauthentication
+        if let token {
+            tokensByAccountID[account.id] = token
+        }
+        return true
+    }
 
     func removeAccount(id: InstanceAccount.ID) async throws {
         accounts.removeAll { $0.id == id }

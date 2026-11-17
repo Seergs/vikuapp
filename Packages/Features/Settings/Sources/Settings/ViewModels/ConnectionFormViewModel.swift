@@ -46,6 +46,7 @@ public final class ConnectionFormViewModel {
         oidcAuthenticator: OIDCAuthenticating,
         oidcRedirectURI: URL,
         onActiveAccountChanged: @escaping () -> Void,
+        onCredentialsStored: @escaping (InstanceAccount) async -> Void = { _ in },
     ) {
         self.mode = mode
         self.accountStore = accountStore
@@ -66,8 +67,13 @@ public final class ConnectionFormViewModel {
             oidcAuthenticator: oidcAuthenticator,
             oidcRedirectURI: oidcRedirectURI,
         )
-        core.onStored = { [weak self] _ in
+        core.onStored = { [weak self] account in
             guard let self else { return }
+            // Register recovery before navigation mounts screens. The callback
+            // schedules shared work without waiting for the network download.
+            if isEditing {
+                await onCredentialsStored(account)
+            }
             toastPresenter.show(
                 isEditing
                     ? String(localized: "Connection updated", bundle: .module)

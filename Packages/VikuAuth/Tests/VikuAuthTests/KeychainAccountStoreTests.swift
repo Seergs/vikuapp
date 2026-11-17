@@ -17,6 +17,30 @@ struct KeychainAccountStoreTests {
     }
 
     @Test
+    func `renewal cannot overwrite a replacement credential or revive a removed account`() async throws {
+        let store = makeStore()
+        let account = makeAccount()
+        try await store.addAccount(account, token: "old")
+        #expect(try await store.updateSession(
+            for: account, matchingToken: "old", token: "renewed", needsReauthentication: false,
+        ))
+        try await store.updateAccount(account, token: "new-login")
+        #expect(try await !store.updateSession(
+            for: account, matchingToken: "renewed", token: "late-result", needsReauthentication: false,
+        ))
+        #expect(try await !store.updateSession(
+            for: account, matchingToken: "renewed", token: nil, needsReauthentication: true,
+        ))
+        #expect(try await store.token(forAccountID: account.id) == "new-login")
+        #expect(try await store.activeAccount()?.needsReauthentication == false)
+        try await store.removeAccount(id: account.id)
+        #expect(try await !store.updateSession(
+            for: account, matchingToken: "new-login", token: "late-result", needsReauthentication: false,
+        ))
+        #expect(try await store.fetchAccounts().isEmpty)
+    }
+
+    @Test
     func `falls back to the private keychain when the access group is unusable`() async throws {
         // A bogus access group the test process has no entitlement for: the
         // store must not fail every call, it must transparently fall back to
