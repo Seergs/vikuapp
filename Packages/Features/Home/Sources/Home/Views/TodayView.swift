@@ -409,7 +409,7 @@ struct TodayView: View {
 }
 
 /// Status filter for the Today screen's due-date buckets.
-enum TodayFilter: CaseIterable {
+enum TodayFilter: String, CaseIterable {
     case all
     case overdue
     case today
@@ -435,6 +435,7 @@ private struct TodayFilterRow: View {
                     TodayFilterChip(title: option.title, isSelected: selection == option) {
                         selection = option
                     }
+                    .accessibilityIdentifier("home.filter.\(option.rawValue)")
                 }
             }
         }

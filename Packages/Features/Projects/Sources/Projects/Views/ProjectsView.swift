@@ -362,6 +362,13 @@ private struct ProjectRow: View {
     @Environment(\.vikuPalette) private var palette
     @Environment(\.pendingSyncStatuses) private var pendingSyncStatuses
 
+    private var accessibilityID: String {
+        switch project.id {
+        case let .remote(id): "project.remote.\(id)"
+        case let .local(id): "project.local.\(id.uuidString)"
+        }
+    }
+
     private var swatchColor: Color {
         Color(vikuHex: project.hexColor) ?? palette.brand
     }
@@ -467,6 +474,7 @@ private struct ProjectRow: View {
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
         .accessibilityLabel(project.title)
+        .accessibilityIdentifier(accessibilityID)
     }
 }
 

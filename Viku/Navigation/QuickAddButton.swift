@@ -34,6 +34,7 @@ struct QuickAddButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text("Quick Add"))
+        .accessibilityIdentifier("quickAdd.open")
         .vikuHaptic(.light, trigger: tapped)
     }
 }

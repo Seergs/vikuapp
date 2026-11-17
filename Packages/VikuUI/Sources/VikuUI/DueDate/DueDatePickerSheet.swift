@@ -26,6 +26,7 @@ public struct DueDatePickerSheet: View {
                     DatePicker("Due date", selection: $date)
                         .datePickerStyle(.graphical)
                         .labelsHidden()
+                        .accessibilityIdentifier("dueDate.calendar")
 
                     if hadInitialDate {
                         Button(String(localized: "Remove Due Date", bundle: .module), role: .destructive) {
@@ -52,6 +53,7 @@ public struct DueDatePickerSheet: View {
                         dismiss()
                     }
                     .fontWeight(.semibold)
+                    .accessibilityIdentifier("dueDate.save")
                 }
             }
         }
