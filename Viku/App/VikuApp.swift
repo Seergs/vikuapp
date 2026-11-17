@@ -10,7 +10,7 @@ import VikunjaPersistence
 
 @main
 struct VikuApp: App {
-    private let container = AppContainer()
+    private let container = AppContainer.forLaunch()
 
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @Environment(\.scenePhase) private var scenePhase

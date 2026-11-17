@@ -6,6 +6,7 @@ included:
   - Packages
   - Viku
   - Viku-widgets
+  - VikuUITests
 
 excluded:
   - "**/.build"

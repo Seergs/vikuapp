@@ -44,6 +44,7 @@ struct TodayView: View {
                         } label: {
                             Image(systemName: "ellipsis.circle")
                         }
+                        .accessibilityIdentifier("home.today.actions")
                     }
                 }
             }
