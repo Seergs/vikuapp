@@ -1296,7 +1296,16 @@ and accepted credential revisions rebuild the shell as before.
 Package regressions cover rejected identity changes, unchanged remote
 destinations and preserved intent that can subsequently drain on the source.
 
-## Shared process synchronization
+## Widgets and shared synchronization
+
+Today and Calendar timelines render the shared local database, including pending
+completion intent. Gallery snapshots only read locally. Fresh timelines project
+local state without another download; stale refreshes use the existing sync
+engine with an eight-second deadline that cancels the actual worker and token
+renewal. Accepted completion writes an explicit field-specific target locally,
+then attempts an upload-only task scope. A failed upload preserves local intent
+and its queued recovery state. Each rendered action carries its account ID.
+The app uses the same local projection when requesting widget updates.
 
 All production queue drains and account replacements go through `SyncCoordinator`.
 A `syncOwnership` row serializes each account across app and extension processes.

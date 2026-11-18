@@ -1,7 +1,7 @@
 import Foundation
 import VikunjaPersistence
 
-/// Supplies the offline fallback for both widget loaders. Tests inject a fake;
+/// Supplies the canonical local state for both widget loaders. Tests inject a fake;
 /// `VikuWidgetEnvironment` wires the real App Group database reader.
 public protocol WidgetLocalTaskSnapshotProviding: Sendable {
     /// - Parameter accountID: the active account, or `nil` when the widget

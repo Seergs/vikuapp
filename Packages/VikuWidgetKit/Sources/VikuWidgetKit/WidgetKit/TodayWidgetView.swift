@@ -144,7 +144,7 @@ private struct TodayListView: View {
             } else {
                 VStack(spacing: VikuSpacing.xs) {
                     ForEach(rows) { task in
-                        TodayWidgetRow(task: task)
+                        TodayWidgetRow(task: task, accountID: content.accountID)
                     }
                 }
                 Spacer(minLength: 0)
@@ -155,6 +155,7 @@ private struct TodayListView: View {
 
 private struct TodayWidgetRow: View {
     let task: TodayWidgetTask
+    let accountID: String
 
     private var projectColor: Color {
         Color(vikuHex: task.projectColorHex) ?? VikuColor.brandPrimary
@@ -208,7 +209,7 @@ private struct TodayWidgetRow: View {
             }
 
         #if os(iOS)
-        Button(intent: ToggleTaskDoneIntent(taskID: task.id)) { circle }
+        Button(intent: ToggleTaskDoneIntent(taskID: task.id, accountID: accountID, isDone: !task.isDone)) { circle }
             .buttonStyle(.plain)
         #else
         circle
@@ -241,7 +242,12 @@ private struct TodayWidgetHeader: View {
                 .kerning(0.4)
                 .foregroundStyle(VikuColor.textSecondary)
             Spacer(minLength: 0)
-            if content.isStale {
+            if content.hasPendingChanges {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(VikuFont.caption2)
+                    .foregroundStyle(VikuColor.textTertiary)
+                    .accessibilityLabel(Text("Changes pending sync", bundle: .module))
+            } else if content.isStale {
                 Image(systemName: "clock.arrow.circlepath")
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(VikuColor.textTertiary)

@@ -38,6 +38,8 @@ public struct TodayWidgetTask: Sendable, Hashable, Codable, Identifiable {
 /// tasks. Persisted to the App Group container so a failed refresh can fall
 /// back to the last good render (`isStale == true`).
 public struct TodayWidgetContent: Sendable, Hashable, Codable {
+    public var accountID: String = ""
+    public var hasPendingChanges: Bool = false
     public let accountName: String
     public let generatedAt: Date
     public var isStale: Bool
@@ -79,6 +81,7 @@ public struct TodayWidgetContent: Sendable, Hashable, Codable {
         digest: TodayDigest,
         projectsByID: [EntityID: Project],
         accountName: String,
+        accountID: String = "",
         now: Date,
         taskLimit: Int = VikuWidgetConfig.taskLimit,
     ) -> TodayWidgetContent {
@@ -100,7 +103,7 @@ public struct TodayWidgetContent: Sendable, Hashable, Codable {
                 + digest.today.map { widgetTask($0, .today) }
                 + digest.upcoming.map { widgetTask($0, .upcoming) }
 
-        return TodayWidgetContent(
+        var content = TodayWidgetContent(
             accountName: accountName,
             generatedAt: now,
             overdueCount: digest.overdue.count,
@@ -108,6 +111,8 @@ public struct TodayWidgetContent: Sendable, Hashable, Codable {
             upcomingCount: digest.upcoming.count,
             tasks: Array(ordered.prefix(taskLimit)),
         )
+        content.accountID = accountID
+        return content
     }
 }
 

@@ -30,7 +30,7 @@ public struct TodayTimelineProvider: TimelineProvider {
             return
         }
         Task {
-            let state = await VikuWidgetEnvironment.makeSnapshotLoader().loadState()
+            let state = await VikuWidgetEnvironment.makeSnapshotLoader().loadLocalState() ?? .unavailable
             completion(TodayEntry(date: Date(), state: state))
         }
     }

@@ -70,6 +70,8 @@ public struct CalendarWidgetTask: Sendable, Hashable, Codable, Identifiable {
 /// refresh can fall back to the last good render (`isStale == true`), exactly
 /// like `TodayWidgetContent`.
 public struct CalendarWidgetContent: Sendable, Hashable, Codable {
+    public var accountID: String = ""
+    public var hasPendingChanges: Bool = false
     public let accountName: String
     public let generatedAt: Date
     public var isStale: Bool
@@ -115,6 +117,7 @@ public struct CalendarWidgetContent: Sendable, Hashable, Codable {
         month: CalendarMonth,
         projectsByID: [EntityID: Project],
         accountName: String,
+        accountID: String = "",
         now: Date,
         calendar: Calendar = .current,
         taskLimit: Int = VikuWidgetConfig.calendarTaskLimit,
@@ -151,7 +154,7 @@ public struct CalendarWidgetContent: Sendable, Hashable, Codable {
             )
         }
 
-        return CalendarWidgetContent(
+        var content = CalendarWidgetContent(
             accountName: accountName,
             generatedAt: now,
             monthTitle: month.title,
@@ -161,6 +164,8 @@ public struct CalendarWidgetContent: Sendable, Hashable, Codable {
             todayTasks: Array(rows),
             todayTaskCount: todayTasks.count,
         )
+        content.accountID = accountID
+        return content
     }
 }
 

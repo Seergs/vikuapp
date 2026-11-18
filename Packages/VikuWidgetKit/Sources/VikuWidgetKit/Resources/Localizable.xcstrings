@@ -71,6 +71,22 @@
         }
       }
     },
+    "Account ID" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account ID"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ID de cuenta"
+          }
+        }
+      }
+    },
     "Add Task" : {
       "localizations" : {
         "es" : {
@@ -97,6 +113,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Calendario"
+          }
+        }
+      }
+    },
+    "Changes pending sync" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changes pending sync"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambios pendientes de sincronización"
+          }
+        }
+      }
+    },
+    "Completed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completed"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completada"
           }
         }
       }
@@ -261,22 +309,22 @@
         }
       }
     },
-    "Toggle Task Completion" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alternar finalización de tarea"
-          }
-        }
-      }
-    },
     "Today" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hoy"
+          }
+        }
+      }
+    },
+    "Toggle Task Completion" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alternar finalización de tarea"
           }
         }
       }
