@@ -1298,20 +1298,40 @@ destinations and preserved intent that can subsequently drain on the source.
 
 ## Widgets and shared synchronization
 
-Today and Calendar timelines render the shared local database, including pending
-completion intent. Gallery snapshots only read locally. Fresh timelines project
-local state without another download; stale refreshes use the existing sync
-engine with an eight-second deadline that cancels the actual worker and token
-renewal. Accepted completion writes an explicit field-specific target locally,
-then attempts an upload-only task scope. A failed upload preserves local intent
-and its queued recovery state. Each rendered action carries its account ID.
-The app uses the same local projection when requesting widget updates.
+Today and Calendar timelines render `LocalTaskSnapshotReader`'s shared database
+state, including pending completion changes, rather than rendering independent
+API responses. Gallery snapshots only read locally. Recent downloaded snapshots
+repaint immediately from the database, without starting another network pass for
+every interaction reload. Stale timeline refreshes may run the existing account
+sync engine first, with an eight-second cancellation budget;
+cancellation reaches the actual coordinator worker and the extension's shared
+credential renewal. Confirmed credential rotations are still persisted. Interactive completion saves
+an explicit target through `OfflineTaskRepository`'s field-specific completion
+queue and updates the badge after local acceptance. An upload-only scope sends
+that task's changes without downloading the account or comments. AppIntent-backed
+checkbox Toggles draw from the toggle configuration's optimistic state, so the
+checkbox responds while the intent is still uploading. Upload failure preserves local acceptance. The pending
+indicator remains until queued work is resolved; failure/conflict recovery stays
+in the app's Pending Sync screen. Existing widget task identities remain remote
+IDs, so never-synced tasks remain excluded. Each action carries its connection ID
+from the timeline to prevent account switches from redirecting it.
 
-AppIntent-backed Toggles draw their optimistic state from the toggle
-configuration while persistence and bounded synchronization complete. Accepted
-local and sync callbacks are batched into one sibling reload request. Unknown
-origins, failures and mixed overlapping kinds conservatively request both kinds.
-WidgetKit schedules sibling requests; this does not guarantee immediate redraw.
+Widget reloads are requests, not a guarantee that every configured widget will
+redraw immediately. WidgetKit guarantees a timeline reload for the widget that
+performs an interaction; other configured widgets may be scheduled under their
+own refresh budgets. Opening the containing app changes the scheduling context.
+See [Keeping a widget up to date](https://developer.apple.com/documentation/widgetkit/keeping-a-widget-up-to-date).
+An interaction batches local acceptance and sync callbacks until its bounded work
+finishes. A successful interaction from one known task-widget kind explicitly
+reloads only the other kind; WidgetKit reloads the source and its families
+automatically. The intent carries its source kind from the rendered row. Unknown
+origins (including older archived intents), failed intents and overlapping
+interactions from different kinds explicitly reload both to avoid relying on an
+earlier source's already-completed automatic refresh. These requests do not reload
+Quick Add widgets or Control Center controls, whose content did not change.
+Overlapping interactions flush together, and cancellation flushes accepted
+changes without leaving batching active. This reduces redundant requests; it does
+not bypass WidgetKit's scheduling or prove that an observed delay is budget-related.
 
 All production queue drains and account replacements go through `SyncCoordinator`.
 A `syncOwnership` row serializes each account across app and extension processes.
@@ -1338,4 +1358,22 @@ without carrying account data or making the receiver synchronize recursively.
 Foreground activation explicitly invalidates again to cover notifications missed
 while suspended. A replacement snapshot checks its original account snapshot in
 the replacement transaction, rejecting edits committed by the other process during
-its download.
+its download. Sync requests widget reloads only when visible local tasks, projects
+or pending-work presence changed. App badge reads also use local data. The small
+Today summary and badge count unfinished overdue and due-today tasks, before
+capping widget rows; completed tasks remain in today's list for reopening.
+Upcoming summary counts also exclude completed tasks. The app mirrors its badge
+preference into the App Group on launch and setting changes; widget local
+acceptance and sync changes update the badge directly, including offline
+acceptance. Disabled badges are cleared, unavailable snapshots preserve the last
+count, and late reads cannot overwrite newer refresh requests. UI testing uses
+an isolated preference suite.
+
+Package tests cover independent database connections, competing coordinators,
+owner process termination, worker cancellation, expired execution cleanup,
+external-change observation, pending completion reads, replacement races and
+widget deadlines. Before release, validate on a physical device without a debugger:
+app/extension process-status permissions and death recovery; expiration during
+networking; fast background/foreground transitions; offline taps and reconnection;
+and multiple visible widgets. Simulator builds and host package tests do not
+establish those iOS lifecycle and sandbox guarantees.

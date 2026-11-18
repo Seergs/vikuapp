@@ -89,6 +89,8 @@ private struct TodaySmallView: View {
                     .font(VikuFont.caption)
                     .foregroundStyle(VikuColor.textSecondary)
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text("\(content.pendingCount) pending tasks", bundle: .module))
 
             Text(pendingBreakdown)
                 .font(VikuFont.caption2)
@@ -97,11 +99,11 @@ private struct TodaySmallView: View {
     }
 
     /// The count renders in its own bold `Text` above, so this only needs the
-    /// trailing word ("task"/"tasks"). The plural variable needs the count
+    /// trailing word ("pending", localized with singular/plural agreement). The plural variable needs the count
     /// embedded to pick the right form, so it's resolved as one phrase and
     /// the leading digits are dropped rather than duplicating the number.
     private var pendingWord: String {
-        let phrase = String(localized: "\(content.pendingCount) tasks", bundle: .module)
+        let phrase = String(localized: "\(content.pendingCount) pending", bundle: .module)
         guard let spaceIndex = phrase.firstIndex(of: " ") else { return phrase }
         return String(phrase[phrase.index(after: spaceIndex)...])
     }

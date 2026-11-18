@@ -20,6 +20,13 @@ struct LocalizationTests {
         return strings
     }
 
+    @Test func `pending summary has explicit localized singular and plural labels`() {
+        #expect(Self.pluralVariant("%lld pending tasks", locale: "en", category: "one") == "%lld pending task")
+        #expect(Self.pluralVariant("%lld pending tasks", locale: "en", category: "other") == "%lld pending tasks")
+        #expect(Self.pluralVariant("%lld pending tasks", locale: "es", category: "one") == "%lld tarea pendiente")
+        #expect(Self.pluralVariant("%lld pending tasks", locale: "es", category: "other") == "%lld tareas pendientes")
+    }
+
     private static func pluralVariant(_ key: String, locale: String, category: String) -> String? {
         guard let entry = loadCatalog()[key] as? [String: Any],
               let localizations = entry["localizations"] as? [String: Any],

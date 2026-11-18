@@ -5,8 +5,8 @@ import VikunjaCore
 import VikuWidgetKit
 
 /// Owns the user's app-icon-badge preference (a plain `UserDefaults` flag,
-/// not a credential) and is the only place that actually calls
-/// `UNUserNotificationCenter.setBadgeCount(_:)` — `AppContainer` calls
+/// not a credential), mirrored to the App Group for widget-side updates.
+/// `AppContainer` calls
 /// `updateBadge(from:)` with the `TodayWidgetState` it already fetched for
 /// the Today widget (see `refreshWidgetSnapshots()`), so turning the icon
 /// badge on never costs a second network round trip. One instance lives for
@@ -19,11 +19,14 @@ final class AppIconBadgeCenter: AppIconBadgeStoring {
     private(set) var isEnabled: Bool
 
     private let defaults: UserDefaults
+    private let sharedPreference: AppIconBadgePreference
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard, sharedPreference: AppIconBadgePreference = AppIconBadgePreference()) {
         self.defaults = defaults
+        self.sharedPreference = sharedPreference
         let enabled = defaults.bool(forKey: Self.defaultsKey)
         self.isEnabled = enabled
+        sharedPreference.setEnabled(enabled)
         // iOS persists the last badge independently of our preference. Apply
         // the disabled state even on launches that never load widget data.
         if !enabled {
@@ -36,6 +39,7 @@ final class AppIconBadgeCenter: AppIconBadgeStoring {
     func setEnabled(_ enabled: Bool) {
         isEnabled = enabled
         defaults.set(enabled, forKey: Self.defaultsKey)
+        sharedPreference.setEnabled(enabled)
         if !enabled {
             Task { await clearBadgeIfDisabled() }
         }
