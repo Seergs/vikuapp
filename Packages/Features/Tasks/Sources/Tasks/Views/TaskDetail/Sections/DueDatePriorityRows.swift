@@ -11,6 +11,15 @@ struct DueDatePriorityRows: View {
 
     @Environment(\.vikuPalette) private var palette
 
+    private var dueDateValue: String {
+        viewModel.task.dueDate.map { DueDateFormatter.dueLabel($0) }
+            ?? String(localized: "Set due date", bundle: .module)
+    }
+
+    private var priorityValue: String {
+        priorityDisplay(viewModel.task.priority)?.label ?? String(localized: "Set priority", bundle: .module)
+    }
+
     var body: some View {
         let task = viewModel.task
 
@@ -20,8 +29,7 @@ struct DueDatePriorityRows: View {
                     systemImage: "calendar",
                     iconColor: task.dueDate == nil ? palette.textTertiary : palette.textSecondary,
                     title: String(localized: "Due", bundle: .module),
-                    value: task.dueDate.map { DueDateFormatter.dueLabel($0) }
-                        ?? String(localized: "Set due date", bundle: .module),
+                    value: dueDateValue,
                     valueColor: task.dueDate == nil
                         ? palette.textTertiary
                         : (isOverdue(task) ? palette.semanticDangerText : nil),
@@ -29,6 +37,9 @@ struct DueDatePriorityRows: View {
                 )
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("taskDetail.dueDate")
+            .accessibilityLabel(Text("Due", bundle: .module))
+            .accessibilityValue(Text(verbatim: dueDateValue))
 
             Menu {
                 ForEach(VikunjaTask.Priority.selectable, id: \.self) { priority in
@@ -42,18 +53,22 @@ struct DueDatePriorityRows: View {
                             }
                         }
                     }
+                    .accessibilityIdentifier("taskDetail.priority.\(priority.rawValue)")
                 }
             } label: {
                 InfoRow(
                     systemImage: "flag",
                     iconColor: priorityDisplay(task.priority)?.color ?? palette.textTertiary,
                     title: String(localized: "Priority", bundle: .module),
-                    value: priorityDisplay(task.priority)?.label ?? String(localized: "Set priority", bundle: .module),
+                    value: priorityValue,
                     valueColor: priorityDisplay(task.priority)?.color ?? palette.textTertiary,
                     showsChevron: true,
                 )
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("taskDetail.priority")
+            .accessibilityLabel(Text("Priority", bundle: .module))
+            .accessibilityValue(Text(verbatim: priorityValue))
         }
         .padding(.top, VikuSpacing.lg)
     }

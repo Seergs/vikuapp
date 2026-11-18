@@ -12,7 +12,10 @@ actor UITestTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateRepositoryProt
         let noon = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: Date()) ?? Date()
         // Relative calendar days keep the fixture in the same digest buckets on any date.
         self.tasks = [
-            VikunjaTask(id: 1, title: "UI Test: Plan today", dueDate: calendar.startOfDay(for: noon), projectID: 1),
+            VikunjaTask(
+                id: 1, title: "UI Test: Plan today", dueDate: noon, priority: .high, projectID: 1,
+                labels: [UITestFixtures.navigationLabel],
+            ),
             VikunjaTask(
                 id: 2, title: "UI Test: Review overdue", dueDate: calendar.date(byAdding: .day, value: -1, to: noon),
                 projectID: 1,
