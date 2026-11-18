@@ -39,13 +39,20 @@ public enum VikuWidgetEnvironment {
         PasswordSessionRefresher(accountStore: makeAccountStore(), cancelRefreshOnCancellation: true)
     }
 
-    private static func reloadTaskTimelines() async {
+    private static let timelineReloads = WidgetTimelineReloads { kinds in
         #if canImport(WidgetKit)
         await MainActor.run {
-            WidgetCenter.shared.reloadTimelines(ofKind: VikuWidgetConfig.todayWidgetKind)
-            WidgetCenter.shared.reloadTimelines(ofKind: VikuWidgetConfig.calendarWidgetKind)
+            for kind in kinds.sorted() {
+                WidgetCenter.shared.reloadTimelines(ofKind: kind)
+            }
         }
         #endif
+    }
+
+    public static func duringWidgetInteraction(
+        sourceKind: String, _ operation: @Sendable () async throws -> Void,
+    ) async throws {
+        try await timelineReloads.duringInteraction(sourceKind: sourceKind, operation)
     }
 
     private static let coordinator: SyncCoordinator? = {
@@ -58,7 +65,7 @@ public enum VikuWidgetEnvironment {
             reachability: NWPathReachabilityMonitor(),
             tokenProvider: { account in { try await refresher.validToken(for: account) } },
             onAccountDataChanged: {
-                await reloadTaskTimelines()
+                await timelineReloads.request()
             },
         )
     }()
@@ -105,7 +112,7 @@ public enum VikuWidgetEnvironment {
             repository: repository,
             synchronize: { try await synchronize(accountID: accountID, taskID: .remote(taskID)) },
             reload: {
-                await reloadTaskTimelines()
+                await timelineReloads.request()
             },
         )
     }

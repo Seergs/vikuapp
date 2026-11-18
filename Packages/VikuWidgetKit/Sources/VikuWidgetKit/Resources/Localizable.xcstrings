@@ -179,6 +179,22 @@
         }
       }
     },
+    "Not completed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not completed"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin completar"
+          }
+        }
+      }
+    },
     "Not connected" : {
       "localizations" : {
         "es" : {

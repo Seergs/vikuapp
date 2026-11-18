@@ -56,6 +56,7 @@ public enum VikuColor {
     /// styles, matches the design source's own gray scale. Adapts to
     /// light/dark automatically, see `Color+Platform.swift`. Kept for
     /// `VikuWidgetKit`, see this type's doc comment.
+    public static let textOnBrand = VikuPalette.standard.brandForeground
     public static let textSecondary = VikuPalette.standard.textSecondary
     public static let textTertiary = VikuPalette.standard.textTertiary
 

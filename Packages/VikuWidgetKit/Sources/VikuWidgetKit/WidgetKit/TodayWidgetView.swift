@@ -194,26 +194,11 @@ private struct TodayWidgetRow: View {
         }
     }
 
-    @ViewBuilder
     private var toggle: some View {
-        let circle = Circle()
-            .strokeBorder(task.isDone ? Color.clear : projectColor, lineWidth: 1.5)
-            .background(Circle().fill(task.isDone ? projectColor : Color.clear))
-            .frame(width: 14, height: 14)
-            .overlay {
-                if task.isDone {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 7, weight: .bold))
-                        .foregroundStyle(.white)
-                }
-            }
-
-        #if os(iOS)
-        Button(intent: ToggleTaskDoneIntent(taskID: task.id, accountID: accountID, isDone: !task.isDone)) { circle }
-            .buttonStyle(.plain)
-        #else
-        circle
-        #endif
+        WidgetTaskToggle(
+            taskID: task.id, accountID: accountID, sourceKind: VikuWidgetConfig.todayWidgetKind, title: task.title,
+            isDone: task.isDone, color: projectColor,
+        )
     }
 
     private var dueLabel: String? {
