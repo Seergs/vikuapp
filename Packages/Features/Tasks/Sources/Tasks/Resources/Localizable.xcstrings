@@ -1041,6 +1041,46 @@
         }
       }
     },
+    "Task created in %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tarea creada en %@"
+          }
+        }
+      }
+    },
+    "Task created in %@ and linked": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tarea creada en %@ y vinculada"
+          }
+        }
+      }
+    },
+    "Task created in %@, but couldn't be linked": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tarea creada en %@, pero no se pudo vincular"
+          }
+        }
+      }
+    },
+    "Task created in %@, but some labels couldn't be added": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tarea creada en %@, pero algunas etiquetas no se pudieron agregar"
+          }
+        }
+      }
+    },
     "Task created": {
       "localizations": {
         "es": {

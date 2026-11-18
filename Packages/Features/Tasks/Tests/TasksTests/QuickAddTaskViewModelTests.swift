@@ -112,6 +112,117 @@ struct QuickAddTaskViewModelTests {
         #expect(toastPresenter.shownMessages.first?.style == .success)
     }
 
+    @Test(arguments: [false, true])
+    func `success toast includes the project name for remote and local projects`(isLocal: Bool) async {
+        let project = Project(id: isLocal ? .local(UUID()) : .remote(7), title: "Work 🚀 100%")
+        let projects = FakeProjectRepository()
+        projects.projects = [project]
+        let toast = FakeToastPresenter()
+        let model = QuickAddTaskViewModel(
+            taskRepository: FakeTaskRepository(), projectRepository: projects, toastPresenter: toast,
+        )
+        await model.load()
+        model.selectedProjectID = project.id
+        model.input = "Buy milk"
+
+        let created = await model.save()
+
+        #expect(created?.projectID == project.id)
+        #expect(toast.shownMessages.last?.message == "Task created in Work 🚀 100%")
+        #expect(toast.shownMessages.last?.style == .success)
+    }
+
+    @Test(arguments: [false, true])
+    func `toast uses a matching preselected project when the list is unavailable`(loadFails: Bool) async {
+        let projects = FakeProjectRepository()
+        projects.fetchError = .network("offline")
+        let toast = FakeToastPresenter()
+        let model = QuickAddTaskViewModel(
+            preselectedProjectID: 7, preselectedProject: Project(id: 7, title: "Work"),
+            taskRepository: FakeTaskRepository(), projectRepository: projects, toastPresenter: toast,
+        )
+        if loadFails {
+            await model.load()
+        }
+        model.input = "Buy milk"
+
+        _ = await model.save()
+
+        #expect(toast.shownMessages.last?.message == "Task created in Work")
+    }
+
+    @Test
+    func `toast does not use a preselected name for another destination`() async {
+        let toast = FakeToastPresenter()
+        let model = QuickAddTaskViewModel(
+            preselectedProjectID: 7, preselectedProject: Project(id: 7, title: "Work"),
+            taskRepository: FakeTaskRepository(), projectRepository: FakeProjectRepository(), toastPresenter: toast,
+        )
+        model.selectedProjectID = 8
+        model.input = "Buy milk"
+
+        _ = await model.save()
+
+        #expect(toast.shownMessages.last?.message == "Task created")
+    }
+
+    @Test
+    func `toast keeps the creation destination when selection changes during saving`() async {
+        let tasks = FakeTaskRepository()
+        let projects = FakeProjectRepository()
+        projects.projects = [Project(id: 7, title: "Work"), Project(id: 8, title: "Home")]
+        let toast = FakeToastPresenter()
+        let model = QuickAddTaskViewModel(
+            taskRepository: tasks, projectRepository: projects, toastPresenter: toast,
+        )
+        await model.load()
+        model.selectedProjectID = 7
+        model.input = "Buy milk"
+        tasks.beforeCreateReturns = { await MainActor.run { model.selectedProjectID = 8 } }
+
+        let created = await model.save()
+
+        #expect(created?.projectID == 7)
+        #expect(toast.shownMessages.last?.message == "Task created in Work")
+    }
+
+    @Test(arguments: [false, true])
+    func `relation toast keeps its fallback when the project name is unavailable`(linked: Bool) async {
+        let toast = FakeToastPresenter()
+        let model = QuickAddTaskViewModel(
+            preselectedProjectID: 7,
+            taskRepository: FakeTaskRepository(), projectRepository: FakeProjectRepository(), toastPresenter: toast,
+            onTaskCreated: { _ in linked },
+        )
+        model.input = "Buy milk"
+
+        _ = await model.save()
+
+        #expect(toast.shownMessages.last?.message == (
+            linked ? "Task created and linked" : "Task created, but couldn't be linked"
+        ))
+        #expect(toast.shownMessages.last?.style == (linked ? .success : .error))
+    }
+
+    @Test
+    func `failed creation keeps the draft and emits no success toast`() async {
+        let tasks = FakeTaskRepository()
+        tasks.createError = .network("offline")
+        let toast = FakeToastPresenter()
+        let model = QuickAddTaskViewModel(
+            preselectedProjectID: 7, preselectedProject: Project(id: 7, title: "Work"),
+            taskRepository: tasks, projectRepository: FakeProjectRepository(), toastPresenter: toast,
+        )
+        model.input = "Buy milk"
+
+        let created = await model.save()
+
+        #expect(created == nil)
+        #expect(toast.shownMessages.isEmpty)
+        #expect(model.input == "Buy milk")
+        #expect(model.saveErrorMessage != nil)
+    }
+
     @Test
     func `save broadcasts the created task's project`() async {
         let broadcaster = FakeTaskChangeBroadcaster()
