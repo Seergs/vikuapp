@@ -6,7 +6,7 @@ nonisolated enum UITestFixtureError: Error {
     case unsupported(String)
 }
 
-/// Empty auxiliary catalogs for the initial fixture. Unimplemented commands fail
+/// Minimal auxiliary catalogs for the fixture. Unimplemented commands fail
 /// explicitly; no method can fall back to a live network adapter.
 actor UITestAuxiliaryRepository: AuthServiceProtocol, LabelRepositoryProtocol, UserRepositoryProtocol,
     TaskRelationRepositoryProtocol,
@@ -29,7 +29,7 @@ actor UITestAuxiliaryRepository: AuthServiceProtocol, LabelRepositoryProtocol, U
     }
 
     func fetchLabels() async throws -> [Label] {
-        []
+        [UITestFixtures.navigationLabel]
     }
 
     func create(_ label: Label) async throws -> Label {

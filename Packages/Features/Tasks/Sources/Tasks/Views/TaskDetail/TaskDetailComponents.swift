@@ -166,10 +166,18 @@ struct SectionHeaderButton: View {
 struct LabelsWrap: View {
     let labels: [VikunjaCore.Label]
 
+    private func accessibilityID(for id: EntityID) -> String {
+        switch id {
+        case let .remote(id): "taskDetail.label.remote.\(id)"
+        case let .local(id): "taskDetail.label.local.\(id.uuidString)"
+        }
+    }
+
     var body: some View {
         FlowLayout(spacing: VikuSpacing.sm - VikuSpacing.xxs) {
             ForEach(labels) { label in
                 VikuLabelChip(label: label)
+                    .accessibilityIdentifier(accessibilityID(for: label.id))
             }
         }
     }
