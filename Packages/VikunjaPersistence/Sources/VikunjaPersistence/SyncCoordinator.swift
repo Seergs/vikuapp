@@ -9,6 +9,7 @@ public actor SyncCoordinator {
     private let accountStore: AccountStoreProtocol
     private let clientFactory: InstanceClientFactoryProtocol
     private let reachability: ReachabilityMonitoring
+    private let onAccountDataChanged: @Sendable () async -> Void
     private let onKanbanCreationRejected: @Sendable (UUID) async -> Void
     private let tokenProvider: @Sendable (InstanceAccount) -> @Sendable () async throws -> String?
     private var observationTask: Task<Void, Never>?
@@ -21,6 +22,7 @@ public actor SyncCoordinator {
         var requestedBoards: Set<EntityID> = []
         var pendingBoards: Set<EntityID> = []
         var pendingThreads: Set<EntityID> = []
+        var priorityUploads: Set<EntityID> = []
     }
 
     /// A saved credential must receive a successful pass even with an existing
@@ -37,6 +39,7 @@ public actor SyncCoordinator {
         reachability: ReachabilityMonitoring,
         tokenProvider: @escaping @Sendable (InstanceAccount) -> @Sendable () async throws -> String?,
         onKanbanCreationRejected: @escaping @Sendable (UUID) async -> Void = { _ in },
+        onAccountDataChanged: @escaping @Sendable () async -> Void = {},
     ) {
         self.localStore = localStore
         self.accountStore = accountStore
@@ -44,6 +47,7 @@ public actor SyncCoordinator {
         self.reachability = reachability
         self.tokenProvider = tokenProvider
         self.onKanbanCreationRejected = onKanbanCreationRejected
+        self.onAccountDataChanged = onAccountDataChanged
     }
 
     deinit { observationTask?.cancel() }
@@ -125,17 +129,27 @@ public actor SyncCoordinator {
         }
     }
 
-    public func refresh(accountID: UUID, scope: SyncScope) async throws {
+    public func refresh(
+        accountID: UUID, scope: SyncScope, cancelWorkerOnCancellation: Bool = false,
+    ) async throws {
         try Task.checkCancellation()
         try localStore.executionLifecycle?.checkAccess()
-        guard await reachability.isReachable else { throw VikunjaError.offline }
+        guard await !reachability.isKnownOffline else { throw VikunjaError.offline }
         guard !reloadingAccounts.contains(accountID) else { throw LocalStoreError.accountReloadInProgress }
         await finishCancelledWork(accountID: accountID)
         try localStore.executionLifecycle?.checkAccess()
         guard !reloadingAccounts.contains(accountID) else { throw LocalStoreError.accountReloadInProgress }
         let task = enqueue(accountID: accountID, scope: scope, afterWrite: false)
         // A disappearing screen must not cancel work shared with other triggers.
-        do { try await task.value } catch {
+        do {
+            try await withTaskCancellationHandler {
+                try await task.value
+            } onCancel: {
+                if cancelWorkerOnCancellation {
+                    task.cancel()
+                }
+            }
+        } catch {
             if task.isCancelled {
                 throw CancellationError()
             }
@@ -189,6 +203,9 @@ public actor SyncCoordinator {
                 work.needsAnotherPass = true
             }
             work.includesAccountPass = work.includesAccountPass || scope.includesAccount
+            if let id = scope.uploadTaskID {
+                work.priorityUploads.insert(id)
+            }
             if let id = scope.commentTaskID, work.requestedThreads.insert(id).inserted {
                 work.pendingThreads.insert(id)
             }
@@ -208,6 +225,9 @@ public actor SyncCoordinator {
         var work = Work(task: task)
         work.includesAccountPass = scope.includesAccount
         work.needsAnotherPass = scope.includesAccount
+        if let id = scope.uploadTaskID {
+            work.priorityUploads.insert(id)
+        }
         if let id = scope.commentTaskID {
             work.requestedThreads.insert(id)
             work.pendingThreads.insert(id)
@@ -222,6 +242,30 @@ public actor SyncCoordinator {
 
     private func run(accountID: UUID) async throws {
         defer { workByAccount[accountID] = nil }
+        let ownership = SyncOwnership(accountID: accountID)
+        try await ownership.acquire(in: localStore)
+        let before = try? await LocalTaskSnapshotReader(localStore: localStore).loadSnapshot(accountID: accountID)
+        do {
+            try await runOwned(accountID: accountID)
+            await ownership.release(in: localStore)
+            await notifyDataChange(accountID: accountID, before: before)
+        } catch {
+            await ownership.release(in: localStore)
+            await notifyDataChange(accountID: accountID, before: before)
+            throw error
+        }
+    }
+
+    private func notifyDataChange(accountID: UUID, before: LocalTaskSnapshot?) async {
+        guard !Task.isCancelled else { return }
+        let after = try? await LocalTaskSnapshotReader(localStore: localStore).loadSnapshot(accountID: accountID)
+        if before?.tasks != after?.tasks || before?.projects != after?.projects
+            || before?.hasPendingChanges != after?.hasPendingChanges {
+            await onAccountDataChanged()
+        }
+    }
+
+    private func runOwned(accountID: UUID) async throws {
         var failure: (any Error)?
         var boardFailures: [EntityID: any Error] = [:]
         var threadFailures: [EntityID: any Error] = [:]
@@ -231,6 +275,7 @@ public actor SyncCoordinator {
                 throw VikunjaError.notFound
             }
             let engine = makeEngine(account)
+            try await uploadPriorityTasks(accountID: accountID, engine: engine)
             let authenticationRevision = authenticationRefreshes[accountID]
             let needsPass = workByAccount[accountID]?.needsAnotherPass ?? false
             workByAccount[accountID]?.needsAnotherPass = false
@@ -260,13 +305,7 @@ public actor SyncCoordinator {
                 workByAccount[accountID]?.requestedThreads.remove(id)
             }
             boardFailures = await pullPendingBoards(account, previousFailures: boardFailures)
-            if workByAccount[accountID]?.pendingBoards.isEmpty == false {
-                continue
-            }
-            if workByAccount[accountID]?.needsAnotherPass == true {
-                continue
-            }
-            if workByAccount[accountID]?.pendingThreads.isEmpty == false {
+            if hasPendingWork(accountID: accountID) {
                 continue
             }
             break
@@ -274,6 +313,21 @@ public actor SyncCoordinator {
         if let failure = failure ?? threadFailures.values.first ?? boardFailures.values.first {
             throw failure
         }
+    }
+
+    private func uploadPriorityTasks(accountID: UUID, engine: SyncEngine) async throws {
+        let taskIDs = workByAccount[accountID]?.priorityUploads ?? []
+        workByAccount[accountID]?.priorityUploads = []
+        for taskID in taskIDs {
+            try Task.checkCancellation()
+            try await engine.drainTaskMutations(onlyTaskID: taskID)
+        }
+    }
+
+    private func hasPendingWork(accountID: UUID) -> Bool {
+        guard let work = workByAccount[accountID] else { return false }
+        return !work.priorityUploads.isEmpty || !work.pendingBoards.isEmpty
+            || work.needsAnotherPass || !work.pendingThreads.isEmpty
     }
 
     private func acknowledgeAuthenticationRefresh(_ revision: UUID?, accountID: UUID) {
@@ -325,6 +379,19 @@ public actor SyncCoordinator {
         guard let account = try await accountStore.fetchAccounts().first(where: { $0.id == accountID }) else {
             throw VikunjaError.notFound
         }
+        let ownership = SyncOwnership(accountID: accountID)
+        try await ownership.acquire(in: localStore)
+        do {
+            try await replaceOwnedAccount(account)
+            await ownership.release(in: localStore)
+        } catch {
+            await ownership.release(in: localStore)
+            throw error
+        }
+    }
+
+    private func replaceOwnedAccount(_ account: InstanceAccount) async throws {
+        let accountID = account.id
         let original = try await localStore.beginAccountReload(accountID: accountID)
         do {
             let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -334,7 +401,7 @@ public actor SyncCoordinator {
             try await makeEngine(account, store: staging).downloadReplacement(original: original)
             try Task.checkCancellation()
             let replacement = try await staging.read { db in try AccountSnapshot(accountID: accountID, db: db) }
-            try await localStore.replaceAccount(accountID: accountID, with: replacement)
+            try await localStore.replaceAccount(accountID: accountID, with: replacement, expecting: original)
             await localStore.endAccountReload(accountID: accountID)
         } catch {
             await localStore.endAccountReload(accountID: accountID)

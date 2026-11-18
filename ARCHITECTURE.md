@@ -1295,3 +1295,32 @@ and accepted credential revisions rebuild the shell as before.
 
 Package regressions cover rejected identity changes, unchanged remote
 destinations and preserved intent that can subsequently drain on the source.
+
+## Shared process synchronization
+
+All production queue drains and account replacements go through `SyncCoordinator`.
+A `syncOwnership` row serializes each account across app and extension processes.
+Acquisition and release use short SQLite transactions; there is no file lock or
+SQLite transaction held during network awaits. Ownership does not expire while
+its process is alive, so a slow or suspended worker cannot be displaced while its
+request might still be executing. A process-local registry distinguishes completed
+workers from active workers in the same process. Confirmed process death permits
+recovery; a process start timestamp distinguishes PID reuse when available.
+Process-status access failures are treated as busy, never as permission to send
+concurrently. Every new synchronization entry point must honor this ownership.
+
+Ownership cleanup is attempted from an uncancelled task, but still obeys
+`DatabaseExecutionLifecycle`. If execution has already expired, cleanup does not
+reopen the suspended database: the owning process reclaims its completed worker's
+record on its next execution. Another process conservatively defers until that
+happens or it can establish the owner's death. This favors preventing duplicate
+submissions over immediate availability. Ownership does not provide server-side
+exactly-once delivery after a lost response; existing mutation-specific replay
+and conflict safeguards still apply.
+
+Darwin notifications invalidate GRDB observations after committed local writes,
+without carrying account data or making the receiver synchronize recursively.
+Foreground activation explicitly invalidates again to cover notifications missed
+while suspended. A replacement snapshot checks its original account snapshot in
+the replacement transaction, rejecting edits committed by the other process during
+its download.

@@ -52,6 +52,14 @@ enum DatabaseMigrations {
             }
         }
         migrator.registerMigration("createTaskAttachmentMetadata", migrate: createTaskAttachmentMetadata)
+        migrator.registerMigration("createSyncOwnership") { db in
+            try db.create(table: "syncOwnership") { table in
+                table.primaryKey("accountID", .text)
+                table.column("token", .text).notNull()
+                table.column("processID", .integer).notNull()
+                table.column("processStartedAt", .text)
+            }
+        }
     }
 
     private static func createTaskAttachmentMetadata(_ db: Database) throws {
