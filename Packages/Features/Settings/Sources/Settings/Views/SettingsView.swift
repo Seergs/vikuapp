@@ -46,6 +46,7 @@ struct SettingsView: View {
                 ) {
                     router.push(SettingsRoute.appearance)
                 }
+                .accessibilityIdentifier("settings.appearance")
 
                 Toggle(isOn: badgeEnabledBinding) {
                     HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {

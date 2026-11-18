@@ -35,6 +35,8 @@ struct AppearancePickerView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("settings.appearance.option.\(theme.rawValue)")
+                    .accessibilityAddTraits(theme == themeStore.theme ? .isSelected : [])
                 }
             }
             .listRowBackground(palette.cardBackground)

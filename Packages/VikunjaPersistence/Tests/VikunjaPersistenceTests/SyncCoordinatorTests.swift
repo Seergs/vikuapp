@@ -911,7 +911,8 @@ struct SyncCoordinatorTests {
         await pass.value
     }
 
-    @Test func `reconnection is processed while another account still has an unfinished request`() async throws {
+    @Test(.timeLimit(.minutes(1)))
+    func `reconnection is processed while another account still has an unfinished request`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let accountStore = FakeAccountStore()
         let factory = FakeInstanceClientFactory()
@@ -924,21 +925,33 @@ struct SyncCoordinatorTests {
         defer { continuation.finish() }
         factory.projectRepository(for: first.baseURL).beforeFetchResponse = { for await _ in release {} }
         let healthy = factory.projectRepository(for: second.baseURL)
+        let fetchStarted = AsyncStream<Void>.makeStream()
+        let projectCreated = AsyncStream<Void>.makeStream()
+        defer {
+            fetchStarted.continuation.finish()
+            projectCreated.continuation.finish()
+        }
+        healthy.onFetchProjects = { fetchStarted.continuation.yield() }
+        healthy.beforeCreateResponse = { projectCreated.continuation.yield() }
         let coordinator = SyncCoordinator(
             localStore: store, accountStore: accountStore, clientFactory: factory,
             reachability: reachability, tokenProvider: { _ in { "token" } },
         )
         await coordinator.start()
-        await waitUntil { await reachability.hasSubscriber }
+        await reachability.waitForSubscription()
         await reachability.signalRegained()
-        await waitUntil { healthy.fetchProjectsCallCount == 1 }
+        var fetchEvents = fetchStarted.stream.makeAsyncIterator()
+        try #require(await fetchEvents.next() != nil)
         await reachability.setReachable(false)
         let projects = OfflineProjectRepository(
             localStore: store, accountID: second.id, syncRequester: NoopKanbanSyncRequester(),
         )
         _ = try await projects.create(Project(id: .local(UUID()), title: "Offline"))
         await reachability.signalRegained()
-        await waitUntil { healthy.createdProjects.count == 1 }
+        // Observe the upload before releasing the stalled account. Scheduler
+        // latency under parallel CI load must not masquerade as blocked sync.
+        var creationEvents = projectCreated.stream.makeAsyncIterator()
+        try #require(await creationEvents.next() != nil)
         #expect(healthy.createdProjects.count == 1)
         continuation.finish()
         await coordinator.syncAllAccounts()
