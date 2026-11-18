@@ -1,6 +1,26 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Development build" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Versión de desarrollo"
+          }
+        }
+      }
+    },
+    "DEV" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DEV"
+          }
+        }
+      }
+    },
     "%lld overdue · %lld today" : {
       "localizations" : {
         "es" : {

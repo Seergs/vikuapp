@@ -16,6 +16,7 @@ struct CalendarWidgetView: View {
         content
             .padding(contentInset)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .widgetDevBadge()
             .containerBackground(VikuColor.Surface.page, for: .widget)
             .widgetURL(URL(string: "\(VikuWidgetConfig.urlScheme)://calendar"))
     }
