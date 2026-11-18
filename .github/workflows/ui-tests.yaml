@@ -1,0 +1,35 @@
+name: UI Tests
+
+on:
+  workflow_dispatch:
+
+jobs:
+  ui-tests:
+    runs-on: macos-26
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_26.2.app
+
+      - name: Run UI tests
+        run: |
+          xcodebuild test \
+            -project Viku.xcodeproj \
+            -scheme VikuUITests \
+            -configuration Debug \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.2' \
+            -parallel-testing-enabled NO \
+            -resultBundlePath TestResults/UI.xcresult \
+            -skipMacroValidation \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Upload tests results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-tests-results
+          path: TestResults/UI.xcresult
+          if-no-files-found: warn
