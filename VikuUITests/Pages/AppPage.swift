@@ -21,6 +21,15 @@ struct AppPage {
         return ProjectsPage(app: app)
     }
 
+    func showSearch(file: StaticString = #filePath, line: UInt = #line) -> SearchPage {
+        let tab = app.tabBars.buttons["Search"]
+        XCTAssertTrue(tab.waitForExistence(timeout: 5), file: file, line: line)
+        tab.tap()
+        let page = SearchPage(app: app)
+        page.assertVisible(file: file, line: line)
+        return page
+    }
+
     func showToday(file: StaticString = #filePath, line: UInt = #line) -> TodayPage {
         let tab = app.tabBars.buttons["Home"]
         XCTAssertTrue(tab.waitForExistence(timeout: 5), file: file, line: line)

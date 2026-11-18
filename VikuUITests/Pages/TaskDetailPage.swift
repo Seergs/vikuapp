@@ -49,6 +49,15 @@ struct TaskDetailPage {
         )
     }
 
+    func backToSearch(file: StaticString = #filePath, line: UInt = #line) -> SearchPage {
+        let back = app.navigationBars["Task Details"].buttons["Search"]
+        XCTAssertTrue(back.waitForExistence(timeout: 5), file: file, line: line)
+        back.tap()
+        let page = SearchPage(app: app)
+        page.assertVisible(file: file, line: line)
+        return page
+    }
+
     func backToToday(file: StaticString = #filePath, line: UInt = #line) -> TodayPage {
         let back = app.navigationBars["Task Details"].buttons["Today"]
         XCTAssertTrue(back.waitForExistence(timeout: 5), file: file, line: line)
