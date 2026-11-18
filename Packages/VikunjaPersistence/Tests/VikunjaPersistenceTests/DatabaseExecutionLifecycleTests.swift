@@ -292,6 +292,24 @@ struct DatabaseExecutionLifecycleTests {
         #expect(try await store.pendingSyncOperations(accountID: first.id).isEmpty)
     }
 
+    @Test func `expired execution never writes ownership cleanup into a suspended database`() async throws {
+        let lifecycle = DatabaseExecutionLifecycle()
+        defer { lifecycle.setForeground(true) }
+        let store = try makeStore(lifecycle)
+        let accountID = UUID()
+        let owner = SyncOwnership(accountID: accountID)
+        try await owner.acquire(in: store)
+        lifecycle.setForeground(false)
+        await owner.release(in: store)
+        #expect(lifecycle.isSuspended)
+        // Cleanup can be deferred safely; the next execution reclaims the
+        // completed worker's record without reviving the suspended database.
+        lifecycle.setForeground(true)
+        let next = SyncOwnership(accountID: accountID)
+        try await next.acquire(in: store)
+        await next.release(in: store)
+    }
+
     private func makeStore(_ lifecycle: DatabaseExecutionLifecycle) throws -> LocalStore {
         try LocalStore(
             directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString),

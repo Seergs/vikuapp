@@ -1314,15 +1314,20 @@ public actor SyncEngine {
     /// Same shape as `drainProjectMutations()`, including the conflict
     /// re-pull: a task mutation can be flagged `.conflicted` in
     /// `drainTaskUpdate`, exactly like a project's.
-    public func drainTaskMutations() async throws {
+    public func drainTaskMutations(onlyTaskID: EntityID? = nil) async throws {
         try await recoverTaskBulkUpdates()
         try await recoverKanbanCreations()
         try await recoverKanbanMoves()
         try await recoverKanbanPositions()
         let items = try await localStore.read { db in
-            try MutationQueueRecord.fetchAll(db)
+            let targetLocalID = try onlyTaskID.flatMap { id in
+                try TaskRecord.filter(Column("accountID") == self.accountID).fetchAll(db)
+                    .first { id == .local($0.localID) || id == $0.remoteID.map(EntityID.remote) }?.localID
+            }
+            return try MutationQueueRecord.fetchAll(db)
                 .filter {
                     $0.accountID == self.accountID && $0.entityType == .task
+                        && (onlyTaskID == nil || $0.targetLocalID == targetLocalID)
                         && ($0.status == .pending || $0.status == .failed) && !$0.needsConflictResolution
                 }
                 .sorted { ($0.id ?? 0) < ($1.id ?? 0) }

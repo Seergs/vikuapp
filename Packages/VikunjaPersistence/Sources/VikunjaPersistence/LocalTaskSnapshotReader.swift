@@ -10,17 +10,19 @@ public struct LocalTaskSnapshot: Sendable {
     public let tasks: [VikunjaTask]
     public let projects: [Project]
     public let lastPulledAt: Date?
+    public let hasPendingChanges: Bool
 
-    public init(tasks: [VikunjaTask], projects: [Project], lastPulledAt: Date?) {
+    public init(tasks: [VikunjaTask], projects: [Project], lastPulledAt: Date?, hasPendingChanges: Bool = false) {
         self.tasks = tasks
         self.projects = projects
         self.lastPulledAt = lastPulledAt
+        self.hasPendingChanges = hasPendingChanges
     }
 }
 
-/// Reads the offline cache without triggering a pull or touching the network.
-/// This is the fallback the widget extensions use when their own API request
-/// fails, replacing the old App Group JSON snapshots.
+/// Reads effective local task state without triggering a pull or touching the
+/// network. Widgets use this source after successful, failed or skipped syncs;
+/// raw API responses never replace optimistic local completion intent.
 public struct LocalTaskSnapshotReader: Sendable {
     private let localStore: LocalStore
 
@@ -90,7 +92,10 @@ public struct LocalTaskSnapshotReader: Sendable {
                 )
             }
 
-            return LocalTaskSnapshot(tasks: tasks, projects: projects, lastPulledAt: lastPulledAt)
+            let pending = try MutationQueueRecord.filter(Column("accountID") == resolvedAccountID).fetchCount(db) > 0
+            return LocalTaskSnapshot(
+                tasks: tasks, projects: projects, lastPulledAt: lastPulledAt, hasPendingChanges: pending,
+            )
         }
     }
 

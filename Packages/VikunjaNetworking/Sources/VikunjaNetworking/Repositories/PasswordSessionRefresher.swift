@@ -25,6 +25,7 @@ public actor PasswordSessionRefresher {
 
     private let accountStore: AccountStoreProtocol
     private let session: URLSession
+    private let cancelRefreshOnCancellation: Bool
     /// Notified the moment a refresh is found to be unrecoverable — `nil` in
     /// contexts with no UI to react to it (the widget extension).
     private let sessionExpiryReporter: SessionExpiryReporting?
@@ -34,10 +35,12 @@ public actor PasswordSessionRefresher {
         accountStore: AccountStoreProtocol,
         session: URLSession = .vikunjaDefault,
         sessionExpiryReporter: SessionExpiryReporting? = nil,
+        cancelRefreshOnCancellation: Bool = false,
     ) {
         self.accountStore = accountStore
         self.session = session
         self.sessionExpiryReporter = sessionExpiryReporter
+        self.cancelRefreshOnCancellation = cancelRefreshOnCancellation
     }
 
     private struct SessionReplaced: Error {}
@@ -115,12 +118,27 @@ public actor PasswordSessionRefresher {
         stored: String,
     ) async throws -> String? {
         if let existing = inFlight[account.id] {
-            return try await existing.value.get()
+            return try await awaitRefresh(existing)
         }
         let task = Task { await self.performRefresh(account: account, credential: credential, stored: stored) }
         inFlight[account.id] = task
         defer { inFlight[account.id] = nil }
-        return try await task.value.get()
+        return try await awaitRefresh(task)
+    }
+
+    /// The app preserves shared renewals when a screen disappears. A widget's
+    /// single coordinator opts in so its execution deadline also stops renewal.
+    private func awaitRefresh(_ task: Task<Result<String?, Error>, Never>) async throws -> String? {
+        let cancelRefresh = cancelRefreshOnCancellation
+        return try await withTaskCancellationHandler {
+            let result = await task.value
+            try Task.checkCancellation()
+            return try result.get()
+        } onCancel: {
+            if cancelRefresh {
+                task.cancel()
+            }
+        }
     }
 
     /// Falls back to the stale stored token on a transient failure (network
@@ -143,6 +161,8 @@ public actor PasswordSessionRefresher {
             } else {
                 try await renewViaBearer(credential.accessToken, baseURL: account.baseURL)
             }
+            // A confirmed rotation must be saved even if the caller just
+            // cancelled; dropping it would strand the previous refresh token.
             let encodedData = try JSONEncoder().encode(updated)
             let encoded = String(data: encodedData, encoding: .utf8) ?? ""
             guard try await accountStore.updateSession(
@@ -150,6 +170,9 @@ public actor PasswordSessionRefresher {
             ) else { return .failure(SessionReplaced()) }
             return .success(updated.accessToken)
         } catch VikunjaError.unauthorized {
+            if Task.isCancelled {
+                return .failure(CancellationError())
+            }
             do {
                 guard try await accountStore.updateSession(
                     for: account, matchingToken: stored, token: nil, needsReauthentication: true,
@@ -160,6 +183,9 @@ public actor PasswordSessionRefresher {
                 return .failure(error)
             }
         } catch {
+            if Task.isCancelled {
+                return .failure(CancellationError())
+            }
             guard await (try? accountStore.token(forAccountID: account.id)) == stored else {
                 return .failure(SessionReplaced())
             }

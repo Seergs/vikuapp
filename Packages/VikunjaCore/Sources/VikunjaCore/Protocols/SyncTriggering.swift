@@ -17,12 +17,21 @@ public enum SyncScope: Hashable, Sendable {
     case task(EntityID)
     /// Demand-load a comment thread without refreshing the entire account.
     case comments(EntityID)
+    /// Upload this task's queued changes without downloading the account.
+    case taskUpload(EntityID)
 
     public var includesAccount: Bool {
         switch self {
         case .account, .task, .kanban: true
-        case .comments: false
+        case .comments, .taskUpload: false
         }
+    }
+
+    public var uploadTaskID: EntityID? {
+        if case let .taskUpload(id) = self {
+            return id
+        }
+        return nil
     }
 
     public var kanbanProjectID: EntityID? {
@@ -34,7 +43,7 @@ public enum SyncScope: Hashable, Sendable {
 
     public var commentTaskID: EntityID? {
         switch self {
-        case .account, .kanban: nil
+        case .account, .kanban, .taskUpload: nil
         case let .task(id), let .comments(id): id
         }
     }

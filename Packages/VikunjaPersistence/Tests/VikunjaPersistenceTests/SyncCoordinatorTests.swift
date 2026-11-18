@@ -991,3 +991,98 @@ struct SyncCoordinatorTests {
         await stopObserving(coordinator, reachability)
     }
 }
+
+extension SyncCoordinatorTests {
+    @Test(.timeLimit(.minutes(1)))
+    func `extension cancellation stops the owner before another coordinator sends requests`() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let appStore = try LocalStore(directory: directory)
+        let widgetStore = try LocalStore(directory: directory)
+        let accounts = FakeAccountStore()
+        let account = try makeAccount(host: "shared.example.com")
+        try await accounts.addAccount(account, token: "token")
+        let factory = FakeInstanceClientFactory()
+        let remote = factory.projectRepository(for: account.baseURL)
+        let started = AsyncStream<Void>.makeStream()
+        let blocked = AsyncStream<Void>.makeStream()
+        defer { started.continuation.finish(); blocked.continuation.finish() }
+        remote.beforeFetchResponse = {
+            started.continuation.yield()
+            for await _ in blocked.stream {}
+        }
+        let app = SyncCoordinator(
+            localStore: appStore,
+            accountStore: accounts,
+            clientFactory: factory,
+            reachability: CoordinatorReachabilityMonitor(),
+            tokenProvider: { _ in { "token" } },
+        )
+        let widget = SyncCoordinator(
+            localStore: widgetStore,
+            accountStore: accounts,
+            clientFactory: factory,
+            reachability: CoordinatorReachabilityMonitor(),
+            tokenProvider: { _ in { "token" } },
+        )
+        let request = Task {
+            try await app.refresh(accountID: account.id, scope: .account, cancelWorkerOnCancellation: true)
+        }
+        var signals = started.stream.makeAsyncIterator()
+        _ = await signals.next()
+        await #expect(throws: SyncOwnershipError.self) {
+            try await widget.refresh(accountID: account.id, scope: .account)
+        }
+        #expect(remote.fetchProjectsCallCount == 1)
+        request.cancel()
+        await #expect(throws: CancellationError.self) { try await request.value }
+        remote.beforeFetchResponse = nil
+        try await widget.refresh(accountID: account.id, scope: .account)
+        #expect(remote.fetchProjectsCallCount == 2)
+    }
+
+    @Test func `widget completion uploads without waiting for unrelated account downloads`() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try LocalStore(directory: directory)
+        let accounts = FakeAccountStore()
+        let account = try makeAccount(host: "priority.example.com")
+        try await accounts.addAccount(account, token: "token")
+        let factory = FakeInstanceClientFactory()
+        let projects = factory.projectRepository(for: account.baseURL)
+        let tasks = factory.taskRepository(for: account.baseURL)
+        projects.projects = [Project(id: 1, title: "Work")]
+        let now = Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: Date()) ?? Date()
+        tasks.tasks = [VikunjaTask(id: 10, title: "Task", dueDate: now, projectID: 1)]
+        let coordinator = SyncCoordinator(
+            localStore: store,
+            accountStore: accounts,
+            clientFactory: factory,
+            reachability: CoordinatorReachabilityMonitor(),
+            tokenProvider: { _ in { "token" } },
+        )
+        try await coordinator.refresh(accountID: account.id, scope: .account)
+        let repository = OfflineTaskRepository(
+            localStore: store, accountID: account.id,
+            syncRequester: NoopKanbanSyncRequester(),
+        )
+        projects.fetchError = VikunjaError.network("Project download unavailable")
+        let downloadsBeforeUpload = projects.fetchProjectsCallCount
+        let widgetConnection = try LocalStore(directory: directory)
+        let snapshotReader = LocalTaskSnapshotReader(localStore: widgetConnection)
+        for isDone in [true, false, true, false] {
+            _ = try await repository.setCompletion(taskIDs: [.remote(10)], isDone: isDone)
+            try await coordinator.refresh(accountID: account.id, scope: .taskUpload(.remote(10)))
+            #expect(projects.fetchProjectsCallCount == downloadsBeforeUpload)
+            #expect(tasks.tasks.first?.isDone == isDone)
+            let snapshot = try #require(try await snapshotReader.loadSnapshot(accountID: account.id))
+            #expect(snapshot.tasks.first?.isDone == isDone)
+            let digest = TodayDigest(tasks: snapshot.tasks, now: now)
+            let pendingToday = digest.today.filter { !$0.isDone }.count
+            #expect(pendingToday == (isDone ? 0 : 1))
+            #expect(!snapshot.hasPendingChanges)
+        }
+        #expect(tasks.completionCalls.count == 4)
+        #expect(try await store.pendingSyncOperations(accountID: account.id).isEmpty)
+    }
+}

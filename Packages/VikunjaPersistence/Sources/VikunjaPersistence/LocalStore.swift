@@ -23,6 +23,7 @@ public enum LocalStoreError: Error, Sendable, LocalizedError {
 /// being an actor rather than a class with locks.
 public actor LocalStore {
     private let dbPool: DatabasePool
+    private let notifications: SharedStoreNotifications
     nonisolated let executionLifecycle: DatabaseExecutionLifecycle?
     private var reloadingAccounts: Set<UUID> = []
 
@@ -43,6 +44,15 @@ public actor LocalStore {
         try migrator.migrate(dbPool)
         self.dbPool = dbPool
         self.executionLifecycle = executionLifecycle
+        self.notifications = SharedStoreNotifications(directory: directory) {
+            Task {
+                guard executionLifecycle?.isSuspended != true else { return }
+                try? await dbPool.write { db in
+                    try executionLifecycle?.checkAccess()
+                    try db.notifyChanges(in: .fullDatabase)
+                }
+            }
+        }
     }
 
     public init(appGroupIdentifier: String, executionLifecycle: DatabaseExecutionLifecycle? = nil) throws {
@@ -75,7 +85,7 @@ public actor LocalStore {
         try executionLifecycle?.checkAccess()
         let generation = executionLifecycle?.suspensionGeneration
         do {
-            return try await dbPool.write { db in
+            let result = try await dbPool.write { db in
                 try Task.checkCancellation()
                 try self.executionLifecycle?.checkAccess()
                 let before = try lockedAccounts.map { try AccountSnapshot(accountID: $0, db: db) }
@@ -89,7 +99,18 @@ public actor LocalStore {
                 }
                 return result
             }
+            notifications.post()
+            return result
         } catch { throw normalizedInterruption(error, since: generation) }
+    }
+
+    /// Resume can miss a Darwin notification. Refresh observations explicitly;
+    /// this emits no cross-process notification and cannot create a reload loop.
+    public func refreshExternalChanges() async {
+        try? await dbPool.write { db in
+            try self.executionLifecycle?.checkAccess()
+            try db.notifyChanges(in: .fullDatabase)
+        }
     }
 
     private nonisolated func normalizedInterruption(_ error: any Error, since generation: Int?) -> any Error {
@@ -120,9 +141,12 @@ public actor LocalStore {
         reloadingAccounts.remove(accountID)
     }
 
-    func replaceAccount(accountID: UUID, with snapshot: AccountSnapshot) async throws {
+    func replaceAccount(accountID: UUID, with snapshot: AccountSnapshot, expecting original: AccountSnapshot? = nil) async throws {
         try await writeTransaction(checkReloads: false) { db in
             try Task.checkCancellation()
+            if let original, try AccountSnapshot(accountID: accountID, db: db) != original {
+                throw LocalStoreError.accountReloadInProgress
+            }
             try snapshot.replace(accountID: accountID, db: db)
             try Task.checkCancellation()
         }
@@ -131,6 +155,7 @@ public actor LocalStore {
     /// Observe account content, including queued optimistic edits. Comparing
     /// account snapshots suppresses writes belonging only to another account.
     public func observeChanges(accountID: UUID) -> AsyncThrowingStream<Void, Error> {
+        notifications.observe()
         let values = ValueObservation.tracking { db in
             try AccountSnapshot(accountID: accountID, db: db, includeSyncStates: false)
         }
@@ -158,6 +183,7 @@ public actor LocalStore {
     public func observePendingSyncStatuses(
         accountID: UUID,
     ) -> AsyncThrowingStream<[SyncItemKey: SyncItemStatus], Error> {
+        notifications.observe()
         let observation = ValueObservation.tracking(
             regions: [Table("mutationQueueItem"), Table("project"), Table("task")],
         ) { db in
@@ -186,6 +212,7 @@ public actor LocalStore {
     public func observePendingSyncOperations(
         accountID: UUID,
     ) -> AsyncThrowingStream<[PendingSyncOperation], Error> {
+        notifications.observe()
         let observation = ValueObservation.tracking(
             regions: [
                 Table("mutationQueueItem"),
@@ -266,6 +293,7 @@ extension LocalStore: PendingSyncOperationsProviding {}
 
 extension LocalStore {
     func observeQuickAddSettings(accountID: UUID) -> AsyncThrowingStream<QuickAddMagicSettings, Error> {
+        notifications.observe()
         let values = ValueObservation.tracking { db in
             try QuickAddSettingsRecord.settings(accountID: accountID, db: db)
         }.removeDuplicates().values(in: dbPool)

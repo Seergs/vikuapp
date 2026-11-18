@@ -83,6 +83,31 @@ struct LocalTaskSnapshotReaderTests {
         }
     }
 
+    @Test func `widget and app read the same pending completion across connections`() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let app = try LocalStore(directory: directory)
+        let widget = try LocalStore(directory: directory)
+        let accountID = UUID()
+        let project = try await seedProject(in: app, accountID: accountID, remoteID: 1)
+        _ = try await seedTask(in: app, accountID: accountID, projectLocalID: project.localID, remoteID: 10)
+        let repository = OfflineTaskRepository(
+            localStore: widget, accountID: accountID,
+            syncRequester: NoopKanbanSyncRequester(),
+        )
+        _ = try await repository.setCompletion(taskIDs: [.remote(10)], isDone: true)
+        let appRepository = OfflineTaskRepository(
+            localStore: app, accountID: accountID,
+            syncRequester: NoopKanbanSyncRequester(),
+        )
+        #expect(try await appRepository.fetchTask(id: .remote(10)).isDone)
+        let reader = LocalTaskSnapshotReader(localStore: app)
+        let snapshot = try #require(try await reader.loadSnapshot(accountID: accountID))
+        #expect(snapshot.tasks.first?.isDone == true)
+        #expect(snapshot.hasPendingChanges)
+        #expect(try await app.pendingSyncOperations(accountID: accountID).count == 1)
+    }
+
     @Test
     func `reads remote tasks and projects while hiding local-only and pending-delete rows`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())

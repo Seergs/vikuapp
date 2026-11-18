@@ -53,7 +53,10 @@ struct VikuApp: App {
                 // `AppContainer.bootstrap()`'s `syncCoordinator.start()`
                 // already covers on its own.
                 if hasCompletedInitialActivation || needsSyncAfterResume {
-                    Task { await container.syncCoordinator.syncAllAccounts() }
+                    Task {
+                        await container.localStore.refreshExternalChanges()
+                        await container.syncCoordinator.syncAllAccounts()
+                    }
                 }
                 hasCompletedInitialActivation = true
                 needsSyncAfterResume = false

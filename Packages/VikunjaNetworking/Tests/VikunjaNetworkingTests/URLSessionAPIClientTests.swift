@@ -1794,6 +1794,40 @@ struct URLSessionAPIClientTests {
         }
     }
 
+    @Test(.timeLimit(.minutes(1)))
+    func `widget cancellation stops credential renewal without replacing or expiring the session`() async throws {
+        let started = AsyncStream<Void>.makeStream()
+        let stopped = AsyncStream<Void>.makeStream()
+        HangingRenewalProtocol.started = { started.continuation.yield() }
+        HangingRenewalProtocol.stopped = { stopped.continuation.yield() }
+        defer {
+            HangingRenewalProtocol.started = nil
+            HangingRenewalProtocol.stopped = nil
+            started.continuation.finish()
+            stopped.continuation.finish()
+        }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [HangingRenewalProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        let account = try PasswordRefresherFixtures.makeAccount(authMethod: .password)
+        let jwt = PasswordRefresherFixtures.makeJWT(exp: Date().addingTimeInterval(-60).timeIntervalSince1970)
+        let original = try PasswordRefresherFixtures.encode(accessToken: jwt, refreshToken: nil)
+        let store = PasswordRefresherFixtures.FakeAccountStore(account: account, tokens: [account.id: original])
+        let refresher = PasswordSessionRefresher(
+            accountStore: store, session: session, cancelRefreshOnCancellation: true,
+        )
+        let request = Task { try await refresher.validToken(for: account) }
+        var starts = started.stream.makeAsyncIterator()
+        _ = await starts.next()
+        request.cancel()
+        await #expect(throws: CancellationError.self) { try await request.value }
+        var stops = stopped.stream.makeAsyncIterator()
+        #expect(await stops.next() != nil)
+        #expect(try await store.token(forAccountID: account.id) == original)
+        #expect(await store.updatedAccounts.isEmpty)
+    }
+
     @Test
     func `password refresher passes an api token account through with no refresh attempt`() async throws {
         let account = try PasswordRefresherFixtures.makeAccount(authMethod: .apiToken)
@@ -2602,5 +2636,27 @@ private enum PasswordRefresherFixtures {
         func reportSessionExpired(accountID: InstanceAccount.ID) async {
             reportedAccountIDs.append(accountID)
         }
+    }
+}
+
+private final class HangingRenewalProtocol: URLProtocol {
+    nonisolated(unsafe) static var started: (@Sendable () -> Void)?
+    nonisolated(unsafe) static var stopped: (@Sendable () -> Void)?
+    // swiftlint:disable:next static_over_final_class
+    override class func canInit(with request: URLRequest) -> Bool {
+        true
+    }
+
+    // swiftlint:disable:next static_over_final_class
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        Self.started?()
+    }
+
+    override func stopLoading() {
+        Self.stopped?()
     }
 }
