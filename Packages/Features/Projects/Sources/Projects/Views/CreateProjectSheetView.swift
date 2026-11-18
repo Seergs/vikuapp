@@ -69,6 +69,7 @@ public struct CreateProjectSheetView: View {
                         Button(String(localized: "Save", bundle: .module), action: save)
                             .fontWeight(.bold)
                             .disabled(!viewModel.canSave)
+                            .accessibilityIdentifier("project.create.save")
                     }
                 }
             }
@@ -110,6 +111,7 @@ public struct CreateProjectSheetView: View {
                 .focused($isTitleFocused)
                 .submitLabel(.done)
                 .onSubmit(save)
+                .accessibilityIdentifier("project.create.name")
         }
         .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
         .padding(.vertical, VikuSpacing.sm + VikuSpacing.xxs)
@@ -246,5 +248,8 @@ private struct ParentProjectField: View {
             .background(palette.fieldBackground, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("project.create.parent")
+        .accessibilityLabel(Text("Parent Project", bundle: .module))
+        .accessibilityValue(Text(verbatim: project?.title ?? String(localized: "None", bundle: .module)))
     }
 }

@@ -49,6 +49,7 @@ struct ProjectsView: View {
                         .font(VikuFont.subheadline)
                         .fixedSize(horizontal: true, vertical: false)
                     }
+                    .accessibilityIdentifier("projects.create")
                 }
             }
             .sheet(isPresented: $isShowingCreateProject, onDismiss: {
@@ -439,6 +440,7 @@ private struct ProjectRow: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("\(accessibilityID).expand")
                 .accessibilityLabel(
                     isExpanded
                         ? Text("Collapse", bundle: .module)
@@ -460,6 +462,7 @@ private struct ProjectRow: View {
                 systemImage: "folder.badge.plus",
                 action: onAddSubproject,
             )
+            .accessibilityIdentifier("project.addSubproject")
             // `role: .destructive` alone renders blue here, not red: the tab
             // bar's brand tint leaks into the context menu and overrides the
             // role's tint. Pin it back to danger.
