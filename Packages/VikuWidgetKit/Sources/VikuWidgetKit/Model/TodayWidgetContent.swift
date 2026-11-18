@@ -67,6 +67,7 @@ public struct TodayWidgetContent: Sendable, Hashable, Codable {
         self.tasks = tasks
     }
 
+    /// Both the small widget and the badge count unfinished tasks only.
     public var pendingCount: Int {
         overdueCount + todayCount
     }
@@ -107,8 +108,8 @@ public struct TodayWidgetContent: Sendable, Hashable, Codable {
             accountName: accountName,
             generatedAt: now,
             overdueCount: digest.overdue.count,
-            todayCount: digest.today.count,
-            upcomingCount: digest.upcoming.count,
+            todayCount: digest.today.lazy.filter { !$0.isDone }.count,
+            upcomingCount: digest.upcoming.lazy.filter { !$0.isDone }.count,
             tasks: Array(ordered.prefix(taskLimit)),
         )
         content.accountID = accountID

@@ -187,8 +187,8 @@ final class AppContainer {
     /// account's relay registration is kept in sync with it, not just a
     /// freshly toggled one.
     let groupOverdueNotificationsStore: GroupOverdueNotificationsStoring
-    /// The user's app-icon-badge preference, and the only thing that calls
-    /// `setBadgeCount` — see `AppIconBadgeCenter`. Kept as the concrete type
+    /// The app process's badge preference and updater. Widgets share the
+    /// preference and update their local counts independently. Kept as the concrete type
     /// (not just `AppIconBadgeStoring`) since `refreshWidgetSnapshots()`
     /// below calls its `updateBadge(from:)`, which isn't part of that
     /// protocol.
@@ -227,7 +227,7 @@ final class AppContainer {
         self.currentUserStore = CurrentUserStore(defaults: defaults)
         self.projectTaskSummaryStore = ProjectTaskSummaryStore(defaults: defaults)
         self.homeSelectionStore = HomeSelectionStore(defaults: defaults)
-        self.appIconBadgeCenter = AppIconBadgeCenter(defaults: defaults)
+        self.appIconBadgeCenter = Self.makeAppIconBadgeCenter(defaults: defaults, isUITesting: isUITesting)
         self.serverVersionStore = ServerVersionStore(defaults: defaults)
         self.taskSortStore = TaskSortCenter(defaults: defaults)
         self.whatsNewSeenVersionStore = WhatsNewSeenVersionStore(defaults: defaults)
@@ -267,6 +267,13 @@ final class AppContainer {
             contentProvider: BundledWhatsNewContentProvider(),
             seenVersionStore: whatsNewSeenVersionStore,
         )
+    }
+
+    private static func makeAppIconBadgeCenter(defaults: UserDefaults, isUITesting: Bool) -> AppIconBadgeCenter {
+        let suiteName = isUITesting
+            ? "\(VikuWidgetConfig.appGroupIdentifier).uitesting"
+            : VikuWidgetConfig.appGroupIdentifier
+        return AppIconBadgeCenter(defaults: defaults, sharedPreference: AppIconBadgePreference(suiteName: suiteName))
     }
 
     /// Opens the shared offline database, preferring the App Group

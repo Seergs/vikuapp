@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 import VikunjaCore
+import VikunjaPersistence
 @testable import VikuWidgetKit
 
 struct WidgetTimelineReloadsTests {
@@ -110,6 +111,28 @@ struct WidgetTimelineReloadsTests {
         await reloads.request()
         #expect(await events.values == ["reload"])
     }
+
+    @Test func `both widget readers and the small counter reflect completing and reopening`() async throws {
+        let now = Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: Date()) ?? Date()
+        let account = TestSupport.account()
+        let tasks = SharedWidgetTasks(now: now)
+        let accounts = FakeAccountStore(account: account, token: nil)
+        let today = TodaySnapshotLoader(accountStore: accounts, localSnapshotProvider: tasks, now: { now })
+        let calendar = CalendarSnapshotLoader(accountStore: accounts, localSnapshotProvider: tasks, now: { now })
+        let completion = WidgetTaskCompletion(repository: tasks, synchronize: {}, reload: {})
+        for isDone in [true, false, true, false] {
+            try await completion.setCompletion(taskID: 10, isDone: isDone)
+            guard case let .content(todayContent) = await today.loadState(),
+                  case let .content(calendarContent) = await calendar.loadState() else {
+                Issue.record("Both widget readers must return local content")
+                return
+            }
+            #expect(todayContent.todayCount == (isDone ? 0 : 1))
+            #expect(todayContent.pendingCount == (isDone ? 0 : 1))
+            #expect(todayContent.tasks.first?.isDone == isDone)
+            #expect(calendarContent.todayTasks.first?.isDone == isDone)
+        }
+    }
 }
 
 private actor ReloadEvents {
@@ -123,5 +146,27 @@ private actor ReloadKindRequests {
     private(set) var values: [Set<String>] = []
     func append(_ kinds: Set<String>) {
         values.append(kinds)
+    }
+}
+
+private actor SharedWidgetTasks: TaskBulkUpdateRepositoryProtocol, WidgetLocalTaskSnapshotProviding {
+    let now: Date
+    private var isDone = false
+    init(now: Date) {
+        self.now = now
+    }
+
+    func apply(_ change: TaskBulkChange, toTaskIDs _: [EntityID]) -> [VikunjaTask] {
+        if case let .completion(value) = change {
+            isDone = value
+        }
+        return []
+    }
+
+    func loadSnapshot(accountID _: UUID?) -> LocalTaskSnapshot? {
+        LocalTaskSnapshot(
+            tasks: [VikunjaTask(id: 10, title: "Task", isDone: isDone, dueDate: now, projectID: 1)],
+            projects: [Project(id: 1, title: "Project")], lastPulledAt: now,
+        )
     }
 }

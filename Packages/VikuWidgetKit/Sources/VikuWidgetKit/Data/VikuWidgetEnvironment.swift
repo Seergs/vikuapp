@@ -1,4 +1,5 @@
 import Foundation
+import UserNotifications
 #if canImport(WidgetKit)
 import WidgetKit
 #endif
@@ -39,6 +40,17 @@ public enum VikuWidgetEnvironment {
         PasswordSessionRefresher(accountStore: makeAccountStore(), cancelRefreshOnCancellation: true)
     }
 
+    private static let badgeUpdater = WidgetBadgeUpdater(
+        accountStore: makeAccountStore(),
+        localSnapshotProvider: makeLocalSnapshotProvider(),
+        isEnabled: { AppIconBadgePreference().isEnabled },
+        writeCount: { try await UNUserNotificationCenter.current().setBadgeCount($0) },
+    )
+
+    public static func refreshBadge() async {
+        await badgeUpdater.refresh()
+    }
+
     private static let timelineReloads = WidgetTimelineReloads { kinds in
         #if canImport(WidgetKit)
         await MainActor.run {
@@ -65,6 +77,7 @@ public enum VikuWidgetEnvironment {
             reachability: NWPathReachabilityMonitor(),
             tokenProvider: { account in { try await refresher.validToken(for: account) } },
             onAccountDataChanged: {
+                await refreshBadge()
                 await timelineReloads.request()
             },
         )
@@ -112,6 +125,7 @@ public enum VikuWidgetEnvironment {
             repository: repository,
             synchronize: { try await synchronize(accountID: accountID, taskID: .remote(taskID)) },
             reload: {
+                await refreshBadge()
                 await timelineReloads.request()
             },
         )
