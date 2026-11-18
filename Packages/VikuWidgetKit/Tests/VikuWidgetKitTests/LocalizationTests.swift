@@ -62,6 +62,8 @@ struct LocalizationTests {
 
     @Test(arguments: [
         ("Not connected", "No conectado"),
+        ("DEV", "DEV"),
+        ("Development build", "Versión de desarrollo"),
         ("Sign in again", "Inicia sesión de nuevo"),
         (
             "Your token was rejected. Re-add the connection in Settings.",

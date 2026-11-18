@@ -2,6 +2,7 @@
 // this out of the macOS build where that family is unavailable.
 #if canImport(WidgetKit) && os(iOS)
 import SwiftUI
+import VikuDesignSystem
 import WidgetKit
 
 /// A minimal Lock Screen / StandBy accessory widget: the Viku glyph (with its
@@ -69,6 +70,7 @@ struct QuickAddWidgetView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .widgetURL(URL(string: "\(VikuWidgetConfig.urlScheme)://quick-add"))
+        .widgetDevBadge(alignment: .bottom, inset: VikuSpacing.sm)
         .containerBackground(for: .widget) {
             AccessoryWidgetBackground()
         }
