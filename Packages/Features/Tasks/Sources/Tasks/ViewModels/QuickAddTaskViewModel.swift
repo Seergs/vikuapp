@@ -540,6 +540,8 @@ public final class QuickAddTaskViewModel {
     @discardableResult
     public func save() async -> VikunjaTask? {
         guard canSave, let projectID = selectedProjectID else { return nil }
+        // Keep the name tied to the destination captured before any suspension.
+        let projectTitle = (selectedProject ?? preselectedProject.flatMap { $0.id == projectID ? $0 : nil })?.title
         let shortcut = parsed
         let selectedDueDate = dueDate
         let selectedReminders = reminder.map { [$0] } ?? []
@@ -575,24 +577,10 @@ public final class QuickAddTaskViewModel {
             // `canSave`'s doc comment) - the toast just isn't tappable in
             // that edge case rather than guessing at a `Project` value.
             let action = projects.first { $0.id == projectID }.map { ToastAction.taskDetail(created, $0) }
-            if let onTaskCreated {
-                let linked = await onTaskCreated(created)
-                toastPresenter.show(
-                    linked
-                        ? String(localized: "Task created and linked", bundle: .module)
-                        : String(localized: "Task created, but couldn't be linked", bundle: .module),
-                    style: linked ? .success : .error,
-                    action: action,
-                )
-            } else if failedAttachments == 0 {
-                toastPresenter.show(String(localized: "Task created", bundle: .module), style: .success, action: action)
-            } else {
-                toastPresenter.show(
-                    String(localized: "Task created, but some labels couldn't be added", bundle: .module),
-                    style: .error,
-                    action: action,
-                )
-            }
+            let linked = await onTaskCreated?(created)
+            showCreationToast(
+                projectTitle: projectTitle, linked: linked, failedAttachments: failedAttachments, action: action,
+            )
             taskChangeBroadcaster?.taskCreated(projectID: projectID)
             return created
         } catch let error as VikunjaError {
@@ -602,6 +590,31 @@ public final class QuickAddTaskViewModel {
             saveErrorMessage = error.localizedDescription
             return nil
         }
+    }
+
+    private func showCreationToast(
+        projectTitle: String?, linked: Bool?, failedAttachments: Int, action: ToastAction?,
+    ) {
+        let message = switch (projectTitle, linked, failedAttachments == 0) {
+        case (let title?, true?, _):
+            String(localized: "Task created in \(title) and linked", bundle: .module)
+        case (nil, true?, _):
+            String(localized: "Task created and linked", bundle: .module)
+        case (let title?, false?, _):
+            String(localized: "Task created in \(title), but couldn't be linked", bundle: .module)
+        case (nil, false?, _):
+            String(localized: "Task created, but couldn't be linked", bundle: .module)
+        case (let title?, nil, true):
+            String(localized: "Task created in \(title)", bundle: .module)
+        case (nil, nil, true):
+            String(localized: "Task created", bundle: .module)
+        case (let title?, nil, false):
+            String(localized: "Task created in \(title), but some labels couldn't be added", bundle: .module)
+        case (nil, nil, false):
+            String(localized: "Task created, but some labels couldn't be added", bundle: .module)
+        }
+        let hasError = linked == false || (linked == nil && failedAttachments > 0)
+        toastPresenter.show(message, style: hasError ? .error : .success, action: action)
     }
 
     private func createLabels(named names: [String]) async throws -> [EntityID] {

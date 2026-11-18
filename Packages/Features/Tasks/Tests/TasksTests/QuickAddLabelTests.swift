@@ -118,6 +118,9 @@ struct QuickAddLabelTests {
 
         #expect(created != nil)
         #expect(toastPresenter.shownMessages.last?.style == .error)
+        #expect(
+            toastPresenter.shownMessages.last?.message == "Task created in Compras, but some labels couldn't be added",
+        )
     }
 
     @Test(arguments: ["Bug", "bug"])

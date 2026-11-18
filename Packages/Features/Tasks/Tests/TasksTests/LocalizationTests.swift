@@ -118,6 +118,13 @@ struct LocalizationTests {
         ("Choose Project", "Elegir proyecto"),
         ("Project", "Proyecto"),
         ("Task created", "Tarea creada"),
+        ("Task created in %@", "Tarea creada en %@"),
+        ("Task created in %@ and linked", "Tarea creada en %@ y vinculada"),
+        ("Task created in %@, but couldn't be linked", "Tarea creada en %@, pero no se pudo vincular"),
+        (
+            "Task created in %@, but some labels couldn't be added",
+            "Tarea creada en %@, pero algunas etiquetas no se pudieron agregar",
+        ),
         ("Relation added", "Relación agregada"),
         ("Task deleted", "Tarea eliminada"),
         ("Attachment added", "Adjunto agregado"),

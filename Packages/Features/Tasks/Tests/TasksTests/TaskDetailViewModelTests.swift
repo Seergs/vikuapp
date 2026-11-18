@@ -959,7 +959,7 @@ struct TaskDetailViewModelTests {
         #expect(created?.title == "Buy milk")
         #expect(viewModel.task.subtasks.map(\.title) == ["Buy milk"])
         #expect(relationRepository.addedRelations.map(\.kind) == [.subtask])
-        #expect(toastPresenter.shownMessages.map(\.message) == ["Task created and linked"])
+        #expect(toastPresenter.shownMessages.map(\.message) == ["Task created in Work and linked"])
     }
 
     @Test
@@ -986,7 +986,7 @@ struct TaskDetailViewModelTests {
 
         #expect(created?.title == "Buy milk")
         #expect(viewModel.task.subtasks.isEmpty)
-        #expect(toastPresenter.shownMessages.map(\.message) == ["Task created, but couldn't be linked"])
+        #expect(toastPresenter.shownMessages.map(\.message) == ["Task created in Work, but couldn't be linked"])
         #expect(toastPresenter.shownMessages.map(\.style) == [.error])
     }
 
