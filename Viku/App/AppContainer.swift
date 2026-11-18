@@ -252,6 +252,16 @@ final class AppContainer {
                     String(localized: "Couldn't create the task because the column is full."), style: .error,
                 )
             },
+            onAccountDataChanged: { [localStore, accountStore, appIconBadgeCenter] in
+                WidgetCenter.shared.reloadAllTimelines()
+                let state = await TodaySnapshotLoader(
+                    accountStore: accountStore,
+                    localSnapshotProvider: LocalStoreWidgetSnapshotProvider(localStore: localStore),
+                ).loadLocalState()
+                if let state {
+                    await appIconBadgeCenter.updateBadge(from: state)
+                }
+            },
         )
         self.whatsNewPresentationResolver = WhatsNewPresentationResolver(
             contentProvider: BundledWhatsNewContentProvider(),
@@ -311,44 +321,19 @@ final class AppContainer {
         )
     }
 
-    /// Fetches the Today and Calendar data with the app's own (always-working)
-    /// account store, then reloads every widget. The widgets read the same
-    /// shared offline database as their fallback, so this only keeps the icon
-    /// badge and timeline reload prompt when the app backgrounds. Call on
-    /// launch and whenever the app backgrounds.
+    /// Reads the shared local state for the badge and requests widget reloads.
+    /// Synchronization owns remote downloads; this path never fetches separately.
     func refreshWidgetSnapshots() async {
         guard !isUITesting else { return }
-        let sessionRefresher = sessionRefresher
-        let resolver: @Sendable (InstanceAccount) async throws -> String? = {
-            try await sessionRefresher.validToken(for: $0)
-        }
         let localSnapshotProvider = LocalStoreWidgetSnapshotProvider(localStore: localStore)
         let todayLoader = TodaySnapshotLoader(
             accountStore: accountStore,
-            clientFactory: clientFactory,
             localSnapshotProvider: localSnapshotProvider,
-            tokenResolver: resolver,
         )
-        let calendarLoader = CalendarSnapshotLoader(
-            accountStore: accountStore,
-            clientFactory: clientFactory,
-            localSnapshotProvider: localSnapshotProvider,
-            tokenResolver: resolver,
-        )
-        // Apply the last synced count right away: the local database read has
-        // no network, so the icon reflects *something* current even if the
-        // live fetch below never gets to finish (e.g. the app gets suspended
-        // mid-fetch right after entering the background).
-        if let localState = await todayLoader.loadLocalState() {
-            await appIconBadgeCenter.updateBadge(from: localState)
+        if let state = await todayLoader.loadLocalState() {
+            await appIconBadgeCenter.updateBadge(from: state)
         }
-        let todayState = await todayLoader.loadState()
-        _ = await calendarLoader.loadState()
         WidgetCenter.shared.reloadAllTimelines()
-        // Reuses the fetch above instead of hitting the network again just
-        // for the badge. Overwrites the optimistic value set above once
-        // fresh data has actually landed.
-        await appIconBadgeCenter.updateBadge(from: todayState)
     }
 
     /// Preserve execution until both widgets and the actual sync workers finish.

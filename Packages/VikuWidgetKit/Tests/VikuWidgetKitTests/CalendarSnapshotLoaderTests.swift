@@ -5,173 +5,101 @@ import VikunjaPersistence
 @testable import VikuWidgetKit
 
 struct CalendarSnapshotLoaderTests {
-    private static let calendar = Calendar.current
-    /// Anchored to noon today rather than `Date()` directly: several cases
-    /// below add a couple of hours to `now` to stay "later today", which
-    /// would cross into tomorrow (and flip bucket) if the suite happened to
-    /// run late at night.
-    private static let now = calendar.date(
-        bySettingHour: 12, minute: 0, second: 0, of: Date(),
-    ) ?? Date()
-    private static let laterToday = calendar.date(byAdding: .hour, value: 1, to: now) ?? now
-    private static let nextWeek = calendar.date(byAdding: .day, value: 5, to: now) ?? now
+    private static let now = Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: Date()) ?? Date()
 
-    private func makeLoader(
-        account: InstanceAccount? = TestSupport.account(),
-        token: String? = "secret",
-        projects: [Project] = [],
-        tasks: [VikunjaTask] = [],
-        failingProjectIDs: Set<Int> = [],
-        projectsError: VikunjaError? = nil,
-        localSnapshot: LocalTaskSnapshot? = nil,
-    ) -> (CalendarSnapshotLoader, FakeLocalTaskSnapshotProvider) {
-        let store = FakeAccountStore(account: account, token: token)
-        let projectRepo = FakeProjectRepository()
-        projectRepo.projects = projects
-        projectRepo.fetchError = projectsError
-        let taskRepo = FakeTaskRepository()
-        taskRepo.tasks = tasks
-        taskRepo.failingProjectIDs = failingProjectIDs
-        let snapshotProvider = FakeLocalTaskSnapshotProvider(snapshot: localSnapshot)
+    @Test func `renders local state without resolving a network token`() async {
+        let account = TestSupport.account()
         let loader = CalendarSnapshotLoader(
+            accountStore: FakeAccountStore(account: account, token: nil),
+            localSnapshotProvider: FakeLocalTaskSnapshotProvider(snapshot: snapshot()), now: { Self.now },
+        )
+        guard case let .content(content) = await loader.loadState() else { Issue.record("Expected content"); return }
+        #expect(content.todayTasks.map(\.id) == [10])
+        #expect(content.accountID == account.id.uuidString)
+        #expect(!content.isStale)
+    }
+
+    @Test func `failed sync retains local intent and marks saved content`() async {
+        let loader = CalendarSnapshotLoader(
+            accountStore: FakeAccountStore(account: TestSupport.account(), token: "token"),
+            localSnapshotProvider: FakeLocalTaskSnapshotProvider(snapshot: snapshot(
+                lastPulledAt: Self.now.addingTimeInterval(-3600), pending: true,
+            )),
+            now: { Self.now }, synchronize: { _ in throw VikunjaError.network("offline") },
+        )
+        guard case let .content(content) = await loader.loadState() else {
+            Issue.record("Expected saved content")
+            return
+        }
+        #expect(content.todayTasks.map(\.id) == [10])
+        #expect(content.isStale)
+        #expect(content.hasPendingChanges)
+    }
+
+    @Test func `unauthorized sync preserves local content`() async {
+        let loader = CalendarSnapshotLoader(
+            accountStore: FakeAccountStore(account: TestSupport.account(), token: "old"),
+            localSnapshotProvider: FakeLocalTaskSnapshotProvider(snapshot: snapshot()), now: { Self.now },
+            synchronize: { _ in throw VikunjaError.unauthorized },
+        )
+        guard case .content = await loader.loadState() else { Issue.record("Lost cached content"); return }
+    }
+
+    @Test func `missing local data reports auth failure or unavailable`() async {
+        let store = FakeAccountStore(account: TestSupport.account(), token: "token")
+        let empty = FakeLocalTaskSnapshotProvider(snapshot: nil)
+        let auth = CalendarSnapshotLoader(
             accountStore: store,
-            clientFactory: FakeClientFactory(projectRepository: projectRepo, taskRepository: taskRepo),
-            localSnapshotProvider: snapshotProvider,
+            localSnapshotProvider: empty,
+            synchronize: { _ in throw VikunjaError.unauthorized },
+        )
+        #expect(await auth.loadState() == .needsAuth)
+        let offline = CalendarSnapshotLoader(
+            accountStore: store,
+            localSnapshotProvider: empty,
+            synchronize: { _ in throw VikunjaError.offline },
+        )
+        #expect(await offline.loadState() == .unavailable)
+        let disconnected = CalendarSnapshotLoader(
+            accountStore: FakeAccountStore(account: nil, token: nil), localSnapshotProvider: empty,
+        )
+        #expect(await disconnected.loadState() == .notConnected)
+    }
+
+    @Test func `interaction reload uses fresh local data without starting another sync`() async {
+        let loader = CalendarSnapshotLoader(
+            accountStore: FakeAccountStore(account: TestSupport.account(), token: "token"),
+            localSnapshotProvider: FakeLocalTaskSnapshotProvider(snapshot: snapshot(pending: true)),
+            now: { Self.now }, synchronize: { _ in Issue.record("Fresh local reload waited for networking") },
+        )
+        guard case let .content(content) = await loader.loadState() else { Issue.record("Expected content"); return }
+        #expect(content.todayTasks.map(\.id) == [10])
+        #expect(content.hasPendingChanges)
+    }
+
+    @Test func `gallery reads never synchronize`() async {
+        let loader = CalendarSnapshotLoader(
+            accountStore: FakeAccountStore(account: TestSupport.account(), token: "token"),
+            localSnapshotProvider: FakeLocalTaskSnapshotProvider(snapshot: snapshot()), now: { Self.now },
+            synchronize: { _ in Issue.record("Local preview attempted networking") },
+        )
+        #expect(await loader.loadLocalState() != nil)
+    }
+
+    @Test func `unknown download coverage is stale`() async {
+        let loader = CalendarSnapshotLoader(
+            accountStore: FakeAccountStore(account: TestSupport.account(), token: nil),
+            localSnapshotProvider: FakeLocalTaskSnapshotProvider(snapshot: snapshot(lastPulledAt: nil)),
             now: { Self.now },
         )
-        return (loader, snapshotProvider)
-    }
-
-    private func localSnapshot(
-        projects: [Project] = [],
-        tasks: [VikunjaTask] = [],
-        lastPulledAt: Date? = CalendarSnapshotLoaderTests.now,
-    ) -> LocalTaskSnapshot {
-        LocalTaskSnapshot(tasks: tasks, projects: projects, lastPulledAt: lastPulledAt)
-    }
-
-    @Test
-    func `reports not connected when there is no active account`() async {
-        let (loader, _) = makeLoader(account: nil, token: nil)
-
-        #expect(await loader.loadState() == .notConnected)
-    }
-
-    @Test
-    func `lays every project's dated tasks onto the current month grid`() async {
-        let projects = [
-            Project(id: 1, title: "Work", hexColor: "#196AFF"),
-            Project(id: 2, title: "Home", hexColor: "#1FA669"),
-        ]
-        let tasks = [
-            VikunjaTask(id: 10, title: "Today A", dueDate: Self.laterToday, projectID: 1),
-            VikunjaTask(id: 11, title: "Today B", dueDate: Self.laterToday, projectID: 2),
-            VikunjaTask(id: 12, title: "Upcoming", dueDate: Self.nextWeek, projectID: 1),
-            VikunjaTask(id: 13, title: "No due date", projectID: 2),
-        ]
-        let (loader, _) = makeLoader(projects: projects, tasks: tasks)
-
-        guard case let .content(content) = await loader.loadState() else {
-            Issue.record("expected content")
-            return
-        }
-        let todayCell = content.weeks.flatMap(\.self).first { $0.isToday }
-        #expect(todayCell?.dotColorHexes == ["#196AFF", "#1FA669"])
-        #expect(content.todayTasks.map(\.id) == [10, 11])
-        #expect(content.todayTaskCount == 2)
-        #expect(content.isStale == false)
-    }
-
-    @Test
-    func `ignores virtual projects so favorited tasks aren't counted twice`() async {
-        let projects = [Project(id: 1, title: "Work"), Project(id: -1, title: "Favorites")]
-        let tasks = [
-            VikunjaTask(id: 10, title: "Real", dueDate: Self.laterToday, projectID: 1),
-            VikunjaTask(id: 11, title: "Via favorites", dueDate: Self.laterToday, projectID: -1),
-        ]
-        let (loader, _) = makeLoader(projects: projects, tasks: tasks)
-
-        guard case let .content(content) = await loader.loadState() else {
-            Issue.record("expected content")
-            return
-        }
-        #expect(content.todayTasks.map(\.id) == [10])
-    }
-
-    @Test
-    func `one project's failing task fetch does not sink the snapshot`() async {
-        let projects = [Project(id: 1, title: "Work"), Project(id: 2, title: "Home")]
-        let tasks = [
-            VikunjaTask(id: 10, title: "Kept", dueDate: Self.laterToday, projectID: 1),
-            VikunjaTask(id: 11, title: "Lost", dueDate: Self.laterToday, projectID: 2),
-        ]
-        let (loader, _) = makeLoader(projects: projects, tasks: tasks, failingProjectIDs: [2])
-
-        guard case let .content(content) = await loader.loadState() else {
-            Issue.record("expected content")
-            return
-        }
-        #expect(content.todayTasks.map(\.id) == [10])
-    }
-
-    @Test
-    func `falls back to the local snapshot when the refresh fails`() async {
-        let snapshot = localSnapshot(
-            projects: [Project(id: 1, title: "Work")],
-            tasks: [VikunjaTask(id: 10, title: "Cached", dueDate: Self.laterToday, projectID: 1)],
-        )
-        let (loader, _) = makeLoader(projectsError: .network("offline"), localSnapshot: snapshot)
-
-        guard case let .content(content) = await loader.loadState() else {
-            Issue.record("expected stale content")
-            return
-        }
+        guard case let .content(content) = await loader.loadState() else { Issue.record("Expected content"); return }
         #expect(content.isStale)
-        #expect(content.todayTasks.map(\.id) == [10])
     }
 
-    @Test
-    func `reports unavailable when the refresh fails and nothing is stored locally`() async {
-        let (loader, _) = makeLoader(projectsError: .network("offline"))
-
-        #expect(await loader.loadState() == .unavailable)
-    }
-
-    @Test
-    func `reports needs auth when the server rejects the token`() async {
-        let (loader, _) = makeLoader(projectsError: .unauthorized)
-
-        #expect(await loader.loadState() == .needsAuth)
-    }
-
-    @Test
-    func `renders the local snapshot when the widget cannot reach credentials`() async {
-        let snapshot = localSnapshot(
-            projects: [Project(id: 1, title: "Work")],
-            tasks: [VikunjaTask(id: 10, title: "From the app", dueDate: Self.laterToday, projectID: 1)],
+    private func snapshot(lastPulledAt: Date? = Self.now, pending: Bool = false) -> LocalTaskSnapshot {
+        LocalTaskSnapshot(
+            tasks: [VikunjaTask(id: 10, title: "Local", dueDate: Self.now, projectID: 1)],
+            projects: [Project(id: 1, title: "Work")], lastPulledAt: lastPulledAt, hasPendingChanges: pending,
         )
-        let (loader, _) = makeLoader(token: nil, localSnapshot: snapshot)
-
-        guard case let .content(content) = await loader.loadState() else {
-            Issue.record("expected local content")
-            return
-        }
-        #expect(content.todayTasks.map(\.id) == [10])
-        #expect(content.isStale == false)
-    }
-
-    @Test
-    func `renders the local snapshot when there is no active account`() async {
-        let snapshot = localSnapshot(
-            projects: [Project(id: 1, title: "Work")],
-            tasks: [VikunjaTask(id: 10, title: "From the app", dueDate: Self.laterToday, projectID: 1)],
-        )
-        let (loader, _) = makeLoader(account: nil, token: nil, localSnapshot: snapshot)
-
-        guard case let .content(content) = await loader.loadState() else {
-            Issue.record("expected local content")
-            return
-        }
-        #expect(content.todayTasks.map(\.id) == [10])
     }
 }

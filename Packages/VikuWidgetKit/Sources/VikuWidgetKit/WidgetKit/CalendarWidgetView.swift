@@ -72,7 +72,12 @@ private struct CalendarWidgetBody: View {
                 .fontWeight(.semibold)
                 .foregroundStyle(Color.primary)
             Spacer(minLength: 0)
-            if content.isStale {
+            if content.hasPendingChanges {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(VikuFont.caption2)
+                    .foregroundStyle(VikuColor.textTertiary)
+                    .accessibilityLabel(Text("Changes pending sync", bundle: .module))
+            } else if content.isStale {
                 Image(systemName: "clock.arrow.circlepath")
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(VikuColor.textTertiary)
@@ -112,7 +117,7 @@ private struct CalendarWidgetBody: View {
         } else {
             VStack(spacing: VikuSpacing.xs) {
                 ForEach(content.todayTasks) { task in
-                    CalendarWidgetTaskRow(task: task)
+                    CalendarWidgetTaskRow(task: task, accountID: content.accountID)
                 }
             }
             let hidden = content.todayTaskCount - content.todayTasks.count
@@ -189,6 +194,7 @@ private struct DayCell: View {
 
 private struct CalendarWidgetTaskRow: View {
     let task: CalendarWidgetTask
+    let accountID: String
 
     private var projectColor: Color {
         Color(vikuHex: task.projectColorHex) ?? VikuColor.brandPrimary
@@ -236,7 +242,7 @@ private struct CalendarWidgetTaskRow: View {
             }
 
         #if os(iOS)
-        Button(intent: ToggleTaskDoneIntent(taskID: task.id)) { circle }
+        Button(intent: ToggleTaskDoneIntent(taskID: task.id, accountID: accountID, isDone: !task.isDone)) { circle }
             .buttonStyle(.plain)
         #else
         circle

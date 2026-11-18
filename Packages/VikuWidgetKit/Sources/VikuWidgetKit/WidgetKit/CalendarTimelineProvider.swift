@@ -30,7 +30,7 @@ public struct CalendarTimelineProvider: TimelineProvider {
             return
         }
         Task {
-            let state = await VikuWidgetEnvironment.makeCalendarSnapshotLoader().loadState()
+            let state = await VikuWidgetEnvironment.makeCalendarSnapshotLoader().loadLocalState() ?? .unavailable
             completion(CalendarEntry(date: Date(), state: state))
         }
     }

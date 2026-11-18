@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(WidgetKit)
+import WidgetKit
+#endif
 import VikuAuth
 import VikunjaCore
 import VikunjaNetworking
@@ -33,38 +36,84 @@ public enum VikuWidgetEnvironment {
     /// snapshot loaders and the toggle-done `AppIntent` below so a refresh
     /// triggered by one isn't immediately redone by the other.
     public static func makeSessionRefresher() -> PasswordSessionRefresher {
-        PasswordSessionRefresher(accountStore: makeAccountStore())
+        PasswordSessionRefresher(accountStore: makeAccountStore(), cancelRefreshOnCancellation: true)
+    }
+
+    private static func reloadTaskTimelines() async {
+        #if canImport(WidgetKit)
+        await MainActor.run {
+            WidgetCenter.shared.reloadTimelines(ofKind: VikuWidgetConfig.todayWidgetKind)
+            WidgetCenter.shared.reloadTimelines(ofKind: VikuWidgetConfig.calendarWidgetKind)
+        }
+        #endif
+    }
+
+    private static let coordinator: SyncCoordinator? = {
+        guard let sharedLocalStore else { return nil }
+        let refresher = makeSessionRefresher()
+        return SyncCoordinator(
+            localStore: sharedLocalStore,
+            accountStore: makeAccountStore(),
+            clientFactory: VikunjaInstanceClientFactory(),
+            reachability: NWPathReachabilityMonitor(),
+            tokenProvider: { account in { try await refresher.validToken(for: account) } },
+            onAccountDataChanged: {
+                await reloadTaskTimelines()
+            },
+        )
+    }()
+
+    public static func synchronize(accountID: UUID, taskID: EntityID? = nil) async throws {
+        guard let coordinator else { throw LocalStoreError.containerUnavailable }
+        try await WidgetSynchronization.run {
+            try await coordinator.refresh(
+                accountID: accountID, scope: taskID.map(SyncScope.taskUpload) ?? .account,
+                cancelWorkerOnCancellation: true,
+            )
+        }
     }
 
     public static func makeSnapshotLoader() -> TodaySnapshotLoader {
-        let sessionRefresher = makeSessionRefresher()
-        return TodaySnapshotLoader(
+        TodaySnapshotLoader(
             accountStore: makeAccountStore(),
-            clientFactory: VikunjaInstanceClientFactory(),
             localSnapshotProvider: makeLocalSnapshotProvider(),
-            tokenResolver: { try await sessionRefresher.validToken(for: $0) },
+            synchronize: { try await synchronize(accountID: $0) },
         )
     }
 
     public static func makeCalendarSnapshotLoader() -> CalendarSnapshotLoader {
-        let sessionRefresher = makeSessionRefresher()
-        return CalendarSnapshotLoader(
+        CalendarSnapshotLoader(
             accountStore: makeAccountStore(),
-            clientFactory: VikunjaInstanceClientFactory(),
             localSnapshotProvider: makeLocalSnapshotProvider(),
-            tokenResolver: { try await sessionRefresher.validToken(for: $0) },
+            synchronize: { try await synchronize(accountID: $0) },
         )
     }
 
-    /// The active account plus its token, for the toggle-done `AppIntent`.
-    public static func makeTaskRepository() async -> TaskRepositoryProtocol? {
-        let store = makeAccountStore()
-        guard let account = try? await store.activeAccount() else { return nil }
-        let token = try? await makeSessionRefresher().validToken(for: account)
-        guard let token, !token.isEmpty else { return nil }
-
-        return VikunjaInstanceClientFactory().makeTaskRepository(baseURL: account.baseURL) { token }
+    public static func makeCompletion(
+        accountID: UUID, taskID: Int,
+    ) async throws -> WidgetTaskCompletion {
+        guard let sharedLocalStore else { throw LocalStoreError.containerUnavailable }
+        // Bind to the timeline's connection, never a newly active account that
+        // might happen to have the same server-local task ID.
+        guard try await makeAccountStore().fetchAccounts().contains(where: { $0.id == accountID }) else {
+            throw VikunjaError.notFound
+        }
+        let repository = OfflineTaskRepository(
+            localStore: sharedLocalStore, accountID: accountID, syncRequester: WidgetSyncRequester(),
+        )
+        return WidgetTaskCompletion(
+            repository: repository,
+            synchronize: { try await synchronize(accountID: accountID, taskID: .remote(taskID)) },
+            reload: {
+                await reloadTaskTimelines()
+            },
+        )
     }
+}
+
+/// The intent explicitly awaits a bounded sync after publishing local acceptance.
+private struct WidgetSyncRequester: SyncRequesting {
+    func requestSync() async {}
 }
 
 private struct UnavailableLocalTaskSnapshotProvider: WidgetLocalTaskSnapshotProviding {
