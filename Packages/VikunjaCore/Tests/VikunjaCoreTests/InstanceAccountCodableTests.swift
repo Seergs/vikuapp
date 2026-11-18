@@ -10,6 +10,7 @@ struct InstanceAccountCodableTests {
             displayName: "Home",
             baseURL: #require(URL(string: "https://tasks.example.com")),
             authMethod: .password,
+            userID: 42, username: "sergio",
         )
         let encoder = JSONEncoder()
         let decoder = JSONDecoder()
@@ -45,5 +46,7 @@ struct InstanceAccountCodableTests {
         """
         let decoded = try JSONDecoder().decode(InstanceAccount.self, from: Data(json.utf8))
         #expect(decoded.needsReauthentication == false)
+        #expect(decoded.userID == nil)
+        #expect(decoded.username == nil)
     }
 }

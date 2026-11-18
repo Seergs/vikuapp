@@ -41,6 +41,7 @@ public final class ConnectionEditorCore {
     /// distinct from `phase == .success`, which `testConnection()` also
     /// reports on a successful probe. Drives post-save navigation.
     public private(set) var savedAccount: InstanceAccount?
+    public private(set) var didReplaceCredentials = false
     /// Whether the probed server reports local (username/password) login as
     /// enabled — known only after a probe has resolved (see
     /// `checkLocalAuthAvailability()`, called automatically as the user types
@@ -86,6 +87,7 @@ public final class ConnectionEditorCore {
             self.displayName = editingAccount.displayName
             self.urlText = editingAccount.baseURL.absoluteString
             self.credentialMode = editingAccount.authMethod
+            self.username = editingAccount.username ?? ""
             self.allowInsecureConnection = editingAccount.baseURL.scheme?.lowercased() == "http"
         }
     }
@@ -154,11 +156,13 @@ public final class ConnectionEditorCore {
         guard canTestConnection else { return }
         phase = .validating
         do {
-            let baseURL = try InstanceURL.normalize(urlText, allowInsecureHTTP: allowInsecureConnection)
+            let baseURL = try validatedBaseURL()
             let provider = clientFactory.makeCapabilityProvider(baseURL: baseURL)
             let info = try await provider.serverInfo()
             await applyAvailability(localAuth: provider.supports(.localAuth), providers: info.oidcProviders)
             phase = .success
+        } catch is CancellationError {
+            phase = .idle
         } catch let error as VikunjaError {
             phase = .failure(Self.message(for: error))
         } catch {
@@ -174,14 +178,17 @@ public final class ConnectionEditorCore {
         guard canSignInWithOIDC else { return }
         phase = .validating
         do {
-            let baseURL = try InstanceURL.normalize(urlText, allowInsecureHTTP: allowInsecureConnection)
+            let baseURL = try validatedBaseURL()
+            let snapshot = try await sessionSnapshot()
             let code = try await oidcAuthenticator.authenticate(provider: provider, redirectURI: oidcRedirectURI)
             let session = try await clientFactory.makeAuthService(baseURL: baseURL).loginWithOIDC(
                 provider: provider,
                 code: code,
                 redirectURI: oidcRedirectURI,
             )
-            let account = try await storeAccount(baseURL: baseURL, authMethod: .oidc, token: session.token)
+            let account = try await storeAccount(
+                baseURL: baseURL, authMethod: .oidc, session: session, snapshot: snapshot,
+            )
             await finish(account)
         } catch OIDCAuthError.canceled {
             // The user dismissed the browser session — back to idle, no error
@@ -189,6 +196,8 @@ public final class ConnectionEditorCore {
             phase = .idle
         } catch let error as OIDCAuthError {
             phase = .failure(Self.message(for: error))
+        } catch is CancellationError {
+            phase = .idle
         } catch let error as VikunjaError {
             phase = .failure(Self.message(for: error))
         } catch {
@@ -208,21 +217,27 @@ public final class ConnectionEditorCore {
         // mode the user picked (and filled in the matching fields for), so a
         // flaky re-probe result must not switch it out from under them.
         do {
-            let baseURL = try InstanceURL.normalize(urlText, allowInsecureHTTP: allowInsecureConnection)
+            let baseURL = try validatedBaseURL()
+            let snapshot = try await sessionSnapshot()
             let provider = clientFactory.makeCapabilityProvider(baseURL: baseURL)
             _ = try await provider.serverInfo()
             localAuthAvailable = await provider.supports(.localAuth)
 
             switch credentialMode {
             case .apiToken:
-                let account = try await storeAccount(baseURL: baseURL, authMethod: .apiToken, token: trimmedToken)
+                let session = try await clientFactory.makeAuthService(baseURL: baseURL).loginWithAPIToken(trimmedToken)
+                let account = try await storeAccount(
+                    baseURL: baseURL, authMethod: .apiToken, session: session, snapshot: snapshot,
+                )
                 await finish(account)
             case .password:
-                await savePasswordAccount(baseURL: baseURL)
+                await savePasswordAccount(baseURL: baseURL, snapshot: snapshot)
             case .oidc:
                 // `canSave` already refused this branch.
                 break
             }
+        } catch is CancellationError {
+            phase = .idle
         } catch let error as VikunjaError {
             phase = .failure(Self.message(for: error))
         } catch {
@@ -246,7 +261,7 @@ public final class ConnectionEditorCore {
         oidcProviders = []
     }
 
-    private func savePasswordAccount(baseURL: URL) async {
+    private func savePasswordAccount(baseURL: URL, snapshot: SessionSnapshot?) async {
         let coordinator = PasswordLoginCoordinator(authService: clientFactory.makeAuthService(baseURL: baseURL))
         let state = if awaitingTOTP {
             await coordinator.retryWithTOTP(trimmedTOTP, username: trimmedUsername, password: trimmedPassword)
@@ -257,8 +272,12 @@ public final class ConnectionEditorCore {
         switch state {
         case let .success(session):
             do {
-                let account = try await storeAccount(baseURL: baseURL, authMethod: .password, token: session.token)
+                let account = try await storeAccount(
+                    baseURL: baseURL, authMethod: .password, session: session, snapshot: snapshot,
+                )
                 await finish(account)
+            } catch is CancellationError {
+                phase = .idle
             } catch let error as VikunjaError {
                 phase = .failure(Self.message(for: error))
             } catch {
@@ -274,35 +293,83 @@ public final class ConnectionEditorCore {
         }
     }
 
-    /// Adds a new account, or updates `editingAccount` in place, and returns
-    /// the stored value.
+    private struct SessionSnapshot {
+        let account: InstanceAccount
+        let token: String?
+    }
+
+    private func validatedBaseURL() throws -> URL {
+        let url = try InstanceURL.normalize(urlText, allowInsecureHTTP: allowInsecureConnection)
+        if let editingAccount, url != editingAccount.baseURL {
+            throw ConnectionIdentityError.serverChanged
+        }
+        return url
+    }
+
+    private func sessionSnapshot() async throws -> SessionSnapshot? {
+        guard let editingAccount else { return nil }
+        guard let current = try await accountStore.fetchAccounts().first(where: { $0.id == editingAccount.id }) else {
+            throw VikunjaError.notFound
+        }
+        try editingAccount.validateIdentity(of: current)
+        return try await SessionSnapshot(account: current, token: accountStore.token(forAccountID: current.id))
+    }
+
+    /// A name-only update is local and does not touch credentials or schedule recovery.
+    public func saveName() async {
+        guard editingAccount != nil, !trimmedDisplayName.isEmpty, !isSaving else { return }
+        phase = .validating
+        do {
+            _ = try validatedBaseURL()
+            guard var current = try await sessionSnapshot()?.account else { throw VikunjaError.notFound }
+            current.displayName = trimmedDisplayName
+            try Task.checkCancellation()
+            try await accountStore.updateAccount(current, token: nil)
+            didReplaceCredentials = false
+            await finish(current)
+        } catch is CancellationError {
+            phase = .idle
+        } catch {
+            phase = .failure((error as? VikunjaError)?.displayMessage ?? error.localizedDescription)
+        }
+    }
+
     private func storeAccount(
-        baseURL: URL,
-        authMethod: InstanceAccount.AuthMethod,
-        token: String,
+        baseURL: URL, authMethod: InstanceAccount.AuthMethod, session: AuthSession, snapshot: SessionSnapshot?,
     ) async throws -> InstanceAccount {
-        if let editingAccount {
-            var account = editingAccount
+        try Task.checkCancellation()
+        guard session.user.id > 0 else { throw ConnectionIdentityError.unverifiedUser }
+        if let snapshot {
+            var account = snapshot.account
+            guard account.baseURL == baseURL else { throw ConnectionIdentityError.serverChanged }
+            if let userID = account.userID, userID != session.user.id {
+                throw ConnectionIdentityError.userChanged
+            }
             account.displayName = trimmedDisplayName
-            account.baseURL = baseURL
             account.authMethod = authMethod
-            // A successful save always produces a fresh, valid credential —
-            // clear any stale "needs reauthentication" flag left over from a
-            // previously expired session, even if this save didn't happen to
-            // go through the sign-in-again prompt that set it.
+            account.userID = session.user.id
+            account.username = session.user.username
             account.needsReauthentication = false
-            try await accountStore.updateAccount(account, token: token)
+            try await accountStore.replaceSession(
+                account, token: session.token, expected: snapshot.account, matchingToken: snapshot.token,
+            )
+            didReplaceCredentials = true
             return account
         }
-        let account = InstanceAccount(displayName: trimmedDisplayName, baseURL: baseURL, authMethod: authMethod)
-        try await accountStore.addAccount(account, token: token)
+        let account = InstanceAccount(
+            displayName: trimmedDisplayName, baseURL: baseURL, authMethod: authMethod,
+            userID: session.user.id, username: session.user.username,
+        )
+        try await accountStore.addAccount(account, token: session.token)
+        didReplaceCredentials = true
         return account
     }
 
     private func finish(_ account: InstanceAccount) async {
+        // Register shared recovery before a view can navigate to the saved connection.
+        await onStored?(account)
         phase = .success
         savedAccount = account
-        await onStored?(account)
     }
 
     /// Records what the latest probe reported, and snaps the expanded card

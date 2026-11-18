@@ -13,7 +13,7 @@ struct KeychainAccountStoreTests {
     }
 
     private func makeAccount(displayName: String = "Home") -> InstanceAccount {
-        InstanceAccount(displayName: displayName, baseURL: URL(string: "https://tasks.example.com")!)
+        InstanceAccount(displayName: displayName, baseURL: URL(string: "https://tasks.example.com")!, userID: 1)
     }
 
     @Test
@@ -24,7 +24,9 @@ struct KeychainAccountStoreTests {
         #expect(try await store.updateSession(
             for: account, matchingToken: "old", token: "renewed", needsReauthentication: false,
         ))
-        try await store.updateAccount(account, token: "new-login")
+        var verified = account
+        verified.userID = 1
+        try await store.replaceSession(verified, token: "new-login", expected: account, matchingToken: "renewed")
         #expect(try await !store.updateSession(
             for: account, matchingToken: "renewed", token: "late-result", needsReauthentication: false,
         ))
@@ -158,7 +160,9 @@ struct KeychainAccountStoreTests {
         let account = makeAccount()
         try await store.addAccount(account, token: "old-token")
 
-        try await store.updateAccount(account, token: "new-token")
+        var verified = account
+        verified.userID = 1
+        try await store.replaceSession(verified, token: "new-token", expected: account, matchingToken: "old-token")
 
         #expect(try await store.token(forAccountID: account.id) == "new-token")
     }
@@ -197,5 +201,76 @@ struct KeychainAccountStoreTests {
 
         #expect(try await store.fetchAccounts().isEmpty)
         #expect(try await store.activeAccount() == nil)
+    }
+
+    @Test
+    func `established identity cannot change through metadata session or duplicate add`() async throws {
+        let store = makeStore()
+        let account = try InstanceAccount(
+            displayName: "Home", baseURL: #require(URL(string: "https://tasks.example.com")), userID: 1, username: "sergio",
+        )
+        try await store.addAccount(account, token: "original")
+        defer { Task { try? await store.removeAccount(id: account.id) } }
+        var anotherServer = account
+        anotherServer.baseURL = try #require(URL(string: "https://other.example.com"))
+        await #expect(throws: ConnectionIdentityError.serverChanged) {
+            try await store.updateAccount(anotherServer, token: nil)
+        }
+        var anotherUser = account
+        anotherUser.userID = 2
+        await #expect(throws: ConnectionIdentityError.userChanged) {
+            try await store.replaceSession(
+                anotherUser, token: "candidate", expected: account, matchingToken: "original",
+            )
+        }
+        await #expect(throws: ConnectionIdentityError.sessionChanged) {
+            try await store.addAccount(anotherServer, token: "candidate")
+        }
+        await #expect(throws: ConnectionIdentityError.sessionChanged) {
+            try await store.updateAccount(account, token: "unverified")
+        }
+        #expect(try await store.activeAccount() == account)
+        #expect(try await store.token(forAccountID: account.id) == "original")
+    }
+
+    @Test
+    func `legacy binding trusts one identity and rejects later replacement and stale login`() async throws {
+        let service = "dev.sergiosuarez.viku.tests.\(UUID().uuidString)"
+        let store = KeychainAccountStore(service: service)
+        let legacy = try InstanceAccount(displayName: "Legacy", baseURL: #require(URL(string: "https://tasks.example.com")))
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .custom { date, encoder in
+            var container = encoder.singleValueContainer()
+            try container.encode(date.timeIntervalSinceReferenceDate.bitPattern)
+        }
+        try Keychain.save(encoder.encode([legacy]), service: service, account: "instance-accounts-index")
+        try Keychain.save(Data("original".utf8), service: service, account: "instance-token-\(legacy.id.uuidString)")
+        try await store.setActiveAccount(id: legacy.id)
+        var bound = legacy
+        bound.userID = 7
+        bound.username = "first-user"
+        try await store.replaceSession(bound, token: "accepted", expected: legacy, matchingToken: "original")
+        await #expect(throws: ConnectionIdentityError.sessionChanged) {
+            try await store.replaceSession(bound, token: "late", expected: legacy, matchingToken: "original")
+        }
+        var other = bound
+        other.userID = 8
+        await #expect(throws: ConnectionIdentityError.userChanged) {
+            try await store.replaceSession(other, token: "other", expected: bound, matchingToken: "accepted")
+        }
+        #expect(try await store.activeAccount() == bound)
+        #expect(try await store.token(forAccountID: bound.id) == "accepted")
+        try await store.removeAccount(id: bound.id)
+    }
+
+    @Test
+    func `a new unverified account cannot be persisted`() async throws {
+        let store = makeStore()
+        let unverified = try InstanceAccount(displayName: "New", baseURL: #require(URL(string: "https://tasks.example.com")))
+        await #expect(throws: ConnectionIdentityError.unverifiedUser) {
+            try await store.addAccount(unverified, token: "candidate")
+        }
+        #expect(try await store.fetchAccounts().isEmpty)
+        #expect(try await store.token(forAccountID: unverified.id) == nil)
     }
 }

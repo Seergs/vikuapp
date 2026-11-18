@@ -3,6 +3,7 @@ import SwiftUI
 import VikuDesignSystem
 import VikuNavigation
 import VikunjaCore
+import VikuUI
 #if os(iOS)
 import UIKit
 #endif
@@ -20,6 +21,10 @@ struct ConnectionFormView: View {
     @State private var isConfirmingDelete = false
     @FocusState private var isNameFocused: Bool
     @FocusState private var isTOTPFocused: Bool
+    @State private var loading = LoadingPresentation()
+    @State private var authenticationTask: Task<Void, Never>?
+    @State private var activeOIDCProviderKey: String?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hasLoaded = false
     @State private var hasSettled = false
     @Environment(\.vikuPalette) private var palette
@@ -33,9 +38,10 @@ struct ConnectionFormView: View {
     }
 
     var body: some View {
-        ScrollViewReader { proxy in
+        sessionPresentation(ScrollViewReader { proxy in
             scrollContent(proxy: proxy)
-        }
+        })
+        .onDisappear { authenticationTask?.cancel() }
     }
 
     private func scrollContent(proxy: ScrollViewProxy) -> some View {
@@ -77,15 +83,10 @@ struct ConnectionFormView: View {
             .allowsHitTesting(false)
         }
         #endif
-        .task(id: viewModel.urlText) {
+        .task(id: "\(viewModel.urlText)-\(viewModel.showsCredentials)") {
             try? await Task.sleep(for: .milliseconds(500))
             guard !Task.isCancelled else { return }
             await viewModel.checkLocalAuthAvailability()
-        }
-        .onChange(of: viewModel.savedAccount) { _, savedAccount in
-            if savedAccount != nil {
-                router.pop()
-            }
         }
         .onChange(of: viewModel.awaitingTOTP) { _, isAwaiting in
             guard isAwaiting else { return }
@@ -100,6 +101,31 @@ struct ConnectionFormView: View {
         } message: {
             deleteConfirmationMessage
         }
+    }
+
+    private func sessionPresentation(_ content: some View) -> some View {
+        content
+            .onChange(of: viewModel.isSaving, initial: true) { _, saving in
+                loading.setLoading(saving)
+            }
+            .task(id: loading.nextUpdate) {
+                guard let next = loading.nextUpdate else { return }
+                do { try await ContinuousClock().sleep(until: next) } catch { return }
+                loading.advance()
+            }
+            .onChange(of: viewModel.savedAccount) { _, saved in
+                loading.setLoading(viewModel.isSaving)
+                if saved != nil, !loading.isVisible {
+                    viewModel.finishSavePresentation()
+                    router.pop()
+                }
+            }
+            .onChange(of: loading.isVisible) { _, visible in
+                if !visible, viewModel.savedAccount != nil {
+                    viewModel.finishSavePresentation()
+                    router.pop()
+                }
+            }
     }
 
     private func attemptAutoFocus() {
@@ -163,25 +189,32 @@ struct ConnectionFormView: View {
                 .keyboardType(.URL)
                 #endif
                 .autocorrectionDisabled()
+                .disabled(viewModel.isEditing)
 
-                if viewModel.urlUsesInsecureScheme {
+                if viewModel.isEditing {
+                    connectionIdentity
+                }
+
+                if !viewModel.isEditing, viewModel.urlUsesInsecureScheme {
                     insecureConnectionToggle
                         .transition(.opacity.combined(with: .move(edge: .top)))
                 }
 
-                AuthMethodAccordion(
-                    expanded: $viewModel.credentialMode,
-                    isPasswordEnabled: viewModel.localAuthAvailable,
-                    isOIDCEnabled: !viewModel.oidcProviders.isEmpty,
-                    currentMethod: viewModel.currentMethod,
-                    apiToken: { tokenField },
-                    password: { passwordFields },
-                    oidc: { oidcProvidersSection },
-                )
+                if viewModel.showsCredentials {
+                    AuthMethodAccordion(
+                        expanded: $viewModel.credentialMode,
+                        isPasswordEnabled: viewModel.localAuthAvailable,
+                        isOIDCEnabled: !viewModel.oidcProviders.isEmpty,
+                        currentMethod: viewModel.currentMethod,
+                        apiToken: { tokenField },
+                        password: { passwordFields },
+                        oidc: { oidcProvidersSection },
+                    )
+                }
             }
             .animation(.smooth(duration: 0.28), value: viewModel.urlUsesInsecureScheme)
 
-            if viewModel.credentialMode != .oidc {
+            if viewModel.showsCredentials, viewModel.credentialMode != .oidc {
                 testConnectionButton
             }
 
@@ -196,7 +229,7 @@ struct ConnectionFormView: View {
                 )
             }
 
-            if viewModel.credentialMode != .oidc {
+            if !viewModel.showsCredentials || viewModel.credentialMode != .oidc {
                 saveButton
             }
 
@@ -204,6 +237,52 @@ struct ConnectionFormView: View {
                 deleteConnectionButton
             }
         }
+        .disabled(viewModel.isSaving || loading.isVisible)
+        .animation(reduceMotion ? nil : .smooth, value: viewModel.showsCredentials)
+    }
+
+    private var connectionIdentity: some View {
+        VStack(alignment: .leading, spacing: VikuSpacing.sm) {
+            if let username = viewModel.fixedUsername {
+                FieldLabel(String(localized: "Username", bundle: .module))
+                Text(verbatim: username)
+                    .font(VikuFont.body)
+            }
+            Text("To use another account or server, add a new connection.", bundle: .module)
+                .font(VikuFont.caption)
+                .foregroundStyle(palette.textSecondary)
+            if !viewModel.isReauthenticating {
+                reauthenticationButton
+                    .padding(.top, VikuSpacing.xs)
+            }
+        }
+    }
+
+    private var reauthenticationButton: some View {
+        Button {
+            viewModel.isReauthenticating = true
+        } label: {
+            HStack(spacing: VikuSpacing.sm) {
+                Image(systemName: "key.fill")
+                    .foregroundStyle(palette.brand)
+                Text("Sign in again", bundle: .module)
+                    .foregroundStyle(palette.textPrimary)
+                Spacer(minLength: VikuSpacing.sm)
+                Image(systemName: "chevron.down")
+                    .font(VikuFont.footnote)
+                    .foregroundStyle(palette.textSecondary)
+            }
+            .font(VikuFont.body.weight(.semibold))
+            .padding(VikuSpacing.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                palette.fieldBackground,
+                in: RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous),
+            )
+            .contentShape(RoundedRectangle(cornerRadius: VikuRadius.md, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("connection.reauthenticate")
     }
 
     private var deleteConnectionButton: some View {
@@ -263,7 +342,8 @@ struct ConnectionFormView: View {
 
     private func oidcProviderButton(_ provider: OIDCProvider) -> some View {
         Button {
-            Task { await viewModel.signInWithOIDC(provider) }
+            activeOIDCProviderKey = provider.key
+            authenticationTask = Task { await viewModel.signInWithOIDC(provider) }
         } label: {
             Text("Continue with \(provider.name)", bundle: .module)
                 .font(VikuFont.body)
@@ -278,6 +358,11 @@ struct ConnectionFormView: View {
         }
         .buttonStyle(.plain)
         .disabled(!viewModel.canSignInWithOIDC)
+        .overlay(alignment: .trailing) {
+            if loading.isVisible, activeOIDCProviderKey == provider.key {
+                ProgressView().padding(.trailing, VikuSpacing.md)
+            }
+        }
         .opacity(viewModel.canSignInWithOIDC ? 1 : 0.5)
     }
 
@@ -292,6 +377,7 @@ struct ConnectionFormView: View {
             .textInputAutocapitalization(.never)
             #endif
             .autocorrectionDisabled()
+            // The login name may have changed on the server; the verified user ID must still match.
 
             passwordField
 
@@ -393,10 +479,10 @@ struct ConnectionFormView: View {
 
     private var testConnectionButton: some View {
         Button {
-            Task { await viewModel.testConnection() }
+            authenticationTask = Task { await viewModel.testConnection() }
         } label: {
             HStack(spacing: VikuSpacing.sm) {
-                if viewModel.isSaving {
+                if loading.isVisible {
                     ProgressView()
                 }
                 Text(viewModel.isSaving
@@ -417,7 +503,7 @@ struct ConnectionFormView: View {
 
     private var saveButton: some View {
         Button {
-            Task { await viewModel.save() }
+            authenticationTask = Task { await viewModel.save() }
         } label: {
             Text(viewModel.isEditing
                 ? String(localized: "Save Connection", bundle: .module)
@@ -434,6 +520,11 @@ struct ConnectionFormView: View {
         }
         .buttonStyle(.plain)
         .disabled(!viewModel.canSave)
+        .overlay(alignment: .trailing) {
+            if loading.isVisible, !viewModel.showsCredentials {
+                ProgressView().padding(.trailing, VikuSpacing.md)
+            }
+        }
         .opacity(viewModel.canSave ? 1 : 0.4)
     }
 }

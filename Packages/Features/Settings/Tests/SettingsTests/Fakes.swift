@@ -49,6 +49,17 @@ final class FakeAccountStore: AccountStoreProtocol, @unchecked Sendable {
         }
     }
 
+    func replaceSession(
+        _ account: InstanceAccount, token: String, expected: InstanceAccount, matchingToken: String?,
+    ) async throws {
+        guard try await fetchAccounts().contains(expected),
+              try await self.token(forAccountID: expected.id) == matchingToken else {
+            throw ConnectionIdentityError.sessionChanged
+        }
+        try expected.validateIdentity(of: account)
+        try await updateAccount(account, token: token)
+    }
+
     func updateSession(
         for account: InstanceAccount, matchingToken: String, token: String?, needsReauthentication: Bool,
     ) throws -> Bool {
@@ -113,7 +124,7 @@ final class FakeAuthService: AuthServiceProtocol, @unchecked Sendable {
     }
 
     func loginWithAPIToken(_ token: String) async throws -> AuthSession {
-        AuthSession(token: token, user: User(id: 0, username: ""))
+        AuthSession(token: token, user: User(id: 1, username: "sergio"))
     }
 
     func loginWithOIDC(provider _: OIDCProvider, code _: String, redirectURI _: URL) async throws -> AuthSession {

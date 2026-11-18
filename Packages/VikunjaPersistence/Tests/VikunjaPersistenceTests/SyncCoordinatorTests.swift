@@ -22,10 +22,22 @@ actor FakeAccountStore: AccountStoreProtocol {
 
     func updateAccount(_ account: InstanceAccount, token: String?) async throws {
         guard let index = accounts.firstIndex(where: { $0.id == account.id }) else { throw VikunjaError.notFound }
+        try accounts[index].validateIdentity(of: account)
         accounts[index] = account
         if let token {
             tokensByAccountID[account.id] = token
         }
+    }
+
+    func replaceSession(
+        _ account: InstanceAccount, token: String, expected: InstanceAccount, matchingToken: String?,
+    ) async throws {
+        guard try await fetchAccounts().contains(expected),
+              try await self.token(forAccountID: expected.id) == matchingToken else {
+            throw ConnectionIdentityError.sessionChanged
+        }
+        try expected.validateIdentity(of: account)
+        try await updateAccount(account, token: token)
     }
 
     func updateSession(

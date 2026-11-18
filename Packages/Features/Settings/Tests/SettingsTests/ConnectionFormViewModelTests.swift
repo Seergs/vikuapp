@@ -57,14 +57,18 @@ struct ConnectionFormViewModelTests {
                 events.append("recovery")
             },
         )
+        viewModel.isReauthenticating = true
         viewModel.apiToken = "fresh"
         viewModel.username = "sergio"
         viewModel.password = "password"
         if method == .oidc {
             await viewModel.signInWithOIDC(Self.oidcProvider)
+
         } else {
             await viewModel.save()
         }
+        #expect(events == ["recovery"])
+        viewModel.finishSavePresentation()
         #expect(viewModel.validationState == .success)
         #expect(events == ["recovery", "navigation"])
     }
@@ -82,6 +86,7 @@ struct ConnectionFormViewModelTests {
         )
         viewModel.apiToken = "fresh"
         await viewModel.save()
+        viewModel.finishSavePresentation()
         #expect(events.isEmpty)
         #expect(viewModel.savedAccount == nil)
         #expect(try await store.token(forAccountID: account.id) == "expired")
@@ -94,6 +99,7 @@ struct ConnectionFormViewModelTests {
         viewModel.urlText = "https://tasks.example.com"
         viewModel.apiToken = "token"
         await viewModel.save()
+        viewModel.finishSavePresentation()
         #expect(viewModel.validationState == .success)
         #expect(!didRecover)
     }
@@ -127,6 +133,7 @@ struct ConnectionFormViewModelTests {
         viewModel.apiToken = "secret"
 
         await viewModel.save()
+        viewModel.finishSavePresentation()
 
         #expect(viewModel.validationState == .success)
         #expect(viewModel.savedAccount?.displayName == "Home")
@@ -146,6 +153,7 @@ struct ConnectionFormViewModelTests {
         viewModel.apiToken = "secret"
 
         await viewModel.save()
+        viewModel.finishSavePresentation()
 
         #expect(
             viewModel.validationState == .failure("Couldn't reach that server. Check the address and your connection."),
@@ -162,6 +170,7 @@ struct ConnectionFormViewModelTests {
         viewModel.apiToken = "secret"
 
         await viewModel.save()
+        viewModel.finishSavePresentation()
 
         #expect(viewModel.validationState == .failure("That address uses an insecure http connection."))
         let accounts = try await store.fetchAccounts()
@@ -178,6 +187,7 @@ struct ConnectionFormViewModelTests {
         viewModel.allowInsecureConnection = true
 
         await viewModel.save()
+        viewModel.finishSavePresentation()
 
         #expect(viewModel.validationState == .success)
         #expect(try await store.fetchAccounts().first?.baseURL == URL(string: "http://localhost:3456")!)
@@ -230,6 +240,7 @@ struct ConnectionFormViewModelTests {
         viewModel.displayName = "Renamed"
 
         await viewModel.save()
+        viewModel.finishSavePresentation()
 
         #expect(viewModel.validationState == .success)
         #expect(try await store.fetchAccounts().first { $0.id == first.id }?.displayName == "Renamed")
@@ -247,9 +258,11 @@ struct ConnectionFormViewModelTests {
         try await store.addAccount(account, token: "old-token")
         let viewModel = makeViewModel(mode: .edit(account), store: store)
         await viewModel.load()
+        viewModel.isReauthenticating = true
         viewModel.apiToken = "new-token"
 
         await viewModel.save()
+        viewModel.finishSavePresentation()
 
         #expect(try await store.token(forAccountID: account.id) == "new-token")
     }
@@ -394,6 +407,7 @@ struct ConnectionFormViewModelTests {
         viewModel.password = "hunter2"
 
         await viewModel.save()
+        viewModel.finishSavePresentation()
 
         #expect(viewModel.validationState == .success)
         let accounts = try await store.fetchAccounts()
@@ -413,6 +427,7 @@ struct ConnectionFormViewModelTests {
         viewModel.password = "hunter2"
 
         await viewModel.save()
+        viewModel.finishSavePresentation()
 
         #expect(viewModel.awaitingTOTP == true)
         #expect(viewModel.validationState == .idle)
@@ -428,11 +443,13 @@ struct ConnectionFormViewModelTests {
         let session = AuthSession(token: "opaque-blob", user: User(id: 1, username: "sergio"))
         factory.authService.loginResult = .success(session)
         let viewModel = makeViewModel(mode: .edit(account), store: store, factory: factory)
+        viewModel.isReauthenticating = true
         viewModel.credentialMode = .password
         viewModel.username = "sergio"
         viewModel.password = "hunter2"
 
         await viewModel.save()
+        viewModel.finishSavePresentation()
 
         #expect(viewModel.validationState == .success)
         let updated = try await store.fetchAccounts().first { $0.id == account.id }
@@ -515,6 +532,7 @@ struct ConnectionFormViewModelTests {
         viewModel.urlText = "tasks.example.com"
 
         await viewModel.signInWithOIDC(Self.oidcProvider)
+        viewModel.finishSavePresentation()
 
         #expect(viewModel.validationState == .success)
         let accounts = try await store.fetchAccounts()
@@ -539,7 +557,9 @@ struct ConnectionFormViewModelTests {
             oidcAuthenticator: oidcAuthenticator,
         )
 
+        viewModel.isReauthenticating = true
         await viewModel.signInWithOIDC(Self.oidcProvider)
+        viewModel.finishSavePresentation()
 
         #expect(viewModel.validationState == .success)
         let updated = try await store.fetchAccounts().first { $0.id == account.id }
@@ -557,6 +577,7 @@ struct ConnectionFormViewModelTests {
         viewModel.urlText = "tasks.example.com"
 
         await viewModel.signInWithOIDC(Self.oidcProvider)
+        viewModel.finishSavePresentation()
 
         #expect(viewModel.validationState == .failure("That server rejected the request."))
         #expect(viewModel.savedAccount == nil)
@@ -571,8 +592,34 @@ struct ConnectionFormViewModelTests {
         viewModel.urlText = "tasks.example.com"
 
         await viewModel.signInWithOIDC(Self.oidcProvider)
+        viewModel.finishSavePresentation()
 
         #expect(viewModel.validationState == .idle)
         #expect(viewModel.savedAccount == nil)
+    }
+
+    @Test
+    func `default editing saves a name offline without replacing credentials or requesting recovery`() async throws {
+        let store = FakeAccountStore()
+        var account = makeAccount()
+        account.authMethod = .oidc
+        try await store.addAccount(account, token: "original")
+        let factory = FakeInstanceClientFactory()
+        factory.result = .failure(.offline)
+        var recoveries = 0
+        let viewModel = makeViewModel(
+            mode: .edit(account), store: store, factory: factory,
+            onCredentialsStored: { _ in recoveries += 1 },
+        )
+        #expect(!viewModel.showsCredentials)
+        viewModel.displayName = "Renamed"
+        #expect(viewModel.canSave)
+        await viewModel.save()
+        viewModel.finishSavePresentation()
+        #expect(viewModel.validationState == .success)
+        #expect(viewModel.savedAccount?.displayName == "Renamed")
+        #expect(try await store.token(forAccountID: account.id) == "original")
+        #expect(recoveries == 0)
+        #expect(factory.requestedBaseURLs.isEmpty)
     }
 }

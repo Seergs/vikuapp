@@ -8,14 +8,23 @@ public protocol AccountStoreProtocol: Sendable {
     func fetchAccounts() async throws -> [InstanceAccount]
     func activeAccount() async throws -> InstanceAccount?
 
-    /// Saves `account` and its `token`, and makes it the active account.
+    /// Saves a new account with a verified positive user ID and makes it active.
+    /// Existing IDs cannot be added again to bypass identity/session guards.
     func addAccount(_ account: InstanceAccount, token: String) async throws
 
     /// Updates an already-saved account's metadata in place, without changing
-    /// which account is active. Pass `token` to rotate the stored credential
-    /// too, or `nil` to leave it untouched. Throws `VikunjaError.notFound` if
+    /// which account is active. Production stores require `token` to be nil;
+    /// explicit logins use replaceSession and automatic renewals use updateSession.
+    /// Throws `VikunjaError.notFound` if
     /// `account.id` isn't a saved account.
     func updateAccount(_ account: InstanceAccount, token: String?) async throws
+
+    /// Commits a verified explicit login only while the expected account/session still match.
+    /// Stores serialize comparison and replacement with renewal and metadata updates.
+    func replaceSession(
+        _ account: InstanceAccount, token: String,
+        expected: InstanceAccount, matchingToken: String?,
+    ) async throws
 
     /// Commits a renewal only if the account and credential still match the
     /// request's snapshot. Implementations serialize the comparison and write

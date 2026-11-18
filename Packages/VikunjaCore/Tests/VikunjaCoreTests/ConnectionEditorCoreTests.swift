@@ -275,6 +275,138 @@ struct ConnectionEditorCoreTests {
         #expect(core.phase == .success)
         #expect(core.savedAccount != nil)
     }
+
+    @Test(arguments: [InstanceAccount.AuthMethod.apiToken, .password, .oidc])
+    func `a different user cannot replace an existing connection`(method: InstanceAccount.AuthMethod) async throws {
+        let store = FakeAccountStore()
+        let account = try InstanceAccount(
+            displayName: "Home", baseURL: #require(URL(string: "https://tasks.example.com")), userID: 1, username: "sergio",
+        )
+        try await store.addAccount(account, token: "original")
+        let factory = FakeInstanceClientFactory()
+        factory.authService.apiTokenUser = User(id: 2, username: "other")
+        factory.authService.loginResult = .success(
+            AuthSession(token: "candidate", user: User(id: 2, username: "other")),
+        )
+        let browser = FakeOIDCAuthenticating()
+        browser.result = .success("code")
+        let core = makeCore(editingAccount: account, store: store, factory: factory, oidcAuthenticator: browser)
+        core.credentialMode = method
+        core.apiToken = "candidate"
+        core.username = "other"
+        core.password = "password"
+        var notified = false
+        core.onStored = { _ in notified = true }
+        if method == .oidc {
+            await core.signInWithOIDC(Self.oidcProvider)
+        } else {
+            await core.save()
+        }
+        #expect(core.phase == .failure(ConnectionIdentityError.userChanged.localizedDescription))
+        #expect(store.accounts == [account])
+        #expect(store.tokens[account.id] == "original")
+        #expect(!notified)
+    }
+
+    @Test
+    func `server changes are rejected before contacting another server`() async throws {
+        let store = FakeAccountStore()
+        let account = try InstanceAccount(displayName: "Home", baseURL: #require(URL(string: "https://source.example.com")))
+        try await store.addAccount(account, token: "original")
+        let factory = FakeInstanceClientFactory()
+        let core = makeCore(editingAccount: account, store: store, factory: factory)
+        core.urlText = "https://target.example.com"
+        core.apiToken = "candidate"
+        await core.save()
+        #expect(core.phase == .failure(ConnectionIdentityError.serverChanged.localizedDescription))
+        #expect(factory.requestedBaseURLs.isEmpty)
+        #expect(store.accounts == [account])
+        #expect(store.tokens[account.id] == "original")
+    }
+
+    @Test
+    func `name updates work offline without authenticating or scheduling recovery`() async throws {
+        let store = FakeAccountStore()
+        let account = try InstanceAccount(displayName: "Home", baseURL: #require(URL(string: "https://tasks.example.com")))
+        try await store.addAccount(account, token: "original")
+        let factory = FakeInstanceClientFactory()
+        factory.result = .failure(.offline)
+        let core = makeCore(editingAccount: account, store: store, factory: factory)
+        core.displayName = "Renamed"
+        await core.saveName()
+        #expect(core.phase == .success)
+        #expect(store.accounts.first?.displayName == "Renamed")
+        #expect(store.tokens[account.id] == "original")
+        #expect(!core.didReplaceCredentials)
+        #expect(factory.requestedBaseURLs.isEmpty)
+    }
+
+    @Test
+    func `legacy identity binds once and a stale editor cannot bypass the binding`() async throws {
+        let store = FakeAccountStore()
+        let account = try InstanceAccount(displayName: "Home", baseURL: #require(URL(string: "https://tasks.example.com")))
+        try await store.addAccount(account, token: "original")
+        let factory = FakeInstanceClientFactory()
+        let core = makeCore(editingAccount: account, store: store, factory: factory)
+        core.apiToken = "first-login"
+        await core.save()
+        #expect(store.accounts.first?.userID == 1)
+        factory.authService.apiTokenUser = User(id: 2, username: "other")
+        let stale = makeCore(editingAccount: account, store: store, factory: factory)
+        stale.apiToken = "other-user"
+        await stale.save()
+        #expect(stale.savedAccount == nil)
+        #expect(store.tokens[account.id] == "first-login")
+        #expect(store.accounts.first?.userID == 1)
+    }
+
+    @Test
+    func `late login cannot overwrite a newer accepted credential`() async throws {
+        let store = FakeAccountStore()
+        let account = try InstanceAccount(displayName: "Home", baseURL: #require(URL(string: "https://tasks.example.com")), userID: 1)
+        try await store.addAccount(account, token: "original")
+        let factory = FakeInstanceClientFactory()
+        factory.authService.beforeAPIResponse = { try? await store.updateAccount(account, token: "newer-login") }
+        let core = makeCore(editingAccount: account, store: store, factory: factory)
+        core.apiToken = "late-candidate"
+        await core.save()
+        #expect(core.phase == .failure(ConnectionIdentityError.sessionChanged.localizedDescription))
+        #expect(store.tokens[account.id] == "newer-login")
+        #expect(core.savedAccount == nil)
+    }
+
+    @Test
+    func `cancellation after receiving a candidate cannot replace the stored session`() async throws {
+        let store = FakeAccountStore()
+        let account = try InstanceAccount(displayName: "Home", baseURL: #require(URL(string: "https://tasks.example.com")), userID: 1)
+        try await store.addAccount(account, token: "original")
+        let factory = FakeInstanceClientFactory()
+        factory.authService.beforeAPIResponse = { withUnsafeCurrentTask { $0?.cancel() } }
+        let core = makeCore(editingAccount: account, store: store, factory: factory)
+        core.apiToken = "candidate"
+        let operation = Task { await core.save() }
+        await operation.value
+        #expect(core.phase == .idle)
+        #expect(core.savedAccount == nil)
+        #expect(store.tokens[account.id] == "original")
+        #expect(store.accounts == [account])
+    }
+
+    @Test(arguments: [VikunjaError.offline, .server(message: "User-read permission required", statusCode: 403)])
+    func `a failed candidate user lookup never creates an unverified connection`(error: VikunjaError) async {
+        let store = FakeAccountStore()
+        let factory = FakeInstanceClientFactory()
+        factory.authService.apiError = error
+        let core = makeCore(store: store, factory: factory)
+        core.displayName = "New connection"
+        core.urlText = "https://tasks.example.com"
+        core.apiToken = "candidate"
+        await core.save()
+        #expect(core.phase == .failure(error.displayMessage))
+        #expect(core.savedAccount == nil)
+        #expect(store.accounts.isEmpty)
+        #expect(store.tokens.isEmpty)
+    }
 }
 
 // MARK: - Fakes
@@ -305,6 +437,17 @@ private final class FakeAccountStore: AccountStoreProtocol, @unchecked Sendable 
         if let token {
             tokens[account.id] = token
         }
+    }
+
+    func replaceSession(
+        _ account: InstanceAccount, token: String, expected: InstanceAccount, matchingToken: String?,
+    ) async throws {
+        guard try await fetchAccounts().contains(expected),
+              try await self.token(forAccountID: expected.id) == matchingToken else {
+            throw ConnectionIdentityError.sessionChanged
+        }
+        try expected.validateIdentity(of: account)
+        try await updateAccount(account, token: token)
     }
 
     func updateSession(
@@ -349,6 +492,9 @@ private struct FakeCapabilityProvider: CapabilityProvider {
 private final class FakeAuthService: AuthServiceProtocol, @unchecked Sendable {
     var loginResult: Result<AuthSession, VikunjaError> = .failure(.network("not configured"))
     private(set) var loginCredentials: [LoginCredentials] = []
+    var apiTokenUser = User(id: 1, username: "sergio")
+    var apiError: VikunjaError?
+    var beforeAPIResponse: (@Sendable () async -> Void)?
 
     func login(_ credentials: LoginCredentials) async throws -> AuthSession {
         loginCredentials.append(credentials)
@@ -356,7 +502,11 @@ private final class FakeAuthService: AuthServiceProtocol, @unchecked Sendable {
     }
 
     func loginWithAPIToken(_ token: String) async throws -> AuthSession {
-        AuthSession(token: token, user: User(id: 0, username: ""))
+        if let apiError {
+            throw apiError
+        }
+        await beforeAPIResponse?()
+        return AuthSession(token: token, user: apiTokenUser)
     }
 
     func loginWithOIDC(provider _: OIDCProvider, code _: String, redirectURI _: URL) async throws -> AuthSession {

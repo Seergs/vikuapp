@@ -31,6 +31,11 @@ struct LocalizationTests {
 
     @Test(arguments: [
         ("Automatic", "Automático"),
+        ("Sign in again", "Iniciar sesión de nuevo"),
+        (
+            "To use another account or server, add a new connection.",
+            "Para usar otra cuenta o servidor, añade una nueva conexión.",
+        ),
         ("Light", "Claro"),
         ("Dark", "Oscuro"),
         ("API Token", "Token de API"),

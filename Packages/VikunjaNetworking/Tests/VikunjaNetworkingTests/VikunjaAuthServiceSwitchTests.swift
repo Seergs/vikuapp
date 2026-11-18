@@ -55,7 +55,7 @@ struct VikunjaAuthServiceSwitchTests {
     }
 
     @Test
-    func `loginWithAPIToken AND logout never touch either service`() async throws {
+    func `API token verification routes to current server API while logout remains local`() async throws {
         let v1 = SpyAuthService(label: "v1")
         let v2 = SpyAuthService(label: "v2")
         let capabilityProvider = FakeAuthCapabilityProvider(supportsAPIV2: true)
@@ -67,7 +67,7 @@ struct VikunjaAuthServiceSwitchTests {
         #expect(session.token == "raw-token")
         #expect(v1.loginWithAPITokenCallCount == 0)
         #expect(v1.logoutCallCount == 0)
-        #expect(v2.loginWithAPITokenCallCount == 0)
+        #expect(v2.loginWithAPITokenCallCount == 1)
         #expect(v2.logoutCallCount == 0)
     }
 }

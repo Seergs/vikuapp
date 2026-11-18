@@ -1254,3 +1254,44 @@ when the empty cache cannot be refreshed. Its spinner presentation waits one
 second, then remains visible for at least one second without delaying the sync.
 New connections and onboarding keep their initial-download lifecycle. Changing
 server/user identity remains separate work (VIKU-234).
+
+## Fixed connection identity
+
+An existing connection keeps its normalized base URL and server-local user ID.
+Using another server/user requires explicitly adding another connection. New
+password, OIDC and API-token authentication resolves the actual current user
+before persisting credentials; `AuthSession.user` is no longer a placeholder.
+The candidate bearer is used only for that validation request and is never
+installed in the shared account token provider before acceptance.
+
+`InstanceAccount.userID` and `username` are optional for compatibility with older
+beta accounts. The first successful user lookup (or successful reauthentication
+when the old session is unusable) establishes a legacy binding once. Account user resolution completes any automatic renewal before capturing the
+credential snapshot, pins the user request to that bearer, and conditionally
+binds against that same stored session. A different explicit login invalidates
+the response; normal token rotation must not prevent the first binding. This is an
+explicit beta trust-on-first-success policy, not reconstruction of historical
+cache ownership. A changed server behind the same URL and repair of previously
+mixed/stranded data remain outside this guarantee. The server-local ID, not a
+mutable username or email, identifies the user.
+
+`KeychainAccountStore` restricts ordinary metadata updates to the connection
+name. Verified explicit logins use `replaceSession`, comparing the expected
+account and credential on its actor before committing. The same path establishes
+legacy identity from credential-matched user reads. Established identities cannot
+change or be cleared, and adding an existing account ID cannot bypass the guard.
+Automatic refresh retains `updateSession`'s conditional replacement. Session writes
+restore the previous secret if writing the account index fails. These are
+serialized in-process operations, not a cross-process Keychain transaction.
+
+Settings separates local name changes from reauthentication. Name-only saves
+preserve credentials and pending work and do not schedule recovery. Reauthentication
+registers shared recovery before publishing completion. The view delays only its
+navigation/account-change notification until spinner presentation has completed;
+networking and persistence are never held for that presentation wait.
+`RootView` keys the tab shell by account ID and credential revision. Renames keep
+navigation intact and do not refresh remote account settings; account switches
+and accepted credential revisions rebuild the shell as before.
+
+Package regressions cover rejected identity changes, unchanged remote
+destinations and preserved intent that can subsequently drain on the source.

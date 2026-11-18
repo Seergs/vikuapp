@@ -26,10 +26,9 @@ struct MainTabView: View {
     let container: AppContainer
     /// Called after `Settings`' connection screens make a change that may
     /// have altered which account is active (switching, deleting the active
-    /// one, or editing its own address) — `RootView` re-reads the active
-    /// account and, since it renders this view keyed by `.id(connectedAccount)`,
-    /// a changed value tears this whole tab shell down and rebuilds it against
-    /// the new one. Dropping the last connection surfaces here too: the
+    /// one, or renaming it) — `RootView` re-reads the active account. A changed
+    /// account ID or accepted credential revision rebuilds the shell; a name
+    /// change preserves navigation. Dropping the last connection surfaces here too: the
     /// re-read comes back `nil` and `RootView` falls back to onboarding.
     let onAccountsChanged: () -> Void
     /// Requests `RootView` present `OnboardingPreviewView` — wired from
@@ -43,7 +42,7 @@ struct MainTabView: View {
 
     /// Per-row pending-sync lookups for the whole shell. Kept as plain
     /// `@State` (not a shared store) because this shell is itself keyed by
-    /// `.id(connectedAccount)`, so switching accounts already rebuilds it and
+    /// `.id(connectedAccount.id)`, so switching accounts already rebuilds it and
     /// restarts the observation against the new account. Injected into the
     /// environment below; the shared row views read it directly rather than
     /// every feature view model re-loading a status through its own task list.
@@ -56,7 +55,7 @@ struct MainTabView: View {
     // `path` and it's placed in that stack's environment, so any screen inside
     // - across feature module boundaries - navigates by pushing an `AppRoute`.
     // Held in `@State` (stable across `body` re-evaluation, like the view
-    // models below) and rebuilt on account switch via `.id(connectedAccount)`.
+    // models below) and rebuilt on account switch via `.id(connectedAccount.id)`.
     @State private var homeRouter = AppRouter()
     @State private var projectsRouter = AppRouter()
     @State private var calendarRouter = AppRouter()
@@ -74,7 +73,7 @@ struct MainTabView: View {
     @State private var isShowingSessionExpiredAlert = false
 
     // Each tab's root view model is built once, here, and held for the life of
-    // this shell (which is itself keyed `.id(connectedAccount)`, so switching
+    // this shell (which is itself keyed `.id(connectedAccount.id)`, so switching
     // account still rebuilds them). Building them inside `body` instead meant a
     // fresh, empty view model on every `body` re-evaluation — and `body` re-runs
     // on every tab switch as soon as anything reads `selection` (the haptic

@@ -10,13 +10,21 @@ import VikunjaCore
 /// `currentMethod` it drives), prefilling an existing token, deleting a
 /// connection, and a toast + active-account notification after every save.
 ///
-/// Saving always re-probes the server, in both modes: editing a connection is
-/// exactly as likely to introduce a typo'd URL as creating one, so there's no
-/// reason to trust an unchanged-looking field over a freshly typed one.
+/// Name-only edits are local; reauthentication verifies the existing fixed identity.
 @MainActor
 @Observable
 public final class ConnectionFormViewModel {
     public let mode: ConnectionFormMode
+    public var isReauthenticating = false
+    private var didFinishSavePresentation = false
+
+    public var showsCredentials: Bool {
+        !isEditing || isReauthenticating
+    }
+
+    public var fixedUsername: String? {
+        core.editingAccount?.username
+    }
 
     private let core: ConnectionEditorCore
     private let accountStore: AccountStoreProtocol
@@ -31,8 +39,8 @@ public final class ConnectionFormViewModel {
     private let teardownNotifications: (InstanceAccount) async -> Void
     private let toastPresenter: ToastPresenting
     /// Fired after a save/delete that may have changed which account is
-    /// active, or edited the active account's own address — either way the
-    /// app target needs to rebuild the main tab shell. See
+    /// active or renamed its metadata. The app preserves navigation on renames
+    /// and rebuilds the shell for an account or credential change. See
     /// `ConnectionsListViewModel`'s copy of the same reasoning.
     private let onActiveAccountChanged: () -> Void
 
@@ -71,7 +79,7 @@ public final class ConnectionFormViewModel {
             guard let self else { return }
             // Register recovery before navigation mounts screens. The callback
             // schedules shared work without waiting for the network download.
-            if isEditing {
+            if isEditing, core.didReplaceCredentials {
                 await onCredentialsStored(account)
             }
             toastPresenter.show(
@@ -80,8 +88,14 @@ public final class ConnectionFormViewModel {
                     : String(localized: "Connection added", bundle: .module),
                 style: .success,
             )
-            onActiveAccountChanged()
         }
+    }
+
+    /// The view calls this after its minimum spinner visibility, without delaying storage or sync.
+    public func finishSavePresentation() {
+        guard core.savedAccount != nil, !didFinishSavePresentation else { return }
+        didFinishSavePresentation = true
+        onActiveAccountChanged()
     }
 
     public var displayName: String {
@@ -154,7 +168,10 @@ public final class ConnectionFormViewModel {
     public private(set) var isDeleting = false
 
     public var canSave: Bool {
-        core.canSave
+        if isEditing, !isReauthenticating {
+            return !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSaving
+        }
+        return core.canSave
     }
 
     public var canTestConnection: Bool {
@@ -200,6 +217,7 @@ public final class ConnectionFormViewModel {
     }
 
     public func checkLocalAuthAvailability() async {
+        guard showsCredentials else { return }
         await core.checkLocalAuthAvailability()
     }
 
@@ -208,11 +226,16 @@ public final class ConnectionFormViewModel {
     }
 
     public func signInWithOIDC(_ provider: OIDCProvider) async {
+        guard showsCredentials else { return }
         await core.signInWithOIDC(provider)
     }
 
     public func save() async {
-        await core.save()
+        if isEditing, !isReauthenticating {
+            await core.saveName()
+        } else {
+            await core.save()
+        }
     }
 
     /// Whether notifications are currently enabled for the connection being

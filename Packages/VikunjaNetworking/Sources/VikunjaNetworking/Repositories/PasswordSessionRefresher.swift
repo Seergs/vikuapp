@@ -53,6 +53,7 @@ public actor PasswordSessionRefresher {
         while true {
             guard let current = try await accountStore.fetchAccounts().first(where: { $0.id == account.id }),
                   let stored = try await accountStore.token(forAccountID: account.id) else { return nil }
+            try account.validateIdentity(of: current)
             guard current.authMethod != .apiToken else { return stored }
             guard !current.needsReauthentication else { throw VikunjaError.sessionExpired }
             guard let credential = try? JSONDecoder().decode(
@@ -70,6 +71,42 @@ public actor PasswordSessionRefresher {
                 try Task.checkCancellation()
             }
         }
+    }
+
+    /// Resolve renewal before taking the snapshot used to bind legacy identity.
+    /// The lookup uses that exact bearer, and a concurrent login still invalidates its result.
+    public func currentUser(
+        for account: InstanceAccount,
+        fetching fetchUser: @Sendable (String) async throws -> User,
+    ) async throws -> User {
+        guard let bearer = try await validToken(for: account),
+              let current = try await accountStore.fetchAccounts().first(where: { $0.id == account.id }),
+              let stored = try await accountStore.token(forAccountID: account.id) else {
+            throw VikunjaError.unauthorized
+        }
+        try account.validateIdentity(of: current)
+        let storedBearer = current.authMethod == .apiToken ? stored : (try? JSONDecoder().decode(
+            PasswordSessionCredential.self, from: Data(stored.utf8),
+        ))?.accessToken
+        guard storedBearer == bearer else { throw ConnectionIdentityError.sessionChanged }
+        let user = try await fetchUser(bearer)
+        try Task.checkCancellation()
+        guard user.id > 0 else { throw ConnectionIdentityError.unverifiedUser }
+        if let userID = current.userID, userID != user.id {
+            throw ConnectionIdentityError.userChanged
+        }
+        var bound = current
+        bound.userID = user.id
+        bound.username = user.username
+        if bound != current {
+            try await accountStore.replaceSession(bound, token: stored, expected: current, matchingToken: stored)
+        } else {
+            guard try await accountStore.fetchAccounts().contains(current),
+                  try await accountStore.token(forAccountID: current.id) == stored else {
+                throw ConnectionIdentityError.sessionChanged
+            }
+        }
+        return user
     }
 
     private func coordinatedRefresh(
