@@ -2,7 +2,8 @@ import Foundation
 import VikunjaCore
 
 /// Explicit target state makes replaying a tap from an old timeline idempotent.
-/// The local-acceptance callback runs before server work.
+/// The local-acceptance callback runs before server work. The extension batches
+/// its actual cross-widget reload until the interaction finishes.
 public struct WidgetTaskCompletion: Sendable {
     private let repository: any TaskBulkUpdateRepositoryProtocol
     private let synchronize: @Sendable () async throws -> Void

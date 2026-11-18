@@ -4,7 +4,7 @@ import Foundation
 import VikunjaCore
 
 /// Saves explicit completion locally and attempts a bounded upload without
-/// opening the app. Accepted local changes request updated widget timelines.
+/// opening the app. Cross-widget reload requests are batched until it finishes.
 /// Replayed taps from an old timeline
 /// cannot toggle an already accepted completion back to its previous state.
 public struct ToggleTaskDoneIntent: AppIntent {
@@ -21,12 +21,16 @@ public struct ToggleTaskDoneIntent: AppIntent {
     @Parameter(title: "Completed")
     public var isDone: Bool
 
+    @Parameter(title: "Widget Kind", default: "")
+    public var sourceKind: String
+
     public init() {}
 
-    public init(taskID: Int, accountID: String, isDone: Bool) {
+    public init(taskID: Int, accountID: String, isDone: Bool, sourceKind: String = "") {
         self.taskID = taskID
         self.accountID = accountID
         self.isDone = isDone
+        self.sourceKind = sourceKind
     }
 
     public func perform() async throws -> some IntentResult {
@@ -34,7 +38,9 @@ public struct ToggleTaskDoneIntent: AppIntent {
         let completion = try await VikuWidgetEnvironment.makeCompletion(accountID: accountID, taskID: taskID)
         let taskID = taskID
         let isDone = isDone
-        try await completion.setCompletion(taskID: taskID, isDone: isDone)
+        try await VikuWidgetEnvironment.duringWidgetInteraction(sourceKind: sourceKind) {
+            try await completion.setCompletion(taskID: taskID, isDone: isDone)
+        }
         return .result()
     }
 }

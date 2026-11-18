@@ -1307,6 +1307,12 @@ then attempts an upload-only task scope. A failed upload preserves local intent
 and its queued recovery state. Each rendered action carries its account ID.
 The app uses the same local projection when requesting widget updates.
 
+AppIntent-backed Toggles draw their optimistic state from the toggle
+configuration while persistence and bounded synchronization complete. Accepted
+local and sync callbacks are batched into one sibling reload request. Unknown
+origins, failures and mixed overlapping kinds conservatively request both kinds.
+WidgetKit schedules sibling requests; this does not guarantee immediate redraw.
+
 All production queue drains and account replacements go through `SyncCoordinator`.
 A `syncOwnership` row serializes each account across app and extension processes.
 Acquisition and release use short SQLite transactions; there is no file lock or
