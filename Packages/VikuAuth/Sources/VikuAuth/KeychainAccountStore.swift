@@ -58,11 +58,10 @@ public actor KeychainAccountStore: AccountStoreProtocol {
 
     public func addAccount(_ account: InstanceAccount, token: String) throws {
         var accounts = try loadIndex()
-        accounts.removeAll { $0.id == account.id }
+        guard !accounts.contains(where: { $0.id == account.id }) else { throw ConnectionIdentityError.sessionChanged }
+        guard let userID = account.userID, userID > 0 else { throw ConnectionIdentityError.unverifiedUser }
         accounts.append(account)
-        try saveIndex(accounts)
-
-        try save(Data(token.utf8), account: tokenItem(for: account.id))
+        try persistSession(accounts, accountID: account.id, token: token)
         try writeActiveAccountID(account.id)
     }
 
@@ -71,11 +70,49 @@ public actor KeychainAccountStore: AccountStoreProtocol {
         guard let index = accounts.firstIndex(where: { $0.id == account.id }) else {
             throw VikunjaError.notFound
         }
-        accounts[index] = account
+        let current = accounts[index]
+        try current.validateIdentity(of: account)
+        guard token == nil, current.userID == account.userID,
+              current.authMethod == account.authMethod,
+              current.needsReauthentication == account.needsReauthentication else {
+            throw ConnectionIdentityError.sessionChanged
+        }
+        // This public metadata path only renames; it cannot rotate credentials or bind identity.
+        accounts[index].displayName = account.displayName
         try saveIndex(accounts)
+    }
 
+    public func replaceSession(
+        _ account: InstanceAccount, token: String, expected: InstanceAccount, matchingToken: String?,
+    ) throws {
+        try Task.checkCancellation()
+        var accounts = try loadIndex()
+        guard let index = accounts.firstIndex(where: { $0.id == expected.id }),
+              accounts[index] == expected,
+              try self.token(forAccountID: expected.id) == matchingToken else {
+            throw ConnectionIdentityError.sessionChanged
+        }
+        try expected.validateIdentity(of: account)
+        guard let userID = account.userID, userID > 0 else { throw ConnectionIdentityError.unverifiedUser }
+        accounts[index] = account
+        try persistSession(accounts, accountID: account.id, token: token)
+    }
+
+    /// The actor keeps readers out until both writes finish; restore the prior secret on failure.
+    private func persistSession(_ accounts: [InstanceAccount], accountID: UUID, token: String?) throws {
+        let previous = try read(account: tokenItem(for: accountID))
         if let token {
-            try save(Data(token.utf8), account: tokenItem(for: account.id))
+            try save(Data(token.utf8), account: tokenItem(for: accountID))
+        }
+        do {
+            try saveIndex(accounts)
+        } catch {
+            if let previous {
+                try save(previous, account: tokenItem(for: accountID))
+            } else {
+                try delete(account: tokenItem(for: accountID))
+            }
+            throw error
         }
     }
 
@@ -89,7 +126,10 @@ public actor KeychainAccountStore: AccountStoreProtocol {
               try self.token(forAccountID: account.id) == matchingToken else { return false }
         var updated = account
         updated.needsReauthentication = needsReauthentication
-        try updateAccount(updated, token: token)
+        var accounts = try loadIndex()
+        guard let index = accounts.firstIndex(where: { $0 == account }) else { return false }
+        accounts[index] = updated
+        try persistSession(accounts, accountID: account.id, token: token)
         return true
     }
 

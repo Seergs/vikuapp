@@ -46,6 +46,8 @@ public final class PasswordLoginCoordinator: Sendable {
         do {
             let session = try await authService.login(credentials)
             return .success(session)
+        } catch is CancellationError {
+            return .idle
         } catch VikunjaError.totpRequired {
             return .awaitingTOTP
         } catch let error as VikunjaError {

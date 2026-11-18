@@ -7,8 +7,7 @@ import VikunjaCore
 /// pattern, applied here to `AuthServiceProtocol` instead of a
 /// `Repositories/` type since login is the one thing
 /// `InstanceClientFactoryProtocol` builds without a resource protocol).
-/// `loginWithAPIToken(_:)`/`logout()` touch no endpoint either version
-/// changed, so this implements them directly rather than routing.
+/// API-token validation also routes to the appropriate current-user endpoint.
 final class VikunjaAuthServiceSwitch: AuthServiceProtocol {
     private let v1: AuthServiceProtocol
     private let v2: AuthServiceProtocol
@@ -29,7 +28,7 @@ final class VikunjaAuthServiceSwitch: AuthServiceProtocol {
     }
 
     func loginWithAPIToken(_ token: String) async throws -> AuthSession {
-        AuthSession(token: token, user: User(id: 0, username: ""))
+        try await resolve().loginWithAPIToken(token)
     }
 
     func loginWithOIDC(provider: OIDCProvider, code: String, redirectURI: URL) async throws -> AuthSession {

@@ -31,19 +31,15 @@ struct RootView: View {
     var body: some View {
         Group {
             if let connectedAccount {
-                // Keyed by the whole `InstanceAccount` value (not just its
-                // id) so switching the active connection, or editing the
-                // active one's own name/URL, tears down and rebuilds the
-                // entire tab shell — every tab's view models were built
-                // against the old account's `baseURL` at construction time
-                // and don't observe changes to it.
+                // Identity is fixed within an account. Rename without resetting navigation;
+                // account switches and accepted credential revisions rebuild the shell.
                 MainTabView(
                     account: connectedAccount,
                     container: container,
                     onAccountsChanged: { Task { await refreshActiveAccount() } },
                     onPreviewOnboarding: { isPreviewingOnboarding = true },
                 )
-                .id(connectedAccount)
+                .id(connectedAccount.id)
                 .id(connectionRevision)
             } else if hasCheckedForSavedAccount {
                 NavigationStack {
@@ -166,11 +162,14 @@ struct RootView: View {
     /// their "active account changed" callback synchronously, so
     /// `MainTabView.onAccountsChanged` wraps this in its own `Task`.
     private func refreshActiveAccount() async {
+        let previousID = connectedAccount?.id
+        let previousRevision = connectionRevision
         connectedAccount = try? await container.accountStore.activeAccount()
         connectionRevision = connectedAccount.flatMap { container.credentialRevisions[$0.id] }
         // Refresh the cached default project once per launch and on every
         // account switch — quick-add reads the cache, never the network.
-        if let connectedAccount {
+        if let connectedAccount,
+           previousID != connectedAccount.id || previousRevision != connectionRevision {
             Task { await container.refreshDefaultProject(account: connectedAccount) }
         }
     }

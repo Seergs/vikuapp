@@ -370,14 +370,19 @@ final class AppContainer {
     /// network every time its sheet opens. A failed fetch leaves the previous
     /// cached value untouched.
     func refreshDefaultProject(account: InstanceAccount) async {
-        let userRepository = clientFactory.makeUserRepository(
-            baseURL: account.baseURL,
-            tokenProvider: tokenProvider(for: account),
-        )
-        guard let user = try? await userRepository.fetchCurrentUser() else { return }
+        guard let user = try? await currentUser(account: account) else { return }
         currentUserStore.setUser(user, for: account.id)
         defaultProjectStore.setProjectID(user.defaultProjectID, forAccountID: account.id)
         accountTimezoneStore.setCachedTimezone(user.timezone, forAccountID: account.id)
+    }
+
+    /// Networking renews first and pins the user read to the same credential it binds.
+    private func currentUser(account: InstanceAccount) async throws -> User {
+        let factory = clientFactory
+        return try await sessionRefresher.currentUser(for: account) { bearer in
+            let repository = factory.makeUserRepository(baseURL: account.baseURL, tokenProvider: { bearer })
+            return try await repository.fetchCurrentUser()
+        }
     }
 
     /// Reconciles every saved account's webhooks with its own stored
@@ -407,8 +412,7 @@ final class AppContainer {
         guard notificationSettingsStore.settings(for: account.id).isEnabled else { return }
 
         let tokenProvider = tokenProvider(for: account)
-        let userRepository = clientFactory.makeUserRepository(baseURL: account.baseURL, tokenProvider: tokenProvider)
-        guard let user = try? await userRepository.fetchCurrentUser() else { return }
+        guard let user = try? await currentUser(account: account) else { return }
         currentUserStore.setUser(user, for: account.id)
         guard let registration = try? await pushNotificationRegistering.enable(
             vikunjaUserID: user.id,

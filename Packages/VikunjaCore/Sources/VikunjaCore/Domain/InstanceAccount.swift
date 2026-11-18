@@ -17,6 +17,9 @@ public struct InstanceAccount: Identifiable, Hashable, Sendable, Codable {
     public var baseURL: URL
     public var createdAt: Date
     public var authMethod: AuthMethod
+    /// Server-local identity. Older beta connections bind on their first successful user lookup.
+    public var userID: Int?
+    public var username: String?
     /// Set by `PasswordSessionRefresher` when a password/OIDC session's
     /// refresh token is itself rejected by the server — the stored
     /// credential can no longer be renewed, only replaced by signing in
@@ -34,12 +37,16 @@ public struct InstanceAccount: Identifiable, Hashable, Sendable, Codable {
         createdAt: Date = Date(),
         authMethod: AuthMethod = .apiToken,
         needsReauthentication: Bool = false,
+        userID: Int? = nil,
+        username: String? = nil,
     ) {
         self.id = id
         self.displayName = displayName
         self.baseURL = baseURL
         self.createdAt = createdAt
         self.authMethod = authMethod
+        self.userID = userID
+        self.username = username
         self.needsReauthentication = needsReauthentication
     }
 
@@ -50,6 +57,8 @@ public struct InstanceAccount: Identifiable, Hashable, Sendable, Codable {
         case createdAt
         case authMethod
         case needsReauthentication
+        case userID
+        case username
     }
 
     public init(from decoder: Decoder) throws {
@@ -60,5 +69,20 @@ public struct InstanceAccount: Identifiable, Hashable, Sendable, Codable {
         self.createdAt = try container.decode(Date.self, forKey: .createdAt)
         self.authMethod = try container.decode(AuthMethod.self, forKey: .authMethod)
         self.needsReauthentication = try container.decodeIfPresent(Bool.self, forKey: .needsReauthentication) ?? false
+        self.userID = try container.decodeIfPresent(Int.self, forKey: .userID)
+        self.username = try container.decodeIfPresent(String.self, forKey: .username)
+    }
+
+    /// Metadata updates may establish a legacy identity, but never remove or change one.
+    public func validateIdentity(of replacement: InstanceAccount) throws {
+        guard id == replacement.id, baseURL == replacement.baseURL else {
+            throw ConnectionIdentityError.serverChanged
+        }
+        if let userID, replacement.userID != userID {
+            throw ConnectionIdentityError.userChanged
+        }
+        if let newID = replacement.userID, newID <= 0 {
+            throw ConnectionIdentityError.unverifiedUser
+        }
     }
 }

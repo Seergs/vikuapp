@@ -1602,13 +1602,15 @@ struct URLSessionAPIClientTests {
 
     @Test
     func `login with no refresh cookie stores A credential with no refresh token`() async throws {
-        let (session, _) = MockURLProtocol.makeSession(statusCode: 200, body: #"{"token":"pre-2.0-jwt"}"#)
+        let (session, _) = try Self.makeAuthenticationSession(statusCode: 200, body: #"{"token":"pre-2.0-jwt"}"#)
         let baseURL = try #require(URL(string: "https://vikunja.example.com"))
         let apiClient = URLSessionAPIClient(baseURL: baseURL, session: session)
         let service = VikunjaAuthService(client: apiClient, baseURL: baseURL)
 
         let authSession = try await service.login(LoginCredentials(username: "sergio", password: "hunter2"))
 
+        #expect(authSession.user.id == 3)
+        #expect(authSession.user.username == "qa-user")
         let credential = try JSONDecoder().decode(PasswordSessionCredential.self, from: Data(authSession.token.utf8))
         #expect(credential.accessToken == "pre-2.0-jwt")
         #expect(credential.refreshToken == nil)
@@ -1616,7 +1618,7 @@ struct URLSessionAPIClientTests {
 
     @Test
     func `login with A refresh cookie captures the refresh token`() async throws {
-        let (session, _) = MockURLProtocol.makeSession(
+        let (session, _) = try Self.makeAuthenticationSession(
             statusCode: 200,
             body: #"{"token":"v2-jwt"}"#,
             headers: ["Set-Cookie": "vikunja_refresh_token=refresh-abc; Path=/api/v1/user/token/refresh; HttpOnly"],
@@ -1627,6 +1629,8 @@ struct URLSessionAPIClientTests {
 
         let authSession = try await service.login(LoginCredentials(username: "sergio", password: "hunter2"))
 
+        #expect(authSession.user.id == 3)
+        #expect(authSession.user.username == "qa-user")
         let credential = try JSONDecoder().decode(PasswordSessionCredential.self, from: Data(authSession.token.utf8))
         #expect(credential.accessToken == "v2-jwt")
         #expect(credential.refreshToken == "refresh-abc")
@@ -1634,7 +1638,7 @@ struct URLSessionAPIClientTests {
 
     @Test
     func `bucket capacity rejection keeps its HTTP status instead of requiring TOTP`() async throws {
-        let (session, _) = MockURLProtocol.makeSession(statusCode: 412, body: "")
+        let (session, _) = try Self.makeAuthenticationSession(statusCode: 412, body: "")
         let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
         await #expect(throws: VikunjaError.server(message: "", statusCode: 412)) {
             try await client.send(Endpoint(path: "/api/v2/projects/6/tasks", method: .post))
@@ -1643,7 +1647,7 @@ struct URLSessionAPIClientTests {
 
     @Test
     func `v2 login retains the 412 TOTP challenge`() async throws {
-        let (session, _) = MockURLProtocol.makeSession(statusCode: 412, body: "")
+        let (session, _) = try Self.makeAuthenticationSession(statusCode: 412, body: "")
         let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
         await #expect(throws: VikunjaError.totpRequired) {
             try await client.send(Endpoint(path: "/api/v2/login", method: .post))
@@ -1652,7 +1656,9 @@ struct URLSessionAPIClientTests {
 
     @Test
     func `login with A 412 response surfaces as totpRequired`() async throws {
-        let (session, _) = MockURLProtocol.makeSession(statusCode: 412, body: #"{"message":"Invalid totp passcode."}"#)
+        let (session, _) = try Self.makeAuthenticationSession(
+            statusCode: 412, body: #"{"message":"Invalid totp passcode."}"#,
+        )
         let baseURL = try #require(URL(string: "https://vikunja.example.com"))
         let apiClient = URLSessionAPIClient(baseURL: baseURL, session: session)
         let service = VikunjaAuthService(client: apiClient, baseURL: baseURL)
@@ -1672,7 +1678,7 @@ struct URLSessionAPIClientTests {
 
     @Test
     func `login with oidc PO STs the provider key code scope and redirect url`() async throws {
-        let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: #"{"token":"oidc-jwt"}"#)
+        let (session, capture) = try Self.makeAuthenticationSession(statusCode: 200, body: #"{"token":"oidc-jwt"}"#)
         let baseURL = try #require(URL(string: "https://vikunja.example.com"))
         let apiClient = URLSessionAPIClient(baseURL: baseURL, session: session)
         let service = VikunjaAuthService(client: apiClient, baseURL: baseURL)
@@ -1680,7 +1686,7 @@ struct URLSessionAPIClientTests {
 
         _ = try await service.loginWithOIDC(provider: Self.oidcProvider, code: "auth-code", redirectURI: redirectURI)
 
-        let request = await capture.lastRequest
+        let request = await capture.requests.first
         #expect(request?.url?.path == "/api/v1/auth/openid/authentik/callback")
         let sentBody = try #require(request?.httpBody)
         let json = try #require(JSONSerialization.jsonObject(with: sentBody) as? [String: Any])
@@ -1691,7 +1697,7 @@ struct URLSessionAPIClientTests {
 
     @Test
     func `login with oidc and no refresh cookie stores A credential with no refresh token`() async throws {
-        let (session, _) = MockURLProtocol.makeSession(statusCode: 200, body: #"{"token":"oidc-jwt"}"#)
+        let (session, _) = try Self.makeAuthenticationSession(statusCode: 200, body: #"{"token":"oidc-jwt"}"#)
         let baseURL = try #require(URL(string: "https://vikunja.example.com"))
         let apiClient = URLSessionAPIClient(baseURL: baseURL, session: session)
         let service = VikunjaAuthService(client: apiClient, baseURL: baseURL)
@@ -1703,6 +1709,8 @@ struct URLSessionAPIClientTests {
             redirectURI: redirectURI,
         )
 
+        #expect(authSession.user.id == 3)
+        #expect(authSession.user.username == "qa-user")
         let credential = try JSONDecoder().decode(PasswordSessionCredential.self, from: Data(authSession.token.utf8))
         #expect(credential.accessToken == "oidc-jwt")
         #expect(credential.refreshToken == nil)
@@ -1710,7 +1718,7 @@ struct URLSessionAPIClientTests {
 
     @Test
     func `login with oidc and A refresh cookie captures the refresh token`() async throws {
-        let (session, _) = MockURLProtocol.makeSession(
+        let (session, _) = try Self.makeAuthenticationSession(
             statusCode: 200,
             body: #"{"token":"oidc-jwt"}"#,
             headers: ["Set-Cookie": "vikunja_refresh_token=refresh-abc; Path=/api/v1/user/token/refresh; HttpOnly"],
@@ -1726,6 +1734,8 @@ struct URLSessionAPIClientTests {
             redirectURI: redirectURI,
         )
 
+        #expect(authSession.user.id == 3)
+        #expect(authSession.user.username == "qa-user")
         let credential = try JSONDecoder().decode(PasswordSessionCredential.self, from: Data(authSession.token.utf8))
         #expect(credential.accessToken == "oidc-jwt")
         #expect(credential.refreshToken == "refresh-abc")
@@ -1736,22 +1746,24 @@ struct URLSessionAPIClientTests {
 
     @Test
     func `login v2 PO STs to the v2 login endpoint`() async throws {
-        let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: #"{"token":"v2-jwt"}"#)
+        let (session, capture) = try Self.makeAuthenticationSession(statusCode: 200, body: #"{"token":"v2-jwt"}"#)
         let baseURL = try #require(URL(string: "https://vikunja.example.com"))
         let apiClient = URLSessionAPIClient(baseURL: baseURL, session: session)
         let service = VikunjaAuthServiceV2(client: apiClient, baseURL: baseURL)
 
         let authSession = try await service.login(LoginCredentials(username: "sergio", password: "hunter2"))
 
+        #expect(authSession.user.id == 3)
+        #expect(authSession.user.username == "qa-user")
         let credential = try JSONDecoder().decode(PasswordSessionCredential.self, from: Data(authSession.token.utf8))
         #expect(credential.accessToken == "v2-jwt")
-        let request = try #require(await capture.lastRequest)
+        let request = try #require(await capture.requests.first)
         #expect(request.url?.path == "/api/v2/login")
     }
 
     @Test
     func `login with oidc v2 PO STs to the v2 callback endpoint`() async throws {
-        let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: #"{"token":"oidc-jwt"}"#)
+        let (session, capture) = try Self.makeAuthenticationSession(statusCode: 200, body: #"{"token":"oidc-jwt"}"#)
         let baseURL = try #require(URL(string: "https://vikunja.example.com"))
         let apiClient = URLSessionAPIClient(baseURL: baseURL, session: session)
         let service = VikunjaAuthServiceV2(client: apiClient, baseURL: baseURL)
@@ -1759,14 +1771,14 @@ struct URLSessionAPIClientTests {
 
         _ = try await service.loginWithOIDC(provider: Self.oidcProvider, code: "auth-code", redirectURI: redirectURI)
 
-        let request = try #require(await capture.lastRequest)
+        let request = try #require(await capture.requests.first)
         #expect(request.url?.path == "/api/v2/auth/openid/authentik/callback")
     }
 
     @Test
     func `login returns the same domain result across v1 AND v2`() async throws {
         for path in ["/api/v1/login", "/api/v2/login"] {
-            let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: #"{"token":"jwt"}"#)
+            let (session, capture) = try Self.makeAuthenticationSession(statusCode: 200, body: #"{"token":"jwt"}"#)
             let baseURL = try #require(URL(string: "https://vikunja.example.com"))
             let apiClient = URLSessionAPIClient(baseURL: baseURL, session: session)
             let service: AuthServiceProtocol = path.contains("v1")
@@ -1778,7 +1790,7 @@ struct URLSessionAPIClientTests {
             let credentialData = Data(authSession.token.utf8)
             let credential = try JSONDecoder().decode(PasswordSessionCredential.self, from: credentialData)
             #expect(credential.accessToken == "jwt")
-            #expect(await capture.lastRequest?.url?.path == path)
+            #expect(await capture.requests.first?.url?.path == path)
         }
     }
 
@@ -2008,6 +2020,120 @@ struct URLSessionAPIClientTests {
     // `VikunjaBucketRepository` is tested here for the same reason as
     // `VikunjaLabelRepository` above — it shares `MockURLProtocol`'s static
     // response queue, which races across suites that aren't this one.
+
+    @Test(arguments: [false, true])
+    func `API token validation reads the actual user with only the candidate bearer`(v2: Bool) async throws {
+        let (session, capture) = try MockURLProtocol.makeSession(statusCode: 200, body: Self.fixture("user"))
+        let baseURL = try #require(URL(string: "https://vikunja.example.com"))
+        let client = URLSessionAPIClient(baseURL: baseURL, session: session)
+        let service: AuthServiceProtocol = v2
+            ? VikunjaAuthServiceV2(client: client, baseURL: baseURL)
+            : VikunjaAuthService(client: client, baseURL: baseURL)
+        let verified = try await service.loginWithAPIToken("candidate-token")
+        #expect(verified.user.id == 3)
+        #expect(verified.user.username == "qa-user")
+        #expect(verified.token == "candidate-token")
+        let request = try #require(await capture.lastRequest)
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer candidate-token")
+        #expect(request.url?.path == (v2 ? "/api/v2/user" : "/api/v1/user"))
+    }
+
+    @Test(arguments: [false, true])
+    func `missing user permission fails token validation with actionable feedback`(v2: Bool) async throws {
+        let (session, _) = MockURLProtocol.makeSession(statusCode: 403, body: "")
+        let baseURL = try #require(URL(string: "https://vikunja.example.com"))
+        let client = URLSessionAPIClient(baseURL: baseURL, session: session)
+        let service: AuthServiceProtocol = v2
+            ? VikunjaAuthServiceV2(client: client, baseURL: baseURL)
+            : VikunjaAuthService(client: client, baseURL: baseURL)
+        await #expect(throws: VikunjaError.server(
+            message: ConnectionIdentityError.userReadRequired.localizedDescription, statusCode: 403,
+        )) { _ = try await service.loginWithAPIToken("restricted-token") }
+    }
+
+    @Test
+    func `a disconnected identity lookup remains a network failure instead of a permission error`() async throws {
+        let (session, _) = MockURLProtocol.makeSession(failingWith: URLError(.notConnectedToInternet))
+        let baseURL = try #require(URL(string: "https://vikunja.example.com"))
+        let service = VikunjaAuthService(
+            client: URLSessionAPIClient(baseURL: baseURL, session: session), baseURL: baseURL,
+        )
+        await #expect(throws: VikunjaError.offline) { _ = try await service.loginWithAPIToken("candidate") }
+    }
+
+    @Test(arguments: [false, true])
+    func `legacy user identity is persisted even when lookup first renews its session`(expiresSoon: Bool) async throws {
+        let account = try PasswordRefresherFixtures.makeAccount(authMethod: .password)
+        let oldJWT = PasswordRefresherFixtures.makeJWT(
+            exp: Date().addingTimeInterval(expiresSoon ? 10 : 3600).timeIntervalSince1970,
+        )
+        let credential = try PasswordRefresherFixtures.encode(accessToken: oldJWT, refreshToken: nil)
+        let store = PasswordRefresherFixtures.FakeAccountStore(account: account, tokens: [account.id: credential])
+        let newJWT = PasswordRefresherFixtures.makeJWT(exp: Date().addingTimeInterval(7200).timeIntervalSince1970)
+        var responses: [MockURLProtocol.ScriptedResponse] = []
+        if expiresSoon {
+            let data = try JSONSerialization.data(withJSONObject: ["token": newJWT])
+            try responses.append(.init(statusCode: 200, body: #require(String(data: data, encoding: .utf8))))
+        }
+        try responses.append(.init(statusCode: 200, body: Self.fixture("user")))
+        let (session, capture) = MockURLProtocol.makeSession(responses: responses)
+        let refresher = PasswordSessionRefresher(accountStore: store, session: session)
+        let user = try await refresher.currentUser(for: account) { bearer in
+            let client = URLSessionAPIClient(baseURL: account.baseURL, session: session, authTokenProvider: { bearer })
+            return try await VikunjaUserRepository(client: client).fetchCurrentUser()
+        }
+        let bound = try #require(await store.fetchAccounts().first)
+        #expect(user.id == 3)
+        #expect(bound.userID == 3)
+        #expect(bound.username == "qa-user")
+        #expect(bound.id == account.id)
+        let expectedBearer = expiresSoon ? newJWT : oldJWT
+        let savedCredential = try await store.token(forAccountID: account.id)
+        #expect(try PasswordRefresherFixtures.decode(savedCredential).accessToken == expectedBearer)
+        #expect(await capture.lastRequest?.value(forHTTPHeaderField: "Authorization") == "Bearer \(expectedBearer)")
+        // In the renewal case, comparing with the pre-lookup credential would discard this valid identity.
+        #expect(try await (store.token(forAccountID: account.id) != credential) == expiresSoon)
+    }
+
+    @Test
+    func `late legacy user lookup cannot overwrite a login accepted during its request`() async throws {
+        let account = try PasswordRefresherFixtures.makeAccount(authMethod: .apiToken)
+        let store = PasswordRefresherFixtures.FakeAccountStore(account: account, tokens: [account.id: "original"])
+        let refresher = PasswordSessionRefresher(accountStore: store)
+        var newer = account
+        newer.userID = 8
+        newer.username = "newer-user"
+        let accepted = newer
+        await #expect(throws: ConnectionIdentityError.sessionChanged) {
+            _ = try await refresher.currentUser(for: account) { _ in
+                try await store.updateAccount(accepted, token: "newer-session")
+                return User(id: 3, username: "qa-user")
+            }
+        }
+        #expect(try await store.fetchAccounts().first == accepted)
+        #expect(try await store.token(forAccountID: account.id) == "newer-session")
+    }
+
+    @Test
+    func `failed legacy user lookup leaves identity unbound and credentials intact`() async throws {
+        let account = try PasswordRefresherFixtures.makeAccount(authMethod: .apiToken)
+        let store = PasswordRefresherFixtures.FakeAccountStore(account: account, tokens: [account.id: "original"])
+        let refresher = PasswordSessionRefresher(accountStore: store)
+        await #expect(throws: VikunjaError.offline) {
+            _ = try await refresher.currentUser(for: account) { _ in throw VikunjaError.offline }
+        }
+        #expect(try await store.fetchAccounts().first == account)
+        #expect(try await store.token(forAccountID: account.id) == "original")
+    }
+
+    private static func makeAuthenticationSession(
+        statusCode: Int, body: String, headers: [String: String] = [:],
+    ) throws -> (URLSession, RequestCapture) {
+        try MockURLProtocol.makeSession(responses: [
+            .init(statusCode: statusCode, body: body, headers: headers),
+            .init(statusCode: 200, body: fixture("user")),
+        ])
+    }
 
     private static func fixture(_ name: String) throws -> String {
         let url = try #require(Bundle.module.url(forResource: name, withExtension: "json"))
@@ -2429,6 +2555,17 @@ private enum PasswordRefresherFixtures {
 
         func setBeforeSessionUpdate(_ action: @escaping @Sendable () async -> Void) {
             beforeSessionUpdate = action
+        }
+
+        func replaceSession(
+            _ account: InstanceAccount, token: String, expected: InstanceAccount, matchingToken: String?,
+        ) async throws {
+            guard try await fetchAccounts().contains(expected),
+                  try await self.token(forAccountID: expected.id) == matchingToken else {
+                throw ConnectionIdentityError.sessionChanged
+            }
+            try expected.validateIdentity(of: account)
+            try await updateAccount(account, token: token)
         }
 
         func updateSession(

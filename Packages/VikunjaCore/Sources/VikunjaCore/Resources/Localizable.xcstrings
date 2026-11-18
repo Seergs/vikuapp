@@ -1,6 +1,86 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "To use another server, add a new connection." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To use another server, add a new connection."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para usar otro servidor, añade una nueva conexión."
+          }
+        }
+      }
+    },
+    "This connection belongs to another user. Use the original account or add a new connection." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This connection belongs to another user. Use the original account or add a new connection."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta conexión pertenece a otro usuario. Inicia sesión con la cuenta original o añade una nueva conexión."
+          }
+        }
+      }
+    },
+    "This connection changed while you were signing in. Try again." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This connection changed while you were signing in. Try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta conexión cambió mientras iniciabas sesión. Inténtalo de nuevo."
+          }
+        }
+      }
+    },
+    "Couldn't verify your user. Try signing in again." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't verify your user. Try signing in again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo verificar tu usuario. Intenta iniciar sesión de nuevo."
+          }
+        }
+      }
+    },
+    "This token needs permission to read your user. Update its permissions and try again." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This token needs permission to read your user. Update its permissions and try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este token necesita permiso para consultar tu usuario. Actualiza sus permisos e inténtalo de nuevo."
+          }
+        }
+      }
+    },
     "A Kanban column has reached its task limit. Free up space in the board and try again.": {
       "localizations": {
         "en": {

@@ -48,6 +48,17 @@ actor FakeAccountStore: AccountStoreProtocol {
         }
     }
 
+    func replaceSession(
+        _ account: InstanceAccount, token: String, expected: InstanceAccount, matchingToken: String?,
+    ) async throws {
+        guard try fetchAccounts().contains(expected),
+              try self.token(forAccountID: expected.id) == matchingToken else {
+            throw ConnectionIdentityError.sessionChanged
+        }
+        try expected.validateIdentity(of: account)
+        try updateAccount(account, token: token)
+    }
+
     func updateSession(
         for account: InstanceAccount, matchingToken: String, token: String?, needsReauthentication: Bool,
     ) throws -> Bool {

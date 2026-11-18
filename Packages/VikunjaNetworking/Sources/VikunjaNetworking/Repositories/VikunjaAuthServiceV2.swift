@@ -27,11 +27,13 @@ public final class VikunjaAuthServiceV2: AuthServiceProtocol {
         let sessionCredential = PasswordSessionCredential(accessToken: tokenDTO.token, refreshToken: refreshToken)
         let encoded = try JSONEncoder().encode(sessionCredential)
         let opaqueToken = String(data: encoded, encoding: .utf8) ?? ""
-        return AuthSession(token: opaqueToken, user: User(id: 0, username: credentials.username))
+        let user = try await AuthenticatedUserReader.fetch(client: client, token: tokenDTO.token, v2: true)
+        return AuthSession(token: opaqueToken, user: user)
     }
 
     public func loginWithAPIToken(_ token: String) async throws -> AuthSession {
-        AuthSession(token: token, user: User(id: 0, username: ""))
+        let user = try await AuthenticatedUserReader.fetch(client: client, token: token, v2: true)
+        return AuthSession(token: token, user: user)
     }
 
     public func loginWithOIDC(provider: OIDCProvider, code: String, redirectURI: URL) async throws -> AuthSession {
@@ -52,7 +54,8 @@ public final class VikunjaAuthServiceV2: AuthServiceProtocol {
         let sessionCredential = PasswordSessionCredential(accessToken: tokenDTO.token, refreshToken: refreshToken)
         let encoded = try JSONEncoder().encode(sessionCredential)
         let opaqueToken = String(data: encoded, encoding: .utf8) ?? ""
-        return AuthSession(token: opaqueToken, user: User(id: 0, username: ""))
+        let user = try await AuthenticatedUserReader.fetch(client: client, token: tokenDTO.token, v2: true)
+        return AuthSession(token: opaqueToken, user: user)
     }
 
     public func logout() async {}

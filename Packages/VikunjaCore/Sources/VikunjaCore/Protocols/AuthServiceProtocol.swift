@@ -1,6 +1,8 @@
 import Foundation
 
 public protocol AuthServiceProtocol: Sendable {
+    /// Every successful authentication includes the real, server-verified current user.
+    /// Identity lookup failures must fail authentication before any credential is persisted.
     /// For a password login, `AuthSession.token` is an opaque persisted-
     /// credential blob (not the raw JWT) — callers must only pass it through
     /// to `AccountStoreProtocol`, never parse it, exactly as they already

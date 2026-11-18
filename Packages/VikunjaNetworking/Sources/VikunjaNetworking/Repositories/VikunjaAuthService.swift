@@ -13,9 +13,7 @@ public final class VikunjaAuthService: AuthServiceProtocol {
         self.baseURL = baseURL
     }
 
-    /// `/api/v1/login` only returns the JWT, not the user — that's why
-    /// `AuthSession.user` is a placeholder here; resolving the real user
-    /// (GET /api/v1/user) is future work, same as today.
+    /// Login returns the JWT; a separate candidate-authenticated user read establishes identity.
     ///
     /// The returned `AuthSession.token` is an opaque, JSON-encoded
     /// `PasswordSessionCredential` — not the raw JWT — carrying a refresh
@@ -35,11 +33,13 @@ public final class VikunjaAuthService: AuthServiceProtocol {
         let sessionCredential = PasswordSessionCredential(accessToken: tokenDTO.token, refreshToken: refreshToken)
         let encoded = try JSONEncoder().encode(sessionCredential)
         let opaqueToken = String(data: encoded, encoding: .utf8) ?? ""
-        return AuthSession(token: opaqueToken, user: User(id: 0, username: credentials.username))
+        let user = try await AuthenticatedUserReader.fetch(client: client, token: tokenDTO.token, v2: false)
+        return AuthSession(token: opaqueToken, user: user)
     }
 
     public func loginWithAPIToken(_ token: String) async throws -> AuthSession {
-        AuthSession(token: token, user: User(id: 0, username: ""))
+        let user = try await AuthenticatedUserReader.fetch(client: client, token: token, v2: false)
+        return AuthSession(token: token, user: user)
     }
 
     /// Same opaque-credential handling as `login(_:)` — see its doc comment.
@@ -61,7 +61,8 @@ public final class VikunjaAuthService: AuthServiceProtocol {
         let sessionCredential = PasswordSessionCredential(accessToken: tokenDTO.token, refreshToken: refreshToken)
         let encoded = try JSONEncoder().encode(sessionCredential)
         let opaqueToken = String(data: encoded, encoding: .utf8) ?? ""
-        return AuthSession(token: opaqueToken, user: User(id: 0, username: ""))
+        let user = try await AuthenticatedUserReader.fetch(client: client, token: tokenDTO.token, v2: false)
+        return AuthSession(token: opaqueToken, user: user)
     }
 
     public func logout() async {}

@@ -37,7 +37,21 @@ actor UITestAccountStore: AccountStoreProtocol {
     }
 
     func updateAccount(_ account: InstanceAccount, token: String?) async throws {
-        throw UITestFixtureError.unsupported("Editing accounts")
+        guard let index = accounts.firstIndex(where: { $0.id == account.id }) else { throw VikunjaError.notFound }
+        try accounts[index].validateIdentity(of: account)
+        guard token == nil else { throw ConnectionIdentityError.sessionChanged }
+        accounts[index].displayName = account.displayName
+    }
+
+    func replaceSession(
+        _ account: InstanceAccount, token: String, expected: InstanceAccount, matchingToken: String?,
+    ) async throws {
+        guard let index = accounts.firstIndex(of: expected), credential == matchingToken else {
+            throw ConnectionIdentityError.sessionChanged
+        }
+        try expected.validateIdentity(of: account)
+        accounts[index] = account
+        credential = token
     }
 
     func updateSession(
