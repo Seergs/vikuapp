@@ -4,9 +4,10 @@ import VikuNavigation
 import VikunjaCore
 import VikuUI
 
-/// The project's notification settings entry point, available offline.
-/// Preset and detail rows are placeholders; event changes remain in Customize.
+/// Reflects saved events and applies project notification presets.
+/// Reads are local; webhook changes require a reachable server.
 struct ProjectNotificationsOverviewView: View {
+    let viewModel: NotificationsViewModel
     let project: Project
     let router: AppRouter
 
@@ -22,38 +23,49 @@ struct ProjectNotificationsOverviewView: View {
                     .padding(.top, VikuSpacing.md)
                 sectionHeader(String(localized: "Notify Me About", bundle: .module))
                 VStack(spacing: 0) {
-                    optionRow(
+                    presetButton(
+                        .disabled,
                         title: String(localized: "Disabled", bundle: .module),
                         subtitle: String(localized: "This project won't send you notifications.", bundle: .module),
                     )
                     .vikuCardRow(index: 0, count: 3)
-                    optionRow(
+                    presetButton(
+                        .recommended,
                         title: String(localized: "Recommended", bundle: .module),
                         subtitle: String(localized: "Assignments and new comments in the project.", bundle: .module),
                     )
                     .vikuCardRow(index: 1, count: 3)
-                    Button {
-                        router.push(SettingsRoute.projectNotificationEvents(project))
-                    } label: {
-                        HStack(spacing: VikuSpacing.sm) {
-                            optionRow(
-                                title: String(localized: "Customize…", bundle: .module),
-                                subtitle: String(localized: "Choose another type", bundle: .module),
-                            )
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(VikuFont.footnote)
-                                .foregroundStyle(palette.textTertiary)
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
+                    presetButton(
+                        .custom,
+                        title: String(localized: "Customize…", bundle: .module),
+                        subtitle: String(localized: "Choose another type", bundle: .module),
+                    )
                     .vikuCardRow(index: 2, count: 3)
                 }
 
+                NotificationProgressView(
+                    isActive: viewModel.isSyncing,
+                    title: String(localized: "Updating notifications…", bundle: .module),
+                )
+                .padding(.horizontal, VikuSpacing.md)
+                Text("Changing these settings requires a connection to your Vikunja server.", bundle: .module)
+                    .font(VikuFont.caption)
+                    .foregroundStyle(palette.textTertiary)
+                    .padding(.horizontal, VikuSpacing.md)
+                    .padding(.top, VikuSpacing.sm)
+
                 sectionHeader(String(localized: "More", bundle: .module))
-                optionRow(title: String(localized: "More Details", bundle: .module))
-                    .vikuCardRow(index: 0, count: 1)
+                Button {
+                    router.push(SettingsRoute.projectNotificationDetails(project))
+                } label: {
+                    HStack(spacing: VikuSpacing.sm) {
+                        optionRow(title: String(localized: "More Details", bundle: .module))
+                        chevron
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .vikuCardRow(index: 0, count: 1)
             }
             .padding(.bottom, VikuSpacing.xxl)
         }
@@ -62,6 +74,40 @@ struct ProjectNotificationsOverviewView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+    }
+
+    private var chevron: some View {
+        Image(systemName: "chevron.right")
+            .font(VikuFont.footnote)
+            .foregroundStyle(palette.textTertiary)
+            .accessibilityHidden(true)
+    }
+
+    private func presetButton(_ preset: ProjectNotificationPreset, title: String, subtitle: String) -> some View {
+        let isSelected = viewModel.projectNotificationPreset(for: project) == preset
+        return Button {
+            if preset == .custom {
+                router.push(SettingsRoute.projectNotificationEvents(project))
+            } else {
+                Task { await viewModel.selectProjectNotificationPreset(preset, for: project) }
+            }
+        } label: {
+            HStack(spacing: VikuSpacing.sm) {
+                optionRow(title: title, subtitle: subtitle)
+                Image(systemName: "checkmark")
+                    .font(VikuFont.body.weight(.semibold))
+                    .foregroundStyle(palette.brand)
+                    .opacity(isSelected ? 1 : 0)
+                    .accessibilityHidden(true)
+                if preset == .custom {
+                    chevron
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(viewModel.isSyncing || viewModel.isLoading || project.id.remoteValue == nil)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private func sectionHeader(_ title: String) -> some View {

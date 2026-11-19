@@ -22,6 +22,8 @@ public enum SettingsRoute: Hashable, Sendable {
     /// Custom webhook event selection, reached through "Customize" on
     /// the project's notification settings landing screen.
     case projectNotificationEvents(Project)
+    /// Technical registration information and other project webhooks.
+    case projectNotificationDetails(Project)
     /// App version/build, external links, privacy note, and licensing.
     case about
 }
