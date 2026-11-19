@@ -153,7 +153,7 @@ public final class NotificationsViewModel {
         do {
             async let fetchedProjects = projectRepository.fetchProjects()
             async let currentUser = userRepository.fetchCurrentUser()
-            projects = try await fetchedProjects
+            projects = try await fetchedProjects.realProjectsOnly()
             let user = try await currentUser
             currentUserID = user.id
             overdueTasksRemindersTime = user.overdueTasksRemindersTime ?? overdueTasksRemindersTime

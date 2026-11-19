@@ -231,6 +231,25 @@ struct NotificationsViewModelTests {
         #expect(viewModel.isPermissionDenied == false)
     }
 
+    @Test(arguments: [false, true])
+    func `load excludes favorites and saved filters from notification projects`(includesRealProjects: Bool) async {
+        let realProjects = includesRealProjects ? [
+            Project(id: 1, title: "Inbox"),
+            Project(id: 2, title: "Work"),
+        ] : []
+        let projectRepository = FakeProjectRepository(projects: [
+            Project(id: -1, title: "Favorites"),
+            Project(id: -2, title: "Saved filter"),
+            Project(id: -6, title: "Another saved filter"),
+        ] + realProjects)
+        let viewModel = makeViewModel(projectRepository: projectRepository)
+
+        await viewModel.load()
+
+        #expect(viewModel.loadState == .loaded)
+        #expect(viewModel.projects == realProjects)
+    }
+
     @Test
     func `load populates the overdue tasks reminders time from the current user`() async {
         let userRepository = FakeUserRepository(user: User(id: 1, username: "alex", overdueTasksRemindersTime: "14:30"))
