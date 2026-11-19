@@ -2,6 +2,7 @@
 import SwiftUI
 import Testing
 import VikuNavigation
+import VikunjaCore
 
 @MainActor
 struct SettingsNavigationTests {
@@ -29,6 +30,24 @@ struct SettingsNavigationTests {
 
         router.pop()
         #expect(router.path == pickerPath)
+    }
+
+    @Test
+    func `project customization returns through the project landing screen`() {
+        let project = Project(id: 4, title: "Work")
+        let router = AppRouter()
+        router.push(SettingsRoute.notifications)
+        let notificationsPath = router.path
+        router.push(SettingsRoute.projectNotifications(project))
+        let projectPath = router.path
+
+        router.push(SettingsRoute.projectNotificationEvents(project))
+        #expect(router.path.count == 3)
+
+        router.pop()
+        #expect(router.path == projectPath)
+        router.pop()
+        #expect(router.path == notificationsPath)
     }
 
     @Test

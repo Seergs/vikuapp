@@ -278,10 +278,24 @@ public final class NotificationsViewModel {
         await apply(updated)
     }
 
-    /// Replaces a project's whole event selection in one sync round trip —
-    /// backs the event-group presets (Recommended/All/None) on the
-    /// per-project screen, where applying each event individually would mean
-    /// one sync call per toggle instead of one for the whole preset.
+    /// A single sharing toggle represents both ways a project can be shared.
+    /// Existing selections containing just one event still appear enabled.
+    public func isProjectSharingEnabled(for project: Project) -> Bool {
+        guard let projectID = project.id.remoteValue else { return false }
+        return !settings.events(for: projectID).isDisjoint(with: [.projectSharedUser, .projectSharedTeam])
+    }
+
+    public func setProjectSharingEnabled(_ isEnabled: Bool, for project: Project) async {
+        guard let projectID = project.id.remoteValue else { return }
+        let sharingEvents: Set<WebhookEvent> = [.projectSharedUser, .projectSharedTeam]
+        let events = settings.events(for: projectID)
+        await setProjectEvents(
+            isEnabled ? events.union(sharingEvents) : events.subtracting(sharingEvents),
+            for: project,
+        )
+    }
+
+    /// Replaces a project's whole event selection in one sync round trip.
     public func setProjectEvents(_ events: Set<WebhookEvent>, for project: Project) async {
         guard let projectID = project.id.remoteValue else { return }
         pendingChange = .project(projectID)

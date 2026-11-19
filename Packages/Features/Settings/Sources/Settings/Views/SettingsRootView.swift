@@ -91,8 +91,8 @@ public struct SettingsRootView: View {
     /// Holds the one `NotificationsViewModel` instance for this screen's
     /// lifetime, built lazily on first visit to `.notifications` — plain
     /// reference-type storage (not `@State`) so filling it while building a
-    /// `.projectNotifications` destination never mutates SwiftUI state
-    /// mid-render. `.notifications` and `.projectNotifications(_:)` both
+    /// `.projectNotificationEvents` destination never mutates SwiftUI state
+    /// mid-render. `.notifications` and `.projectNotificationEvents(_:)` both
     /// read/write the same `settings`, so they need the same instance:
     /// unlike `ConnectionFormView`/`ManageLabelsView`, which each get a fresh
     /// view model from their factory per push, these two must share state
@@ -133,6 +133,8 @@ public struct SettingsRootView: View {
             case .notifications:
                 NotificationsView(viewModel: cachedNotificationsViewModel(), router: router)
             case let .projectNotifications(project):
+                ProjectNotificationsOverviewView(project: project, router: router)
+            case let .projectNotificationEvents(project):
                 ProjectNotificationsView(viewModel: cachedNotificationsViewModel(), project: project)
             case .about:
                 AboutView()
