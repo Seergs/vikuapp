@@ -224,6 +224,8 @@ struct LocalizationTests {
         ("Task Assigned", "Tarea asignada"),
         ("Task Unassigned", "Tarea desasignada"),
         ("Comment Added", "Comentario agregado"),
+        ("New Project Comments", "Nuevos comentarios del proyecto"),
+        ("On any task in this project.", "En cualquier tarea de este proyecto."),
         ("Comment Edited", "Comentario editado"),
         ("Comment Deleted", "Comentario eliminado"),
         ("Attachment Added", "Archivo adjunto agregado"),

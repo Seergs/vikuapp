@@ -65,6 +65,16 @@
         }
       }
     },
+    "New Project Comments" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuevos comentarios del proyecto"
+          }
+        }
+      }
+    },
     "No other webhooks on this project." : {
       "localizations" : {
         "en" : {
@@ -1705,6 +1715,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Agrupar notificaciones de tareas vencidas"
+          }
+        }
+      }
+    },
+    "On any task in this project." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En cualquier tarea de este proyecto."
           }
         }
       }

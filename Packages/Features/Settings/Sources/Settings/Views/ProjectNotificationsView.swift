@@ -80,6 +80,11 @@ struct ProjectNotificationsView: View {
                                             .font(VikuFont.footnote)
                                             .foregroundStyle(palette.textSecondary)
                                     }
+                                } else if event == .taskCommentCreated {
+                                    Text("New Project Comments", bundle: .module)
+                                    Text("On any task in this project.", bundle: .module)
+                                        .font(VikuFont.footnote)
+                                        .foregroundStyle(palette.textSecondary)
                                 } else {
                                     Text(verbatim: eventLabel(event))
                                 }
