@@ -369,22 +369,6 @@
         }
       }
     },
-    "Customize" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Customize"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Personalizar"
-          }
-        }
-      }
-    },
     "%lld of %lld active" : {
       "localizations" : {
         "en" : {
@@ -1075,16 +1059,6 @@
         }
       }
     },
-    "Choose which events notify you for each project." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Elige qué eventos te notifican para cada proyecto."
-          }
-        }
-      }
-    },
     "Comment Added" : {
       "localizations" : {
         "es" : {
@@ -1465,16 +1439,6 @@
         }
       }
     },
-    "Fires Daily At" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Se activa diariamente a las"
-          }
-        }
-      }
-    },
     "Generate it on your Vikunja instance: Settings → API Tokens." : {
       "localizations" : {
         "es" : {
@@ -1801,16 +1765,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Proyecto eliminado"
-          }
-        }
-      }
-    },
-    "Project Notifications" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Notificaciones de proyecto"
           }
         }
       }
@@ -2245,16 +2199,6 @@
         }
       }
     },
-    "User Notifications" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Notificaciones de usuario"
-          }
-        }
-      }
-    },
     "Username" : {
       "localizations" : {
         "es" : {
@@ -2505,62 +2449,12 @@
         }
       }
     },
-    "Configured with %@" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Configurado con %@"
-          }
-        }
-      }
-    },
     "Updating notifications…" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Actualizando notificaciones…"
-          }
-        }
-      }
-    },
-    "Registered with %@" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Registrado con %@"
-          }
-        }
-      }
-    },
-    "Not Connected" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sin conectar"
-          }
-        }
-      }
-    },
-    "Tasks" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tareas"
-          }
-        }
-      }
-    },
-    "Collaboration" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Colaboración"
           }
         }
       }
@@ -2581,26 +2475,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Filtro guardado"
-          }
-        }
-      }
-    },
-    "Disconnect this project's webhook?" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "¿Desconectar el webhook de este proyecto?"
-          }
-        }
-      }
-    },
-    "Disconnect Webhook" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Desconectar webhook"
           }
         }
       }
@@ -2645,32 +2519,12 @@
         }
       }
     },
-    "Connected" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Conectado"
-          }
-        }
-      }
-    },
     "Recommended" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Recomendados"
-          }
-        }
-      }
-    },
-    "All" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Todos"
           }
         }
       }
@@ -2711,36 +2565,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ahora no"
-          }
-        }
-      }
-    },
-    "Via Viku Relay" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mediante Viku Relay"
-          }
-        }
-      }
-    },
-    "Turning this off removes the webhooks Viku created on your instance." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Al desactivarlo se eliminarán de tu instancia los webhooks creados por Viku."
-          }
-        }
-      }
-    },
-    "Events That Notify You" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Eventos que te notifican"
           }
         }
       }

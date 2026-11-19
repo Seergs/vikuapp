@@ -3,13 +3,10 @@ import Observation
 import VikunjaCore
 import VikuUI
 
-/// Drives the "Notifications" screen: the opt-in toggle (behind the consent
-/// modal — see `NotificationsConsentSheet`), the user-level event
-/// checkboxes, and each project's own event checkboxes — there's no
-/// separate per-project on/off switch, selecting at least one event is what
-/// turns a project's webhook on. Every change re-syncs Vikunja's webhooks to
-/// match (`WebhookSyncing`) and persists the result, so the server and
-/// `notificationSettingsStore` never drift from what's shown here.
+/// Drives push-notification opt-in, personal events, and project presets and
+/// customization. A project's nonempty event selection enables its webhook.
+/// Changes reconcile the server through `WebhookSyncing` before persisting the
+/// saved selection in `notificationSettingsStore`.
 @MainActor
 @Observable
 public final class NotificationsViewModel {
@@ -21,13 +18,9 @@ public final class NotificationsViewModel {
     /// letting the toggle take effect.
     public private(set) var isPermissionDenied = false
 
-    /// Which single row a change is currently in flight for — the OS
-    /// permission prompt and relay round trip on first enable (which can
-    /// take a few seconds on a real device), or the webhook sync that
-    /// follows any other change. Scoped per-row rather than one shared
-    /// flag: disabling (and `isSyncing`-driven styling) only ever applies
-    /// to the row actually being changed, so flipping one toggle doesn't
-    /// dim every other toggle on the screen at the same time.
+    /// Identifies the operation in flight, including registration and webhook
+    /// synchronization. Screens use it to present progress and prevent
+    /// conflicting edits until that operation finishes.
     public enum PendingChange: Equatable, Sendable {
         case enabling
         case disabling
@@ -42,7 +35,7 @@ public final class NotificationsViewModel {
     /// The time of day (`HH:mm`, 24-hour) Vikunja checks this user's
     /// overdue tasks at — the "Overdue Tasks" row's own settings control.
     /// Drives both the server's daily overdue-tasks email and the
-    /// `task.overdue` webhook this app subscribes to via `userLevelEvents`.
+    /// `tasks.overdue` webhook this app subscribes to via `userLevelEvents`.
     /// Defaults to Vikunja's own default until `load()` fetches the real
     /// value, so the picker never flashes an empty state.
     public private(set) var overdueTasksRemindersTime = "09:00"
@@ -377,12 +370,9 @@ public final class NotificationsViewModel {
         await setProjectEvents([], for: project)
     }
 
-    /// The webhooks already configured on this project that this device
-    /// didn't create (a teammate's own Viku install, or one set up by hand —
-    /// e.g. a Slack integration). Read-only: shown so a project's webhook
-    /// screen doesn't look like it's the only thing pointed at that project
-    /// when it isn't. Matches `WebhookSyncPlanner`'s own notion of "ours" —
-    /// an exact `targetURL` match against this device's relay registration.
+    /// Best-effort lookup for the project list's third-party webhook count.
+    /// The details screen uses `loadOtherWebhooks(for:)` for explicit loading,
+    /// failure, and retry states. Both exclude only this device's relay target.
     public func otherWebhooks(for projectID: Int) async -> [Webhook] {
         guard let webhooks = try? await webhookRepository.fetchWebhooks(projectID: projectID) else { return [] }
         guard let relayTargetURL else { return webhooks }

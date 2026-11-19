@@ -9,13 +9,10 @@ import VikuUI
 import UIKit
 #endif
 
-/// The push-notification opt-in screen: a master toggle gated behind
-/// `NotificationsConsentSheet`, and — once enabled — individual checkboxes
-/// for the two user-directed events, plus a searchable list of projects that
-/// opens `ProjectNotificationsOverviewView` before customizing that project's
-/// events (there's no separate per-project on/off switch: selecting an
-/// event there is what turns it on). See `NotificationsViewModel` for the
-/// sync that keeps Vikunja's webhooks matching whatever's shown here.
+/// Push-notification opt-in, personal event toggles, and a searchable project
+/// list. Each project opens `ProjectNotificationsOverviewView` for presets,
+/// customization, and details. `NotificationsViewModel` reconciles the selected
+/// events with the instance's webhooks.
 struct NotificationsView: View {
     let viewModel: NotificationsViewModel
     let router: AppRouter
@@ -497,7 +494,7 @@ struct NotificationsView: View {
 }
 
 /// Display name for an individual webhook event — shared by `NotificationsView`'s
-/// user-level toggles and `ProjectNotificationsView`'s per-project checkbox list.
+/// user-level toggles and `ProjectNotificationsView`'s per-project toggles.
 func eventLabel(_ event: WebhookEvent) -> String {
     switch event {
     case .taskCreated: String(localized: "Task Created", bundle: .module)

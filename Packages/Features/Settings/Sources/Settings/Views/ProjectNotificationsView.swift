@@ -5,7 +5,7 @@ import VikuUI
 
 /// One project's own webhook: which events notify this device, reached by
 /// choosing "Customize" on `ProjectNotificationsOverviewView`. Shares the same
-/// `NotificationsViewModel` instance as that list (see
+/// `NotificationsViewModel` instance as the overview and main project list (see
 /// `SettingsRootView.notificationsViewModelCache`) so a change here shows up
 /// back there without a reload, and every toggle applies and syncs
 /// immediately — there's no separate "save" step.
