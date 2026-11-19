@@ -300,10 +300,13 @@ cancellation restore the previous selection, with errors offering toast feedback
 for retry, including server conflicts. The ViewModel rejects overlapping writes
 because each reconciliation covers the complete configuration. Controls visibly
 disable during saves, and the changed event shows delayed saving feedback.
-Initial notification settings reserve a loading area, reveal a spinner after half
-a second and keep it visible for at least one second before fading in the content.
-These presentation waits never delay networking or persistence and respect Reduce
-Motion. Background registration verification is separate from explicit mutations;
+The first notification settings load shows a spinner immediately and keeps it
+visible for at least one second. Returning with an already loaded ViewModel shows
+cached content immediately without restarting the spinner. Loaded content replaces
+that area without animating the screen height. These presentation waits never
+delay networking or persistence. Third-party webhook counts fade in when their
+lookup completes; control animations respect Reduce Motion.
+Background registration verification is separate from explicit mutations;
 a saved destination allows event editing while verification runs. Technical
 details read the saved registration offline; other project webhooks require a server fetch and
 retain their last successful list in memory across failed refreshes. Their details
