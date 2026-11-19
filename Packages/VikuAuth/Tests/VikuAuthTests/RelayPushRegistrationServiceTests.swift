@@ -266,6 +266,62 @@ struct RelayPushRegistrationServiceTests {
         // this test never makes.
         #expect(MockURLProtocol.capturedRequests.count == 3)
     }
+
+    @Test(arguments: AssignmentNotificationMode.allCases)
+    func `project preference PATCH uses the saved account token and sends only the assignment mode`(
+        _ mode: AssignmentNotificationMode,
+    ) async throws {
+        let session = MockURLProtocol.makeSession(responses: [(200, Self.registerResponse), (204, "")])
+        let service = makeService(session: session)
+        _ = try await service.register(deviceToken: Data([1]), vikunjaUserID: 42, accountID: Self.accountA)
+        try await service.updateProjectPreferences(
+            assignmentNotifications: mode, projectID: 7, accountID: Self.accountA,
+        )
+        let request = try #require(MockURLProtocol.capturedRequests.last)
+        #expect(request.url?.path == "/v1/registrations/reg-1/projects/7/preferences")
+        #expect(request.httpMethod == "PATCH")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer mgmt-token-1")
+        #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+        let body = try JSONDecoder().decode([String: String].self, from: #require(request.httpBody))
+        #expect(body == ["assignment_notifications": mode.rawValue])
+    }
+
+    @Test(arguments: [400, 401, 429, 500])
+    func `rejected project preference updates throw instead of claiming success`(_ status: Int) async throws {
+        let session = MockURLProtocol.makeSession(responses: [(200, Self.registerResponse), (status, "")])
+        let service = makeService(session: session)
+        _ = try await service.register(deviceToken: Data([1]), vikunjaUserID: 42, accountID: Self.accountA)
+        await #expect(throws: PushRegistrationError.self) {
+            try await service.updateProjectPreferences(
+                assignmentNotifications: .onlyMe, projectID: 7, accountID: Self.accountA,
+            )
+        }
+    }
+
+    @Test
+    func `project preference updates cannot use another account's registration`() async throws {
+        let session = MockURLProtocol.makeSession(responses: [(200, Self.registerResponse)])
+        let service = makeService(session: session)
+        _ = try await service.register(deviceToken: Data([1]), vikunjaUserID: 42, accountID: Self.accountA)
+        await #expect(throws: PushRegistrationError.self) {
+            try await service.updateProjectPreferences(
+                assignmentNotifications: .onlyMe, projectID: 7, accountID: Self.accountB,
+            )
+        }
+        #expect(MockURLProtocol.capturedRequests.count == 1)
+    }
+
+    @Test(arguments: [0, -1])
+    func `nonpositive project IDs are rejected before HTTP`(_ projectID: Int) async throws {
+        let session = MockURLProtocol.makeSession(responses: [])
+        let service = makeService(session: session)
+        await #expect(throws: PushRegistrationError.invalidRequest) {
+            try await service.updateProjectPreferences(
+                assignmentNotifications: .all, projectID: projectID, accountID: Self.accountA,
+            )
+        }
+        #expect(MockURLProtocol.capturedRequests.isEmpty)
+    }
 }
 
 private struct CapturedUpdatePreferencesBody: Decodable {

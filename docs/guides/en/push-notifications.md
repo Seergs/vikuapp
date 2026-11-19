@@ -50,7 +50,7 @@ point of a notification, really, telling you about something while you're not lo
 
 ## Project presets and details
 
-Open a project under **Settings → Notifications → Project Activity**. Choose **Disabled** to delete only this device's webhook for that project, **Recommended** for exactly task assignment and comment creation events, or **Customize…** for individual events. The selected option is derived from the saved event set; manually choosing exactly the recommended events also marks Recommended.
+Open a project under **Settings → Notifications → Project Activity**. Choose **Disabled** to delete only this device's webhook for that project, **Recommended** for notifications only when tasks are assigned to you, or **Customize…** for individual events. The selected option is derived from the saved events and assignment filter; enabling only assignments with **Only Me** also marks Recommended.
 
 **More Details** shows the masked relay destination, whether a signing secret is configured, and the project's saved notification status. **Other Webhooks on This Project** lives here and excludes this device's relay destination. These other integrations remain read-only and are preserved when you disable project notifications.
 

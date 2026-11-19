@@ -45,3 +45,11 @@ struct RelayUpdatePreferencesRequestDTO: Encodable {
         case groupOverdueNotifications = "group_overdue_notifications"
     }
 }
+
+struct RelayUpdateProjectPreferencesRequestDTO: Encodable {
+    let assignmentNotifications: String
+
+    enum CodingKeys: String, CodingKey {
+        case assignmentNotifications = "assignment_notifications"
+    }
+}

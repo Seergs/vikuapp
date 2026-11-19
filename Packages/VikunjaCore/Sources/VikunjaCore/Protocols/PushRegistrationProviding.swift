@@ -40,4 +40,11 @@ public protocol PushRegistrationProviding: Sendable {
     /// rather than on the relay's next delivery. A no-op when `accountID` was
     /// never registered.
     func updatePreferences(groupOverdueNotifications: Bool, accountID: InstanceAccount.ID) async throws
+    /// Updates only this project's assignment filter. Missing registration or
+    /// rejected authorization throws; callers must not claim the mode was saved.
+    func updateProjectPreferences(
+        assignmentNotifications: AssignmentNotificationMode,
+        projectID: Int,
+        accountID: InstanceAccount.ID,
+    ) async throws
 }

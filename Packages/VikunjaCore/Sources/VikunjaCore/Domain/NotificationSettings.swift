@@ -17,19 +17,47 @@ public struct NotificationSettings: Equatable, Sendable, Codable {
     /// `events(for:)` rather than reading this directly.
     public var projectEvents: [Int: Set<WebhookEvent>]
 
+    /// Last relay-confirmed filter, scoped to this account and project.
+    public var projectAssignmentModes: [Int: AssignmentNotificationMode]
+
     public init(
         isEnabled: Bool = false,
         userLevelEvents: Set<WebhookEvent> = [],
         projectEvents: [Int: Set<WebhookEvent>] = [:],
+        projectAssignmentModes: [Int: AssignmentNotificationMode] = [:],
     ) {
         self.isEnabled = isEnabled
         self.userLevelEvents = userLevelEvents
         self.projectEvents = projectEvents
+        self.projectAssignmentModes = projectAssignmentModes
     }
 
     /// `projectEvents[projectID]`, or empty if nothing's been selected for
     /// that project yet.
     public func events(for projectID: Int) -> Set<WebhookEvent> {
         projectEvents[projectID] ?? []
+    }
+}
+
+public extension NotificationSettings {
+    private enum CodingKeys: String, CodingKey {
+        case isEnabled
+        case userLevelEvents
+        case projectEvents
+        case projectAssignmentModes
+    }
+
+    init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self.isEnabled = try values.decode(Bool.self, forKey: .isEnabled)
+        self.userLevelEvents = try values.decode(Set<WebhookEvent>.self, forKey: .userLevelEvents)
+        self.projectEvents = try values.decode([Int: Set<WebhookEvent>].self, forKey: .projectEvents)
+        self.projectAssignmentModes = try values.decodeIfPresent(
+            [Int: AssignmentNotificationMode].self, forKey: .projectAssignmentModes,
+        ) ?? [:]
+    }
+
+    func assignmentMode(for projectID: Int) -> AssignmentNotificationMode {
+        projectAssignmentModes[projectID] ?? .all
     }
 }

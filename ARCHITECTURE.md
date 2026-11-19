@@ -291,8 +291,9 @@ while extended guides cover detailed behavior, troubleshooting, and compatibilit
 policy.
 
 Project notification screens share one cached `NotificationsViewModel` in Settings.
-Preset selection is derived from saved events: no events means Disabled, exactly
-assignment and comment creation means Recommended, and other combinations mean
+Preset selection is derived from saved events and assignment filters: no events
+means Disabled, only assignment creation with the `only_me` filter means
+Recommended, and other combinations mean
 Customize. Preset writes reuse `WebhookSyncCoordinator`; they require the server
 and have no durable offline queue. Event toggles and presets render optimistically
 in memory; only successful reconciliation persists the selection. Errors and
@@ -306,6 +307,20 @@ cached content immediately without restarting the spinner. Loaded content replac
 that area without animating the screen height. These presentation waits never
 delay networking or persistence. Third-party webhook counts fade in when their
 lookup completes; control animations respect Reduce Motion.
+Project customization groups task notifications (assignments, comments,
+attachments, creation and deletion) separately from project access notifications.
+Assignments use one compact menu row with three exclusive choices per project:
+Do Not Notify removes `task.assignee.created`; Only Me and Anyone enable that event
+and PATCH the relay's project preference to `only_me` or `all`. Filters are
+stored alongside notification settings per connection/project, with `all` as
+the backward-compatible default. The relay filter is confirmed before enabling
+the webhook; a filter-only change does not reconcile webhooks. If webhook setup
+fails after the relay accepted its filter, the event selection rolls back and
+the confirmed filter remains saved for retry. Writes require connectivity and
+have no durable offline queue. Cached selections remain readable offline.
+There is no relay preference read endpoint: local state cannot recover filters
+set outside this installation. Registration-level overdue grouping is unchanged.
+
 Background registration verification is separate from explicit mutations;
 a saved destination allows event editing while verification runs. Technical
 details read the saved registration offline; other project webhooks require a server fetch and
