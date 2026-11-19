@@ -498,7 +498,7 @@ struct SettingsRowIcon: View {
     var body: some View {
         RoundedRectangle(cornerRadius: VikuRadius.sm - VikuSpacing.xs, style: .continuous)
             .fill(palette.brand.opacity(0.14))
-            .frame(width: 34, height: 34)
+            .frame(width: VikuImageSize.settingsRowIconSide, height: VikuImageSize.settingsRowIconSide)
             .overlay {
                 Image(systemName: systemName)
                     .font(.system(size: 15, weight: .semibold))

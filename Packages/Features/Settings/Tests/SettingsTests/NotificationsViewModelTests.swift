@@ -362,6 +362,50 @@ struct NotificationsViewModelTests {
         #expect(webhookRepository.updatedProjectWebhooks.last?.webhook.projectID == 1)
     }
 
+    @Test(arguments: [true, false])
+    func `project sharing groups person and team events without changing other events`(isEnabled: Bool) async throws {
+        let project = Project(id: 4, title: "Work")
+        let webhookRepository = FakeWebhookRepository()
+        let viewModel = makeViewModel(
+            webhookRepository: webhookRepository,
+            projectRepository: FakeProjectRepository(projects: [project]),
+        )
+        await viewModel.load()
+        await viewModel.confirmEnable()
+        await viewModel.setProjectEvents([.taskCreated, .projectSharedTeam], for: project)
+        #expect(viewModel.isProjectSharingEnabled(for: project))
+        let previousUpdateCount = webhookRepository.updatedProjectWebhooks.count
+
+        await viewModel.setProjectSharingEnabled(isEnabled, for: project)
+
+        let expected: Set<WebhookEvent> = isEnabled
+            ? [.taskCreated, .projectSharedUser, .projectSharedTeam] : [.taskCreated]
+        #expect(try viewModel.settings.events(for: #require(project.id.remoteValue)) == expected)
+        #expect(viewModel.isProjectSharingEnabled(for: project) == isEnabled)
+        #expect(webhookRepository.updatedProjectWebhooks.count == previousUpdateCount + 1)
+        #expect(webhookRepository.updatedProjectWebhooks.last.map { Set($0.webhook.events) } == expected)
+    }
+
+    @Test
+    func `project sharing changes persist while notifications are disabled`() async throws {
+        let project = Project(id: 4, title: "Work")
+        let webhookRepository = FakeWebhookRepository()
+        let store = FakeNotificationSettingsStore()
+        let viewModel = makeViewModel(
+            webhookRepository: webhookRepository,
+            projectRepository: FakeProjectRepository(projects: [project]),
+            notificationSettingsStore: store,
+        )
+        await viewModel.load()
+
+        await viewModel.setProjectSharingEnabled(true, for: project)
+
+        #expect(try store.savedSettings.last?.events(for: #require(project.id.remoteValue))
+            == [.projectSharedUser, .projectSharedTeam])
+        #expect(webhookRepository.createdProjectWebhooks.isEmpty)
+        #expect(webhookRepository.updatedProjectWebhooks.isEmpty)
+    }
+
     @Test
     func `unchecking a project's only event deletes only that project's webhook`() async throws {
         let projectA = Project(id: 1, title: "A")

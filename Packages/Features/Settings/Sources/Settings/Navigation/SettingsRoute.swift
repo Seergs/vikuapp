@@ -16,11 +16,12 @@ public enum SettingsRoute: Hashable, Sendable {
     case pendingSync
     /// The push-notification opt-in, user-level toggle, and per-project list.
     case notifications
-    /// One project's own webhook event selection, reached from
-    /// `.notifications`. Carries the project itself (feature-private
-    /// payload) rather than just its id, so the destination doesn't need a
-    /// repository round trip to show its title/color.
+    /// One project's notification settings landing screen. Carries the
+    /// project so its title is available without a repository round trip.
     case projectNotifications(Project)
+    /// Custom webhook event selection, reached through "Customize" on
+    /// the project's notification settings landing screen.
+    case projectNotificationEvents(Project)
     /// App version/build, external links, privacy note, and licensing.
     case about
 }

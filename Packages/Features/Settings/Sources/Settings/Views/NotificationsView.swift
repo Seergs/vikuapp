@@ -12,8 +12,8 @@ import UIKit
 /// The push-notification opt-in screen: a master toggle gated behind
 /// `NotificationsConsentSheet`, and — once enabled — individual checkboxes
 /// for the two user-directed events, plus a searchable list of projects that
-/// drills into `ProjectNotificationsView` for that project's own event
-/// selection (there's no separate per-project on/off switch: selecting an
+/// opens `ProjectNotificationsOverviewView` before customizing that project's
+/// events (there's no separate per-project on/off switch: selecting an
 /// event there is what turns it on). See `NotificationsViewModel` for the
 /// sync that keeps Vikunja's webhooks matching whatever's shown here.
 struct NotificationsView: View {
@@ -27,6 +27,7 @@ struct NotificationsView: View {
     @State private var expandedProjectIDs: Set<EntityID> = []
     @State private var progress = NotificationProgressPresentation()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(AppRouter.self) private var appRouter
     @Environment(\.openURL) private var openURL
     @Environment(\.vikuPalette) private var palette
 
@@ -174,6 +175,7 @@ struct NotificationsView: View {
                         projectsSection
                     }
                 }
+                helpSection
                 // Keeps the last card clear of the tab bar.
                 Color.clear.frame(height: VikuSpacing.xxl)
             }
@@ -195,12 +197,7 @@ struct NotificationsView: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
                     Toggle(isOn: enabledBinding) {
-                        VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
-                            Text("Push Notifications", bundle: .module)
-                            Text("Via Viku Relay", bundle: .module)
-                                .font(VikuFont.footnote)
-                                .foregroundStyle(palette.textSecondary)
-                        }
+                        Text("Push Notifications", bundle: .module)
                     }
                     .disabled(
                         viewModel.loadState == .idle || viewModel.isLoading
@@ -209,13 +206,13 @@ struct NotificationsView: View {
                 }
                 .padding(.vertical, VikuSpacing.xs)
 
-                if viewModel.settings.isEnabled, let relayTargetURL = viewModel.relayTargetURL {
+                if viewModel.settings.isEnabled, viewModel.relayTargetURL != nil {
                     Divider()
                     HStack(spacing: VikuSpacing.sm) {
                         Circle()
                             .fill(viewModel.isRegistrationVerified ? palette.semanticSuccess : palette.textSecondary)
                             .frame(width: 8, height: 8)
-                        Text(String(localized: "Configured with \(relayTargetURL.host ?? relayTargetURL.absoluteString)", bundle: .module))
+                        Text("Configured", bundle: .module)
                             .font(VikuFont.footnote)
                             .foregroundStyle(palette.textSecondary)
                     }
@@ -240,12 +237,7 @@ struct NotificationsView: View {
             VStack(alignment: .leading, spacing: VikuSpacing.sm) {
                 VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
                     Group {
-                        if viewModel.settings.isEnabled {
-                            Text(
-                                "Turning this off removes the webhooks Viku created on your instance.",
-                                bundle: .module,
-                            )
-                        } else {
+                        if !viewModel.settings.isEnabled {
                             Text("Requires Viku Relay, a service hosted by the Viku team.", bundle: .module)
                                 + Text(verbatim: " ")
                                 + Text("Vikunja does not send push to iOS directly.", bundle: .module)
@@ -302,19 +294,32 @@ struct NotificationsView: View {
     private var userLevelSection: some View {
         VStack(alignment: .leading, spacing: 0) {
             sectionHeader {
-                Text("User Notifications", bundle: .module)
+                Text("For You", bundle: .module)
                     .vikuSectionHeader()
             }
             VStack(spacing: 0) {
                 ForEach(Array(WebhookEvent.userDirectedOrdered.enumerated()), id: \.element) { index, event in
                     Toggle(isOn: userLevelEventBinding(event)) {
-                        Text(eventLabel(event))
+                        HStack(spacing: VikuSpacing.sm + VikuSpacing.xxs) {
+                            SettingsRowIcon(
+                                systemName: event == .taskReminderFired ? "bell" : "clock.badge.exclamationmark",
+                            )
+                            VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
+                                Text(verbatim: eventLabel(event))
+                                Text(event == .taskReminderFired
+                                    ? String(localized: "The ones you set on your tasks", bundle: .module)
+                                    : String(localized: "One daily alert for overdue tasks", bundle: .module))
+                                    .font(VikuFont.footnote)
+                                    .foregroundStyle(palette.textSecondary)
+                            }
+                        }
                     }
                     .disabled(viewModel.pendingChange == .userLevel)
                     .vikuCardRow(index: index, count: userLevelRowCount)
                 }
                 if showsOverdueTasksTimeRow {
                     overdueTasksRemindersTimeRow
+                        .padding(.leading, VikuImageSize.settingsRowIconSide + VikuSpacing.sm + VikuSpacing.xxs)
                         .vikuCardRow(index: WebhookEvent.userDirectedOrdered.count, count: userLevelRowCount)
                 }
             }
@@ -327,7 +332,7 @@ struct NotificationsView: View {
             displayedComponents: .hourAndMinute,
         ) {
             VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
-                Text("Fires Daily At", bundle: .module)
+                Text("Time", bundle: .module)
                 Text(accountTimezoneLabel)
                     .font(VikuFont.footnote)
                     .foregroundStyle(palette.textSecondary)
@@ -335,7 +340,7 @@ struct NotificationsView: View {
         }
     }
 
-    /// Clarifies which clock "Fires Daily At" is in — Vikunja evaluates that
+    /// Clarifies which clock "Time" is in — Vikunja evaluates that
     /// time against the user's account-wide time zone (`User.timezone`, the
     /// same one used for every other reminder, not something specific to
     /// overdue tasks), not this device's, so a bare "9:00" would otherwise
@@ -384,10 +389,10 @@ struct NotificationsView: View {
             VStack(alignment: .leading, spacing: 0) {
                 sectionHeader {
                     HStack(alignment: .lastTextBaseline) {
-                        Text("Project Notifications", bundle: .module)
+                        Text("Project Activity", bundle: .module)
                             .vikuSectionHeader()
                         Spacer()
-                        Text(verbatim: "\(connectedProjectCount)")
+                        Text("\(connectedProjectCount) of \(viewModel.projects.count) active", bundle: .module)
                             .font(VikuFont.footnote)
                             .foregroundStyle(palette.textTertiary)
                     }
@@ -409,6 +414,36 @@ struct NotificationsView: View {
                     }
                 }
             }
+        }
+    }
+
+    private var helpSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader {
+                Text("Help", bundle: .module)
+                    .vikuSectionHeader()
+            }
+            Button {
+                appRouter.push(.documentationArticle("push-notifications"))
+            } label: {
+                HStack(spacing: VikuSpacing.sm) {
+                    Label {
+                        Text("Push notifications guide", bundle: .module)
+                    } icon: {
+                        Image(systemName: "book")
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(VikuFont.footnote)
+                        .foregroundStyle(palette.textTertiary)
+                }
+                .font(VikuFont.body)
+                .foregroundStyle(palette.brand)
+                .padding(.vertical, VikuSpacing.sm)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .vikuCardRow(index: 0, count: 1)
         }
     }
 
@@ -489,7 +524,7 @@ func eventLabel(_ event: WebhookEvent) -> String {
 /// One row in the project search list: a color swatch (indented by `depth`
 /// for a subproject), the project's name and its count of third-party
 /// webhooks (if any), and either a bell badge showing how many events are
-/// selected or a plain "Not Connected" label when none are.
+/// selected or a plain "Disabled" label when none are.
 private struct ProjectNotificationRow: View {
     let viewModel: NotificationsViewModel
     let project: Project
@@ -567,7 +602,7 @@ private struct ProjectNotificationRow: View {
                 .padding(.vertical, VikuSpacing.xxs)
                 .background(Capsule().fill(palette.brand.opacity(0.12)))
             } else {
-                Text("Not Connected", bundle: .module)
+                Text("Disabled", bundle: .module)
                     .font(VikuFont.footnote)
                     .foregroundStyle(palette.textTertiary)
             }
