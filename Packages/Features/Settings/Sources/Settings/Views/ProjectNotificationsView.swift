@@ -23,7 +23,7 @@ struct ProjectNotificationsView: View {
         ),
         (
             String(localized: "Task Changes", bundle: .module),
-            [.taskCreated, .taskUpdated, .taskDeleted],
+            [.taskCreated, .taskDeleted],
         ),
         (
             String(localized: "Project Access", bundle: .module),
