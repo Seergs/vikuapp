@@ -498,6 +498,9 @@ final class FakeWebhookRepository: WebhookRepositoryProtocol, @unchecked Sendabl
     private(set) var userWebhooks: [Webhook]
     private(set) var projectWebhooks: [Int: [Webhook]]
     private var nextID = 1000
+    var fetchError: (any Error)?
+    var mutationError: (any Error)?
+    var onFetchWebhooks: (@MainActor () async throws -> Void)?
 
     var createdUserWebhooks: [CreatedUserWebhook] = []
     var createdProjectWebhooks: [CreatedProjectWebhook] = []
@@ -512,10 +515,17 @@ final class FakeWebhookRepository: WebhookRepositoryProtocol, @unchecked Sendabl
     }
 
     func fetchWebhooks(projectID: Int) async throws -> [Webhook] {
-        projectWebhooks[projectID] ?? []
+        try await onFetchWebhooks?()
+        if let fetchError {
+            throw fetchError
+        }
+        return projectWebhooks[projectID] ?? []
     }
 
     func createWebhook(projectID: Int, targetURL: URL, events: [WebhookEvent], secret: String?) async throws -> Webhook {
+        if let mutationError {
+            throw mutationError
+        }
         createdProjectWebhooks.append(
             CreatedProjectWebhook(projectID: projectID, targetURL: targetURL, events: events, secret: secret),
         )
@@ -526,6 +536,9 @@ final class FakeWebhookRepository: WebhookRepositoryProtocol, @unchecked Sendabl
     }
 
     func updateWebhook(projectID: Int, _ webhook: Webhook) async throws -> Webhook {
+        if let mutationError {
+            throw mutationError
+        }
         updatedProjectWebhooks.append((projectID, webhook))
         if let index = projectWebhooks[projectID]?.firstIndex(where: { $0.id == webhook.id }) {
             projectWebhooks[projectID]?[index] = webhook
@@ -534,6 +547,9 @@ final class FakeWebhookRepository: WebhookRepositoryProtocol, @unchecked Sendabl
     }
 
     func deleteWebhook(projectID: Int, webhookID: Int) async throws {
+        if let mutationError {
+            throw mutationError
+        }
         deletedProjectWebhookIDs.append((projectID, webhookID))
         projectWebhooks[projectID]?.removeAll { $0.id == webhookID }
     }

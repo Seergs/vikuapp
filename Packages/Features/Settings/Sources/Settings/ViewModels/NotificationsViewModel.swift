@@ -36,6 +36,8 @@ public final class NotificationsViewModel {
     }
 
     public private(set) var pendingChange: PendingChange?
+    private var otherWebhookLoadStates: [Int: ScreenLoadState<[Webhook]>] = [:]
+    private var cachedOtherWebhooks: [Int: [Webhook]] = [:]
 
     /// The time of day (`HH:mm`, 24-hour) Vikunja checks this user's
     /// overdue tasks at — the "Overdue Tasks" row's own settings control.
@@ -278,6 +280,69 @@ public final class NotificationsViewModel {
         await apply(updated)
     }
 
+    func projectNotificationPreset(for project: Project) -> ProjectNotificationPreset {
+        ProjectNotificationPreset(events: project.id.remoteValue.map { settings.events(for: $0) } ?? [])
+    }
+
+    /// Webhooks have no offline mutation queue. Failed saves retain the previous
+    /// selection; the user can retry once the server is reachable again.
+    func selectProjectNotificationPreset(_ preset: ProjectNotificationPreset, for project: Project) async {
+        guard pendingChange == nil, !isLoading, preset != .custom else { return }
+        if settings.isEnabled, currentRegistration == nil, savedRegistration == nil {
+            toastPresenter.show(
+                String(
+                    localized: "Notification setup is unavailable. Reopen Notifications and try again.",
+                    bundle: .module,
+                ),
+                style: .error,
+            )
+            return
+        }
+        switch preset {
+        case .disabled:
+            await disableProjectWebhook(project)
+        case .recommended:
+            await setProjectEvents(ProjectNotificationPreset.recommendedEvents, for: project)
+        case .custom:
+            break // Opening customization does not change the saved selection.
+        }
+    }
+
+    var hasWebhookSigningSecret: Bool {
+        guard relayTargetURL != nil else { return false }
+        return (currentRegistration ?? savedRegistration).map { !$0.secret.isEmpty } ?? false
+    }
+
+    func otherWebhookLoadState(for project: Project) -> ScreenLoadState<[Webhook]> {
+        guard let projectID = project.id.remoteValue else { return .idle }
+        return otherWebhookLoadStates[projectID] ?? .idle
+    }
+
+    func cachedOtherWebhooks(for project: Project) -> [Webhook] {
+        project.id.remoteValue.flatMap { cachedOtherWebhooks[$0] } ?? []
+    }
+
+    /// Read-only server data is cached for this screen session. A failed refresh
+    /// keeps the last result available beside an explicit error and retry action.
+    func loadOtherWebhooks(for project: Project) async {
+        guard let projectID = project.id.remoteValue,
+              otherWebhookLoadStates[projectID]?.isLoading != true else { return }
+        otherWebhookLoadStates[projectID] = .loading
+        do {
+            let webhooks = try await webhookRepository.fetchWebhooks(projectID: projectID)
+            try Task.checkCancellation()
+            let others = webhooks.filter { $0.targetURL != relayTargetURL }
+            cachedOtherWebhooks[projectID] = others
+            otherWebhookLoadStates[projectID] = .loaded(others)
+        } catch is CancellationError {
+            otherWebhookLoadStates[projectID] = cachedOtherWebhooks[projectID].map { .loaded($0) } ?? .idle
+        } catch let error as VikunjaError {
+            otherWebhookLoadStates[projectID] = .failure(error.displayMessage)
+        } catch {
+            otherWebhookLoadStates[projectID] = .failure(error.localizedDescription)
+        }
+    }
+
     /// A single sharing toggle represents both ways a project can be shared.
     /// Existing selections containing just one event still appear enabled.
     public func isProjectSharingEnabled(for project: Project) -> Bool {
@@ -392,6 +457,8 @@ public final class NotificationsViewModel {
             try await syncCoordinator.sync(settings: newSettings, registration: registration, projects: projects)
             settings = newSettings
             notificationSettingsStore.save(newSettings, for: accountID)
+        } catch is CancellationError {
+            return
         } catch let error as VikunjaError {
             toastPresenter.show(error.displayMessage, style: .error)
         } catch {

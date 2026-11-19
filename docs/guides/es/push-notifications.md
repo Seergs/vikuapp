@@ -31,6 +31,14 @@ Independientemente de lo que actives, no recibirás notificaciones por tus propi
 
 Si usas más de una cuenta de Vikunja en Viku, las notificaciones funcionan para todas las cuentas en las que las hayas activado, no solo para la que tengas abierta en ese momento. Así puedes enterarte de lo que sucede aunque no estés mirando esa cuenta.
 
+## Opciones y detalles de un proyecto
+
+Abre un proyecto en **Ajustes → Notificaciones → Actividad en proyectos**. Elige **Desactivadas** para eliminar solo el webhook de este dispositivo para ese proyecto, **Recomendadas** para recibir asignaciones de tareas y comentarios nuevos, o **Personalizar…** para elegir eventos individuales. La opción seleccionada se calcula a partir de los eventos guardados: elegir manualmente exactamente los eventos recomendados también marca Recomendadas.
+
+**Más detalles** muestra el destino enmascarado del relay, si existe un secreto de firma y el estado guardado de las notificaciones del proyecto. **Otros webhooks en este proyecto** se encuentra aquí y excluye el destino del relay de este dispositivo. Estas otras integraciones son de solo lectura y se conservan al desactivar las notificaciones del proyecto.
+
+Los cambios en los webhooks del proyecto requieren conexión y no se ponen en cola sin conexión. Si falla el guardado, incluido un conflicto del servidor, se conserva la selección anterior y se puede reintentar. Los detalles del registro y las selecciones guardadas pueden consultarse sin conexión. Los otros webhooks solo se conservan en memoria durante la sesión actual; si falla una actualización, se muestra un error junto a la última lista cargada y se permite reintentar.
+
 ## Cómo desactivarlas
 
 Lo que realmente controla la función es el interruptor de **Ajustes → Notificaciones** de Viku. Al desactivarlo, se eliminan los webhooks que Viku creó en tu instancia de Vikunja y se cancela el registro de tu dispositivo en Viku Relay. No queda nada en ninguno de los dos lados.

@@ -13,7 +13,6 @@ struct ProjectNotificationsView: View {
     let viewModel: NotificationsViewModel
     let project: Project
 
-    @State private var otherWebhooks: [Webhook] = []
     @Environment(\.vikuPalette) private var palette
 
     /// Project events grouped by the activity the user wants to follow.
@@ -50,9 +49,6 @@ struct ProjectNotificationsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 eventGroupSections
-                if !otherWebhooks.isEmpty {
-                    otherWebhooksSection
-                }
                 // Keeps the last card clear of the tab bar.
                 Color.clear.frame(height: VikuSpacing.xxl)
             }
@@ -62,11 +58,6 @@ struct ProjectNotificationsView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
-        .task {
-            if let resolvedProjectID {
-                otherWebhooks = await viewModel.otherWebhooks(for: resolvedProjectID)
-            }
-        }
     }
 
     private var eventGroupSections: some View {
@@ -98,44 +89,6 @@ struct ProjectNotificationsView: View {
                     }
                 }
             }
-        }
-    }
-
-    private var otherWebhooksSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("Other Webhooks on This Project", bundle: .module)
-                .vikuSectionHeader()
-                .padding(.horizontal, VikuSpacing.md)
-                .padding(.top, VikuSpacing.md + VikuSpacing.xs)
-                .padding(.bottom, VikuSpacing.sm)
-
-            VStack(alignment: .leading, spacing: VikuSpacing.xs) {
-                ForEach(otherWebhooks) { webhook in
-                    HStack(alignment: .top, spacing: VikuSpacing.sm) {
-                        Image(systemName: "link")
-                            .font(.system(size: 13))
-                            .foregroundStyle(palette.textTertiary)
-                        VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
-                            Text(verbatim: webhook.targetURL.absoluteString)
-                                .font(.system(.footnote, design: .monospaced))
-                                .foregroundStyle(.primary)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                            Text(
-                                String(
-                                    localized: "\(webhook.events.count) events · created outside Viku · read-only",
-                                    bundle: .module,
-                                ),
-                            )
-                            .font(VikuFont.caption)
-                            .foregroundStyle(palette.textTertiary)
-                        }
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, VikuSpacing.xs)
-            .vikuCardRow(index: 0, count: 1)
         }
     }
 

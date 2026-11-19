@@ -290,6 +290,17 @@ layers accurate when behavior changes: app help explains how to use a feature,
 while extended guides cover detailed behavior, troubleshooting, and compatibility
 policy.
 
+Project notification screens share one cached `NotificationsViewModel` in Settings.
+Preset selection is derived from saved events: no events means Disabled, exactly
+assignment and comment creation means Recommended, and other combinations mean
+Customize. Preset writes reuse `WebhookSyncCoordinator`; they require the server
+and have no durable offline queue. Failed writes retain the saved selection and
+show an error for retry, including server conflicts. Technical details read the
+saved registration offline; other project webhooks require a server fetch and
+retain their last successful list in memory across failed refreshes. Their details
+screen exposes loading, empty, failure, and retry states without changing any
+third-party webhook.
+
 Documentation supports basic GitHub-style alerts through
 `VikuUI.MarkdownAlertParser`: `NOTE`, `TIP`, `IMPORTANT`, `WARNING`, and `CAUTION`.
 Write the exact uppercase marker on its own line, at column zero, with a blank

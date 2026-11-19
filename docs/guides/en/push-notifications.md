@@ -48,6 +48,14 @@ If you use more than one Vikunja account in Viku, notifications work for all of 
 you've enabled them on, not just whichever one happens to be open at the time. That's the
 point of a notification, really, telling you about something while you're not looking at it.
 
+## Project presets and details
+
+Open a project under **Settings → Notifications → Project Activity**. Choose **Disabled** to delete only this device's webhook for that project, **Recommended** for exactly task assignment and comment creation events, or **Customize…** for individual events. The selected option is derived from the saved event set; manually choosing exactly the recommended events also marks Recommended.
+
+**More Details** shows the masked relay destination, whether a signing secret is configured, and the project's saved notification status. **Other Webhooks on This Project** lives here and excludes this device's relay destination. These other integrations remain read-only and are preserved when you disable project notifications.
+
+Project webhook writes require connectivity and are not queued offline. A failed save, including a server conflict, keeps the previous saved selection and can be retried. Registration details and saved selections remain readable offline. Other webhooks are cached only in memory for the current session; a failed refresh shows an error alongside the last successful list and offers retry.
+
 ## Turning it off
 
 The toggle in Viku's **Settings → Notifications** screen is what actually matters. Switching it
