@@ -42,7 +42,7 @@ struct ProjectNotificationsView: View {
     }
 
     private var isDisabled: Bool {
-        resolvedProjectID.map { viewModel.pendingChange == .project($0) } ?? false
+        viewModel.isSyncing || (viewModel.isVerifyingRegistration && viewModel.relayTargetURL == nil)
     }
 
     var body: some View {
@@ -72,18 +72,25 @@ struct ProjectNotificationsView: View {
                 VStack(spacing: 0) {
                     ForEach(Array(group.events.enumerated()), id: \.element) { index, event in
                         Toggle(isOn: eventBinding(event)) {
-                            if event == .projectSharedUser {
-                                VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
-                                    Text("Project Shared", bundle: .module)
-                                    Text("When shared with another person or team", bundle: .module)
-                                        .font(VikuFont.footnote)
-                                        .foregroundStyle(palette.textSecondary)
+                            VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
+                                if event == .projectSharedUser {
+                                    VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
+                                        Text("Project Shared", bundle: .module)
+                                        Text("When shared with another person or team", bundle: .module)
+                                            .font(VikuFont.footnote)
+                                            .foregroundStyle(palette.textSecondary)
+                                    }
+                                } else {
+                                    Text(verbatim: eventLabel(event))
                                 }
-                            } else {
-                                Text(verbatim: eventLabel(event))
+                                NotificationProgressView(
+                                    isActive: resolvedProjectID.map { viewModel.pendingChange == .project($0) } == true
+                                        && viewModel.pendingEvent == event,
+                                    title: String(localized: "Saving…", bundle: .module),
+                                )
                             }
                         }
-                        .disabled(isDisabled)
+                        .notificationControlsDisabled(isDisabled)
                         .padding(.vertical, VikuSpacing.xs)
                         .vikuCardRow(index: index, count: group.events.count)
                     }

@@ -23,13 +23,26 @@ struct NotificationsView: View {
     /// empty by default, so every project starts collapsed.
     @State private var expandedProjectIDs: Set<EntityID> = []
     @State private var progress = NotificationProgressPresentation()
+    @State private var initialProgress = NotificationProgressPresentation(appearanceDelay: .milliseconds(500))
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(AppRouter.self) private var appRouter
     @Environment(\.openURL) private var openURL
     @Environment(\.vikuPalette) private var palette
 
     private var isWorking: Bool {
-        viewModel.isLoading || viewModel.isSyncing
+        viewModel.pendingChange == .enabling || viewModel.pendingChange == .disabling
+    }
+
+    private var isInitialLoading: Bool {
+        viewModel.loadState == .idle || viewModel.isLoading
+    }
+
+    private var showsInitialLoading: Bool {
+        isInitialLoading || initialProgress.isVisible
+    }
+
+    private var initialContentAnimation: Animation? {
+        reduceMotion ? nil : .easeInOut(duration: 0.35)
     }
 
     private var statusAnimation: Animation? {
@@ -144,38 +157,75 @@ struct NotificationsView: View {
                     // presentation update without affecting the operation.
                 }
             }
-            .onDisappear { progress = NotificationProgressPresentation() }
+            .task(id: isInitialLoading) {
+                withAnimation(initialContentAnimation) {
+                    initialProgress.update(isActive: isInitialLoading)
+                }
+                guard let deadline = initialProgress.nextUpdate else { return }
+                do {
+                    try await ContinuousClock().sleep(until: deadline)
+                    try Task.checkCancellation()
+                    withAnimation(initialContentAnimation) {
+                        initialProgress.advance()
+                    }
+                } catch {
+                    // Navigation cancels presentation, never the remote operation.
+                }
+            }
+            .onDisappear {
+                progress = NotificationProgressPresentation()
+                initialProgress = NotificationProgressPresentation(appearanceDelay: .milliseconds(500))
+            }
     }
 
     private var content: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 enableSection
-                if viewModel.settings.isEnabled, viewModel.loadState == .loaded {
-                    userLevelSection
-                        .disabled(viewModel.pendingChange == .enabling || viewModel.pendingChange == .disabling)
-                }
-                switch viewModel.loadState {
-                case .idle, .loading:
-                    EmptyView()
-                case let .failure(message):
-                    VikuStatusView(
-                        systemImage: "exclamationmark.triangle.fill",
-                        title: String(localized: "Couldn't load projects", bundle: .module),
-                        message: message,
-                    ) {
-                        Task { await viewModel.load() }
+                // A concrete parent preserves identity across both branches so
+                // insertion/removal transitions share one animation transaction.
+                VStack(alignment: .leading, spacing: 0) {
+                    if showsInitialLoading {
+                        VStack(spacing: VikuSpacing.sm) {
+                            if initialProgress.isVisible {
+                                ProgressView()
+                                Text("Loading notification settings…", bundle: .module)
+                                    .font(VikuFont.footnote)
+                                    .foregroundStyle(palette.textSecondary)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, minHeight: VikuSpacing.xxl * 3)
+                        .transition(.opacity)
+                    } else {
+                        VStack(alignment: .leading, spacing: 0) {
+                            switch viewModel.loadState {
+                            case .idle, .loading:
+                                EmptyView()
+                            case let .failure(message):
+                                VikuStatusView(
+                                    systemImage: "exclamationmark.triangle.fill",
+                                    title: String(localized: "Couldn't load notification settings", bundle: .module),
+                                    message: message,
+                                ) {
+                                    Task { await viewModel.load() }
+                                }
+                                .padding(.top, VikuSpacing.xxl)
+                            case .loaded:
+                                if viewModel.settings.isEnabled {
+                                    userLevelSection
+                                    projectsSection
+                                }
+                            }
+                        }
+                        .transition(.opacity)
                     }
-                    .padding(.top, VikuSpacing.xxl)
-                case .loaded:
-                    if viewModel.settings.isEnabled {
-                        projectsSection
-                    }
                 }
+                .animation(initialContentAnimation, value: showsInitialLoading)
                 helpSection
                 // Keeps the last card clear of the tab bar.
                 Color.clear.frame(height: VikuSpacing.xxl)
             }
+            .animation(initialContentAnimation, value: showsInitialLoading)
             .animation(statusAnimation, value: viewModel.relayTargetURL)
             .animation(statusAnimation, value: viewModel.isRegistrationVerified)
             .animation(statusAnimation, value: viewModel.isPermissionDenied)
@@ -196,9 +246,8 @@ struct NotificationsView: View {
                     Toggle(isOn: enabledBinding) {
                         Text("Push Notifications", bundle: .module)
                     }
-                    .disabled(
-                        viewModel.loadState == .idle || viewModel.isLoading
-                            || viewModel.pendingChange == .enabling || viewModel.pendingChange == .disabling,
+                    .notificationControlsDisabled(
+                        isInitialLoading || viewModel.isSyncing || viewModel.isVerifyingRegistration,
                     )
                 }
                 .padding(.vertical, VikuSpacing.xs)
@@ -308,10 +357,16 @@ struct NotificationsView: View {
                                     : String(localized: "One daily alert for overdue tasks", bundle: .module))
                                     .font(VikuFont.footnote)
                                     .foregroundStyle(palette.textSecondary)
+                                NotificationProgressView(
+                                    isActive: viewModel.pendingChange == .userLevel && viewModel.pendingEvent == event,
+                                    title: String(localized: "Saving…", bundle: .module),
+                                )
                             }
                         }
                     }
-                    .disabled(viewModel.pendingChange == .userLevel)
+                    .notificationControlsDisabled(
+                        viewModel.isSyncing || (viewModel.isVerifyingRegistration && viewModel.relayTargetURL == nil),
+                    )
                     .vikuCardRow(index: index, count: userLevelRowCount)
                 }
                 if showsOverdueTasksTimeRow {
@@ -320,6 +375,7 @@ struct NotificationsView: View {
                         .vikuCardRow(index: WebhookEvent.userDirectedOrdered.count, count: userLevelRowCount)
                 }
             }
+            .animation(statusAnimation, value: showsOverdueTasksTimeRow)
         }
     }
 
