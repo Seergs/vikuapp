@@ -172,10 +172,16 @@ struct ReachabilityMonitorTests {
         for _ in 0 ..< runs {
             let pathMonitor = FakePathMonitor()
             let monitor = NWPathReachabilityMonitor(pathMonitor: pathMonitor, queue: .main)
-            pathMonitor.report(isSatisfied: true)
-            pathMonitor.report(isSatisfied: false)
-            pathMonitor.report(isSatisfied: true)
-            try? await Task.sleep(for: .milliseconds(5))
+            var updates = await monitor.reachabilityUpdates().makeAsyncIterator()
+            let reports = [true, false, true]
+            for report in reports {
+                pathMonitor.report(isSatisfied: report)
+            }
+            // Wait for the burst to be processed; a fixed sleep can expire
+            // before the consumer runs on a busy CI runner.
+            for report in reports {
+                #expect(await updates.next() == report)
+            }
             if await monitor.isReachable == false {
                 stuckOffline += 1
             }

@@ -23,7 +23,7 @@ struct NotificationsView: View {
     /// empty by default, so every project starts collapsed.
     @State private var expandedProjectIDs: Set<EntityID> = []
     @State private var progress = NotificationProgressPresentation()
-    @State private var initialProgress = NotificationProgressPresentation(appearanceDelay: .milliseconds(500))
+    @State private var initialProgress: NotificationProgressPresentation
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(AppRouter.self) private var appRouter
     @Environment(\.openURL) private var openURL
@@ -41,10 +41,6 @@ struct NotificationsView: View {
         isInitialLoading || initialProgress.isVisible
     }
 
-    private var initialContentAnimation: Animation? {
-        reduceMotion ? nil : .easeInOut(duration: 0.35)
-    }
-
     private var statusAnimation: Animation? {
         reduceMotion ? nil : .easeInOut(duration: 0.2)
     }
@@ -58,6 +54,9 @@ struct NotificationsView: View {
     init(viewModel: NotificationsViewModel, router: AppRouter) {
         self.viewModel = viewModel
         self.router = router
+        var initialProgress = NotificationProgressPresentation(appearanceDelay: .zero)
+        initialProgress.update(isActive: viewModel.loadState == .idle || viewModel.isLoading)
+        _initialProgress = State(initialValue: initialProgress)
     }
 
     /// `viewModel.projects` (a flat array) reordered so each project is
@@ -158,23 +157,19 @@ struct NotificationsView: View {
                 }
             }
             .task(id: isInitialLoading) {
-                withAnimation(initialContentAnimation) {
-                    initialProgress.update(isActive: isInitialLoading)
-                }
+                initialProgress.update(isActive: isInitialLoading)
                 guard let deadline = initialProgress.nextUpdate else { return }
                 do {
                     try await ContinuousClock().sleep(until: deadline)
                     try Task.checkCancellation()
-                    withAnimation(initialContentAnimation) {
-                        initialProgress.advance()
-                    }
+                    initialProgress.advance()
                 } catch {
                     // Navigation cancels presentation, never the remote operation.
                 }
             }
             .onDisappear {
                 progress = NotificationProgressPresentation()
-                initialProgress = NotificationProgressPresentation(appearanceDelay: .milliseconds(500))
+                initialProgress = NotificationProgressPresentation(appearanceDelay: .zero)
             }
     }
 
@@ -182,8 +177,8 @@ struct NotificationsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 enableSection
-                // A concrete parent preserves identity across both branches so
-                // insertion/removal transitions share one animation transaction.
+                // Loading completion changes the content height immediately;
+                // animating this container makes the screen expand on entry.
                 VStack(alignment: .leading, spacing: 0) {
                     if showsInitialLoading {
                         VStack(spacing: VikuSpacing.sm) {
@@ -195,7 +190,6 @@ struct NotificationsView: View {
                             }
                         }
                         .frame(maxWidth: .infinity, minHeight: VikuSpacing.xxl * 3)
-                        .transition(.opacity)
                     } else {
                         VStack(alignment: .leading, spacing: 0) {
                             switch viewModel.loadState {
@@ -217,20 +211,12 @@ struct NotificationsView: View {
                                 }
                             }
                         }
-                        .transition(.opacity)
                     }
                 }
-                .animation(initialContentAnimation, value: showsInitialLoading)
                 helpSection
                 // Keeps the last card clear of the tab bar.
                 Color.clear.frame(height: VikuSpacing.xxl)
             }
-            .animation(initialContentAnimation, value: showsInitialLoading)
-            .animation(statusAnimation, value: viewModel.relayTargetURL)
-            .animation(statusAnimation, value: viewModel.isRegistrationVerified)
-            .animation(statusAnimation, value: viewModel.isPermissionDenied)
-            .animation(statusAnimation, value: progress.isVisible)
-            .animation(statusAnimation, value: viewModel.settings.isEnabled)
         }
         .searchable(
             text: $projectQuery,
@@ -275,7 +261,6 @@ struct NotificationsView: View {
                     Divider()
                     syncingRow
                         .padding(.vertical, VikuSpacing.sm)
-                        .transition(.opacity)
                 }
             }
             .vikuCardRow(index: 0, count: 1)
@@ -531,7 +516,7 @@ struct NotificationsView: View {
     }
 
     private func toggleExpanded(_ projectID: EntityID) {
-        withAnimation(.snappy) {
+        withAnimation(reduceMotion ? nil : .snappy) {
             if expandedProjectIDs.contains(projectID) {
                 expandedProjectIDs.remove(projectID)
             } else {
@@ -593,6 +578,7 @@ private struct ProjectNotificationRow: View {
     /// every project up front, only for rows the list actually renders.
     @State private var otherWebhookCount = 0
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.vikuPalette) private var palette
 
     private var swatchColor: Color {
@@ -638,6 +624,7 @@ private struct ProjectNotificationRow: View {
                     Text(String(localized: "\(otherWebhookCount) third-party webhooks", bundle: .module))
                         .font(VikuFont.caption)
                         .foregroundStyle(palette.textTertiary)
+                        .transition(.opacity)
                 }
             }
 
@@ -666,7 +653,11 @@ private struct ProjectNotificationRow: View {
         .onTapGesture(perform: onSelect)
         .task(id: project.id) {
             guard let projectID = project.id.remoteValue else { return }
-            otherWebhookCount = await viewModel.otherWebhooks(for: projectID).count
+            let count = await viewModel.otherWebhooks(for: projectID).count
+            guard !Task.isCancelled else { return }
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
+                otherWebhookCount = count
+            }
         }
     }
 }
