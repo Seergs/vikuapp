@@ -37,7 +37,10 @@ struct NotificationsViewModelTests {
             await MainActor.run {
                 #expect(viewModel.relayTargetURL == saved.targetURL)
                 #expect(!viewModel.isRegistrationVerified)
+                #expect(viewModel.isVerifyingRegistration)
+                #expect(!viewModel.isSyncing)
             }
+            await viewModel.setUserLevelEvent(.taskReminderFired, isEnabled: true)
         }
 
         await viewModel.load()
@@ -129,6 +132,87 @@ struct NotificationsViewModelTests {
         #expect(viewModel.relayTargetURL == nil)
         #expect(!viewModel.settings.isEnabled)
         #expect(!viewModel.isRegistrationVerified)
+    }
+
+    @Test(arguments: [false, true], [0, 1, 2, 3, 4, 5])
+    func `event saves render immediately but persist only on success`(projectEvent: Bool, outcome: Int) async {
+        let project = Project(id: 1, title: "Inbox")
+        let initiallySelected = outcome >= 3
+        let result = outcome % 3
+        let original = NotificationSettings(
+            isEnabled: true,
+            userLevelEvents: initiallySelected && !projectEvent ? [.taskReminderFired] : [],
+            projectEvents: initiallySelected && projectEvent ? [1: [.taskCreated]] : [:],
+        )
+        let store = FakeNotificationSettingsStore(settings: original)
+        let webhooks = FakeWebhookRepository()
+        let toast = FakeToastPresenter()
+        let viewModel = makeViewModel(
+            webhookRepository: webhooks,
+            projectRepository: FakeProjectRepository(projects: [project]),
+            notificationSettingsStore: store,
+            toastPresenter: toast,
+        )
+        await viewModel.load()
+        webhooks.onFetchWebhooks = {
+            #expect(viewModel.isSyncing)
+            #expect(store.settings(for: fakeAccountID) == original)
+            if projectEvent {
+                #expect(viewModel.settings.events(for: 1).contains(.taskCreated) == !initiallySelected)
+            } else {
+                #expect(viewModel.settings.userLevelEvents.contains(.taskReminderFired) == !initiallySelected)
+            }
+            // Even a call from another screen cannot overwrite an in-flight save.
+            await viewModel.setUserLevelEvent(.tasksOverdue, isEnabled: true)
+            #expect(!viewModel.settings.userLevelEvents.contains(.tasksOverdue))
+            if result == 1 {
+                throw VikunjaError.network("offline")
+            }
+            if result == 2 {
+                throw CancellationError()
+            }
+        }
+
+        if projectEvent {
+            await viewModel.setProjectEvent(.taskCreated, isEnabled: !initiallySelected, for: project)
+        } else {
+            await viewModel.setUserLevelEvent(.taskReminderFired, isEnabled: !initiallySelected)
+        }
+
+        #expect(!viewModel.isSyncing)
+        #expect(viewModel.pendingEvent == nil)
+        #expect(store.settings(for: fakeAccountID) == viewModel.settings)
+        if result == 0 {
+            #expect(viewModel.settings != original)
+        } else {
+            #expect(viewModel.settings == original)
+        }
+        #expect(toast.shownMessages.isEmpty == (result != 1))
+
+        // A retry after reconnecting can save the original intent.
+        webhooks.onFetchWebhooks = nil
+        await viewModel.setUserLevelEvent(.tasksOverdue, isEnabled: true)
+        #expect(store.settings(for: fakeAccountID).userLevelEvents.contains(.tasksOverdue))
+    }
+
+    @Test
+    func `event edits without a usable registration do not claim a successful save`() async {
+        let original = NotificationSettings(isEnabled: true)
+        let store = FakeNotificationSettingsStore(settings: original)
+        let registering = FakePushNotificationRegistering()
+        registering.enableResult = .failure(VikunjaError.network("offline"))
+        let toast = FakeToastPresenter()
+        let viewModel = makeViewModel(
+            pushNotificationRegistering: registering,
+            notificationSettingsStore: store,
+            toastPresenter: toast,
+        )
+        await viewModel.load()
+        await viewModel.setUserLevelEvent(.taskReminderFired, isEnabled: true)
+        #expect(viewModel.settings == original)
+        #expect(store.settings(for: fakeAccountID) == original)
+        #expect(!viewModel.isSyncing)
+        #expect(toast.shownMessages.last?.style == .error)
     }
 
     // MARK: load

@@ -106,7 +106,7 @@ struct ProjectNotificationsOverviewView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(viewModel.isSyncing || viewModel.isLoading || project.id.remoteValue == nil)
+        .notificationControlsDisabled(viewModel.isSyncing || viewModel.isLoading || project.id.remoteValue == nil)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 

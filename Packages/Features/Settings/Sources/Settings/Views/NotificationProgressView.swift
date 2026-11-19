@@ -11,7 +11,10 @@ struct NotificationProgressView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        Group {
+        // Keep the task on a persistent container, including while no indicator
+        // is rendered. Group would attach its lifecycle modifiers to the
+        // conditional children and leave no task host in the hidden state.
+        VStack(alignment: .leading, spacing: 0) {
             if progress.isVisible {
                 HStack(spacing: VikuSpacing.sm) {
                     ProgressView()

@@ -294,9 +294,18 @@ Project notification screens share one cached `NotificationsViewModel` in Settin
 Preset selection is derived from saved events: no events means Disabled, exactly
 assignment and comment creation means Recommended, and other combinations mean
 Customize. Preset writes reuse `WebhookSyncCoordinator`; they require the server
-and have no durable offline queue. Failed writes retain the saved selection and
-show an error for retry, including server conflicts. Technical details read the
-saved registration offline; other project webhooks require a server fetch and
+and have no durable offline queue. Event toggles and presets render optimistically
+in memory; only successful reconciliation persists the selection. Errors and
+cancellation restore the previous selection, with errors offering toast feedback
+for retry, including server conflicts. The ViewModel rejects overlapping writes
+because each reconciliation covers the complete configuration. Controls visibly
+disable during saves, and the changed event shows delayed saving feedback.
+Initial notification settings reserve a loading area, reveal a spinner after half
+a second and keep it visible for at least one second before fading in the content.
+These presentation waits never delay networking or persistence and respect Reduce
+Motion. Background registration verification is separate from explicit mutations;
+a saved destination allows event editing while verification runs. Technical
+details read the saved registration offline; other project webhooks require a server fetch and
 retain their last successful list in memory across failed refreshes. Their details
 screen exposes loading, empty, failure, and retry states without changing any
 third-party webhook.

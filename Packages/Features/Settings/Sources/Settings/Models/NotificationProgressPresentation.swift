@@ -3,6 +3,12 @@ import Foundation
 /// Presentation deadlines only: completion of the underlying operation never
 /// waits for the indicator's minimum visible duration.
 struct NotificationProgressPresentation {
+    let appearanceDelay: Duration
+
+    init(appearanceDelay: Duration = .seconds(1)) {
+        self.appearanceDelay = appearanceDelay
+    }
+
     private var isActive = false
     private var startedAt: ContinuousClock.Instant?
     private var shownAt: ContinuousClock.Instant?
@@ -13,7 +19,7 @@ struct NotificationProgressPresentation {
 
     var nextUpdate: ContinuousClock.Instant? {
         if isActive, shownAt == nil {
-            return startedAt?.advanced(by: .seconds(1))
+            return startedAt?.advanced(by: appearanceDelay)
         }
         if !isActive {
             return shownAt?.advanced(by: .seconds(1))
@@ -30,7 +36,7 @@ struct NotificationProgressPresentation {
     }
 
     mutating func advance(at now: ContinuousClock.Instant = .now) {
-        if isActive, shownAt == nil, let startedAt, now >= startedAt.advanced(by: .seconds(1)) {
+        if isActive, shownAt == nil, let startedAt, now >= startedAt.advanced(by: appearanceDelay) {
             shownAt = now
         } else if !isActive {
             startedAt = nil

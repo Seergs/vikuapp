@@ -29,6 +29,8 @@ public final class NotificationsViewModel {
     }
 
     public private(set) var pendingChange: PendingChange?
+    public private(set) var pendingEvent: WebhookEvent?
+    public private(set) var isVerifyingRegistration = false
     private var otherWebhookLoadStates: [Int: ScreenLoadState<[Webhook]>] = [:]
     private var cachedOtherWebhooks: [Int: [Webhook]] = [:]
 
@@ -163,9 +165,9 @@ public final class NotificationsViewModel {
             loadState = .failure(error.localizedDescription)
         }
 
-        if settings.isEnabled, isRegistrationRefreshDue {
-            pendingChange = .enabling
-            defer { pendingChange = nil }
+        if settings.isEnabled, pendingChange == nil, isRegistrationRefreshDue {
+            isVerifyingRegistration = true
+            defer { isVerifyingRegistration = false }
             await refreshRegistration()
         }
     }
@@ -182,6 +184,7 @@ public final class NotificationsViewModel {
     /// real device, and the view should show that something's happening
     /// rather than look stuck.
     public func confirmEnable() async {
+        guard pendingChange == nil, !isVerifyingRegistration else { return }
         pendingChange = .enabling
         defer { pendingChange = nil }
 
@@ -208,6 +211,7 @@ public final class NotificationsViewModel {
     /// recreating whatever was on before, which would look like it came
     /// back from nowhere.
     public func disable() async {
+        guard pendingChange == nil, !isVerifyingRegistration else { return }
         pendingChange = .disabling
         defer { pendingChange = nil }
 
@@ -223,8 +227,13 @@ public final class NotificationsViewModel {
     }
 
     public func setUserLevelEvent(_ event: WebhookEvent, isEnabled: Bool) async {
+        guard pendingChange == nil, !isVerifyingRegistration || relayTargetURL != nil else { return }
         pendingChange = .userLevel
-        defer { pendingChange = nil }
+        pendingEvent = event
+        defer {
+            pendingChange = nil
+            pendingEvent = nil
+        }
 
         var updated = settings
         if isEnabled {
@@ -232,7 +241,7 @@ public final class NotificationsViewModel {
         } else {
             updated.userLevelEvents.remove(event)
         }
-        await apply(updated)
+        await apply(updated, optimistic: true)
     }
 
     /// Commits a new overdue-reminders time to Vikunja. Optimistic, with
@@ -256,12 +265,17 @@ public final class NotificationsViewModel {
     }
 
     public func setProjectEvent(_ event: WebhookEvent, isEnabled: Bool, for project: Project) async {
+        guard pendingChange == nil, !isVerifyingRegistration || relayTargetURL != nil else { return }
         // Not reachable until Projects' own offline-create path exists — a
         // project without a synced id yet can't have webhook settings.
         guard let projectID = project.id.remoteValue else { return }
         pendingChange = .project(projectID)
-        defer { pendingChange = nil }
+        defer {
+            pendingChange = nil
+            pendingEvent = nil
+        }
 
+        pendingEvent = event
         var updated = settings
         var events = updated.events(for: projectID)
         if isEnabled {
@@ -270,7 +284,7 @@ public final class NotificationsViewModel {
             events.remove(event)
         }
         updated.projectEvents[projectID] = events
-        await apply(updated)
+        await apply(updated, optimistic: true)
     }
 
     func projectNotificationPreset(for project: Project) -> ProjectNotificationPreset {
@@ -280,7 +294,8 @@ public final class NotificationsViewModel {
     /// Webhooks have no offline mutation queue. Failed saves retain the previous
     /// selection; the user can retry once the server is reachable again.
     func selectProjectNotificationPreset(_ preset: ProjectNotificationPreset, for project: Project) async {
-        guard pendingChange == nil, !isLoading, preset != .custom else { return }
+        guard pendingChange == nil, !isLoading, preset != .custom,
+              !isVerifyingRegistration || relayTargetURL != nil else { return }
         if settings.isEnabled, currentRegistration == nil, savedRegistration == nil {
             toastPresenter.show(
                 String(
@@ -346,6 +361,8 @@ public final class NotificationsViewModel {
     public func setProjectSharingEnabled(_ isEnabled: Bool, for project: Project) async {
         guard let projectID = project.id.remoteValue else { return }
         let sharingEvents: Set<WebhookEvent> = [.projectSharedUser, .projectSharedTeam]
+        guard pendingChange == nil, !isVerifyingRegistration || relayTargetURL != nil else { return }
+        pendingEvent = .projectSharedUser
         let events = settings.events(for: projectID)
         await setProjectEvents(
             isEnabled ? events.union(sharingEvents) : events.subtracting(sharingEvents),
@@ -355,13 +372,17 @@ public final class NotificationsViewModel {
 
     /// Replaces a project's whole event selection in one sync round trip.
     public func setProjectEvents(_ events: Set<WebhookEvent>, for project: Project) async {
+        guard pendingChange == nil, !isVerifyingRegistration || relayTargetURL != nil else { return }
         guard let projectID = project.id.remoteValue else { return }
         pendingChange = .project(projectID)
-        defer { pendingChange = nil }
+        defer {
+            pendingChange = nil
+            pendingEvent = nil
+        }
 
         var updated = settings
         updated.projectEvents[projectID] = events
-        await apply(updated)
+        await apply(updated, optimistic: true)
     }
 
     /// Clears a project's event selection, which is what tears down its
@@ -432,14 +453,36 @@ public final class NotificationsViewModel {
     /// Reconciles the server's webhooks to `newSettings` via
     /// `syncCoordinator`, then persists it — only once the sync succeeds,
     /// so a failed request never leaves `notificationSettingsStore`
-    /// claiming a state the server doesn't actually have.
-    private func apply(_ newSettings: NotificationSettings) async {
+    /// claiming a state the server doesn't actually have. Event selections can
+    /// render optimistically in memory and roll back on error or cancellation.
+    private func apply(_ newSettings: NotificationSettings, optimistic: Bool = false) async {
+        let previous = settings
+        var succeeded = false
+        if optimistic {
+            settings = newSettings
+        }
+        defer {
+            if optimistic, !succeeded {
+                settings = previous
+            }
+        }
         guard let registration = currentRegistration ?? savedRegistration else {
+            if optimistic, newSettings.isEnabled {
+                toastPresenter.show(
+                    String(
+                        localized: "Notification setup is unavailable. Reopen Notifications and try again.",
+                        bundle: .module,
+                    ),
+                    style: .error,
+                )
+                return
+            }
             // Nothing to reconcile against (never enabled, or already
             // disabled) — e.g. toggling a project off while the feature
             // itself is off. Persist and exit.
             settings = newSettings
             notificationSettingsStore.save(newSettings, for: accountID)
+            succeeded = true
             return
         }
 
@@ -447,6 +490,7 @@ public final class NotificationsViewModel {
             try await syncCoordinator.sync(settings: newSettings, registration: registration, projects: projects)
             settings = newSettings
             notificationSettingsStore.save(newSettings, for: accountID)
+            succeeded = true
         } catch is CancellationError {
             return
         } catch let error as VikunjaError {
