@@ -312,14 +312,13 @@ struct NotificationsView: View {
         }
     }
 
-    /// Whether the "Overdue Tasks" webhook event is selected — the time row
-    /// only means something once this app is actually subscribed to it.
-    private var showsOverdueTasksTimeRow: Bool {
+    /// Show grouping and time controls only while subscribed to overdue tasks.
+    private var showsOverdueTasksOptions: Bool {
         viewModel.settings.userLevelEvents.contains(.tasksOverdue)
     }
 
     private var userLevelRowCount: Int {
-        WebhookEvent.userDirectedOrdered.count + (showsOverdueTasksTimeRow ? 1 : 0)
+        WebhookEvent.userDirectedOrdered.count + (showsOverdueTasksOptions ? 2 : 0)
     }
 
     private var userLevelSection: some View {
@@ -339,7 +338,7 @@ struct NotificationsView: View {
                                 Text(verbatim: eventLabel(event))
                                 Text(event == .taskReminderFired
                                     ? String(localized: "The ones you set on your tasks", bundle: .module)
-                                    : String(localized: "One daily alert for overdue tasks", bundle: .module))
+                                    : String(localized: "Daily notifications for overdue tasks", bundle: .module))
                                     .font(VikuFont.footnote)
                                     .foregroundStyle(palette.textSecondary)
                                 NotificationProgressView(
@@ -354,13 +353,35 @@ struct NotificationsView: View {
                     )
                     .vikuCardRow(index: index, count: userLevelRowCount)
                 }
-                if showsOverdueTasksTimeRow {
+                if showsOverdueTasksOptions {
+                    Toggle(isOn: Binding(
+                        get: { viewModel.settings.groupOverdueNotifications },
+                        set: { enabled in
+                            Task { await viewModel.setGroupOverdueNotificationsEnabled(enabled) }
+                        },
+                    )) {
+                        VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
+                            Text("Group Overdue Notifications", bundle: .module)
+                            Text("One alert instead of one per task", bundle: .module)
+                                .font(VikuFont.footnote)
+                                .foregroundStyle(palette.textSecondary)
+                            NotificationProgressView(
+                                isActive: viewModel.pendingChange == .grouping,
+                                title: String(localized: "Saving…", bundle: .module),
+                            )
+                        }
+                    }
+                    .notificationControlsDisabled(
+                        viewModel.isSyncing || viewModel.isVerifyingRegistration,
+                    )
+                    .padding(.leading, VikuImageSize.settingsRowIconSide + VikuSpacing.sm + VikuSpacing.xxs)
+                    .vikuCardRow(index: WebhookEvent.userDirectedOrdered.count, count: userLevelRowCount)
                     overdueTasksRemindersTimeRow
                         .padding(.leading, VikuImageSize.settingsRowIconSide + VikuSpacing.sm + VikuSpacing.xxs)
-                        .vikuCardRow(index: WebhookEvent.userDirectedOrdered.count, count: userLevelRowCount)
+                        .vikuCardRow(index: WebhookEvent.userDirectedOrdered.count + 1, count: userLevelRowCount)
                 }
             }
-            .animation(statusAnimation, value: showsOverdueTasksTimeRow)
+            .animation(statusAnimation, value: showsOverdueTasksOptions)
         }
     }
 

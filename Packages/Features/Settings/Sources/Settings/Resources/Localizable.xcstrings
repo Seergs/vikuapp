@@ -395,18 +395,18 @@
         }
       }
     },
-    "One daily alert for overdue tasks" : {
+    "Daily notifications for overdue tasks" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "One daily alert for overdue tasks"
+            "value" : "Daily notifications for overdue tasks"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Un aviso al día con lo atrasado"
+            "value" : "Notificaciones diarias de tareas vencidas"
           }
         }
       }

@@ -22,7 +22,6 @@ struct ProjectNotificationSettingsTests {
             userRepository: FakeUserRepository(),
             pushNotificationRegistering: registering,
             notificationSettingsStore: store,
-            groupOverdueNotificationsStore: FakeGroupOverdueNotificationsStoring(),
             toastPresenter: toast,
         )
     }

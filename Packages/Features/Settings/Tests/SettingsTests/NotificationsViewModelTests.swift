@@ -6,22 +6,21 @@ import VikunjaCore
 @MainActor
 struct NotificationsViewModelTests {
     private func makeViewModel(
+        accountID: InstanceAccount.ID = fakeAccountID,
         webhookRepository: FakeWebhookRepository = FakeWebhookRepository(),
         projectRepository: FakeProjectRepository = FakeProjectRepository(),
         userRepository: FakeUserRepository = FakeUserRepository(),
         pushNotificationRegistering: FakePushNotificationRegistering = FakePushNotificationRegistering(),
         notificationSettingsStore: FakeNotificationSettingsStore = FakeNotificationSettingsStore(),
-        groupOverdueNotificationsStore: FakeGroupOverdueNotificationsStoring = FakeGroupOverdueNotificationsStoring(),
         toastPresenter: FakeToastPresenter = FakeToastPresenter(),
     ) -> NotificationsViewModel {
         NotificationsViewModel(
-            accountID: fakeAccountID,
+            accountID: accountID,
             webhookRepository: webhookRepository,
             projectRepository: projectRepository,
             userRepository: userRepository,
             pushNotificationRegistering: pushNotificationRegistering,
             notificationSettingsStore: notificationSettingsStore,
-            groupOverdueNotificationsStore: groupOverdueNotificationsStore,
             toastPresenter: toastPresenter,
         )
     }
@@ -684,18 +683,114 @@ struct NotificationsViewModelTests {
 
     // MARK: group overdue notifications bootstrap
 
-    @Test
-    func `confirming enable applies the device's current group overdue preference to this account`() async {
-        let groupStore = FakeGroupOverdueNotificationsStoring(isEnabled: true)
+    @Test(arguments: [false, true])
+    func `confirming enable applies the connection overdue grouping preference`(grouped: Bool) async {
+        let store = FakeNotificationSettingsStore(settings: NotificationSettings(groupOverdueNotifications: grouped))
         let registering = FakePushNotificationRegistering()
         let viewModel = makeViewModel(
             pushNotificationRegistering: registering,
-            groupOverdueNotificationsStore: groupStore,
+            notificationSettingsStore: store,
         )
 
         await viewModel.confirmEnable()
 
         #expect(registering.updatedPreferences.map(\.accountID) == [fakeAccountID])
+        #expect(registering.updatedPreferences.map(\.groupOverdueNotifications) == [grouped])
+    }
+
+    @Test
+    func `grouping is saved and sent only for the edited connection without changing webhooks`() async {
+        let workID = UUID()
+        let personalID = UUID()
+        let store = FakeNotificationSettingsStore(
+            settings: NotificationSettings(isEnabled: true, userLevelEvents: [.tasksOverdue]),
+            accountID: workID,
+        )
+        let personalSettings = NotificationSettings(isEnabled: true, userLevelEvents: [.tasksOverdue])
+        store.save(personalSettings, for: personalID)
+        let registering = FakePushNotificationRegistering()
+        let webhooks = FakeWebhookRepository()
+        let work = makeViewModel(
+            accountID: workID,
+            webhookRepository: webhooks,
+            pushNotificationRegistering: registering,
+            notificationSettingsStore: store,
+        )
+
+        await work.setGroupOverdueNotificationsEnabled(true)
+
+        #expect(store.settings(for: workID).groupOverdueNotifications)
+        #expect(store.settings(for: personalID) == personalSettings)
+        #expect(registering.updatedPreferences.map(\.accountID) == [workID])
         #expect(registering.updatedPreferences.map(\.groupOverdueNotifications) == [true])
+        #expect(webhooks.createdUserWebhooks.isEmpty)
+        #expect(webhooks.createdProjectWebhooks.isEmpty)
+        let reopened = makeViewModel(accountID: workID, notificationSettingsStore: store)
+        #expect(reopened.settings.groupOverdueNotifications)
+    }
+
+    @Test(arguments: [false, true])
+    func `failed or cancelled relay update retains the choice and enabling push retries it`(cancelled: Bool) async {
+        let store = FakeNotificationSettingsStore(settings: NotificationSettings(isEnabled: true))
+        let registering = FakePushNotificationRegistering()
+        registering.updatePreferencesError = cancelled ? CancellationError() : VikunjaError.network("offline")
+        let viewModel = makeViewModel(
+            pushNotificationRegistering: registering,
+            notificationSettingsStore: store,
+        )
+
+        await viewModel.setGroupOverdueNotificationsEnabled(true)
+
+        #expect(viewModel.settings.groupOverdueNotifications)
+        #expect(store.settings(for: fakeAccountID).groupOverdueNotifications)
+        #expect(viewModel.pendingChange == nil)
+        registering.updatePreferencesError = nil
+        await viewModel.confirmEnable()
+        #expect(registering.updatedPreferences.map(\.groupOverdueNotifications) == [true])
+    }
+
+    @Test
+    func `disabling the overdue event and push preserves grouping for reactivation`() async {
+        let store = FakeNotificationSettingsStore(settings: NotificationSettings(
+            isEnabled: true,
+            groupOverdueNotifications: true,
+            userLevelEvents: [.tasksOverdue],
+        ))
+        let registering = FakePushNotificationRegistering()
+        let viewModel = makeViewModel(
+            pushNotificationRegistering: registering,
+            notificationSettingsStore: store,
+        )
+        await viewModel.load()
+        await viewModel.setUserLevelEvent(.tasksOverdue, isEnabled: false)
+        #expect(!viewModel.settings.userLevelEvents.contains(.tasksOverdue))
+        #expect(store.settings(for: fakeAccountID).groupOverdueNotifications)
+
+        await viewModel.disable()
+        #expect(!viewModel.settings.isEnabled)
+        #expect(store.settings(for: fakeAccountID).groupOverdueNotifications)
+        await viewModel.confirmEnable()
+        #expect(registering.updatedPreferences.last?.groupOverdueNotifications == true)
+    }
+
+    @Test
+    func `grouping changes do not overlap other notification writes`() async {
+        let store = FakeNotificationSettingsStore(settings: NotificationSettings(isEnabled: true))
+        let registering = FakePushNotificationRegistering()
+        let viewModel = makeViewModel(
+            pushNotificationRegistering: registering,
+            notificationSettingsStore: store,
+        )
+        registering.onPreferences = {
+            await viewModel.setGroupOverdueNotificationsEnabled(false)
+            await viewModel.setUserLevelEvent(.tasksOverdue, isEnabled: true)
+        }
+
+        await viewModel.setGroupOverdueNotificationsEnabled(true)
+
+        #expect(registering.updatedPreferences.map(\.groupOverdueNotifications) == [true])
+        #expect(viewModel.settings.groupOverdueNotifications)
+        #expect(viewModel.settings.userLevelEvents.isEmpty)
+        #expect(viewModel.pendingChange == nil)
     }
 }

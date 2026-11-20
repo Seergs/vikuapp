@@ -319,7 +319,15 @@ fails after the relay accepted its filter, the event selection rolls back and
 the confirmed filter remains saved for retry. Writes require connectivity and
 have no durable offline queue. Cached selections remain readable offline.
 There is no relay preference read endpoint: local state cannot recover filters
-set outside this installation. Registration-level overdue grouping is unchanged.
+set outside this installation.
+
+Overdue notification grouping is saved per connection in `NotificationSettings`.
+Its toggle lives below Overdue Tasks in Notifications, hidden together with the time picker
+when push or the overdue event is off. Disabling either retains the grouping
+choice. Changes save locally and PATCH only that connection's relay registration,
+without webhook reconciliation or fanout. Relay failures remain best effort:
+launch synchronization and enabling push reapply the connection's saved choice.
+There is no pending-state UI or durable request queue for this preference.
 
 Background registration verification is separate from explicit mutations;
 a saved destination allows event editing while verification runs. Technical
