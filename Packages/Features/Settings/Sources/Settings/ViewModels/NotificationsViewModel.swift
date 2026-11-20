@@ -5,8 +5,8 @@ import VikuUI
 
 /// Drives push-notification opt-in, personal events, and project presets and
 /// customization. A project's nonempty event selection enables its webhook.
-/// Changes reconcile the server through `WebhookSyncing` before persisting the
-/// saved selection in `notificationSettingsStore`.
+/// Event changes reconcile the server through `WebhookSyncing` before persisting
+/// the saved selection. Overdue grouping saves locally and updates only the relay.
 @MainActor
 @Observable
 public final class NotificationsViewModel {
@@ -25,6 +25,7 @@ public final class NotificationsViewModel {
         case enabling
         case disabling
         case userLevel
+        case grouping
         case project(Int)
     }
 
@@ -90,12 +91,6 @@ public final class NotificationsViewModel {
     private let userRepository: UserRepositoryProtocol
     private let pushNotificationRegistering: PushNotificationRegistering
     private let notificationSettingsStore: NotificationSettingsStore
-    /// Read-only here: only used to inherit the device-wide preference onto
-    /// this account the moment it enables push (`confirmEnable()`). Changing
-    /// the preference itself, and fanning that change out to every other
-    /// enabled account, is `GroupOverdueNotificationsViewModel`'s job, not
-    /// this (per-account) view model's — see that type's doc comment.
-    private let groupOverdueNotificationsStore: GroupOverdueNotificationsStoring
     private let toastPresenter: ToastPresenting
     private let syncCoordinator: WebhookSyncCoordinator
 
@@ -106,7 +101,6 @@ public final class NotificationsViewModel {
         userRepository: UserRepositoryProtocol,
         pushNotificationRegistering: PushNotificationRegistering,
         notificationSettingsStore: NotificationSettingsStore,
-        groupOverdueNotificationsStore: GroupOverdueNotificationsStoring,
         toastPresenter: ToastPresenting,
         syncPlanner: WebhookSyncing = WebhookSyncPlanner(),
     ) {
@@ -116,7 +110,6 @@ public final class NotificationsViewModel {
         self.userRepository = userRepository
         self.pushNotificationRegistering = pushNotificationRegistering
         self.notificationSettingsStore = notificationSettingsStore
-        self.groupOverdueNotificationsStore = groupOverdueNotificationsStore
         self.toastPresenter = toastPresenter
         self.syncCoordinator = WebhookSyncCoordinator(webhookRepository: webhookRepository, syncPlanner: syncPlanner)
         self.settings = notificationSettingsStore.settings(for: accountID)
@@ -189,15 +182,10 @@ public final class NotificationsViewModel {
         defer { pendingChange = nil }
 
         guard await refreshRegistration() else { return }
-        // So this account inherits the device's current group-overdue
-        // preference right away, instead of defaulting to one push per task
-        // until the next time the device-wide toggle happens to change (see
-        // `GroupOverdueNotificationsViewModel.setEnabled(_:)`). Best-effort,
-        // like every other relay call here: a failure leaves this account
-        // ungrouped until the next launch's sync retries it
-        // (`AppContainer.syncNotificationWebhooks`).
+        // Registration may be new: apply this connection's saved relay preference.
+        // Best effort; launch synchronization retries a failed preference update.
         try? await pushNotificationRegistering.updatePreferences(
-            groupOverdueNotifications: groupOverdueNotificationsStore.isEnabled,
+            groupOverdueNotifications: settings.groupOverdueNotifications,
             accountID: accountID,
         )
         var updated = settings
@@ -224,6 +212,23 @@ public final class NotificationsViewModel {
         currentRegistration = nil
         savedRegistration = nil
         isRegistrationVerified = false
+    }
+
+    /// Save the connection's choice even if the relay is unavailable. This only
+    /// changes delivery formatting, so it does not reconcile Vikunja webhooks.
+    /// Launch synchronization and re-enabling push reapply the saved value.
+    public func setGroupOverdueNotificationsEnabled(_ enabled: Bool) async {
+        guard pendingChange == nil, !isVerifyingRegistration else { return }
+        pendingChange = .grouping
+        defer { pendingChange = nil }
+
+        settings.groupOverdueNotifications = enabled
+        notificationSettingsStore.save(settings, for: accountID)
+        guard settings.isEnabled else { return }
+        try? await pushNotificationRegistering.updatePreferences(
+            groupOverdueNotifications: enabled,
+            accountID: accountID,
+        )
     }
 
     public func setUserLevelEvent(_ event: WebhookEvent, isEnabled: Bool) async {

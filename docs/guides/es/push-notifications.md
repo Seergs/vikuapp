@@ -2,7 +2,7 @@
 title: Notificaciones push
 summary: Configura las notificaciones y conoce cómo funcionan.
 category: setup
-updated: 2026-11-05
+updated: 2026-11-19
 related: server-version-support
 ---
 
@@ -30,6 +30,13 @@ Puedes activar dos tipos de notificaciones independientes:
 Independientemente de lo que actives, no recibirás notificaciones por tus propias acciones. Comentar una tarea no genera una notificación para decirte que acabas de comentarla.
 
 Si usas más de una cuenta de Vikunja en Viku, las notificaciones funcionan para todas las cuentas en las que las hayas activado, no solo para la que tengas abierta en ese momento. Así puedes enterarte de lo que sucede aunque no estés mirando esa cuenta.
+
+## Agrupar notificaciones de tareas vencidas
+
+En **Ajustes → Notificaciones**, usa **Agrupar notificaciones de tareas vencidas**, debajo de **Tareas vencidas**, para recibir un aviso combinado en lugar de uno por tarea. La elección se aplica solo a la conexión seleccionada en este dispositivo: puedes usar valores distintos para trabajo y personal. Está desactivada de forma predeterminada.
+
+La opción de agrupación y el selector de hora se ocultan cuando push o Tareas vencidas están apagados. Apagar cualquiera de los dos conserva tu elección de agrupación. La elección se guarda en el dispositivo; aplicarla al servicio intermediario requiere conexión. Si falla el envío, Viku vuelve a aplicarla al iniciar la app o activar push de nuevo.
+
 
 ## Opciones y detalles de un proyecto
 

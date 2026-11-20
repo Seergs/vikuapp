@@ -2,7 +2,7 @@
 title: Push Notifications
 summary: Set up notifications and understand how they work.
 category: setup
-updated: 2026-11-05
+updated: 2026-11-19
 related: server-version-support
 ---
 
@@ -47,6 +47,13 @@ get you a notification telling you that you commented on a task.
 If you use more than one Vikunja account in Viku, notifications work for all of the accounts
 you've enabled them on, not just whichever one happens to be open at the time. That's the
 point of a notification, really, telling you about something while you're not looking at it.
+
+## Group overdue notifications
+
+In **Settings → Notifications**, use **Group Overdue Notifications** below **Overdue Tasks** to receive one combined alert instead of one per overdue task. This choice applies only to the selected connection on this device, so work and personal accounts can use different settings. It defaults to off.
+
+The grouping option and time picker are hidden when push or Overdue Tasks is off. Turning either off preserves your grouping choice. The choice is saved on your device; applying it to Relay requires connectivity. If that request fails, Viku reapplies it on the next app launch or when you enable push again.
+
 
 ## Project presets and details
 

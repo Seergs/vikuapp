@@ -199,7 +199,7 @@ struct LocalizationTests {
         ("When shared with another person or team", "Cuando se comparte con otra persona o equipo"),
         ("Notifications for what other people do in this project", "Avisos por lo que hacen otras personas en este proyecto"),
         ("The ones you set on your tasks", "Los que pones en tus tareas"),
-        ("One daily alert for overdue tasks", "Un aviso al día con lo atrasado"),
+        ("Daily notifications for overdue tasks", "Notificaciones diarias de tareas vencidas"),
         ("When tasks are assigned to you.", "Cuando te asignen tareas."),
         ("People and Conversation", "Personas y conversación"),
         ("Task Changes", "Cambios en tareas"),

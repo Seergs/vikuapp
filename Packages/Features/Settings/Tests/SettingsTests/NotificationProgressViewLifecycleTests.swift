@@ -49,7 +49,6 @@ struct NotificationProgressViewLifecycleTests {
             userRepository: FakeUserRepository(),
             pushNotificationRegistering: FakePushNotificationRegistering(),
             notificationSettingsStore: FakeNotificationSettingsStore(),
-            groupOverdueNotificationsStore: FakeGroupOverdueNotificationsStoring(),
             toastPresenter: FakeToastPresenter(),
         )
         if alreadyLoaded {

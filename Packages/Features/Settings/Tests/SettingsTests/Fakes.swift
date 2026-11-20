@@ -626,11 +626,8 @@ final class FakePushNotificationRegistering: PushNotificationRegistering, @unche
         ))
     }
 
+    var onPreferences: (@Sendable () async -> Void)?
     var updatePreferencesError: Error?
-    /// Lets a test fail `updatePreferences` for just this one account, while
-    /// every other account's call still succeeds — unlike
-    /// `updatePreferencesError`, which fails every call.
-    var updatePreferencesFailingAccountID: InstanceAccount.ID?
     private(set) var enabledUserIDs: [Int] = []
     private(set) var disabledAccountIDs: [InstanceAccount.ID] = []
     private(set) var updatedPreferences: [(groupOverdueNotifications: Bool, accountID: InstanceAccount.ID)] = []
@@ -652,28 +649,11 @@ final class FakePushNotificationRegistering: PushNotificationRegistering, @unche
     }
 
     func updatePreferences(groupOverdueNotifications: Bool, accountID: InstanceAccount.ID) async throws {
+        await onPreferences?()
         if let updatePreferencesError {
             throw updatePreferencesError
         }
-        if accountID == updatePreferencesFailingAccountID {
-            throw VikunjaError.network("offline")
-        }
         updatedPreferences.append((groupOverdueNotifications, accountID))
-    }
-}
-
-@MainActor
-final class FakeGroupOverdueNotificationsStoring: GroupOverdueNotificationsStoring {
-    private(set) var isEnabled: Bool
-    private(set) var setEnabledCalls: [Bool] = []
-
-    init(isEnabled: Bool = false) {
-        self.isEnabled = isEnabled
-    }
-
-    func setEnabled(_ enabled: Bool) {
-        isEnabled = enabled
-        setEnabledCalls.append(enabled)
     }
 }
 
