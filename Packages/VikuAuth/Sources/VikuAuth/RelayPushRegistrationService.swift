@@ -118,6 +118,30 @@ public actor RelayPushRegistrationService: PushRegistrationProviding {
         try Self.validate(response, acceptableStatusCodes: [204, 401])
     }
 
+    public func updateProjectPreferences(
+        assignmentNotifications: AssignmentNotificationMode,
+        projectID: Int,
+        accountID: InstanceAccount.ID,
+    ) async throws {
+        guard projectID > 0 else { throw PushRegistrationError.invalidRequest }
+        guard let record = try loadRecord(account: Self.keychainAccount(for: accountID)) else {
+            throw PushRegistrationError.server(statusCode: 401)
+        }
+        let path = "/v1/registrations/\(record.id)/projects/\(projectID)/preferences"
+        var request = URLRequest(url: baseURL.appendingPathComponent(path))
+        request.httpMethod = "PATCH"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(record.managementToken)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONEncoder().encode(
+            RelayUpdateProjectPreferencesRequestDTO(assignmentNotifications: assignmentNotifications.rawValue),
+        )
+        let (_, response) = try await session.data(for: request)
+        if let http = response as? HTTPURLResponse {
+            NetworkRequestLogging.shared.log(method: "PATCH", path: path, statusCode: http.statusCode)
+        }
+        try Self.validate(response, acceptableStatusCodes: [204])
+    }
+
     // MARK: - HTTP
 
     private func send(path: String, method: String, body: some Encodable) async throws -> (Data, URLResponse) {

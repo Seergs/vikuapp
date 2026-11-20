@@ -287,8 +287,40 @@ public final class NotificationsViewModel {
         await apply(updated, optimistic: true)
     }
 
+    func assignmentSelection(for project: Project) -> ProjectAssignmentSelection {
+        guard let projectID = project.id.remoteValue,
+              settings.events(for: projectID).contains(.taskAssigneeCreated) else { return .disabled }
+        return settings.assignmentMode(for: projectID) == .onlyMe ? .onlyMe : .all
+    }
+
+    func selectAssignments(_ selection: ProjectAssignmentSelection, for project: Project) async {
+        guard pendingChange == nil, !isLoading,
+              !isVerifyingRegistration || relayTargetURL != nil,
+              let projectID = project.id.remoteValue, projectID > 0,
+              assignmentSelection(for: project) != selection else { return }
+        pendingChange = .project(projectID)
+        pendingEvent = .taskAssigneeCreated
+        defer {
+            pendingChange = nil
+            pendingEvent = nil
+        }
+        var updated = settings
+        var events = updated.events(for: projectID)
+        if let mode = selection.relayMode {
+            events.insert(.taskAssigneeCreated)
+            updated.projectAssignmentModes[projectID] = mode
+        } else {
+            events.remove(.taskAssigneeCreated)
+        }
+        updated.projectEvents[projectID] = events
+        await apply(updated, optimistic: true)
+    }
+
     func projectNotificationPreset(for project: Project) -> ProjectNotificationPreset {
-        ProjectNotificationPreset(events: project.id.remoteValue.map { settings.events(for: $0) } ?? [])
+        guard let projectID = project.id.remoteValue else { return .disabled }
+        return ProjectNotificationPreset(
+            events: settings.events(for: projectID), assignmentMode: settings.assignmentMode(for: projectID),
+        )
     }
 
     /// Webhooks have no offline mutation queue. Failed saves retain the previous
@@ -310,7 +342,7 @@ public final class NotificationsViewModel {
         case .disabled:
             await disableProjectWebhook(project)
         case .recommended:
-            await setProjectEvents(ProjectNotificationPreset.recommendedEvents, for: project)
+            await setProjectEvents(ProjectNotificationPreset.recommendedEvents, for: project, assignmentMode: .onlyMe)
         case .custom:
             break // Opening customization does not change the saved selection.
         }
@@ -371,7 +403,11 @@ public final class NotificationsViewModel {
     }
 
     /// Replaces a project's whole event selection in one sync round trip.
-    public func setProjectEvents(_ events: Set<WebhookEvent>, for project: Project) async {
+    public func setProjectEvents(
+        _ events: Set<WebhookEvent>,
+        for project: Project,
+        assignmentMode: AssignmentNotificationMode? = nil,
+    ) async {
         guard pendingChange == nil, !isVerifyingRegistration || relayTargetURL != nil else { return }
         guard let projectID = project.id.remoteValue else { return }
         pendingChange = .project(projectID)
@@ -382,6 +418,9 @@ public final class NotificationsViewModel {
 
         var updated = settings
         updated.projectEvents[projectID] = events
+        if let assignmentMode {
+            updated.projectAssignmentModes[projectID] = assignmentMode
+        }
         await apply(updated, optimistic: true)
     }
 
@@ -450,13 +489,38 @@ public final class NotificationsViewModel {
         return user.id
     }
 
+    /// Confirm the filter before enabling deliveries. Keep confirmed filters
+    /// even if webhook reconciliation fails: retry must use the relay's actual
+    /// mode while the failed event selection rolls back.
+    private func updateAssignmentFilters(
+        for newSettings: NotificationSettings,
+        confirmedSettings: inout NotificationSettings,
+    ) async throws {
+        guard newSettings.isEnabled else { return }
+        for projectID in newSettings.projectEvents.keys.sorted() {
+            guard newSettings.events(for: projectID).contains(.taskAssigneeCreated),
+                  !confirmedSettings.events(for: projectID).contains(.taskAssigneeCreated)
+                  || newSettings.assignmentMode(for: projectID) != confirmedSettings.assignmentMode(for: projectID)
+            else { continue }
+            try Task.checkCancellation()
+            let mode = newSettings.assignmentMode(for: projectID)
+            try await pushNotificationRegistering.updateProjectPreferences(
+                assignmentNotifications: mode, projectID: projectID, accountID: accountID,
+            )
+            if confirmedSettings.assignmentMode(for: projectID) != mode {
+                confirmedSettings.projectAssignmentModes[projectID] = mode
+                notificationSettingsStore.save(confirmedSettings, for: accountID)
+            }
+        }
+    }
+
     /// Reconciles the server's webhooks to `newSettings` via
     /// `syncCoordinator`, then persists it — only once the sync succeeds,
     /// so a failed request never leaves `notificationSettingsStore`
     /// claiming a state the server doesn't actually have. Event selections can
     /// render optimistically in memory and roll back on error or cancellation.
     private func apply(_ newSettings: NotificationSettings, optimistic: Bool = false) async {
-        let previous = settings
+        var previous = settings
         var succeeded = false
         if optimistic {
             settings = newSettings
@@ -487,7 +551,14 @@ public final class NotificationsViewModel {
         }
 
         do {
-            try await syncCoordinator.sync(settings: newSettings, registration: registration, projects: projects)
+            let filterOnlyChange = newSettings.projectAssignmentModes != previous.projectAssignmentModes
+                && newSettings.isEnabled == previous.isEnabled
+                && newSettings.projectEvents == previous.projectEvents
+                && newSettings.userLevelEvents == previous.userLevelEvents
+            try await updateAssignmentFilters(for: newSettings, confirmedSettings: &previous)
+            if !filterOnlyChange {
+                try await syncCoordinator.sync(settings: newSettings, registration: registration, projects: projects)
+            }
             settings = newSettings
             notificationSettingsStore.save(newSettings, for: accountID)
             succeeded = true

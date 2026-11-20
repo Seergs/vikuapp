@@ -30,4 +30,11 @@ public protocol PushNotificationRegistering: Sendable {
     /// protocol's doc comment. Exposed here too so a `Features/*` view model
     /// can apply it without this seam growing a third, narrower protocol.
     func updatePreferences(groupOverdueNotifications: Bool, accountID: InstanceAccount.ID) async throws
+    /// Updates only this project's assignment filter. Missing registration or
+    /// rejected authorization throws; callers must not claim the mode was saved.
+    func updateProjectPreferences(
+        assignmentNotifications: AssignmentNotificationMode,
+        projectID: Int,
+        accountID: InstanceAccount.ID,
+    ) async throws
 }

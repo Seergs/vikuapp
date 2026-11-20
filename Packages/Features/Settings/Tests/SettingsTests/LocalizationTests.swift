@@ -200,7 +200,7 @@ struct LocalizationTests {
         ("Notifications for what other people do in this project", "Avisos por lo que hacen otras personas en este proyecto"),
         ("The ones you set on your tasks", "Los que pones en tus tareas"),
         ("One daily alert for overdue tasks", "Un aviso al día con lo atrasado"),
-        ("Assignments and new comments in the project.", "Asignaciones y comentarios nuevos en el proyecto."),
+        ("When tasks are assigned to you.", "Cuando te asignen tareas."),
         ("People and Conversation", "Personas y conversación"),
         ("Task Changes", "Cambios en tareas"),
         ("Project Access", "Acceso al proyecto"),

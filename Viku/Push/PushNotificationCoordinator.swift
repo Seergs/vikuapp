@@ -68,4 +68,19 @@ actor PushNotificationCoordinator: PushNotificationRegistering {
             accountID: accountID,
         )
     }
+
+    func updateProjectPreferences(
+        assignmentNotifications: AssignmentNotificationMode,
+        projectID: Int,
+        accountID: InstanceAccount.ID,
+    ) async throws {
+        // A concurrent refresh rotates the management token. Wait for our own
+        // account's registration before reading its saved token for the PATCH.
+        if let enabling = inFlightEnables[accountID] {
+            _ = try await enabling.value
+        }
+        try await registrationService.updateProjectPreferences(
+            assignmentNotifications: assignmentNotifications, projectID: projectID, accountID: accountID,
+        )
+    }
 }

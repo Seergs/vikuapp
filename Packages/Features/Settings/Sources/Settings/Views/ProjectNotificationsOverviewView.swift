@@ -16,11 +16,17 @@ struct ProjectNotificationsOverviewView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
+                Text(verbatim: project.title)
+                    .font(VikuFont.headline)
+                    .foregroundStyle(palette.textSecondary)
+                    .padding(.horizontal, VikuSpacing.md)
+                    .padding(.top, VikuSpacing.md)
+                    .accessibilityAddTraits(.isHeader)
                 Text("Notifications for what other people do in this project", bundle: .module)
                     .font(VikuFont.footnote)
                     .foregroundStyle(palette.textSecondary)
                     .padding(.horizontal, VikuSpacing.md)
-                    .padding(.top, VikuSpacing.md)
+                    .padding(.top, VikuSpacing.sm)
                 sectionHeader(String(localized: "Notify Me About", bundle: .module))
                 VStack(spacing: 0) {
                     presetButton(
@@ -32,7 +38,7 @@ struct ProjectNotificationsOverviewView: View {
                     presetButton(
                         .recommended,
                         title: String(localized: "Recommended", bundle: .module),
-                        subtitle: String(localized: "Assignments and new comments in the project.", bundle: .module),
+                        subtitle: String(localized: "When tasks are assigned to you.", bundle: .module),
                     )
                     .vikuCardRow(index: 1, count: 3)
                     presetButton(
@@ -70,7 +76,7 @@ struct ProjectNotificationsOverviewView: View {
             .padding(.bottom, VikuSpacing.xxl)
         }
         .background(palette.pageBackground)
-        .navigationTitle(Text(verbatim: project.title))
+        .navigationTitle(Text("Notifications", bundle: .module))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif

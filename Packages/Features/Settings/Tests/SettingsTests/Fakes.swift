@@ -602,6 +602,30 @@ final class FakePushNotificationRegistering: PushNotificationRegistering, @unche
         try savedRegistrationResult.get()
     }
 
+    var projectPreferencesError: Error?
+    var onProjectPreferences: (@Sendable () async -> Void)?
+    struct ProjectPreferenceUpdate {
+        let mode: AssignmentNotificationMode
+        let projectID: Int
+        let accountID: InstanceAccount.ID
+    }
+
+    private(set) var updatedProjectPreferences: [ProjectPreferenceUpdate] = []
+
+    func updateProjectPreferences(
+        assignmentNotifications: AssignmentNotificationMode,
+        projectID: Int,
+        accountID: InstanceAccount.ID,
+    ) async throws {
+        await onProjectPreferences?()
+        if let projectPreferencesError {
+            throw projectPreferencesError
+        }
+        updatedProjectPreferences.append(ProjectPreferenceUpdate(
+            mode: assignmentNotifications, projectID: projectID, accountID: accountID,
+        ))
+    }
+
     var updatePreferencesError: Error?
     /// Lets a test fail `updatePreferences` for just this one account, while
     /// every other account's call still succeeds — unlike

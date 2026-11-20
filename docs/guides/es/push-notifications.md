@@ -33,7 +33,7 @@ Si usas más de una cuenta de Vikunja en Viku, las notificaciones funcionan para
 
 ## Opciones y detalles de un proyecto
 
-Abre un proyecto en **Ajustes → Notificaciones → Actividad en proyectos**. Elige **Desactivadas** para eliminar solo el webhook de este dispositivo para ese proyecto, **Recomendadas** para recibir asignaciones de tareas y comentarios nuevos, o **Personalizar…** para elegir eventos individuales. La opción seleccionada se calcula a partir de los eventos guardados: elegir manualmente exactamente los eventos recomendados también marca Recomendadas.
+Abre un proyecto en **Ajustes → Notificaciones → Actividad en proyectos**. Elige **Desactivadas** para eliminar solo el webhook de este dispositivo para ese proyecto, **Recomendadas** para recibir notificaciones solo cuando te asignen tareas, o **Personalizar…** para elegir eventos individuales. La opción seleccionada se calcula a partir de los eventos y el filtro de asignaciones guardados: activar únicamente asignaciones con **Solo a mí** también marca Recomendadas.
 
 **Más detalles** muestra el destino enmascarado del relay, si existe un secreto de firma y el estado guardado de las notificaciones del proyecto. **Otros webhooks en este proyecto** se encuentra aquí y excluye el destino del relay de este dispositivo. Estas otras integraciones son de solo lectura y se conservan al desactivar las notificaciones del proyecto.
 

@@ -15,22 +15,6 @@ struct ProjectNotificationsView: View {
 
     @Environment(\.vikuPalette) private var palette
 
-    /// Project events grouped by the activity the user wants to follow.
-    private static let eventGroups: [(title: String, events: [WebhookEvent])] = [
-        (
-            String(localized: "People and Conversation", bundle: .module),
-            [.taskAssigneeCreated, .taskCommentCreated, .taskAttachmentCreated],
-        ),
-        (
-            String(localized: "Task Changes", bundle: .module),
-            [.taskCreated, .taskDeleted],
-        ),
-        (
-            String(localized: "Project Access", bundle: .module),
-            [.projectSharedUser],
-        ),
-    ]
-
     /// Not reachable until Projects' own offline-create path exists — a
     /// project without a synced id yet can't have webhook settings.
     private var resolvedProjectID: Int? {
@@ -42,66 +26,140 @@ struct ProjectNotificationsView: View {
     }
 
     private var isDisabled: Bool {
-        viewModel.isSyncing || (viewModel.isVerifyingRegistration && viewModel.relayTargetURL == nil)
+        viewModel.isSyncing || viewModel.isLoading || resolvedProjectID == nil
+            || (viewModel.isVerifyingRegistration && viewModel.relayTargetURL == nil)
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                eventGroupSections
+                Text(verbatim: project.title)
+                    .font(VikuFont.headline)
+                    .foregroundStyle(palette.textSecondary)
+                    .padding(.horizontal, VikuSpacing.md)
+                    .padding(.top, VikuSpacing.md)
+                    .accessibilityAddTraits(.isHeader)
+                taskNotificationsSection
+                projectNotificationsSection
                 // Keeps the last card clear of the tab bar.
                 Color.clear.frame(height: VikuSpacing.xxl)
             }
         }
         .background(palette.pageBackground)
-        .navigationTitle(Text(verbatim: project.title))
+        .navigationTitle(Text("Notifications", bundle: .module))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
     }
 
-    private var eventGroupSections: some View {
-        ForEach(Array(Self.eventGroups.enumerated()), id: \.offset) { _, group in
-            VStack(alignment: .leading, spacing: 0) {
-                Text(verbatim: group.title)
-                    .vikuSectionHeader()
-                    .padding(.horizontal, VikuSpacing.md)
-                    .padding(.top, VikuSpacing.md + VikuSpacing.xs)
-                    .padding(.bottom, VikuSpacing.sm)
+    private var taskNotificationsSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader(String(localized: "Task Notifications", bundle: .module))
+            VStack(spacing: 0) {
+                assignmentsRow
+                    .vikuCardRow(index: 0, count: 5)
+                eventToggle(.taskCommentCreated, title: String(localized: "New Comments", bundle: .module))
+                    .vikuCardRow(index: 1, count: 5)
+                eventToggle(.taskAttachmentCreated, title: String(localized: "New Attachments", bundle: .module))
+                    .vikuCardRow(index: 2, count: 5)
+                eventToggle(.taskCreated, title: String(localized: "New Tasks", bundle: .module))
+                    .vikuCardRow(index: 3, count: 5)
+                eventToggle(.taskDeleted, title: String(localized: "Deleted Tasks", bundle: .module))
+                    .vikuCardRow(index: 4, count: 5)
+            }
+            Text("Comments, attachments, and changes are notified for any task in this project.", bundle: .module)
+                .font(VikuFont.footnote)
+                .foregroundStyle(palette.textSecondary)
+                .padding(.horizontal, VikuSpacing.md)
+                .padding(.top, VikuSpacing.sm)
+        }
+    }
 
-                VStack(spacing: 0) {
-                    ForEach(Array(group.events.enumerated()), id: \.element) { index, event in
-                        Toggle(isOn: eventBinding(event)) {
-                            VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
-                                if event == .projectSharedUser {
-                                    VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
-                                        Text("Project Shared", bundle: .module)
-                                        Text("When shared with another person or team", bundle: .module)
-                                            .font(VikuFont.footnote)
-                                            .foregroundStyle(palette.textSecondary)
-                                    }
-                                } else if event == .taskCommentCreated {
-                                    Text("New Project Comments", bundle: .module)
-                                    Text("On any task in this project.", bundle: .module)
-                                        .font(VikuFont.footnote)
-                                        .foregroundStyle(palette.textSecondary)
-                                } else {
-                                    Text(verbatim: eventLabel(event))
-                                }
-                                NotificationProgressView(
-                                    isActive: resolvedProjectID.map { viewModel.pendingChange == .project($0) } == true
-                                        && viewModel.pendingEvent == event,
-                                    title: String(localized: "Saving…", bundle: .module),
-                                )
-                            }
-                        }
-                        .notificationControlsDisabled(isDisabled)
-                        .padding(.vertical, VikuSpacing.xs)
-                        .vikuCardRow(index: index, count: group.events.count)
+    private var projectNotificationsSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader(String(localized: "Project Notifications", bundle: .module))
+            eventToggle(
+                .projectSharedUser,
+                title: String(localized: "New Access", bundle: .module),
+                subtitle: String(localized: "When the project is shared with a person or team.", bundle: .module),
+            )
+            .vikuCardRow(index: 0, count: 1)
+        }
+    }
+
+    private var assignmentsRow: some View {
+        VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
+            Menu {
+                Picker(selection: assignmentBinding) {
+                    ForEach(ProjectAssignmentSelection.allCases, id: \.self) { selection in
+                        Text(verbatim: selection.title).tag(selection)
                     }
+                } label: {
+                    Text("Assignments", bundle: .module)
                 }
+            } label: {
+                HStack(spacing: VikuSpacing.sm) {
+                    Text("Assignments", bundle: .module)
+                        .foregroundStyle(palette.textPrimary)
+                    Spacer(minLength: VikuSpacing.sm)
+                    Text(verbatim: viewModel.assignmentSelection(for: project).title)
+                        .foregroundStyle(palette.textSecondary)
+                        .multilineTextAlignment(.trailing)
+                    Image(systemName: "chevron.right")
+                        .font(VikuFont.footnote)
+                        .foregroundStyle(palette.textTertiary)
+                        .accessibilityHidden(true)
+                }
+                .font(VikuFont.body)
+                .padding(.vertical, VikuSpacing.sm)
+                .contentShape(Rectangle())
+            }
+            .menuStyle(.borderlessButton)
+            .notificationControlsDisabled(isDisabled)
+            savingProgress(for: .taskAssigneeCreated)
+        }
+    }
+
+    private var assignmentBinding: Binding<ProjectAssignmentSelection> {
+        Binding(
+            get: { viewModel.assignmentSelection(for: project) },
+            set: { selection in
+                Task { await viewModel.selectAssignments(selection, for: project) }
+            },
+        )
+    }
+
+    private func eventToggle(_ event: WebhookEvent, title: String, subtitle: String? = nil) -> some View {
+        Toggle(isOn: eventBinding(event)) {
+            VStack(alignment: .leading, spacing: VikuSpacing.xxs) {
+                Text(verbatim: title)
+                    .font(VikuFont.body)
+                if let subtitle {
+                    Text(verbatim: subtitle)
+                        .font(VikuFont.footnote)
+                        .foregroundStyle(palette.textSecondary)
+                }
+                savingProgress(for: event)
             }
         }
+        .notificationControlsDisabled(isDisabled)
+        .padding(.vertical, VikuSpacing.xs)
+    }
+
+    private func savingProgress(for event: WebhookEvent) -> some View {
+        NotificationProgressView(
+            isActive: resolvedProjectID.map { viewModel.pendingChange == .project($0) } == true
+                && viewModel.pendingEvent == event,
+            title: String(localized: "Saving…", bundle: .module),
+        )
+    }
+
+    private func sectionHeader(_ title: String) -> some View {
+        Text(verbatim: title)
+            .vikuSectionHeader()
+            .padding(.horizontal, VikuSpacing.md)
+            .padding(.top, VikuSpacing.md + VikuSpacing.xs)
+            .padding(.bottom, VikuSpacing.sm)
     }
 
     private func eventBinding(_ event: WebhookEvent) -> Binding<Bool> {
