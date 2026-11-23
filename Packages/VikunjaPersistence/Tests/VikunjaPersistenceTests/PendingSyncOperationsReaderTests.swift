@@ -138,6 +138,25 @@ struct PendingSyncOperationsReaderTests {
     }
 
     @Test
+    func `a stored gateway failure shows a localized status and retains diagnostics`() async throws {
+        let store = try makeStore()
+        let accountID = UUID()
+        let html = "<html><body>Bad Gateway</body></html>"
+        try await store.write { db in
+            var item = mutation(
+                entityType: .task, operation: .update, targetLocalID: UUID(), accountID: accountID, status: .failed,
+            )
+            item.recordFailure(VikunjaError.server(message: html, statusCode: 502))
+            try item.insert(db)
+        }
+
+        let operation = try #require(try await store.pendingSyncOperations(accountID: accountID).first)
+        #expect(operation.status == .failed)
+        #expect(operation.failureMessage == "Vikunja is temporarily unavailable (HTTP 502).")
+        #expect(operation.diagnosticDetails?.contains(html) == true)
+    }
+
+    @Test
     func `legacy errors and unreadable diagnostics remain visible`() async throws {
         let store = try makeStore()
         let accountID = UUID()

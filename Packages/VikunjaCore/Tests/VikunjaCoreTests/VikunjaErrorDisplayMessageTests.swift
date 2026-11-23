@@ -2,6 +2,13 @@ import Testing
 import VikunjaCore
 
 struct VikunjaErrorDisplayMessageTests {
+    @Test(arguments: [502, 503, 504])
+    func `temporary service outages show the HTTP status instead of the response body`(statusCode: Int) {
+        let error = VikunjaError.server(message: "<html><body>Proxy error</body></html>", statusCode: statusCode)
+
+        #expect(error.displayMessage == "Vikunja is temporarily unavailable (HTTP \(statusCode)).")
+    }
+
     @Test
     func `a server error shows the server's own message when one was parsed`() {
         let message = "The default project must be a project you can write to."

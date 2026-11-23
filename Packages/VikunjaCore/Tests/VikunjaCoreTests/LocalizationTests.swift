@@ -112,6 +112,10 @@ struct LocalizationTests {
         ("The server responded with an error (%lld).", "El servidor respondió con un error (%lld)."),
         ("This app needs Vikunja %@ or newer.", "Esta app necesita Vikunja %@ o una versión más reciente."),
         ("This account needs a two-factor code.", "Esta cuenta necesita un código de dos factores."),
+        (
+            "Vikunja is temporarily unavailable (HTTP %lld).",
+            "Vikunja no está disponible temporalmente (HTTP %lld).",
+        ),
         ("Your session expired. Sign in again to continue.", "Tu sesión expiró. Inicia sesión de nuevo para continuar."),
     ])
     func `key resolves to its Spanish translation`(key: String, expected: String) {

@@ -325,6 +325,16 @@
         }
       }
     },
+    "Vikunja is temporarily unavailable (HTTP %lld)." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vikunja no está disponible temporalmente (HTTP %lld)."
+          }
+        }
+      }
+    },
     "Your session expired. Sign in again to continue." : {
       "localizations" : {
         "es" : {
