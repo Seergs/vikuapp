@@ -447,10 +447,9 @@ navigation state; `RootView` only reacts to the *result* via
 
 ## 2c. External entry points: deep links and App Intents
 
-Several things outside the app need to open it straight to the quick-add task
-sheet: the Today widget's "add" button, a Lock Screen accessory widget, a Siri
-phrase / the Shortcuts app, and a Control Center control. Rather than each one
-knowing how to drive navigation, they all converge on one small primitive.
+The Today widget, Lock Screen accessory widget, Control Center control, and
+Open Quick Add shortcut use the same router to open the quick-add sheet.
+Siri's Add Task shortcut saves a task in the background.
 
 **`DeepLink` + `DeepLinkRouter` (`VikuNavigation`).** `DeepLink` is a
 dependency-free enum of external destinations (`.quickAdd(projectID:)` today).
@@ -490,19 +489,26 @@ than `MainTabView` for the same reason the FAB state does: reading the router in
   intent's `perform()` when `openAppWhenRun` cold-launches the app, and failed
   in practice. `AppContainer` holds `DeepLinkRouter.shared`, so the intent
   (whose `perform()` runs in the app's process) and the UI observe one instance.
-- **The Siri-facing `OpenQuickAddIntent` lives in the app target; the Control
-  Center control uses a separate `QuickAddControlIntent` in `VikuWidgetKit`.**
+- **The app's intents live in the app target.** The Control Center control
+  uses a separate `QuickAddControlIntent` in `VikuWidgetKit`.
   An App Intent type registered in *both* the app and the widget extension (via
   a shared framework) breaks Siri's App Shortcut dispatch — Siri matches the
   phrase, then can't launch the app. So the intent behind the
   `AppShortcutsProvider` (`VikuShortcuts`, which has to be in the app target
   anyway) stays app-only, and the control gets its own hidden
-  (`isDiscoverable = false`) intent. Both do the same one line against
-  `DeepLinkRouter.shared`.
+  (`isDiscoverable = false`) intent. The control and `OpenQuickAddIntent`
+  both route through `DeepLinkRouter.shared`.
 
 Siri phrases are localized in `AppShortcuts.xcstrings` — Siri matches phrases in
 its own language, not by the words the user speaks, so an English-only phrase
 list is invisible to a non-English Siri.
+
+`VikuShortcuts` runs `CreateTaskIntent` in the background. Siri requests its
+required title parameter, then the intent uses the shared app container and
+holds a database execution window for the save. `DefaultProjectTaskCreator`
+validates the active account's cached default project and passes the literal
+title to the same offline task repository used by Quick Add. The repository
+commits the task and queued mutation before the intent confirms the save.
 
 ---
 

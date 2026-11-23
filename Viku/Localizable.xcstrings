@@ -530,6 +530,116 @@
           }
         }
       }
+    },
+    "Add ${taskTitle} to the default project" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agregar ${taskTitle} al proyecto predeterminado"
+          }
+        }
+      }
+    },
+    "Adds a task to your default project in Viku." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agrega una tarea a tu proyecto predeterminado en Viku."
+          }
+        }
+      }
+    },
+    "Choose a default project in Viku before adding a task." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige un proyecto predeterminado en Viku antes de agregar una tarea."
+          }
+        }
+      }
+    },
+    "I added “%@” to %@." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agregué «%1$@» a %2$@."
+          }
+        }
+      }
+    },
+    "I added “%@” to %@. It will sync when you're back online." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agregué «%1$@» a %2$@. Se sincronizará cuando vuelvas a tener conexión."
+          }
+        }
+      }
+    },
+    "I couldn't add the task. Try again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pude agregar la tarea. Inténtalo de nuevo."
+          }
+        }
+      }
+    },
+    "Open Quick Add" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir agregado rápido"
+          }
+        }
+      }
+    },
+    "Sign in to Viku before adding a task." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inicia sesión en Viku antes de agregar una tarea."
+          }
+        }
+      }
+    },
+    "Task Title" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Título de la tarea"
+          }
+        }
+      }
+    },
+    "What would you like to add?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Qué quieres agregar?"
+          }
+        }
+      }
+    },
+    "Your default project is unavailable. Check it in Viku." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu proyecto predeterminado no está disponible. Revísalo en Viku."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

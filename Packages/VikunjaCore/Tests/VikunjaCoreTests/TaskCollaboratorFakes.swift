@@ -1,12 +1,13 @@
 import Foundation
 @testable import VikunjaCore
 
-/// Fakes shared by `AccountTaskLoaderTests` and `TaskListMutatorTests`.
+/// Shared task and project repository test doubles.
 final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     var tasks: [VikunjaTask] = []
     var fetchError: VikunjaError?
     /// Project ids whose `fetchTasks` call fails, independent of `fetchError`.
     var failingProjectIDs: Set<Int> = []
+    var createError: VikunjaError?
     var updateError: VikunjaError?
     var deleteError: VikunjaError?
     private(set) var updatedTasks: [VikunjaTask] = []
@@ -44,7 +45,11 @@ final class FakeTaskRepository: TaskRepositoryProtocol, @unchecked Sendable {
     }
 
     func create(_ task: VikunjaTask) async throws -> VikunjaTask {
-        task
+        if let createError {
+            throw createError
+        }
+        tasks.append(task)
+        return task
     }
 
     func update(_ task: VikunjaTask) async throws -> VikunjaTask {

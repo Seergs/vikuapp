@@ -9,7 +9,7 @@ import VikunjaPersistence
 /// scene-lifecycle hook of its own for `UIApplicationShortcutItem`, so this
 /// thin `UIApplicationDelegate` exists only to hand the scene off to
 /// `SceneDelegate`, which routes the tap through the same
-/// `DeepLinkRouter.shared` a `viku://quick-add` URL or the Siri shortcut uses.
+/// `DeepLinkRouter.shared` that a `viku://quick-add` URL uses.
 /// Also the `UNUserNotificationCenterDelegate` for push, set on launch below.
 final class AppDelegate: NSObject, UIApplicationDelegate {
     /// Set from `VikuApp.init()` right after the composition root is built --

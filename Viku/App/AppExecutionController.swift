@@ -24,7 +24,7 @@ final class AppExecutionController {
         lifecycle.setForeground(false)
     }
 
-    private func startBackgroundOperation(
+    func startBackgroundOperation(
         operation: @escaping @MainActor () async -> Void,
         completion: @escaping () -> Void = {},
     ) {
@@ -45,6 +45,15 @@ final class AppExecutionController {
             lifecycle.endBackgroundExecution(id)
             completion()
         }
+    }
+
+    /// App Intents provide execution time while perform() is running.
+    func withAppIntentExecution<Value>(
+        _ operation: @MainActor () async throws -> Value,
+    ) async rethrows -> Value {
+        let id = lifecycle.beginBackgroundExecution()
+        defer { lifecycle.endBackgroundExecution(id) }
+        return try await operation()
     }
 
     private func finish(_ id: UUID) {

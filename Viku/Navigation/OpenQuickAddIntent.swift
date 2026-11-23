@@ -1,8 +1,7 @@
 import AppIntents
 import VikuNavigation
 
-/// Opens the quick-add task sheet. Backs the Siri shortcut (`VikuShortcuts`)
-/// and shows up in the Shortcuts app and Spotlight on its own.
+/// Opens the quick-add task sheet for shortcuts that explicitly request it.
 ///
 /// Lives in the app target, not `VikuWidgetKit`: an App Intent type that
 /// ends up registered in both the app and the widget extension breaks Siri's
@@ -13,7 +12,7 @@ import VikuNavigation
 /// off through `DeepLinkRouter.shared` — the same route a `viku://quick-add`
 /// URL takes.
 struct OpenQuickAddIntent: AppIntent {
-    static let title: LocalizedStringResource = "Add Task"
+    static let title: LocalizedStringResource = "Open Quick Add"
     static let description = IntentDescription("Opens Viku's quick-add sheet to jot down a new task.")
     static let openAppWhenRun = true
 

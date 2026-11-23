@@ -23,6 +23,9 @@ import WidgetKit
 /// receives through constructor injection.
 @MainActor
 final class AppContainer {
+    /// Shared by scene-based entry points and app-only intents on a cold launch.
+    static let launchContainer = forLaunch()
+
     let accountStore: AccountStoreProtocol
     /// Session-only identity for rebuilding the active shell after credential
     /// replacement, including when the account's public metadata is unchanged.
@@ -91,7 +94,7 @@ final class AppContainer {
     let deepLinkRouter = DeepLinkRouter.shared
     /// On-device cache of each account's Vikunja default project, refreshed
     /// once per launch by `refreshDefaultProject(account:)` and read
-    /// synchronously by `makeQuickAddTaskViewModel`.
+    /// by quick add and Siri.
     let defaultProjectStore: DefaultProjectStore
     /// On-device cache of each account's Vikunja time zone, backing
     /// `DefaultProjectSettingsViewModel`'s "Time Zone" row the same way
@@ -335,11 +338,15 @@ final class AppContainer {
     /// Expiration revokes database permission synchronously through the controller.
     func refreshWidgetSnapshotsBeforeSuspension() {
         executionController.enterBackground { [self] in
-            await withTaskGroup(of: Void.self) { group in
-                group.addTask { await self.refreshWidgetSnapshots() }
-                group.addTask { await self.syncCoordinator.waitForCurrentWork() }
-                await group.waitForAll()
-            }
+            await finishBackgroundDatabaseWork()
+        }
+    }
+
+    private func finishBackgroundDatabaseWork() async {
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { await self.refreshWidgetSnapshots() }
+            group.addTask { await self.syncCoordinator.waitForCurrentWork() }
+            await group.waitForAll()
         }
     }
 
@@ -749,6 +756,37 @@ final class AppContainer {
                 languages: [.spanish, .english],
             ),
         )
+    }
+
+    struct SiriTaskCreation {
+        let taskTitle: String
+        let projectTitle: String
+        let isAwaitingConnectivity: Bool
+    }
+
+    func createTaskFromSiri(title: String, account: InstanceAccount) async throws -> SiriTaskCreation {
+        try await executionController.withAppIntentExecution {
+            let creator = DefaultProjectTaskCreator(
+                projectRepository: offlineProjectRepository(for: account),
+                taskRepository: offlineTaskRepository(for: account),
+            )
+            let (task, project) = try await creator.create(
+                title: title, defaultProjectID: defaultProjectStore.projectID(forAccountID: account.id),
+            )
+            taskChangeCenter.taskCreated(projectID: project.id)
+            await syncCoordinator.start()
+            // Carry the queued sync and widget refresh beyond the intent's response.
+            if UIApplication.shared.applicationState == .background {
+                executionController.startBackgroundOperation { [self] in
+                    await finishBackgroundDatabaseWork()
+                }
+            }
+            let isKnownOffline = await reachabilityMonitor.isKnownOffline
+            return SiriTaskCreation(
+                taskTitle: task.title, projectTitle: project.title,
+                isAwaitingConnectivity: task.id.remoteValue == nil && isKnownOffline,
+            )
+        }
     }
 
     func makeManageLabelsViewModel(account: InstanceAccount) -> ManageLabelsViewModel {
