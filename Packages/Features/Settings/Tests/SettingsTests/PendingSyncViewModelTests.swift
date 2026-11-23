@@ -273,6 +273,104 @@ struct PendingSyncViewModelTests {
 }
 
 @MainActor
+private final class FakePendingSyncTrigger: SyncTriggering {
+    var error: Error?
+    var onRefresh: (() async -> Void)?
+    private(set) var scopes: [SyncScope] = []
+
+    func hasInitialSnapshot() async throws -> Bool {
+        true
+    }
+
+    func prepare() async throws {}
+
+    func refresh(scope: SyncScope) async throws {
+        scopes.append(scope)
+        await onRefresh?()
+        if let error {
+            throw error
+        }
+    }
+}
+
+extension PendingSyncViewModelTests {
+    @Test func `only live retry pending operations enable manual sync`() async {
+        let provider = FakePendingSyncOperationsProvider()
+        let trigger = FakePendingSyncTrigger()
+        let model = PendingSyncViewModel(
+            provider: provider, accountID: UUID(), toastPresenter: FakeToastPresenter(), syncTrigger: trigger,
+        )
+        provider.snapshots = [[operation(), operation(id: 2, needsConflictResolution: true, status: .failed)]]
+        await model.observe()
+        #expect(!model.hasChangesToRetry)
+        await model.syncNow()
+        #expect(trigger.scopes.isEmpty)
+
+        let failed = operation(status: .failed)
+        provider.snapshots = [[failed], []]
+        await model.observe()
+        #expect(model.presentation.operations == [failed])
+        #expect(!model.hasChangesToRetry)
+        await model.syncNow()
+        #expect(trigger.scopes.isEmpty)
+    }
+
+    @Test func `sync refreshes the account once and follows the observed queue`() async {
+        let provider = FakePendingSyncOperationsProvider()
+        let failed = operation(status: .failed)
+        provider.snapshots = [[failed]]
+        let trigger = FakePendingSyncTrigger()
+        let reloader = FakeAccountReloader()
+        let model = PendingSyncViewModel(
+            provider: provider, accountID: UUID(), toastPresenter: FakeToastPresenter(),
+            accountReloader: reloader, syncTrigger: trigger,
+        )
+        await model.observe()
+        #expect(model.canSyncNow)
+        trigger.onRefresh = {
+            #expect(model.isSynchronizing)
+            #expect(!model.canSyncNow)
+            await model.syncNow()
+            await model.reloadFromServer()
+        }
+
+        await model.syncNow()
+        #expect(trigger.scopes == [.account])
+        #expect(reloader.calls == 0)
+        #expect(!model.isSynchronizing)
+        #expect(model.operations == [failed])
+
+        provider.snapshots = [[]]
+        await model.observe()
+        #expect(!model.hasChangesToRetry)
+    }
+
+    @Test func `sync failure keeps changes eligible for retry and cancellation stays silent`() async {
+        let provider = FakePendingSyncOperationsProvider()
+        let failed = operation(status: .failed)
+        provider.snapshots = [[failed]]
+        let toast = FakeToastPresenter()
+        let trigger = FakePendingSyncTrigger()
+        let model = PendingSyncViewModel(
+            provider: provider, accountID: UUID(), toastPresenter: toast, syncTrigger: trigger,
+        )
+        await model.observe()
+
+        trigger.error = VikunjaError.offline
+        await model.syncNow()
+        #expect(model.operations == [failed])
+        #expect(model.canSyncNow)
+        #expect(toast.shownMessages.map(\.message) == [VikunjaError.offline.displayMessage])
+
+        trigger.error = CancellationError()
+        await model.syncNow()
+        #expect(model.canSyncNow)
+        #expect(toast.shownMessages.count == 1)
+        #expect(trigger.scopes == [.account, .account])
+    }
+}
+
+@MainActor
 private final class FakeAccountReloader: AccountReloading {
     var error: Error?
     var onReload: (() async -> Void)?

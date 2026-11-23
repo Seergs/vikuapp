@@ -762,6 +762,7 @@ final class AppContainer {
                 localStore: localStore, accountID: account.id, syncRequester: accountSync(for: account),
             ),
             accountReloader: accountSync(for: account),
+            syncTrigger: accountSync(for: account),
         )
     }
 
