@@ -88,6 +88,12 @@ struct LocalizationTests {
         ("Removed relation", "Relación quitada"),
         ("Waiting", "En espera"),
         ("Failed", "Error"),
+        ("Retry pending", "Por reintentar"),
+        (
+            "Changes marked ‘Retry pending’ are saved on this iPhone. We’ll retry them on the next sync.",
+            "Los cambios marcados como “Por reintentar” siguen guardados en este iPhone. " +
+                "Intentaremos enviarlos de nuevo en la próxima sincronización.",
+        ),
         ("Conflict", "Conflicto"),
         ("Conflict removed", "Conflicto quitado"),
         ("Remove Conflict", "Quitar conflicto"),

@@ -31,15 +31,25 @@ public extension VikunjaError {
         case .unauthorized:
             String(localized: "That server rejected the request.", bundle: .module)
         case let .server(message, statusCode):
-            message.isEmpty
+            Self.serverAvailabilityMessage(statusCode: statusCode) ?? (message.isEmpty
                 ? String(localized: "The server responded with an error (\(statusCode)).", bundle: .module)
-                : message
+                : message)
         case let .unsupportedServerVersion(minimumRequired, _):
             String(localized: "This app needs Vikunja \(minimumRequired) or newer.", bundle: .module)
         case .totpRequired:
             String(localized: "This account needs a two-factor code.", bundle: .module)
         case .sessionExpired:
             String(localized: "Your session expired. Sign in again to continue.", bundle: .module)
+        }
+    }
+
+    /// A user-facing explanation for temporary service outages reported over HTTP.
+    static func serverAvailabilityMessage(statusCode: Int) -> String? {
+        switch statusCode {
+        case 502, 503, 504:
+            String(localized: "Vikunja is temporarily unavailable (HTTP \(statusCode)).", bundle: .module)
+        default:
+            nil
         }
     }
 }

@@ -83,6 +83,9 @@ struct StoredSyncFailure: Codable, Sendable {
     var displayMessage: String {
         switch kind {
         case .server:
+            if let statusCode, let message = VikunjaError.serverAvailabilityMessage(statusCode: statusCode) {
+                return message
+            }
             // v1 returns JSON as raw text; v2 problem details are already readable.
             let body = (try? JSONSerialization.jsonObject(with: Data(detail.utf8))) as? [String: Any]
             let message = (body?["message"] as? String) ?? detail

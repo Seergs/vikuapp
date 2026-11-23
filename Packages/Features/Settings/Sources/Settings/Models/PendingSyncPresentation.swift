@@ -10,6 +10,10 @@ struct PendingSyncPresentation {
     private var departures: [Int64: ContinuousClock.Instant] = [:]
     private var lastDeparture: ContinuousClock.Instant?
 
+    var hasFailedOperationsAwaitingRetry: Bool {
+        operations.contains(where: \.isAwaitingRetry)
+    }
+
     var nextUpdate: ContinuousClock.Instant? {
         guard let first = operations.first(where: { departures[$0.id] != nil }),
               let deadline = departures[first.id]
@@ -52,5 +56,11 @@ struct PendingSyncPresentation {
         // Use actual presentation time: after a suspension, do not catch up
         // with a burst of removals that would defeat the visual cadence.
         lastDeparture = now
+    }
+}
+
+extension PendingSyncOperation {
+    var isAwaitingRetry: Bool {
+        status == .failed && !needsConflictResolution
     }
 }
