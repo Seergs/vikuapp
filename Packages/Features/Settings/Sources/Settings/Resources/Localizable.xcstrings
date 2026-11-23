@@ -3047,6 +3047,16 @@
         }
       }
     },
+    "Changes marked ‘Retry pending’ are saved on this iPhone. We’ll retry them on the next sync." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los cambios marcados como “Por reintentar” siguen guardados en este iPhone. Intentaremos enviarlos de nuevo en la próxima sincronización."
+          }
+        }
+      }
+    },
     "Failed" : {
       "localizations" : {
         "es" : {
@@ -3143,6 +3153,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Actualización"
+          }
+        }
+      }
+    },
+    "Retry pending" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Por reintentar"
           }
         }
       }

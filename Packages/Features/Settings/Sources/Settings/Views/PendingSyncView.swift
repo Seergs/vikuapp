@@ -158,11 +158,18 @@ struct PendingSyncView: View {
 
     private var queueList: some View {
         List {
-            if showsOfflineBanner {
+            if showsOfflineBanner || viewModel.presentation.hasFailedOperationsAwaitingRetry {
                 Section {
-                    PendingSyncOfflineBanner(count: viewModel.presentation.operations.count)
-                        .listRowBackground(palette.cardBackground)
-                        .transition(rowTransition)
+                    if showsOfflineBanner {
+                        PendingSyncOfflineBanner(count: viewModel.presentation.operations.count)
+                            .listRowBackground(palette.cardBackground)
+                            .transition(rowTransition)
+                    }
+                    if viewModel.presentation.hasFailedOperationsAwaitingRetry {
+                        retryNote
+                            .listRowBackground(palette.cardBackground)
+                            .transition(rowTransition)
+                    }
                 }
             }
             if !viewModel.presentation.operations.isEmpty {
@@ -267,6 +274,22 @@ struct PendingSyncView: View {
 
     private var showsOfflineBanner: Bool {
         !isOnline && !viewModel.presentation.operations.isEmpty
+    }
+
+    private var retryNote: some View {
+        Label {
+            Text(
+                "Changes marked ‘Retry pending’ are saved on this iPhone. We’ll retry them on the next sync.",
+                bundle: .module,
+            )
+            .foregroundStyle(palette.textSecondary)
+        } icon: {
+            Image(systemName: "arrow.clockwise")
+                .foregroundStyle(palette.brand)
+                .accessibilityHidden(true)
+        }
+        .font(VikuFont.subheadline)
+        .padding(.vertical, VikuSpacing.xs)
     }
 
     private var rowAnimation: Animation? {
@@ -439,6 +462,8 @@ private struct PendingSyncOperationRow: View {
             "Needs action"
         } else if operation.canDiscardConflict {
             "Conflict"
+        } else if operation.isAwaitingRetry {
+            "Retry pending"
         } else if operation.status == .failed {
             "Failed"
         } else {

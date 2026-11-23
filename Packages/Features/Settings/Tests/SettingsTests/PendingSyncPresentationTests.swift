@@ -4,7 +4,7 @@ import Testing
 import VikunjaCore
 
 struct PendingSyncPresentationTests {
-    private func operation(id: Int64, failed: Bool = false) -> PendingSyncOperation {
+    private func operation(id: Int64, failed: Bool = false, needsConflictResolution: Bool = false) -> PendingSyncOperation {
         PendingSyncOperation(
             id: id,
             entity: .task,
@@ -12,8 +12,27 @@ struct PendingSyncPresentationTests {
             targetTitle: "Task \(id)",
             createdAt: .distantPast,
             status: failed ? .failed : .pending,
-            needsConflictResolution: failed,
+            needsConflictResolution: needsConflictResolution,
         )
+    }
+
+    @Test
+    func `the retry note follows visible failed rows that can be retried`() {
+        let now = ContinuousClock.now
+        let pending = operation(id: 1)
+        let conflict = operation(id: 2, failed: true, needsConflictResolution: true)
+        let failed = operation(id: 3, failed: true)
+        var presentation = PendingSyncPresentation()
+        presentation.receive([pending, conflict], at: now)
+        #expect(!presentation.hasFailedOperationsAwaitingRetry)
+
+        presentation.receive([pending, conflict, failed], at: now)
+        #expect(presentation.hasFailedOperationsAwaitingRetry)
+
+        presentation.receive([pending, conflict], at: now)
+        #expect(presentation.hasFailedOperationsAwaitingRetry)
+        presentation.advance(at: now.advanced(by: PendingSyncPresentation.departureInterval))
+        #expect(!presentation.hasFailedOperationsAwaitingRetry)
     }
 
     @Test
