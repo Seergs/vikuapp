@@ -67,7 +67,8 @@ struct NotificationProgressViewLifecycleTests {
         defer { window.contentView = nil }
 
         #expect(spinnerCount(in: host) == (alreadyLoaded ? 0 : 1))
-        try await Task.sleep(for: .milliseconds(100))
+        // Drive the load explicitly because an offscreen host may not deliver onAppear in CI.
+        await viewModel.load()
         host.layoutSubtreeIfNeeded()
         #expect(viewModel.loadState == .loaded)
         #expect(spinnerCount(in: host) == (alreadyLoaded ? 0 : 1))
