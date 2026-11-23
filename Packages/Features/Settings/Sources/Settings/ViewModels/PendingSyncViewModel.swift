@@ -14,12 +14,15 @@ public final class PendingSyncViewModel {
     private(set) var presentation = PendingSyncPresentation()
     let loadingIndicator = PendingSyncLoadingIndicator()
     let reloadIndicator = PendingSyncLoadingIndicator()
+    let syncIndicator = PendingSyncLoadingIndicator()
 
     private let provider: PendingSyncOperationsProviding
     private let accountID: UUID
     private let toastPresenter: ToastPresenting
+    private let syncTrigger: SyncTriggering?
     private let accountReloader: AccountReloading?
     public private(set) var isReloading = false
+    private(set) var isSynchronizing = false
     private let creationRecovery: KanbanCreationRecovering?
     public private(set) var busyOperationIDs: Set<Int64> = []
     public private(set) var recoveryBuckets: [KanbanCreationBucket] = []
@@ -31,12 +34,14 @@ public final class PendingSyncViewModel {
         toastPresenter: ToastPresenting,
         creationRecovery: KanbanCreationRecovering? = nil,
         accountReloader: AccountReloading? = nil,
+        syncTrigger: SyncTriggering? = nil,
     ) {
         self.provider = provider
         self.accountID = accountID
         self.toastPresenter = toastPresenter
         self.creationRecovery = creationRecovery
         self.accountReloader = accountReloader
+        self.syncTrigger = syncTrigger
     }
 
     /// Consumes the live stream until the calling `.task` is cancelled.
@@ -111,12 +116,35 @@ public final class PendingSyncViewModel {
     }
     #endif
 
+    var hasChangesToRetry: Bool {
+        syncTrigger != nil && operations.contains(where: \.isAwaitingRetry)
+    }
+
+    var canSyncNow: Bool {
+        hasChangesToRetry && !isSynchronizing && !syncIndicator.isVisible
+            && !isReloading && !reloadIndicator.isVisible && busyOperationIDs.isEmpty
+    }
+
+    func syncNow() async {
+        guard canSyncNow, !Task.isCancelled, let syncTrigger else { return }
+        isSynchronizing = true
+        syncIndicator.setLoading(true)
+        defer {
+            isSynchronizing = false
+            syncIndicator.setLoading(false)
+        }
+        do {
+            try await syncTrigger.refresh(scope: .account)
+        } catch { showActionError(error) }
+    }
+
     public var canReloadFromServer: Bool {
         accountReloader != nil && operations.contains { $0.status == .failed || $0.needsConflictResolution }
     }
 
     public func reloadFromServer() async {
-        guard canReloadFromServer, !isReloading, busyOperationIDs.isEmpty, let accountReloader else { return }
+        guard canReloadFromServer, !isReloading, !isSynchronizing, busyOperationIDs.isEmpty,
+              let accountReloader else { return }
         isReloading = true
         reloadIndicator.setLoading(true)
         defer {
@@ -132,7 +160,7 @@ public final class PendingSyncViewModel {
                 String(localized: "Local changes discarded. Data reloaded from server.", bundle: .module),
                 style: .success,
             )
-        } catch { showRecoveryError(error) }
+        } catch { showActionError(error) }
     }
 
     public func canRecover(_ operation: PendingSyncOperation) -> Bool {
@@ -149,7 +177,7 @@ public final class PendingSyncViewModel {
             recoveryBuckets = try await creationRecovery.recoveryBuckets(operationID: operation.id)
             guard !Task.isCancelled, canRecover(operation) else { return }
             recoveryOperation = operation
-        } catch { showRecoveryError(error) }
+        } catch { showActionError(error) }
     }
 
     public func retryCreation(_ operation: PendingSyncOperation, bucketID: Int? = nil) async {
@@ -158,7 +186,7 @@ public final class PendingSyncViewModel {
         defer { busyOperationIDs.remove(operation.id) }
         do {
             try await creationRecovery.retryCreation(operationID: operation.id, bucketID: bucketID)
-        } catch { showRecoveryError(error) }
+        } catch { showActionError(error) }
     }
 
     public func deleteRejectedCreation(_ operation: PendingSyncOperation) async {
@@ -167,10 +195,10 @@ public final class PendingSyncViewModel {
         defer { busyOperationIDs.remove(operation.id) }
         do {
             try await creationRecovery.deleteRejectedCreation(operationID: operation.id)
-        } catch { showRecoveryError(error) }
+        } catch { showActionError(error) }
     }
 
-    private func showRecoveryError(_ error: any Error) {
+    private func showActionError(_ error: any Error) {
         guard !Task.isCancelled, !(error is CancellationError) else { return }
         toastPresenter.show((error as? VikunjaError)?.displayMessage ?? error.localizedDescription, style: .error)
     }

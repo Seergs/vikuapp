@@ -12,6 +12,7 @@ struct PendingSyncView: View {
     @State private var reloadID = 0
     @State private var confirmsServerReload = false
     @State private var requestsServerReload = false
+    @State private var requestsSync = false
     @State private var pendingConflictRemoval: PendingSyncOperation?
     @State private var pendingTaskRemoval: PendingSyncOperation?
     @Environment(\.vikuPalette) private var palette
@@ -45,6 +46,11 @@ struct PendingSyncView: View {
                 guard requestsServerReload else { return }
                 await viewModel.reloadFromServer()
                 requestsServerReload = false
+            }
+            .task(id: requestsSync) {
+                guard requestsSync else { return }
+                await viewModel.syncNow()
+                requestsSync = false
             }
             .confirmationDialog(
                 Text("Choose a column", bundle: .module),
@@ -86,6 +92,7 @@ struct PendingSyncView: View {
             .animation(rowAnimation, value: viewModel.presentation.operations)
             .animation(rowAnimation, value: viewModel.isReloading)
             .animation(rowAnimation, value: showsOfflineBanner)
+            .animation(rowAnimation, value: showsSyncAction)
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: viewModel.reloadIndicator.isVisible)
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: viewModel.loadingIndicator.isVisible)
             .scrollContentBackground(.hidden)
@@ -104,6 +111,7 @@ struct PendingSyncView: View {
             .onDisappear {
                 viewModel.loadingIndicator.reset()
                 viewModel.reloadIndicator.reset()
+                viewModel.syncIndicator.reset()
             }
             .confirmationDialog(
                 Text("Remove this conflict?", bundle: .module),
@@ -158,7 +166,7 @@ struct PendingSyncView: View {
 
     private var queueList: some View {
         List {
-            if showsOfflineBanner || viewModel.presentation.hasFailedOperationsAwaitingRetry {
+            if showsOfflineBanner || viewModel.presentation.hasFailedOperationsAwaitingRetry || showsSyncAction {
                 Section {
                     if showsOfflineBanner {
                         PendingSyncOfflineBanner(count: viewModel.presentation.operations.count)
@@ -167,6 +175,11 @@ struct PendingSyncView: View {
                     }
                     if viewModel.presentation.hasFailedOperationsAwaitingRetry {
                         retryNote
+                            .listRowBackground(palette.cardBackground)
+                            .transition(rowTransition)
+                    }
+                    if showsSyncAction {
+                        syncButton
                             .listRowBackground(palette.cardBackground)
                             .transition(rowTransition)
                     }
@@ -251,7 +264,7 @@ struct PendingSyncView: View {
                         } label: {
                             Text("Discard local changes and reload", bundle: .module)
                         }
-                        .disabled(!isOnline || !viewModel.busyOperationIDs.isEmpty)
+                        .disabled(!isOnline || viewModel.isSynchronizing || !viewModel.busyOperationIDs.isEmpty)
                     }
                 } footer: {
                     Text(
@@ -264,7 +277,8 @@ struct PendingSyncView: View {
         }
         .settingsListStyle()
         .overlay {
-            if viewModel.presentation.operations.isEmpty, !viewModel.isReloading, !viewModel.reloadIndicator.isVisible {
+            if viewModel.presentation.operations.isEmpty, !showsSyncAction,
+               !viewModel.isReloading, !viewModel.reloadIndicator.isVisible {
                 PendingSyncEmptyState()
                     .padding(.top, VikuSpacing.xxl)
                     .transition(.opacity)
@@ -272,22 +286,42 @@ struct PendingSyncView: View {
         }
     }
 
+    private var showsSyncAction: Bool {
+        viewModel.hasChangesToRetry || viewModel.isSynchronizing || viewModel.syncIndicator.isVisible
+    }
+
+    private var syncButton: some View {
+        Button {
+            requestsSync = true
+        } label: {
+            Label {
+                if viewModel.isSynchronizing || viewModel.syncIndicator.isVisible {
+                    Text("Syncing…", bundle: .module)
+                } else {
+                    Text("Sync now", bundle: .module)
+                }
+            } icon: {
+                if viewModel.syncIndicator.isVisible {
+                    ProgressView()
+                        .accessibilityHidden(true)
+                } else {
+                    Image(systemName: "arrow.clockwise")
+                }
+            }
+        }
+        .disabled(!isOnline || requestsSync || !viewModel.canSyncNow)
+    }
+
     private var showsOfflineBanner: Bool {
         !isOnline && !viewModel.presentation.operations.isEmpty
     }
 
     private var retryNote: some View {
-        Label {
-            Text(
-                "Changes marked ‘Retry pending’ are saved on this iPhone. We’ll retry them on the next sync.",
-                bundle: .module,
-            )
-            .foregroundStyle(palette.textSecondary)
-        } icon: {
-            Image(systemName: "arrow.clockwise")
-                .foregroundStyle(palette.brand)
-                .accessibilityHidden(true)
-        }
+        Text(
+            "Changes marked ‘Retry pending’ are saved on this iPhone. We’ll retry them on the next sync.",
+            bundle: .module,
+        )
+        .foregroundStyle(palette.textSecondary)
         .font(VikuFont.subheadline)
         .padding(.vertical, VikuSpacing.xs)
     }
