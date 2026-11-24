@@ -222,15 +222,8 @@ final class FakeInstanceClientFactory: InstanceClientFactoryProtocol, @unchecked
 actor CoordinatorReachabilityMonitor: ReachabilityMonitoring {
     private var reachable: Bool
     private var hasInitialReport: Bool
-    private var hasReadStatus = false
-    private var hasStatusSubscriber = false
     var isReachable: Bool {
-        hasReadStatus = true
-        return reachable
-    }
-
-    var readyForFirstReport: Bool {
-        hasReadStatus || hasStatusSubscriber
+        reachable
     }
 
     init(isReachable: Bool = true, hasInitialReport: Bool = true) {
@@ -259,7 +252,6 @@ actor CoordinatorReachabilityMonitor: ReachabilityMonitoring {
             statusContinuation = continuation
             hasSubscriber = true
             subscriptionReady.continuation.finish()
-            hasStatusSubscriber = true
             if hasInitialReport {
                 continuation.yield(reachable)
             }
@@ -970,7 +962,8 @@ struct SyncCoordinatorTests {
         await stopObserving(coordinator, reachability)
     }
 
-    @Test func `the initial online report starts synchronization even when startup had no path yet`() async throws {
+    @Test(.timeLimit(.minutes(1)))
+    func `the initial online report starts synchronization even when startup had no path yet`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())
         let accountStore = FakeAccountStore()
         let factory = FakeInstanceClientFactory()
@@ -978,15 +971,20 @@ struct SyncCoordinatorTests {
         let account = try makeAccount(host: "first-path.example.com")
         try await accountStore.addAccount(account, token: "token")
         let remote = factory.projectRepository(for: account.baseURL)
+        let fetchStarted = AsyncStream<Void>.makeStream()
+        defer { fetchStarted.continuation.finish() }
+        remote.onFetchProjects = { fetchStarted.continuation.yield() }
         let coordinator = SyncCoordinator(
             localStore: store, accountStore: accountStore, clientFactory: factory,
             reachability: reachability, tokenProvider: { _ in { "token" } },
         )
         await coordinator.start()
-        await waitUntil { await reachability.readyForFirstReport }
+        await reachability.waitForSubscription()
+        #expect(remote.fetchProjectsCallCount == 0)
         // This is an initial status, not a transition from a previously known offline path.
         await reachability.setReachable(true)
-        await waitUntil { remote.fetchProjectsCallCount == 1 }
+        var fetchEvents = fetchStarted.stream.makeAsyncIterator()
+        #expect(await fetchEvents.next() != nil)
         #expect(remote.fetchProjectsCallCount == 1)
         await stopObserving(coordinator, reachability)
     }
