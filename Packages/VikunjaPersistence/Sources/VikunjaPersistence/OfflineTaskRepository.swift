@@ -62,7 +62,7 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateReposi
 
     public func create(_ task: VikunjaTask) async throws -> VikunjaTask {
         let localID = UUID()
-        try await localStore.write { db in
+        let created = try await localStore.write { db in
             let projectRows = try Self.projectRows(self.accountID, db: db)
             guard let projectLocalID = Self.resolveProjectLocalID(matching: task.projectID, in: projectRows) else {
                 throw VikunjaError.notFound
@@ -79,9 +79,8 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateReposi
                 projectLocalID: projectLocalID,
                 serverUpdatedAt: nil,
             ).insert(db)
-            if let row = try TaskRecord.fetchOne(db, key: localID) {
-                try KanbanLocalMutations.applyCompletion(row, db: db)
-            }
+            guard let row = try TaskRecord.fetchOne(db, key: localID) else { throw VikunjaError.notFound }
+            try KanbanLocalMutations.applyCompletion(row, db: db)
             try TaskReminderRecord.replace(
                 for: localID, accountID: self.accountID, reminders: task.reminders, db: db,
             )
@@ -102,9 +101,13 @@ public actor OfflineTaskRepository: TaskRepositoryProtocol, TaskBulkUpdateReposi
                 payload: payload,
                 baseUpdatedAt: nil,
             ), db: db)
+            let context = try Self.makeAssemblyContext(accountID: self.accountID, projectRows: projectRows, db: db)
+            return Self.task(from: row, context: context)
         }
         await triggerDrainIfOnline()
-        return try await readTask(id: .local(localID))
+        // Sync may already have assigned a remote ID. A read interrupted after
+        // commit should still report the durable local save to the caller.
+        return await (try? readTask(id: created.id)) ?? created
     }
 
     public func update(_ task: VikunjaTask) async throws -> VikunjaTask {

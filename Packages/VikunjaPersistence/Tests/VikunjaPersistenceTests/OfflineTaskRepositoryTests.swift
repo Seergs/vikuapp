@@ -19,6 +19,12 @@ private actor FakeReachabilityMonitor: ReachabilityMonitoring {
     }
 }
 
+private struct CancellingSyncRequester: SyncRequesting {
+    func requestSync() async {
+        withUnsafeCurrentTask { $0?.cancel() }
+    }
+}
+
 struct OfflineTaskRepositoryTests {
     private struct Fixture {
         let repository: OfflineTaskRepository
@@ -161,6 +167,22 @@ struct OfflineTaskRepositoryTests {
         #expect(created.id.remoteValue != nil)
         let tasks = try await fixture.repository.fetchTasks(projectID: 1)
         #expect(tasks.map(\.title) == ["Buy milk"])
+    }
+
+    @Test
+    func `create reports the durable task when interrupted after commit`() async throws {
+        let fixture = try await makeRepository(online: false)
+        let repository = OfflineTaskRepository(
+            localStore: fixture.store, accountID: fixture.accountID, syncRequester: CancellingSyncRequester(),
+        )
+
+        let created = try await Task {
+            try await repository.create(VikunjaTask(id: 0, title: "Buy milk", projectID: fixture.project))
+        }.value
+
+        #expect(try await fixture.repository.fetchTasks(projectID: fixture.project) == [created])
+        let queued = try await fixture.store.read { db in try MutationQueueRecord.fetchAll(db) }
+        #expect(queued.map(\.operation) == [.create])
     }
 
     @Test

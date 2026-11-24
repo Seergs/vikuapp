@@ -63,7 +63,7 @@ Viku automatically detects which sign-in methods your instance supports.
 
 - **Multiple accounts:** Switch between accounts and Vikunja instances.
 - **Home:** See overdue, today’s, and upcoming tasks, or pin a project or saved filter.
-- **Quick capture:** Add tasks from the tab bar, Today widget, Siri, or `viku://quick-add`.
+- **Quick capture:** Open Quick Add from the tab bar, Today widget, or `viku://quick-add`. Say “Create a task in Viku” to dictate a task for your default project without opening the app.
 - **Quick Add Magic:** Set project, priority, labels, and date in the task title. [Guide →](docs/guides/en/quick-add-shortcuts.md)
 - **Widgets:** Daily tasks and calendar views on your Home screen.
 - **Kanban:** Move tasks between buckets and create tasks in a bucket. Requires Vikunja 2.4.0+.

@@ -6,7 +6,7 @@ import AppIntents
 struct VikuShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
-            intent: OpenQuickAddIntent(),
+            intent: CreateTaskIntent(),
             phrases: [
                 // Every phrase must contain \(.applicationName). Spanish
                 // translations live in AppShortcuts.xcstrings — Siri matches
