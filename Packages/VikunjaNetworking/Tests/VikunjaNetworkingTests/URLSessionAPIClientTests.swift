@@ -1097,6 +1097,30 @@ struct URLSessionAPIClientTests {
     private static let projectV2UpdatedAt = Date(timeIntervalSince1970: 1_767_312_000)
 
     @Test
+    func `moving a project to the root sends an explicit zero across v1 and v2`() async throws {
+        for (body, path, method) in [
+            (Self.projectV1Body, "/api/v1/projects/1", "POST"),
+            (Self.projectV2Body, "/api/v2/projects/1", "PUT"),
+        ] {
+            let (session, capture) = MockURLProtocol.makeSession(statusCode: 200, body: body)
+            let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+            let repository: ProjectRepositoryProtocol = method == "POST"
+                ? VikunjaProjectRepository(client: client)
+                : VikunjaProjectRepositoryV2(client: client)
+
+            let project = try await repository.update(Project(id: 1, title: "Groceries", parentProjectID: nil))
+
+            let request = try #require(await capture.lastRequest)
+            let sentBody = try #require(request.httpBody)
+            let payload = try #require(JSONSerialization.jsonObject(with: sentBody) as? [String: Any])
+            #expect(request.httpMethod == method)
+            #expect(request.url?.path == path)
+            #expect(payload["parent_project_id"] as? Int == 0)
+            #expect(project.parentProjectID == nil)
+        }
+    }
+
+    @Test
     func `fetch projects v2 unwraps the envelope AND ignores v2 only fields`() async throws {
         let body = "{\"items\": [" + Self.projectV2Body
             + "], \"total\": 1, \"page\": 1, \"per_page\": 50, \"total_pages\": 1}"
