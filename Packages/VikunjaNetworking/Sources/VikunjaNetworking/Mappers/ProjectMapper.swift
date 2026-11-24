@@ -15,10 +15,7 @@ enum ProjectMapper {
             description: dto.description,
             isArchived: dto.isArchived ?? false,
             isFavorite: dto.isFavorite ?? false,
-            // The real API's `parent_project_id` is a non-pointer `int64` on the
-            // server, so root-level projects come back as `0`, never absent/null —
-            // normalize that to `nil` so `ProjectsListViewModel` can treat "no
-            // parent" as a single, unambiguous value.
+            // The API can return zero or omit the parent for root-level projects.
             parentProjectID: (dto.parentProjectId == 0 ? nil : dto.parentProjectId).map(EntityID.remote),
             position: dto.position ?? 0,
             hexColor: dto.hexColor ?? "",
@@ -26,8 +23,11 @@ enum ProjectMapper {
         )
     }
 
-    static func toDTO(_ project: Project) -> ProjectDTO {
-        ProjectDTO(
+    static func toDTO(_ project: Project, forUpdate: Bool = false) -> ProjectDTO {
+        // An update must send zero to detach a project. An omitted parent
+        // leaves the existing relationship intact on newer servers.
+        let rootParentID: Int? = forUpdate ? 0 : nil
+        return ProjectDTO(
             // Ignored by the server on create, which is the only path that can
             // ever hand this a `.local` id (see VikunjaProjectRepository.update).
             id: project.id.remoteValue ?? 0,
@@ -44,7 +44,7 @@ enum ProjectMapper {
                     preconditionFailure("Project.toDTO: parent project must be synced before this project can sync")
                 }
                 return remoteValue
-            },
+            } ?? rootParentID,
             position: project.position,
             hexColor: project.hexColor,
             // Server-set, read-only — never sent back on write.
