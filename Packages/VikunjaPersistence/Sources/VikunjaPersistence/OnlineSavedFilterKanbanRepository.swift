@@ -12,9 +12,12 @@ public actor OnlineSavedFilterKanbanRepository: KanbanBoardRepositoryProtocol,
     private let accountID: UUID
     private let taskRepository: TaskRepositoryProtocol
     private let transport: BucketRepositoryProtocol
+    private var catalog: [KanbanViewSummary]?
     private var board: KanbanBoard?
     private var taskPositions: [Int: Double] = [:]
     private var isReordering = false
+    private var requestedViewID: Int?
+    private var refreshVersion = 0
 
     public init(
         projectID: EntityID, localStore: LocalStore, accountID: UUID, transport: BucketRepositoryProtocol,
@@ -37,6 +40,10 @@ public actor OnlineSavedFilterKanbanRepository: KanbanBoardRepositoryProtocol,
 
     public func prepare() async throws {
         try await refresh(scope: .kanban(projectID: projectID))
+    }
+
+    public func fetchBoardCatalog(projectID: EntityID) async throws -> [KanbanViewSummary]? {
+        projectID == self.projectID ? catalog : nil
     }
 
     public func fetchBoard(projectID: EntityID, viewID: Int?) async throws -> KanbanBoardSnapshot {
@@ -70,16 +77,44 @@ public actor OnlineSavedFilterKanbanRepository: KanbanBoardRepositoryProtocol,
     }
 
     public func refresh(scope: SyncScope) async throws {
-        guard scope == .kanban(projectID: projectID), let remoteID = projectID.remoteValue,
+        guard case let .kanban(requestedProjectID, viewID) = scope,
+              requestedProjectID == projectID, let remoteID = projectID.remoteValue,
               remoteID < -1 else { throw VikunjaError.notFound }
-        let download = try await transport.downloadBoard(projectID: remoteID, viewID: board?.viewID)
+        requestedViewID = viewID
+        try await reloadBoard(projectID: remoteID, viewID: viewID)
+    }
+
+    private func reloadBoard(projectID: Int, viewID: Int?) async throws {
+        refreshVersion += 1
+        let version = refreshVersion
+        let views = try await transport.fetchKanbanViews(projectID: projectID)
+        guard version == refreshVersion else { return }
+        try Task.checkCancellation()
+        guard let selected = views.first(where: { $0.id == viewID }) ?? views.first else {
+            catalog = views
+            board = nil
+            taskPositions = [:]
+            return
+        }
+        let download = try await transport.downloadBoard(projectID: projectID, viewID: selected.id)
+        guard version == refreshVersion else { return }
+        try Task.checkCancellation()
         try await cache(download.buckets.flatMap(\.tasks))
+        guard version == refreshVersion else { return }
+        try Task.checkCancellation()
+        catalog = views
         taskPositions = download.taskPositions
         board = KanbanBoard(
             viewID: download.viewID, buckets: download.buckets, defaultBucketID: download.defaultBucketID,
             supportsWrites: download.mode == "manual", lastPulledAt: Date(),
             supportsTaskCreation: false, requiresConnection: true,
         )
+    }
+
+    /// Reconcile server membership while the selection that initiated the write is active.
+    private func reconcileBoard(projectID: Int, previousSelection: Int?) async throws {
+        guard previousSelection == requestedViewID else { return }
+        try await reloadBoard(projectID: projectID, viewID: previousSelection)
     }
 
     public func reorderTask(
@@ -89,7 +124,10 @@ public actor OnlineSavedFilterKanbanRepository: KanbanBoardRepositoryProtocol,
               let projectRemoteID = projectID.remoteValue else { throw VikunjaError.notFound }
         isReordering = true
         defer { isReordering = false }
-        try await refresh(scope: .kanban(projectID: projectID))
+        let selection = requestedViewID
+        let version = refreshVersion + 1
+        try await reloadBoard(projectID: projectRemoteID, viewID: viewID)
+        guard version == refreshVersion else { throw CancellationError() }
         guard let board, board.viewID == viewID, board.supportsWrites else { throw VikunjaError.notFound }
         let download = KanbanDownload(
             viewID: board.viewID, mode: "manual", filterQuery: "", defaultBucketID: board.defaultBucketID,
@@ -108,7 +146,7 @@ public actor OnlineSavedFilterKanbanRepository: KanbanBoardRepositoryProtocol,
         }
         _ = try await transport.setTaskPosition(taskID: remoteID, viewID: viewID, position: position)
         // Re-read every position because a write can renormalize the view.
-        try await refresh(scope: .kanban(projectID: .remote(projectRemoteID)))
+        try await reconcileBoard(projectID: projectRemoteID, previousSelection: selection)
     }
 
     public func moveTask(
@@ -119,19 +157,20 @@ public actor OnlineSavedFilterKanbanRepository: KanbanBoardRepositoryProtocol,
               board.buckets.contains(where: { $0.id == bucketID }),
               board.buckets.contains(where: { $0.tasks.contains { $0.id == taskID } })
         else { throw VikunjaError.notFound }
+        let selection = requestedViewID
         try await ensureNoPendingIntent(taskRemoteID: taskRemoteID)
         let moved = try await transport.moveTask(
             taskID: taskRemoteID, toBucketID: bucketID, projectID: remoteID, viewID: viewID,
         )
         try await cache([moved])
-        // Server rules may change membership or completion; always reload the authoritative board.
-        try await refresh(scope: .kanban(projectID: projectID))
+        try await reconcileBoard(projectID: remoteID, previousSelection: selection)
         return moved
     }
 
     public func setCompletion(
         taskID: EntityID, projectID: EntityID, viewID: Int, isDone: Bool,
     ) async throws -> VikunjaTask {
+        let selection = requestedViewID
         guard case let .available(board) = try await fetchBoard(projectID: projectID, viewID: viewID),
               board.supportsWrites,
               let source = board.buckets.first(where: { $0.tasks.contains { $0.id == taskID } }),
@@ -157,12 +196,14 @@ public actor OnlineSavedFilterKanbanRepository: KanbanBoardRepositoryProtocol,
             }
             return try await moveTask(taskID: taskID, projectID: projectID, viewID: viewID, bucketID: target)
         }
-        guard let remoteID = taskID.remoteValue else { throw VikunjaError.notFound }
+        guard let remoteID = taskID.remoteValue, let projectRemoteID = projectID.remoteValue else {
+            throw VikunjaError.notFound
+        }
         try await ensureNoPendingIntent(taskRemoteID: remoteID)
         task.isDone = isDone
         let updated = try await taskRepository.update(task)
         try await cache([updated])
-        try await refresh(scope: .kanban(projectID: projectID))
+        try await reconcileBoard(projectID: projectRemoteID, previousSelection: selection)
         return updated
     }
 

@@ -49,11 +49,20 @@ public final class ProjectOverviewViewModel {
     /// for projects and saved filters. Saved filters also require confirmed connectivity;
     /// Favorites have no Kanban view.
     public var supportsKanban: Bool {
-        hasKanbanSupport && (project.kind != .savedFilter || (hasReachability && !isOffline))
+        kanbanSupport == true && (project.kind != .savedFilter || (hasReachability && !isOffline))
     }
 
-    private var hasKanbanSupport = false
+    private(set) var kanbanSupport: Bool?
     private var hasReachability = false
+
+    var rememberedView: ProjectViewSelection {
+        viewPreferences?.selection(for: project.id) ?? .list
+    }
+
+    func rememberView(_ selection: ProjectViewSelection) {
+        viewPreferences?.setSelection(selection, for: project.id)
+    }
+
     /// This saved filter's raw query (e.g. `priority >= 3 && done = false`).
     /// `nil` for a real project or
     /// Favorites, and also `nil` if the fetch fails or the filter has no
@@ -127,6 +136,7 @@ public final class ProjectOverviewViewModel {
     private let filterRepository: FilterRepositoryProtocol
     private let capabilityProvider: CapabilityProvider
     private let kanbanRepository: KanbanBoardRepositoryProtocol?
+    private let viewPreferences: ProjectViewPreferenceStoring?
     private let mutator: TaskListMutator
     private let taskSortStore: TaskSortStore
     private let toastPresenter: ToastPresenting
@@ -163,6 +173,7 @@ public final class ProjectOverviewViewModel {
         filterRepository: FilterRepositoryProtocol,
         capabilityProvider: CapabilityProvider = NoopCapabilityProvider(),
         kanbanRepository: KanbanBoardRepositoryProtocol? = nil,
+        viewPreferences: ProjectViewPreferenceStoring? = nil,
         toastPresenter: ToastPresenting,
         hapticPresenter: HapticFeedbackPresenting = NoopHapticFeedback(),
         taskSortStore: TaskSortStore,
@@ -190,6 +201,7 @@ public final class ProjectOverviewViewModel {
         self.filterRepository = filterRepository
         self.capabilityProvider = capabilityProvider
         self.kanbanRepository = kanbanRepository
+        self.viewPreferences = viewPreferences
         self.taskSortStore = taskSortStore
         self.mutator = TaskListMutator(
             repository: repository,
@@ -234,10 +246,12 @@ public final class ProjectOverviewViewModel {
     /// Keeps the offline notice and saved-filter Kanban availability in step with connectivity while this screen
     /// is visible. The view owns the task so SwiftUI cancels the stream when
     /// the screen disappears.
-    public func observeReachability() async {
+    public func observeReachability(onUpdate: (Bool) -> Void = { _ in }) async {
         for await isReachable in await reachabilityUpdates() {
+            guard !Task.isCancelled else { return }
             isOffline = !isReachable
             hasReachability = true
+            onUpdate(isReachable)
         }
     }
 
@@ -267,7 +281,7 @@ public final class ProjectOverviewViewModel {
         if !hadContent {
             loadState = .loading
         }
-        async let kanbanSupport = resolveKanbanSupport()
+        async let resolvedKanbanSupport = resolveKanbanSupport()
         do {
             try Task.checkCancellation()
             let fetchedProject = try await projectRepository.fetchProject(id: project.id)
@@ -286,6 +300,11 @@ public final class ProjectOverviewViewModel {
             await loadRequestedLabels()
             try Task.checkCancellation()
             guard version == loadVersion, !Task.isCancelled else { return }
+            if project.id != fetchedProject.id,
+               viewPreferences?.selection(for: fetchedProject.id) == nil,
+               let selection = viewPreferences?.selection(for: project.id) {
+                viewPreferences?.setSelection(selection, for: fetchedProject.id)
+            }
             project = fetchedProject
             projectsByID = owners
             tasks = completionState.applying(to: fetchedTasks)
@@ -307,9 +326,9 @@ public final class ProjectOverviewViewModel {
                 loadState = .failure(message)
             }
         }
-        let serverSupportsKanban = await kanbanSupport
+        let serverSupportsKanban = await resolvedKanbanSupport
         guard version == loadVersion, !Task.isCancelled else { return }
-        hasKanbanSupport = project.kind != .favorites && serverSupportsKanban
+        kanbanSupport = project.kind != .favorites && serverSupportsKanban
     }
 
     private func resolveKanbanSupport() async -> Bool {

@@ -15,7 +15,9 @@ extension AppContainer {
                 guard let defaults = UserDefaults(suiteName: suite) else {
                     fatalError("Cannot open UI testing preferences")
                 }
-                defaults.removePersistentDomain(forName: suite)
+                if !ProcessInfo.processInfo.arguments.contains("-UITestPreservePreferences") {
+                    defaults.removePersistentDomain(forName: suite)
+                }
                 return AppContainer(
                     accountStore: UITestAccountStore(),
                     clientFactory: UITestClientFactory(),
@@ -45,7 +47,10 @@ nonisolated struct UITestReachability: ReachabilityMonitoring {
     }
 
     func reachabilityUpdates() async -> AsyncStream<Bool> {
-        AsyncStream { continuation in
+        if ProcessInfo.processInfo.arguments.contains("-UITestSlowReachability") {
+            try? await Task.sleep(for: .seconds(6))
+        }
+        return AsyncStream { continuation in
             continuation.yield(true)
             continuation.finish()
         }

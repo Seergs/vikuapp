@@ -126,11 +126,11 @@ actor UITestAuxiliaryRepository: AuthServiceProtocol, LabelRepositoryProtocol, U
     }
 
     func downloadBoard(projectID: Int, viewID: Int?) async throws -> KanbanDownload {
-        guard projectID == 1 else { throw VikunjaError.notFound }
-        let board = viewID ?? 11
-        let column: KanbanBucket = switch board {
-        case 11: KanbanBucket(id: 101, title: "Sprint queue")
-        case 12: KanbanBucket(id: 201, title: "Support inbox")
+        let board = viewID ?? (projectID == -2 ? 13 : 11)
+        let column: KanbanBucket = switch (projectID, board) {
+        case (1, 11): KanbanBucket(id: 101, title: "Sprint queue")
+        case (1, 12): KanbanBucket(id: 201, title: "Support inbox")
+        case (-2, 13): KanbanBucket(id: 301, title: "Filter queue")
         default: throw VikunjaError.notFound
         }
         return KanbanDownload(
@@ -144,8 +144,11 @@ actor UITestAuxiliaryRepository: AuthServiceProtocol, LabelRepositoryProtocol, U
     }
 
     func fetchKanbanViews(projectID: Int) async throws -> [KanbanViewSummary] {
-        guard projectID == 1 else { return [] }
-        return [KanbanViewSummary(id: 11, title: "Sprint"), KanbanViewSummary(id: 12, title: "Support")]
+        switch projectID {
+        case 1: [KanbanViewSummary(id: 11, title: "Sprint"), KanbanViewSummary(id: 12, title: "Support")]
+        case -2: [KanbanViewSummary(id: 13, title: "Filter board")]
+        default: []
+        }
     }
 
     func moveTask(taskID: Int, toBucketID: Int, projectID: Int, viewID: Int?) async throws -> VikunjaTask {

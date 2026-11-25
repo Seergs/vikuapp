@@ -120,6 +120,7 @@ final class AppContainer {
     /// `defaultProjectStore`, this one has no server-side value to
     /// reconcile against — it's the pin's only source of truth.
     let homeSelectionStore: HomeSelectionStore
+    private let defaults: UserDefaults
     /// The app's single OIDC browser-authentication coordinator — see
     /// `OIDCAuthCoordinator`. Pass this as `OIDCAuthenticating` to any
     /// ViewModel that offers OIDC sign-in.
@@ -202,6 +203,7 @@ final class AppContainer {
         isUITesting: Bool = false,
     ) {
         self.isUITesting = isUITesting
+        self.defaults = defaults
         self.reachabilityMonitor = reachabilityMonitor
         if let localStoreDirectory {
             do {
@@ -534,6 +536,7 @@ final class AppContainer {
                 localStore: localStore, accountID: account.id, syncRequester: accountSync(for: account),
                 reachability: reachabilityMonitor,
             ),
+            viewPreferences: ProjectViewPreferenceStore(defaults: defaults, accountID: account.id),
             toastPresenter: toastCenter,
             hapticPresenter: hapticCenter,
             taskSortStore: taskSortStore,

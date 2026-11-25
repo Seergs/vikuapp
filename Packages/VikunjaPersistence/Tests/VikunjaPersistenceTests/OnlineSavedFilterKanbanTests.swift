@@ -5,11 +5,19 @@ import VikunjaCore
 @testable import VikunjaPersistence
 
 private actor FilterBoardRemote: BucketRepositoryProtocol {
+    private struct PausedDownload {
+        let viewID: Int
+        let started: AsyncStream<Void>.Continuation
+        let resume: AsyncStream<Void>
+    }
+
     var tasks = [
         VikunjaTask(id: 11, title: "Work task", projectID: 1),
         VikunjaTask(id: 22, title: "Home task", projectID: 2),
     ]
     var positions: [Int: Double] = [11: 100, 22: 200]
+    private var boardIDs = [7]
+    private var pausedDownload: PausedDownload?
     private(set) var positionWrites: [Int] = []
     var failure: VikunjaError?
     var mode = "manual"
@@ -30,6 +38,17 @@ private actor FilterBoardRemote: BucketRepositoryProtocol {
         failure = .offline
     }
 
+    func setBoardIDs(_ ids: [Int]) {
+        boardIDs = ids
+    }
+
+    func pauseNextDownload(viewID: Int) -> (started: AsyncStream<Void>, resume: AsyncStream<Void>.Continuation) {
+        let (started, begin) = AsyncStream<Void>.makeStream()
+        let (resume, finish) = AsyncStream<Void>.makeStream()
+        pausedDownload = PausedDownload(viewID: viewID, started: begin, resume: resume)
+        return (started, finish)
+    }
+
     func setTaskPosition(taskID: Int, viewID: Int, position: Double) async throws -> TaskViewPosition {
         if let failure {
             throw failure
@@ -44,8 +63,18 @@ private actor FilterBoardRemote: BucketRepositoryProtocol {
         if let failure {
             throw failure
         }
+        guard let selected = viewID ?? boardIDs.first, boardIDs.contains(selected) else {
+            throw VikunjaError.notFound
+        }
+        if let pausedDownload, pausedDownload.viewID == selected {
+            self.pausedDownload = nil
+            pausedDownload.started.finish()
+            for await _ in pausedDownload.resume {
+                break
+            }
+        }
         return KanbanDownload(
-            viewID: 7, mode: mode, filterQuery: "priority >= 3", defaultBucketID: 10, doneBucketID: 20,
+            viewID: selected, mode: mode, filterQuery: "priority >= 3", defaultBucketID: 10, doneBucketID: 20,
             buckets: [
                 KanbanBucket(id: 10, title: "Todo", tasks: tasks.filter { !$0.isDone }.sorted {
                     positions[$0.id.remoteValue ?? 0, default: 0] < positions[$1.id.remoteValue ?? 0, default: 0]
@@ -56,7 +85,10 @@ private actor FilterBoardRemote: BucketRepositoryProtocol {
     }
 
     func fetchKanbanViews(projectID: Int) async throws -> [KanbanViewSummary] {
-        [KanbanViewSummary(id: 7, title: "Board")]
+        if let failure {
+            throw failure
+        }
+        return boardIDs.map { KanbanViewSummary(id: $0, title: "Board \($0)") }
     }
 
     func fetchBuckets(projectID: Int) async throws -> [KanbanBucket] {
@@ -80,6 +112,45 @@ private actor FilterBoardRemote: BucketRepositoryProtocol {
 }
 
 struct OnlineSavedFilterKanbanTests {
+    @Test func `a late board download cannot replace a newer saved-filter selection`() async throws {
+        let fixture = try await fixture()
+        let repository = fixture.repository
+        let projectID = EntityID.remote(-2)
+        await fixture.remote.setBoardIDs([7, 8])
+        let download = await fixture.remote.pauseNextDownload(viewID: 7)
+        defer { download.resume.finish() }
+        async let first = repository.refresh(scope: .kanban(projectID: projectID, viewID: 7))
+        for await _ in download.started {}
+
+        try await repository.refresh(scope: .kanban(projectID: projectID, viewID: 8))
+        download.resume.finish()
+        try await first
+        #expect(try await board(repository).viewID == 8)
+    }
+
+    @Test func `online filters restore the requested board and fall back when the server removes it`() async throws {
+        let fixture = try await fixture()
+        let repository = fixture.repository
+        let projectID = EntityID.remote(-2)
+        await fixture.remote.setBoardIDs([7, 8])
+        #expect(try await repository.fetchBoardCatalog(projectID: projectID) == nil)
+
+        try await repository.refresh(scope: .kanban(projectID: projectID, viewID: 8))
+        #expect(try await repository.fetchBoardCatalog(projectID: projectID)?.map(\.id) == [7, 8])
+        #expect(try await board(repository).viewID == 8)
+        try await repository.moveTask(taskID: 11, projectID: projectID, viewID: 8, bucketID: 20)
+        #expect(try await board(repository).viewID == 8)
+
+        await fixture.remote.setBoardIDs([7])
+        try await repository.refresh(scope: .kanban(projectID: projectID, viewID: 8))
+        #expect(try await board(repository).viewID == 7)
+
+        await fixture.remote.setBoardIDs([])
+        try await repository.refresh(scope: .kanban(projectID: projectID, viewID: 8))
+        #expect(try await repository.fetchBoardCatalog(projectID: projectID)?.isEmpty == true)
+        #expect(try await repository.fetchBoard(projectID: projectID, viewID: nil) == .unavailable)
+    }
+
     @Test func `online reordering targets the selected view without moving buckets or queueing offline intent`() async throws {
         let fixture = try await fixture()
         try await fixture.repository.prepare()

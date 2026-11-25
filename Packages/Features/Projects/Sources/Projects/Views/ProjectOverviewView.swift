@@ -30,8 +30,8 @@ struct ProjectOverviewView: View {
     /// `makeCreateProjectViewModel`, reused here with this screen's project
     /// passed as the parent instead of `nil`.
     let makeCreateProjectViewModel: (EntityID?) -> CreateProjectViewModel
-    @State private var displayMode: ProjectDisplayMode = .list
-    @State private var selectedKanbanBoardID: Int?
+    @State private var projectView: ProjectViewPresentation
+    @State private var restoringView = LoadingPresentation()
     @State private var filter: ProjectTaskFilter = .all
     @State private var searchText = ""
     @State private var taskPendingDelete: VikunjaTask?
@@ -45,6 +45,52 @@ struct ProjectOverviewView: View {
     @Environment(\.vikuPalette) private var palette
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    init(
+        viewModel: ProjectOverviewViewModel,
+        kanbanViewModel: KanbanBoardViewModel,
+        onSelectSubproject: @escaping (ProjectNode) -> Void,
+        onSelectTask: @escaping (VikunjaTask) -> Void,
+        onEditProject: @escaping (Project) -> Void,
+        makeCreateProjectViewModel: @escaping (EntityID?) -> CreateProjectViewModel,
+    ) {
+        self.viewModel = viewModel
+        self.kanbanViewModel = kanbanViewModel
+        self.onSelectSubproject = onSelectSubproject
+        self.onSelectTask = onSelectTask
+        self.onEditProject = onEditProject
+        self.makeCreateProjectViewModel = makeCreateProjectViewModel
+        _projectView = State(initialValue: ProjectViewPresentation(selection: viewModel.rememberedView))
+    }
+
+    private var displayMode: ProjectDisplayMode? {
+        projectView.visibleMode(kanbanSupport: viewModel.kanbanSupport, kind: viewModel.project.kind)
+    }
+
+    private var modeSelection: Binding<ProjectDisplayMode> {
+        Binding(get: { displayMode ?? .list }, set: { mode in
+            viewModel.rememberView(projectView.select(mode))
+        })
+    }
+
+    private var boardSelection: Binding<Int?> {
+        Binding(get: { projectView.boardID }, set: { id in
+            guard let id, displayMode == .kanban else { return }
+            viewModel.rememberView(projectView.selectBoard(id))
+        })
+    }
+
+    private func boardResolved(_ id: Int?) {
+        guard displayMode == .kanban else { return }
+        if let id {
+            // Pin the implicit first board when the user entered Kanban without a board ID.
+            if projectView.boardID == nil {
+                viewModel.rememberView(.kanban(boardID: id))
+            }
+        } else {
+            projectView.showListWhenNoBoards()
+        }
+    }
 
     private var sort: TaskSort {
         TaskSort(field: viewModel.sortField, direction: viewModel.sortDirection)
@@ -67,7 +113,7 @@ struct ProjectOverviewView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         if !viewModel.bulkSelection.isSelecting {
-            if viewModel.supportsKanban {
+            if viewModel.supportsKanban, displayMode != nil {
                 // Pops in once the capability check resolves rather than
                 // fading, on every SwiftUI version tried — content inside a
                 // `ToolbarItem` is hosted through the bridge to
@@ -77,7 +123,7 @@ struct ProjectOverviewView: View {
                 // conditional. Accepted as a platform limitation rather than
                 // chased further.
                 ToolbarItem(placement: .primaryAction) {
-                    DisplayModeSwitcher(selection: $displayMode)
+                    DisplayModeSwitcher(selection: modeSelection)
                 }
                 .hidingSharedGlassBackground
             }
@@ -128,42 +174,56 @@ struct ProjectOverviewView: View {
         }
     }
 
-    /// Split out of `body`, which was timing out the type checker once this
-    /// screen's modifier chain got long enough — this half carries the
-    /// navigation chrome (title, search, toolbar); `body` applies the rest
-    /// (lifecycle hooks, sheets, confirmations) on top of it, so the type
-    /// checker sees two shorter expressions instead of one very long one.
+    @ViewBuilder
+    private func projectContent(for mode: ProjectDisplayMode) -> some View {
+        switch mode {
+        case .list:
+            content
+                .projectsListStyle()
+                // Let the last task scroll above the tab bar and global quick-add overlay.
+                .contentMargins(.bottom, VikuSpacing.xxl * 2, for: .scrollContent)
+                // Animates only the rows a reschedule moves out of Overdue.
+                .animation(reduceMotion ? nil : .snappy, value: viewModel.overdueRescheduler.completedCount)
+                .scrollContentBackground(.hidden)
+                .refreshable { await viewModel.refresh() }
+        case .kanban:
+            KanbanBoardView(
+                viewModel: kanbanViewModel, boardSelection: boardSelection,
+                searchText: searchText, onSelectTask: onSelectTask,
+                onBoardResolved: boardResolved,
+                taskContextMenu: { task in
+                    let boardID = kanbanViewModel.viewID
+                    return taskContextMenu(for: task, orderingActions: kanbanOrderingActions(for: task)) {
+                        Task {
+                            guard kanbanViewModel.viewID == boardID else { return }
+                            await kanbanViewModel.setCompletion(task, isDone: !task.isDone)
+                        }
+                    }
+                },
+            )
+        }
+    }
+
+    /// Keep navigation chrome separate from lifecycle hooks, sheets and confirmations.
     private var screenChrome: some View {
         VStack(spacing: 0) {
-            switch viewModel.supportsKanban ? displayMode : .list {
-            case .list:
-                content
-                    .projectsListStyle()
-                    // Let the last task scroll above the tab bar and global quick-add overlay.
-                    .contentMargins(.bottom, VikuSpacing.xxl * 2, for: .scrollContent)
-                    // Animates only the rows a reschedule moves out of Overdue.
-                    .animation(reduceMotion ? nil : .snappy, value: viewModel.overdueRescheduler.completedCount)
-                    .scrollContentBackground(.hidden)
-                    .refreshable { await viewModel.refresh() }
-            case .kanban:
-                KanbanBoardView(
-                    viewModel: kanbanViewModel, boardSelection: $selectedKanbanBoardID,
-                    searchText: searchText, onSelectTask: onSelectTask,
-                    taskContextMenu: { task in
-                        let boardID = kanbanViewModel.viewID
-                        return taskContextMenu(for: task, orderingActions: kanbanOrderingActions(for: task)) {
-                            Task {
-                                guard kanbanViewModel.viewID == boardID else { return }
-                                await kanbanViewModel.setCompletion(task, isDone: !task.isDone)
-                            }
-                        }
-                    },
-                )
+            if let displayMode {
+                // SwiftUI gets the search field and its scroll surface in the same update.
+                projectContent(for: displayMode)
+                    .searchable(text: $searchText, prompt: Text("Search tasks", bundle: .module))
+            } else {
+                Spacer()
+            }
+        }
+        .opacity(restoringView.isVisible ? 0 : 1)
+        .accessibilityHidden(restoringView.isVisible)
+        .overlay {
+            if restoringView.isVisible {
+                ProgressView()
             }
         }
         .background(palette.pageBackground)
         .navigationTitle(viewModel.project.title)
-        .searchable(text: $searchText, prompt: Text("Search tasks", bundle: .module))
         .toolbar { toolbarContent }
         .taskBulkSelection(viewModel.bulkSelection, visibleTasks: visibleTasks) {
             await viewModel.deleteSelectedTasks(visibleTasks: visibleTasks)
@@ -181,23 +241,23 @@ struct ProjectOverviewView: View {
             .task { await viewModel.start() }
             .task { await viewModel.observeLocalChanges() }
             .task {
-                await viewModel.observeReachability()
+                await viewModel.observeReachability { isOnline in
+                    projectView.updateReachability(isOnline: isOnline, kind: viewModel.project.kind)
+                }
+            }
+            .task(id: displayMode == nil) {
+                let clock = ContinuousClock()
+                restoringView.setLoading(displayMode == nil, now: clock.now)
+                while let deadline = restoringView.nextUpdate {
+                    do { try await clock.sleep(until: deadline) } catch { return }
+                    guard !Task.isCancelled else { return }
+                    restoringView.advance(now: clock.now)
+                }
             }
             .onAppear {
                 viewModel.markVisible()
             }
             .onDisappear { viewModel.markHidden() }
-            .onChange(of: viewModel.supportsKanban) { _, supportsKanban in
-                if !supportsKanban {
-                    displayMode = .list
-                }
-            }
-            .onChange(of: kanbanViewModel.boardCatalog?.isEmpty == true) { _, hasNoBoards in
-                if hasNoBoards, displayMode == .kanban {
-                    displayMode = .list
-                    selectedKanbanBoardID = nil
-                }
-            }
             .onChange(of: viewModel.isOffline) { wasOffline, isOffline in
                 if wasOffline, !isOffline, displayMode == .kanban {
                     Task { await kanbanViewModel.refresh() }
@@ -702,13 +762,6 @@ private struct SubprojectCard: View {
         }
         .buttonStyle(.plain)
     }
-}
-
-/// Which body `ProjectOverviewView` currently shows — the existing task
-/// `List`, or the Kanban board (gated on `viewModel.supportsKanban`).
-enum ProjectDisplayMode: Hashable {
-    case list
-    case kanban
 }
 
 /// Status filter for this project's own task list.

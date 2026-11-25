@@ -858,6 +858,11 @@ appearance settings because package tests do not verify Liquid Glass compositing
 
 ## Project Kanban views
 
+Project and saved-filter screens remember List or a Kanban view ID in on-device
+preferences keyed by account and entity. A first visit defaults to List. The
+first available board is the fallback for a removed view. A saved filter opened
+offline stays in List for that visit and retains its Kanban preference.
+
 Project Kanban keeps a local catalog in server display order, separate from each
 board's downloaded columns, assignments, and positions. Opening Kanban refreshes
 the catalog and downloads the selected view on demand. A view without a
@@ -978,11 +983,12 @@ writes, creation, and connection requirements instead of choosing a transport.
 Snapshot queries do not perform networking. The online adapter implements
 `SyncTriggering` for explicit downloads and awaits the server for movements.
 
-Saved-filter bucket membership is kept in memory, while task fields are merged
-into the same account-scoped canonical records used by List and detail. Pending
-local changes and deletions remain protected. Creation from a filter column is
-disabled because it requires selecting a real owning project. Automatic bucket
-rules remain read-only. Saved filters hide the switcher and show List while offline.
+The saved-filter catalog and selected board's bucket membership are kept in
+memory. Task fields are merged into the same account-scoped canonical records
+used by List and detail. Pending local changes and deletions remain protected.
+Creation from a filter column is disabled because it requires selecting a real
+owning project. Automatic bucket rules remain read-only. Saved filters hide the
+switcher and show List while offline.
 A failed online refresh retains the last visible snapshot;
 reopening the app requires downloading the board again.
 
