@@ -174,20 +174,24 @@ public struct OfflineKanbanBoardRepository: KanbanBoardRepositoryProtocol {
                 .filter(Column("projectLocalID") == project.localID).fetchAll(db)
             let byID = Dictionary(uniqueKeysWithValues: tasks.map { ($0.localID, $0) })
             let context = try OfflineTaskRepository.makeAssemblyContext(accountID: accountID, db: db)
+            let assignmentsByBucket = Dictionary(grouping: assignments, by: \.bucketLocalID)
             let buckets = records.map { bucket in
-                KanbanBucket(
+                let taskIDs = view.automaticMembership.map { $0[bucket.remoteID] ?? [] }
+                    ?? assignmentsByBucket[bucket.localID, default: []].map(\.taskLocalID)
+                return KanbanBucket(
                     id: bucket.remoteID, title: bucket.title,
                     isDoneBucket: bucket.remoteID == view.doneBucketID, limit: bucket.limit,
-                    tasks: assignments.filter { $0.bucketLocalID == bucket.localID }.compactMap {
-                        guard !hidden.contains($0.taskLocalID), let row = byID[$0.taskLocalID] else { return nil }
+                    tasks: taskIDs.compactMap { taskID in
+                        guard !hidden.contains(taskID), let row = byID[taskID] else { return nil }
                         return OfflineTaskRepository.task(from: row, context: context)
                     },
                 )
             }
+            let supportsWrites = KanbanLocalMutations.supports(view)
             return .available(KanbanBoard(
                 viewID: view.remoteID, buckets: buckets, defaultBucketID: view.defaultBucketID,
-                supportsWrites: KanbanLocalMutations.supports(view),
-                lastPulledAt: pulledAt,
+                supportsWrites: supportsWrites, lastPulledAt: pulledAt,
+                supportsTaskCreation: supportsWrites,
             ))
         }
     }

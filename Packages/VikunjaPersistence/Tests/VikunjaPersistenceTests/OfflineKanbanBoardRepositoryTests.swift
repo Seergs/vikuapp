@@ -205,6 +205,64 @@ struct OfflineKanbanBoardRepositoryTests {
         #expect(change != nil)
     }
 
+    @Test(arguments: ["manual", "filter"])
+    func `migration keeps legacy board cards and queued task intent`(mode: String) async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let database = try DatabaseQueue(path: directory.appendingPathComponent("viku.sqlite").path)
+        var migrator = DatabaseMigrator()
+        DatabaseMigrations.registerAll(on: &migrator)
+        try migrator.migrate(database, upTo: "addProjectPendingOnlineCreationAt")
+        let accountID = UUID()
+        let projectID = UUID()
+        let taskID = UUID()
+        let viewID = UUID()
+        let bucketID = UUID()
+        let placement = KanbanAssignmentRecord(
+            accountID: accountID, projectLocalID: projectID, viewLocalID: viewID,
+            bucketLocalID: bucketID, taskLocalID: taskID, position: 23,
+        )
+        try await database.write { db in
+            try ProjectRecord(
+                localID: projectID, accountID: accountID, remoteID: 1, title: "Work", description: nil,
+                isArchived: false, isFavorite: false, parentProjectLocalID: nil, position: 0,
+                hexColor: "", serverUpdatedAt: nil,
+            ).insert(db)
+            try TaskRecord(
+                localID: taskID, accountID: accountID, remoteID: 100, title: "Keep this task", description: nil,
+                isDone: false, dueDate: nil, priority: 0, projectLocalID: projectID, serverUpdatedAt: nil,
+            ).insert(db)
+            try db.execute(sql: """
+            INSERT INTO kanbanView (localID, accountID, projectLocalID, remoteID, mode, filterQuery, lastCompletePullAt)
+            VALUES (?, ?, ?, 10, ?, '', ?)
+            """, arguments: [viewID, accountID, projectID, mode, Date()])
+            try KanbanBucketRecord(
+                localID: bucketID, accountID: accountID, projectLocalID: projectID, viewLocalID: viewID,
+                remoteID: 20, title: "Keep this bucket", position: 0, limit: 0, serverCount: 1,
+            ).insert(db)
+            try placement.insert(db)
+            let operation = mode == "manual" ? "moveBucket" : "update"
+            try db.execute(sql: """
+            INSERT INTO mutationQueueItem
+                (accountID, entityType, operation, targetLocalID, createdAt, retryCount, status)
+            VALUES (?, 'task', ?, ?, ?, 0, 'pending')
+            """, arguments: [accountID, operation, taskID, Date()])
+        }
+
+        let store = try LocalStore(directory: directory)
+        let board = OfflineKanbanBoardRepository(
+            localStore: store, accountID: accountID, syncRequester: NoopKanbanSyncRequester(),
+        )
+        guard case let .available(snapshot) = try await board.fetchBoard(projectID: 1, viewID: 10) else {
+            Issue.record("Expected the pre-migration board"); return
+        }
+        #expect(snapshot.buckets.first?.tasks.map(\.id) == [100])
+        #expect(snapshot.supportsWrites == (mode == "manual"))
+        #expect(try await store.read { try KanbanAssignmentRecord.fetchOne($0) } == placement)
+        #expect(try await store.read { try MutationQueueRecord.fetchOne($0)?.targetLocalID } == taskID)
+    }
+
     @Test func `additive migration preserves existing tasks`() throws {
         let db = try DatabaseQueue()
         var migrator = DatabaseMigrator()

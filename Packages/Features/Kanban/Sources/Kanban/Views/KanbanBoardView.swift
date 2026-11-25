@@ -24,6 +24,7 @@ public struct KanbanBoardView: View {
     let searchText: String
     let onSelectTask: (VikunjaTask) -> Void
     private let onBoardResolved: ((Int?) -> Void)?
+    private let onShowList: (() -> Void)?
     private let taskContextMenu: (VikunjaTask) -> [ContextMenuItem]
 
     @State private var hasStarted = false
@@ -40,6 +41,7 @@ public struct KanbanBoardView: View {
         searchText: String = "",
         onSelectTask: @escaping (VikunjaTask) -> Void,
         onBoardResolved: ((Int?) -> Void)? = nil,
+        onShowList: (() -> Void)? = nil,
         taskContextMenu: @escaping (VikunjaTask) -> [ContextMenuItem],
     ) {
         self.viewModel = viewModel
@@ -47,6 +49,7 @@ public struct KanbanBoardView: View {
         self.searchText = searchText
         self.onSelectTask = onSelectTask
         self.onBoardResolved = onBoardResolved
+        self.onShowList = onShowList
         self.taskContextMenu = taskContextMenu
     }
 
@@ -197,7 +200,7 @@ public struct KanbanBoardView: View {
         case .idle, .loading:
             Spacer().frame(maxWidth: .infinity, maxHeight: .infinity)
         case let .failure(message):
-            VikuStatusView(
+            missingBoardStatus(
                 systemImage: "exclamationmark.triangle.fill",
                 title: String(localized: "Couldn't load this board", bundle: .module),
                 message: message,
@@ -214,7 +217,7 @@ public struct KanbanBoardView: View {
                     )
                 }
             } else if !viewModel.hasSnapshot {
-                VikuStatusView(
+                missingBoardStatus(
                     systemImage: "icloud.and.arrow.down",
                     title: String(localized: "Board unavailable", bundle: .module),
                     message: unavailableMessage,
@@ -235,6 +238,21 @@ public struct KanbanBoardView: View {
                 board.id(viewModel.viewID)
             }
         }
+    }
+
+    private func missingBoardStatus(
+        systemImage: String, title: String, message: String, retry: (() -> Void)? = nil,
+    ) -> some View {
+        VStack(spacing: VikuSpacing.sm) {
+            VikuStatusView(systemImage: systemImage, title: title, message: message, fillsHeight: false, retry: retry)
+            if let onShowList {
+                Button(action: onShowList) {
+                    Text("Show List", bundle: .module)
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var unavailableMessage: String {

@@ -283,6 +283,7 @@ public actor SyncCoordinator {
                 throw VikunjaError.notFound
             }
             let engine = makeEngine(account)
+            let hasPriorityUploads = workByAccount[accountID]?.priorityUploads.isEmpty == false
             try await uploadPriorityTasks(accountID: accountID, engine: engine)
             let authenticationRevision = authenticationRefreshes[accountID]
             let needsPass = workByAccount[accountID]?.needsAnotherPass ?? false
@@ -313,6 +314,9 @@ public actor SyncCoordinator {
                 workByAccount[accountID]?.requestedThreads.remove(id)
             }
             boardFailures = await pullPendingBoards(account, previousFailures: boardFailures)
+            if needsPass || hasPriorityUploads {
+                try await engine.refreshAutomaticKanbanMembership()
+            }
             if hasPendingWork(accountID: accountID) {
                 continue
             }

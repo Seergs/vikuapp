@@ -185,6 +185,30 @@ public actor SyncEngine {
         }
     }
 
+    func refreshAutomaticKanbanMembership() async throws {
+        let views = try await localStore.read { db in
+            try KanbanViewRecord.filter(Column("accountID") == self.accountID)
+                .filter(Column("needsMembershipRefresh") == true)
+                .order(Column("projectLocalID"), Column("remoteID")).fetchAll(db)
+        }
+        for view in views {
+            try Task.checkCancellation()
+            let projectID = EntityID.local(view.projectLocalID)
+            do {
+                try await pullKanban(projectID: projectID, viewID: view.remoteID)
+            } catch VikunjaError.notFound {
+                // Let an authoritative catalog remove views deleted on the server.
+                do { _ = try await pullKanbanCatalog(projectID: projectID) } catch {
+                    try checkSyncInterruption(error)
+                }
+            } catch {
+                // An auxiliary pull cannot fail an acknowledged task write.
+                // Leave the view marked for the next account pass.
+                try checkSyncInterruption(error)
+            }
+        }
+    }
+
     nonisolated func storeKanban(_ download: KanbanDownload, project: ProjectRecord, db: Database) throws {
         let queue = try MutationQueueRecord.filter(Column("accountID") == accountID).fetchAll(db)
         let protected = Set(queue.filter { $0.entityType == .task }.map(\.targetLocalID))
@@ -209,25 +233,46 @@ public actor SyncEngine {
         view.defaultBucketID = download.defaultBucketID
         view.doneBucketID = download.doneBucketID
         view.lastCompletePullAt = Date()
+        view.needsMembershipRefresh = false
+        if download.mode == "filter" {
+            view.automaticMembership = Dictionary(uniqueKeysWithValues: download.buckets.map { bucket in
+                let orderedIDs = bucket.tasks.compactMap { $0.id.remoteValue.flatMap { identities[$0] } }
+                return (bucket.id, orderedIDs)
+            })
+            try Self.storeAutomaticKanbanBuckets(download.buckets, view: view, db: db)
+            return
+        }
+        view.automaticMembership = nil
         try view.save(db)
+        try Self.storeManualKanbanAssignments(
+            download, view: view, identities: identities, intent: (protected, deleted), db: db,
+        )
+    }
+
+    private static func storeManualKanbanAssignments(
+        _ download: KanbanDownload, view: KanbanViewRecord, identities: [Int: UUID],
+        intent: (protected: Set<UUID>, deleted: Set<UUID>), db: Database,
+    ) throws {
         let assignments = try KanbanAssignmentRecord.filter(Column("viewLocalID") == view.localID).fetchAll(db)
         let cachedPositions = Dictionary(uniqueKeysWithValues: assignments.map { ($0.taskLocalID, $0.position) })
-        let preserved = assignments.filter { protected.contains($0.taskLocalID) && !deleted.contains($0.taskLocalID) }
+        let preserved = assignments.filter {
+            intent.protected.contains($0.taskLocalID) && !intent.deleted.contains($0.taskLocalID)
+        }
         try KanbanAssignmentRecord.filter(Column("viewLocalID") == view.localID)
             .filter(!preserved.map(\.taskLocalID).contains(Column("taskLocalID"))).deleteAll(db)
         var keptBucketIDs = Set(preserved.map(\.bucketLocalID))
         for (index, bucket) in download.buckets.enumerated() {
-            let row = try Self.saveKanbanBucket(bucket, position: index, view: view, db: db)
+            let row = try saveKanbanBucket(bucket, position: index, view: view, db: db)
             keptBucketIDs.insert(row.localID)
             for (position, task) in bucket.tasks.enumerated() {
-                guard let id = task.id.remoteValue, let localID = identities[id], !deleted.contains(localID),
+                guard let id = task.id.remoteValue, let localID = identities[id],
                       !preserved.contains(where: { $0.taskLocalID == localID }),
                       let canonical = try TaskRecord.fetchOne(db, key: localID),
-                      canonical.projectLocalID == project.localID
+                      canonical.projectLocalID == view.projectLocalID
                 else { continue }
                 try KanbanAssignmentRecord(
-                    accountID: accountID,
-                    projectLocalID: project.localID,
+                    accountID: view.accountID,
+                    projectLocalID: view.projectLocalID,
                     viewLocalID: view.localID,
                     bucketLocalID: row.localID,
                     taskLocalID: localID,
@@ -253,20 +298,48 @@ public actor SyncEngine {
     ) throws -> [Int: UUID] {
         guard let remoteProjectID = project.remoteID else { throw VikunjaError.notFound }
         let tasks = download.buckets.flatMap(\.tasks)
-        guard Set(download.buckets.map(\.id)).count == download.buckets.count,
-              Set(tasks.map(\.id)).count == tasks.count,
+        let automatic = download.mode == "filter"
+        let validMembership = automatic
+            ? download.buckets.allSatisfy { Set($0.tasks.map(\.id)).count == $0.tasks.count }
+            : Set(tasks.map(\.id)).count == tasks.count
+        guard Set(download.buckets.map(\.id)).count == download.buckets.count, validMembership,
               tasks.allSatisfy({ $0.id.remoteValue != nil && $0.projectID == .remote(remoteProjectID) })
         else { throw VikunjaError.decoding("Invalid Kanban snapshot identity") }
-        let identities = Self.reserveTaskLocalIDs(for: tasks, existing: rows)
+        var canonicalTasks = tasks
+        if automatic {
+            var byID: [EntityID: VikunjaTask] = [:]
+            for task in tasks {
+                if let existing = byID[task.id],
+                   (existing.updated ?? .distantPast) >= (task.updated ?? .distantPast) {
+                    continue
+                }
+                byID[task.id] = task
+            }
+            canonicalTasks = Array(byID.values)
+        }
+        let deletedRemoteIDs = automatic
+            ? try pendingDeleteRemoteIDs(accountID: project.accountID, entityType: .task, db: db) : []
+        let identities = reserveTaskLocalIDs(for: canonicalTasks, existing: rows).filter {
+            !deletedRemoteIDs.contains($0.key) && !intent.deleted.contains($0.value)
+        }
         try Self.upsertTaskRows(
-            for: tasks.filter { task in
-                guard let id = task.id.remoteValue, let localID = identities[id] else { return false }
-                return !intent.deleted.contains(localID)
-            },
+            for: canonicalTasks,
             accountID: project.accountID, localIDByRemoteID: identities,
             projectLocalIDByRemoteID: [remoteProjectID: project.localID], protectedLocalIDs: intent.protected, db: db,
         )
         return identities
+    }
+
+    private static func storeAutomaticKanbanBuckets(
+        _ buckets: [KanbanBucket], view: KanbanViewRecord, db: Database,
+    ) throws {
+        try view.save(db)
+        try KanbanAssignmentRecord.filter(Column("viewLocalID") == view.localID).deleteAll(db)
+        for (index, bucket) in buckets.enumerated() {
+            _ = try saveKanbanBucket(bucket, position: index, view: view, db: db)
+        }
+        try KanbanBucketRecord.filter(Column("viewLocalID") == view.localID)
+            .filter(!buckets.map(\.id).contains(Column("remoteID"))).deleteAll(db)
     }
 
     private static func saveKanbanBucket(
@@ -1650,6 +1723,9 @@ public actor SyncEngine {
         }
         try await localStore.write { db in
             if let row = try TaskRecord.fetchOne(db, key: item.targetLocalID) {
+                try KanbanViewRecord.markAutomaticMembershipForRefresh(
+                    accountID: item.accountID, projectIDs: [row.projectLocalID], db: db,
+                )
                 try TaskRelationDeletion.removeReferences(to: row, db: db)
                 try row.delete(db)
             }
@@ -1701,6 +1777,9 @@ public actor SyncEngine {
                 }
                 row.labelRemoteIDs = ids.map(String.init).joined(separator: ",")
                 try row.save(db)
+                try KanbanViewRecord.markAutomaticMembershipForRefresh(
+                    accountID: item.accountID, projectIDs: [row.projectLocalID], db: db,
+                )
             }
             try item.delete(db)
         }
@@ -1862,6 +1941,19 @@ public actor SyncEngine {
         guard let remoteID = task.id.remoteValue else { throw VikunjaError.notFound }
         var applyReminders = false
         if var row = try TaskRecord.fetchOne(db, key: item.targetLocalID) {
+            let serverFields = try TaskEditableFields.server(task, accountID: item.accountID, db: db)
+            var affectedProjects: Set<UUID> = [row.projectLocalID]
+            if let destination = serverFields?.projectLocalID {
+                affectedProjects.insert(destination)
+            }
+            if item.operation == .update,
+               let payload = try decode(TaskCreateOrUpdatePayload.self, from: item.payload),
+               let origin = payload.baseFields?.projectLocalID {
+                affectedProjects.insert(origin)
+            }
+            try KanbanViewRecord.markAutomaticMembershipForRefresh(
+                accountID: item.accountID, projectIDs: affectedProjects, db: db,
+            )
             row.remoteID = remoteID
             row.serverUpdatedAt = task.updated
             let queued = try MutationQueueRecord.filter(Column("targetLocalID") == row.localID).fetchAll(db)
@@ -1873,7 +1965,7 @@ public actor SyncEngine {
             applyReminders = !hasNewerIntent
             if !hasNewerIntent {
                 let completionChanged = row.isDone != task.isDone
-                let projectID = try TaskEditableFields.server(task, accountID: item.accountID, db: db)?.projectLocalID
+                let projectID = serverFields?.projectLocalID
                 let projectChanged = projectID.map { $0 != row.projectLocalID } ?? false
                 row.title = task.title
                 row.description = task.description
