@@ -6,6 +6,7 @@ actor UITestProjectRepository: ProjectRepositoryProtocol {
     private var projects = [
         Project(id: 1, title: "UI Test Project"),
         Project(id: 2, title: "UI Test Context Project"),
+        Project(id: -2, title: "UI Test Saved Filter"),
     ]
     private var nextID = 100
 

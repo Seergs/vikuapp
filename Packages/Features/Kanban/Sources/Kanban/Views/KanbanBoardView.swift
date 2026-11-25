@@ -23,8 +23,10 @@ public struct KanbanBoardView: View {
     /// done-bucket lookups in `KanbanBoardViewModel` keep seeing every task.
     let searchText: String
     let onSelectTask: (VikunjaTask) -> Void
+    private let onBoardResolved: ((Int?) -> Void)?
     private let taskContextMenu: (VikunjaTask) -> [ContextMenuItem]
 
+    @State private var hasStarted = false
     @State private var loadingPresentation = KanbanLoadingPresentation()
     @State private var presentationOrigin = ContinuousClock.now
     @State private var showsLoadingInContent = false
@@ -37,12 +39,14 @@ public struct KanbanBoardView: View {
         boardSelection: Binding<Int?> = .constant(nil),
         searchText: String = "",
         onSelectTask: @escaping (VikunjaTask) -> Void,
+        onBoardResolved: ((Int?) -> Void)? = nil,
         taskContextMenu: @escaping (VikunjaTask) -> [ContextMenuItem],
     ) {
         self.viewModel = viewModel
         self._boardSelection = boardSelection
         self.searchText = searchText
         self.onSelectTask = onSelectTask
+        self.onBoardResolved = onBoardResolved
         self.taskContextMenu = taskContextMenu
     }
 
@@ -51,8 +55,10 @@ public struct KanbanBoardView: View {
         // owns its pull-to-refresh and card scrolling.
         GeometryReader { geometry in
             ScrollView {
-                content
-                    .frame(width: geometry.size.width, height: geometry.size.height)
+                if viewModel.preferredViewID == boardSelection {
+                    content
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                }
             }
             .refreshable { await viewModel.refresh() }
         }
@@ -81,8 +87,34 @@ public struct KanbanBoardView: View {
                 do { try await clock.sleep(for: delay) } catch { return }
             }
         }
-        .task(id: boardSelection) { await viewModel.start(preferredViewID: boardSelection) }
+        .task(id: boardSelection) {
+            hasStarted = false
+            await viewModel.start(preferredViewID: boardSelection)
+            if !Task.isCancelled {
+                hasStarted = true
+            }
+        }
         .task { await viewModel.observeLocalChanges() }
+        .onChange(of: resolution) { _, resolution in
+            switch resolution {
+            case let .board(id): onBoardResolved?(id)
+            case .empty: onBoardResolved?(nil)
+            case nil: break
+            }
+        }
+    }
+
+    private enum BoardResolution: Equatable {
+        case board(Int)
+        case empty
+    }
+
+    private var resolution: BoardResolution? {
+        guard hasStarted, !viewModel.isRefreshing, viewModel.preferredViewID == boardSelection else { return nil }
+        if viewModel.boardCatalog?.isEmpty == true {
+            return loadingPresentation.isVisible ? nil : .empty
+        }
+        return viewModel.viewID.map(BoardResolution.board)
     }
 
     private var isWaitingForBoard: Bool {
@@ -115,7 +147,8 @@ public struct KanbanBoardView: View {
     }
 
     private func boardPicker(_ catalog: [KanbanViewSummary]) -> some View {
-        let current = catalog.first { $0.id == viewModel.viewID } ?? catalog[0]
+        let currentID = viewModel.viewID ?? boardSelection
+        let current = catalog.first { $0.id == currentID } ?? catalog[0]
         return Menu {
             Text("Kanban boards", bundle: .module)
             Picker(selection: Binding(get: { current.id }, set: { boardSelection = $0 })) {
@@ -172,12 +205,14 @@ public struct KanbanBoardView: View {
             )
         case .loaded:
             if viewModel.boardCatalog?.isEmpty == true {
-                VikuStatusView(
-                    systemImage: "rectangle.split.3x1",
-                    title: String(localized: "No Kanban boards", bundle: .module),
-                    message: String(localized: "Refresh to check for boards.", bundle: .module),
-                    retry: { Task { await viewModel.refresh() } },
-                )
+                if onBoardResolved == nil {
+                    VikuStatusView(
+                        systemImage: "rectangle.split.3x1",
+                        title: String(localized: "No Kanban boards", bundle: .module),
+                        message: String(localized: "Refresh to check for boards.", bundle: .module),
+                        retry: { Task { await viewModel.refresh() } },
+                    )
+                }
             } else if !viewModel.hasSnapshot {
                 VikuStatusView(
                     systemImage: "icloud.and.arrow.down",

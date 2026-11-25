@@ -24,7 +24,7 @@ public final class KanbanBoardViewModel {
 
     public private(set) var needsProjectSync = false
 
-    private var preferredViewID: Int?
+    private(set) var preferredViewID: Int?
     private var selectionVersion = 0
     private let repository: KanbanBoardRepositoryProtocol
     private let orderingRepository: KanbanTaskOrderingProtocol?
