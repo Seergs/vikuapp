@@ -864,10 +864,14 @@ the catalog and downloads the selected view on demand. A view without a
 downloaded snapshot remains selectable offline. Account reload refreshes the
 catalog and rebuilds snapshots only for previously downloaded views that still
 exist. An authoritative catalog can remove a board snapshot while preserving
-queued task intent.
+queued task intent. Rejected creations can be redirected to a cached manual board.
 
 Kanban refreshes are keyed by project and view within the account worker.
-Assignments are per view and completion belongs to the shared task.
+Assignments are per view and completion belongs to the shared task. A drag that
+completes a task projects the change onto other cached manual boards where the
+task already appears. The sync engine then reads their authoritative placements
+after the move is resolved. A move in a different view from a pending creation
+keeps its own queue entry and waits for the server task ID.
 
 ## Kanban task ordering
 

@@ -9,6 +9,7 @@ struct KanbanMovePayload: Codable, Sendable, Equatable {
     var baselineBucketID: Int
     var overrideRemotePlacement: Bool?
     var isDone: Bool
+    var changesCompletion: Bool?
 }
 
 enum KanbanLocalMutations {
@@ -56,6 +57,9 @@ enum KanbanLocalMutations {
         try task.update(db)
         assignment.bucketLocalID = destination.localID
         try assignment.update(db)
+        if !wasDone, task.isDone {
+            try placeInOtherDoneBuckets(task, excluding: view.localID, db: db)
+        }
         // A later bucket move supersedes an unsubmitted order in the old bucket.
         for item in queue where item.operation == .setTaskPosition && item.status != .inFlight {
             if try KanbanPositionLocalMutations.payload(item).viewID == view.remoteID {
@@ -68,8 +72,23 @@ enum KanbanLocalMutations {
             bucketID: destination.remoteID,
             baselineBucketID: source.remoteID,
             isDone: task.isDone,
+            changesCompletion: wasDone != task.isDone,
         ), task: task, db: db)
         return try (domain(task, db: db), true)
+    }
+
+    private static func placeInOtherDoneBuckets(_ task: TaskRecord, excluding viewID: UUID, db: Database) throws {
+        let assignments = try KanbanAssignmentRecord.filter(Column("taskLocalID") == task.localID)
+            .filter(Column("viewLocalID") != viewID).fetchAll(db)
+        for var assignment in assignments {
+            guard let view = try KanbanViewRecord.fetchOne(db, key: assignment.viewLocalID),
+                  supports(view), let done = view.doneBucketID,
+                  let bucket = try KanbanBucketRecord.filter(Column("viewLocalID") == view.localID)
+                  .filter(Column("remoteID") == done).fetchOne(db),
+                  assignment.bucketLocalID != bucket.localID else { continue }
+            assignment.bucketLocalID = bucket.localID
+            try assignment.update(db)
+        }
     }
 
     static func supports(_ view: KanbanViewRecord) -> Bool {
@@ -120,20 +139,29 @@ enum KanbanLocalMutations {
 
     private static func enqueueMove(_ payload: KanbanMovePayload, task: TaskRecord, db: Database) throws {
         let queue = try MutationQueueRecord.filter(Column("accountID") == task.accountID)
-            .filter(Column("targetLocalID") == task.localID).fetchAll(db)
-        if var creation = queue.first(where: { $0.operation == .create && $0.status == .pending }) {
+            .filter(Column("targetLocalID") == task.localID).order(Column("id")).fetchAll(db)
+        let moves = try queue.filter { $0.operation == .moveBucket }.map { item in
+            try (item: item, payload: decode(KanbanMovePayload.self, item: item))
+        }
+        if moves.allSatisfy({ $0.payload.viewID == payload.viewID }),
+           var creation = queue.first(where: { $0.operation == .create && $0.status == .pending }) {
             var body = try decode(TaskCreateOrUpdatePayload.self, item: creation)
-            body.kanbanDestination = KanbanCreationDestination(viewID: payload.viewID, bucketID: payload.bucketID)
-            body.isDone = task.isDone
-            creation.payload = try encode(body)
-            try creation.update(db)
-            return
+            if body.kanbanDestination == nil || body.kanbanDestination?.viewID == payload.viewID {
+                body.kanbanDestination = KanbanCreationDestination(viewID: payload.viewID, bucketID: payload.bucketID)
+                body.isDone = task.isDone
+                creation.payload = try encode(body)
+                try creation.update(db)
+                return
+            }
         }
         var updated = payload
-        var mutation = queue.first { item in
-            item.operation == .moveBucket && item.status != .inFlight
-                && (try? decode(KanbanMovePayload.self, item: item).viewID) == payload.viewID
-        } ?? MutationQueueRecord(
+        // A move on another board can change the task's completion between two moves on this board.
+        let coalescible = moves.reversed().prefix {
+            $0.payload.viewID == payload.viewID && $0.item.status != .inFlight
+                && ($0.payload.changesCompletion != true || $0.item.needsConflictResolution)
+        }
+        let previous = coalescible.last
+        var mutation = previous?.item ?? MutationQueueRecord(
             id: nil,
             accountID: task.accountID,
             entityType: .task,
@@ -146,17 +174,16 @@ enum KanbanLocalMutations {
             status: .pending,
             needsConflictResolution: false,
         )
-        if mutation.id != nil {
-            let previous = try decode(KanbanMovePayload.self, item: mutation)
-            updated.baselineBucketID = previous.baselineBucketID
-            updated.overrideRemotePlacement = previous.overrideRemotePlacement == true
-                || mutation.needsConflictResolution
-        }
-        for obsolete in queue where obsolete.operation == .moveBucket && obsolete.status != .inFlight
-            && obsolete.id != mutation.id {
-            if try decode(KanbanMovePayload.self, item: obsolete).viewID == payload.viewID {
-                try obsolete.delete(db)
+        if let previous {
+            updated.baselineBucketID = previous.payload.baselineBucketID
+            updated.overrideRemotePlacement = coalescible.contains {
+                $0.payload.overrideRemotePlacement == true || $0.item.needsConflictResolution
             }
+            updated.changesCompletion = payload.changesCompletion == true
+                || coalescible.contains { $0.payload.changesCompletion == true }
+        }
+        for obsolete in coalescible where obsolete.item.id != mutation.id {
+            try obsolete.item.delete(db)
         }
         mutation.payload = try encode(updated)
         mutation.status = .pending

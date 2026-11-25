@@ -18,22 +18,28 @@ public struct OfflineKanbanCreationRecovery: KanbanCreationRecovering {
         try await localStore.read { db in
             let (item, payload) = try rejectedCreation(operationID, db: db)
             guard let destination = payload.kanbanDestination,
-                  let view = try KanbanViewRecord.filter(Column("projectLocalID") == payload.projectLocalID)
-                  .filter(Column("remoteID") == destination.viewID).fetchOne(db), KanbanLocalMutations.supports(view),
                   let project = try ProjectRecord.fetchOne(db, key: payload.projectLocalID), !project.isArchived
             else { throw VikunjaError.notFound }
-            // Use the same snapshot as the board, removing this task's reserved slot.
-            return try KanbanBucketRecord.filter(Column("viewLocalID") == view.localID)
-                .order(Column("position"), Column("remoteID")).fetchAll(db).map { bucket in
-                    let available: Bool
-                    do {
-                        try KanbanCapacity.check(bucket, excluding: item.targetLocalID, db: db)
-                        available = true
-                    } catch let error as VikunjaError where error.isBucketCapacityError {
-                        available = false
+            let titles = try KanbanViewCatalogRecord.fetchOne(db, key: project.localID)?.views ?? []
+            return try Self.recoveryViews(project.localID, original: destination.viewID, db: db).flatMap { view in
+                let title = titles.first { $0.id == view.remoteID }?.title
+                return try KanbanBucketRecord.filter(Column("viewLocalID") == view.localID)
+                    .order(Column("position"), Column("remoteID")).fetchAll(db).map { bucket in
+                        let label = if view.remoteID != destination.viewID, let title, !title.isEmpty {
+                            "\(title) · \(bucket.title)"
+                        } else {
+                            bucket.title
+                        }
+                        let available: Bool
+                        do {
+                            try KanbanCapacity.check(bucket, excluding: item.targetLocalID, db: db)
+                            available = true
+                        } catch let error as VikunjaError where error.isBucketCapacityError {
+                            available = false
+                        }
+                        return KanbanCreationBucket(id: bucket.remoteID, title: label, isFull: !available)
                     }
-                    return KanbanCreationBucket(id: bucket.remoteID, title: bucket.title, isFull: !available)
-                }
+            }
         }
     }
 
@@ -42,20 +48,23 @@ public struct OfflineKanbanCreationRecovery: KanbanCreationRecovering {
             var (item, payload) = try rejectedCreation(operationID, db: db)
             guard var destination = payload.kanbanDestination,
                   var task = try TaskRecord.fetchOne(db, key: item.targetLocalID), task.remoteID == nil,
-                  let project = try ProjectRecord.fetchOne(db, key: task.projectLocalID), !project.isArchived,
-                  let view = try KanbanViewRecord.filter(Column("projectLocalID") == project.localID)
-                  .filter(Column("remoteID") == destination.viewID).fetchOne(db), KanbanLocalMutations.supports(view),
-                  let bucket = try KanbanBucketRecord.filter(Column("viewLocalID") == view.localID)
-                  .filter(Column("remoteID") == (bucketID ?? destination.bucketID)).fetchOne(db)
+                  let project = try ProjectRecord.fetchOne(db, key: task.projectLocalID), !project.isArchived
+            else { throw VikunjaError.notFound }
+            let views = try Self.recoveryViews(project.localID, original: destination.viewID, db: db)
+            let eligible = views.filter { bucketID != nil || $0.remoteID == destination.viewID }
+            guard let bucket = try KanbanBucketRecord.filter(eligible.map(\.localID).contains(Column("viewLocalID")))
+                .filter(Column("remoteID") == (bucketID ?? destination.bucketID)).fetchOne(db),
+                let view = eligible.first(where: { $0.localID == bucket.viewLocalID })
             else { throw VikunjaError.notFound }
             try KanbanCapacity.check(bucket, excluding: task.localID, db: db)
             if destination.bucketID != bucket.remoteID {
                 if bucket.remoteID == view.doneBucketID {
                     task.isDone = true
-                } else if destination.bucketID == view.doneBucketID {
+                } else if destination.viewID == view.remoteID, destination.bucketID == view.doneBucketID {
                     task.isDone = false
                 }
             }
+            destination.viewID = view.remoteID
             destination.bucketID = bucket.remoteID
             payload.kanbanDestination = destination
             payload.kanbanCreatedOnline = false // Explicit recovery must keep the user's work on another rejection.
@@ -71,6 +80,15 @@ public struct OfflineKanbanCreationRecovery: KanbanCreationRecovering {
             try KanbanLocalMutations.place(task, in: bucket, db: db)
         }
         await syncRequester.requestSync()
+    }
+
+    private static func recoveryViews(_ projectID: UUID, original: Int, db: Database) throws -> [KanbanViewRecord] {
+        let views = try KanbanViewRecord.filter(Column("projectLocalID") == projectID)
+            .order(Column("remoteID")).fetchAll(db).filter(KanbanLocalMutations.supports)
+        if let current = views.first(where: { $0.remoteID == original }) {
+            return [current]
+        }
+        return views
     }
 
     public func deleteRejectedCreation(operationID: Int64) async throws {
