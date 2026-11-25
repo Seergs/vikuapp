@@ -126,15 +126,26 @@ actor UITestAuxiliaryRepository: AuthServiceProtocol, LabelRepositoryProtocol, U
     }
 
     func downloadBoard(projectID: Int, viewID: Int?) async throws -> KanbanDownload {
-        throw UITestFixtureError.unsupported("downloadBoard")
-    }
-
-    func fetchKanbanViews(projectID: Int) async throws -> [KanbanViewSummary] {
-        []
+        guard projectID == 1 else { throw VikunjaError.notFound }
+        let board = viewID ?? 11
+        let column: KanbanBucket = switch board {
+        case 11: KanbanBucket(id: 101, title: "Sprint queue")
+        case 12: KanbanBucket(id: 201, title: "Support inbox")
+        default: throw VikunjaError.notFound
+        }
+        return KanbanDownload(
+            viewID: board, mode: "manual", filterQuery: "", defaultBucketID: column.id, doneBucketID: nil,
+            buckets: [column],
+        )
     }
 
     func fetchBuckets(projectID: Int) async throws -> [KanbanBucket] {
         []
+    }
+
+    func fetchKanbanViews(projectID: Int) async throws -> [KanbanViewSummary] {
+        guard projectID == 1 else { return [] }
+        return [KanbanViewSummary(id: 11, title: "Sprint"), KanbanViewSummary(id: 12, title: "Support")]
     }
 
     func moveTask(taskID: Int, toBucketID: Int, projectID: Int, viewID: Int?) async throws -> VikunjaTask {

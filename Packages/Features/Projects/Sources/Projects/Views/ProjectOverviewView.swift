@@ -31,6 +31,7 @@ struct ProjectOverviewView: View {
     /// passed as the parent instead of `nil`.
     let makeCreateProjectViewModel: (EntityID?) -> CreateProjectViewModel
     @State private var displayMode: ProjectDisplayMode = .list
+    @State private var selectedKanbanBoardID: Int?
     @State private var filter: ProjectTaskFilter = .all
     @State private var searchText = ""
     @State private var taskPendingDelete: VikunjaTask?
@@ -146,10 +147,15 @@ struct ProjectOverviewView: View {
                     .refreshable { await viewModel.refresh() }
             case .kanban:
                 KanbanBoardView(
-                    viewModel: kanbanViewModel, searchText: searchText, onSelectTask: onSelectTask,
+                    viewModel: kanbanViewModel, boardSelection: $selectedKanbanBoardID,
+                    searchText: searchText, onSelectTask: onSelectTask,
                     taskContextMenu: { task in
-                        taskContextMenu(for: task, orderingActions: kanbanOrderingActions(for: task)) {
-                            Task { await kanbanViewModel.setCompletion(task, isDone: !task.isDone) }
+                        let boardID = kanbanViewModel.viewID
+                        return taskContextMenu(for: task, orderingActions: kanbanOrderingActions(for: task)) {
+                            Task {
+                                guard kanbanViewModel.viewID == boardID else { return }
+                                await kanbanViewModel.setCompletion(task, isDone: !task.isDone)
+                            }
                         }
                     },
                 )
@@ -184,6 +190,17 @@ struct ProjectOverviewView: View {
             .onChange(of: viewModel.supportsKanban) { _, supportsKanban in
                 if !supportsKanban {
                     displayMode = .list
+                }
+            }
+            .onChange(of: kanbanViewModel.boardCatalog?.isEmpty == true) { _, hasNoBoards in
+                if hasNoBoards, displayMode == .kanban {
+                    displayMode = .list
+                    selectedKanbanBoardID = nil
+                }
+            }
+            .onChange(of: viewModel.isOffline) { wasOffline, isOffline in
+                if wasOffline, !isOffline, displayMode == .kanban {
+                    Task { await kanbanViewModel.refresh() }
                 }
             }
             .onChange(of: viewModel.lastCreatedTaskForThisProject) { _, event in
@@ -980,6 +997,7 @@ private struct DisplayModeSwitcher: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(Text(verbatim: option.title))
     }
 }
 

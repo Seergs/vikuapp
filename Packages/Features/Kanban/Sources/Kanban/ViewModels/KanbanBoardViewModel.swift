@@ -16,13 +16,16 @@ public final class KanbanBoardViewModel {
     public private(set) var requiresConnection = false
     public private(set) var isRefreshing = false
     public private(set) var isReordering = false
+    public private(set) var boardCatalog: [KanbanViewSummary]?
+    public private(set) var viewID: Int?
     public var isLoading: Bool {
         loadState == .loading
     }
 
     public private(set) var needsProjectSync = false
 
-    private var viewID: Int?
+    private var preferredViewID: Int?
+    private var selectionVersion = 0
     private let repository: KanbanBoardRepositoryProtocol
     private let orderingRepository: KanbanTaskOrderingProtocol?
     private let trigger: SyncTriggering
@@ -32,7 +35,6 @@ public final class KanbanBoardViewModel {
     // Local cache reads must not settle an in-flight download.
     private var missingSnapshotState: ScreenLoadState<Void>?
     private var loadVersion = 0
-    private var isStarting = false
     private var isObserving = false
     private var pendingActions: Set<EntityID> = []
 
@@ -54,12 +56,20 @@ public final class KanbanBoardViewModel {
         self.hapticPresenter = hapticPresenter
     }
 
-    public func start() async {
-        guard !isStarting else { return }
-        isStarting = true
-        defer { isStarting = false }
+    public func start(preferredViewID: Int? = nil) async {
+        if self.preferredViewID != preferredViewID {
+            self.preferredViewID = preferredViewID
+            selectionVersion += 1
+            loadVersion += 1
+            isRefreshing = false
+            missingSnapshotState = nil
+            viewID = nil
+            clearSnapshot()
+            loadState = .loading
+        }
+        let selection = selectionVersion
         await load()
-        guard !Task.isCancelled, !needsProjectSync else { return }
+        guard selection == selectionVersion, !Task.isCancelled, !needsProjectSync else { return }
         await refresh()
     }
 
@@ -77,16 +87,22 @@ public final class KanbanBoardViewModel {
             loadState = .loading
         }
         do {
-            let snapshot = try await repository.fetchBoard(projectID: project.id, viewID: viewID)
+            let catalog = try await repository.fetchBoardCatalog(projectID: project.id)
             guard version == loadVersion, !Task.isCancelled else { return }
+            let requested = if let views = catalog {
+                views.first { $0.id == preferredViewID }?.id ?? views.first?.id
+            } else {
+                preferredViewID ?? viewID
+            }
+            let snapshot = try await repository.fetchBoard(projectID: project.id, viewID: requested)
+            guard version == loadVersion, !Task.isCancelled else { return }
+            boardCatalog = catalog
             switch snapshot {
             case .waitingForProject, .unavailable:
                 needsProjectSync = snapshot == .waitingForProject
-                hasSnapshot = false
-                supportsWrites = false
-                supportsTaskCreation = false
-                buckets = []
-                if needsProjectSync {
+                viewID = requested
+                clearSnapshot()
+                if needsProjectSync || catalog?.isEmpty == true {
                     loadState = .loaded
                 } else {
                     loadState = isRefreshing ? .loading : (missingSnapshotState ?? .loading)
@@ -115,36 +131,49 @@ public final class KanbanBoardViewModel {
 
     public func refresh() async {
         guard !isRefreshing, !needsProjectSync else { return }
+        let selection = selectionVersion
         isRefreshing = true
         if !hasSnapshot {
             loadState = .loading
         }
-        defer {
-            isRefreshing = false
-            if !hasSnapshot, !needsProjectSync, loadState == .loading {
-                let settledState = missingSnapshotState ?? .idle
-                missingSnapshotState = settledState
-                loadState = settledState
-            }
-        }
+        defer { finishRefresh(selection: selection) }
         do {
-            try await trigger.refresh(scope: .kanban(projectID: project.id))
-            guard !Task.isCancelled else { return }
+            try await trigger.refresh(scope: .kanban(projectID: project.id, viewID: preferredViewID))
+            guard selection == selectionVersion, !Task.isCancelled else { return }
             // An online response without a board is not an offline-cache miss.
             missingSnapshotState = .failure(message(VikunjaError.notFound))
             await load()
         } catch is CancellationError {
         } catch {
-            guard !Task.isCancelled else { return }
+            guard selection == selectionVersion, !Task.isCancelled else { return }
             await load()
+            guard selection == selectionVersion, !Task.isCancelled else { return }
             if hasSnapshot {
                 show(error)
-            } else {
+            } else if boardCatalog?.isEmpty != true {
                 missingSnapshotState = (error as? VikunjaError) == .offline
                     ? .loaded : .failure(message(error))
                 loadState = missingSnapshotState ?? .idle
             }
         }
+    }
+
+    private func finishRefresh(selection: Int) {
+        guard selection == selectionVersion else { return }
+        isRefreshing = false
+        if !hasSnapshot, !needsProjectSync, loadState == .loading {
+            let settledState = missingSnapshotState ?? .idle
+            missingSnapshotState = settledState
+            loadState = settledState
+        }
+    }
+
+    private func clearSnapshot() {
+        hasSnapshot = false
+        supportsWrites = false
+        supportsTaskCreation = false
+        requiresConnection = false
+        buckets = []
     }
 
     public func moveTask(_ task: VikunjaTask, to bucket: KanbanBucket) async {

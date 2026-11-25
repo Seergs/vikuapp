@@ -1,6 +1,36 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Kanban board": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Kanban board" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Tablero Kanban" } }
+      }
+    },
+    "Kanban boards": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Kanban boards" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Tableros Kanban" } }
+      }
+    },
+    "Untitled board": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Untitled board" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Tablero sin título" } }
+      }
+    },
+    "No Kanban boards": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "No Kanban boards" } },
+        "es": { "stringUnit": { "state": "translated", "value": "No hay tableros Kanban" } }
+      }
+    },
+    "Refresh to check for boards.": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Refresh to check for boards." } },
+        "es": { "stringUnit": { "state": "translated", "value": "Actualiza para buscar tableros." } }
+      }
+    },
     "Add task": {
       "localizations": {
         "en": {

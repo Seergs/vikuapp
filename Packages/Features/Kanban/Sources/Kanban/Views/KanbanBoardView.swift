@@ -16,6 +16,7 @@ import VikuUI
 /// project's overview), not to be a destination in its own right.
 public struct KanbanBoardView: View {
     @Bindable var viewModel: KanbanBoardViewModel
+    @Binding private var boardSelection: Int?
     /// Mirrors `ProjectOverviewView`'s own `filteredTasks`: narrows each
     /// bucket's cards to the in-flight search text, by title only, without
     /// touching `viewModel.buckets` itself so drag-to-move and the
@@ -26,17 +27,20 @@ public struct KanbanBoardView: View {
 
     @State private var loadingPresentation = KanbanLoadingPresentation()
     @State private var presentationOrigin = ContinuousClock.now
+    @State private var showsLoadingInContent = false
     @State private var dropTarget = KanbanDropTarget()
     @State private var dragPresentation = CardDragPresentation()
     @Environment(\.vikuPalette) private var palette
 
     public init(
         viewModel: KanbanBoardViewModel,
+        boardSelection: Binding<Int?> = .constant(nil),
         searchText: String = "",
         onSelectTask: @escaping (VikunjaTask) -> Void,
         taskContextMenu: @escaping (VikunjaTask) -> [ContextMenuItem],
     ) {
         self.viewModel = viewModel
+        self._boardSelection = boardSelection
         self.searchText = searchText
         self.onSelectTask = onSelectTask
         self.taskContextMenu = taskContextMenu
@@ -57,30 +61,42 @@ public struct KanbanBoardView: View {
             dropTarget.reset()
             dragPresentation.reset()
             loadingPresentation = KanbanLoadingPresentation()
+            showsLoadingInContent = false
         }
-        .task(id: isInitialLoading) {
+        .onChange(of: viewModel.viewID) {
+            dropTarget.reset()
+            dragPresentation.reset()
+        }
+        .task(id: isWaitingForBoard) {
             let clock = ContinuousClock()
             while !Task.isCancelled {
+                let wasVisible = loadingPresentation.isVisible
                 let delay = loadingPresentation.update(
-                    isLoading: isInitialLoading, at: presentationOrigin.duration(to: clock.now),
+                    isLoading: isWaitingForBoard, at: presentationOrigin.duration(to: clock.now),
                 )
+                if wasVisible != loadingPresentation.isVisible {
+                    showsLoadingInContent = loadingPresentation.isVisible && !viewModel.hasSnapshot
+                }
                 guard let delay else { return }
                 do { try await clock.sleep(for: delay) } catch { return }
             }
         }
-        .task { await viewModel.start() }
+        .task(id: boardSelection) { await viewModel.start(preferredViewID: boardSelection) }
         .task { await viewModel.observeLocalChanges() }
     }
 
-    private var isInitialLoading: Bool {
-        !viewModel.hasSnapshot && viewModel.isLoading
+    private var isWaitingForBoard: Bool {
+        viewModel.isLoading || viewModel.isRefreshing
     }
 
     private var content: some View {
         VStack(spacing: VikuSpacing.sm) {
             HStack {
+                if let catalog = viewModel.boardCatalog, catalog.count > 1 {
+                    boardPicker(catalog)
+                }
                 Spacer()
-                if viewModel.isRefreshing, viewModel.hasSnapshot, !loadingPresentation.isVisible {
+                if loadingPresentation.isVisible, !showsLoadingInContent {
                     ProgressView()
                 }
                 Button { Task { await viewModel.refresh() } } label: {
@@ -89,14 +105,56 @@ public struct KanbanBoardView: View {
                 .disabled(viewModel.isRefreshing || viewModel.needsProjectSync)
             }
             .padding(.horizontal, VikuSpacing.md)
-            if isInitialLoading || loadingPresentation.isVisible {
+            if showsLoadingInContent {
                 ProgressView()
-                    .opacity(loadingPresentation.isVisible ? 1 : 0)
-                    .accessibilityHidden(!loadingPresentation.isVisible)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 loadedContent
             }
+        }
+    }
+
+    private func boardPicker(_ catalog: [KanbanViewSummary]) -> some View {
+        let current = catalog.first { $0.id == viewModel.viewID } ?? catalog[0]
+        return Menu {
+            Text("Kanban boards", bundle: .module)
+            Picker(selection: Binding(get: { current.id }, set: { boardSelection = $0 })) {
+                ForEach(catalog) { view in
+                    boardTitle(view).tag(view.id)
+                }
+            } label: {
+                Text("Kanban board", bundle: .module)
+            }
+            .pickerStyle(.inline)
+        } label: {
+            HStack(spacing: VikuSpacing.sm) {
+                Image(systemName: "rectangle.split.3x1")
+                    .accessibilityHidden(true)
+                boardTitle(current)
+                    .bold()
+                    .lineLimit(1)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(VikuFont.caption2.weight(.semibold))
+                    .foregroundStyle(palette.textSecondary)
+                    .accessibilityHidden(true)
+            }
+            .font(VikuFont.subheadline)
+            .foregroundStyle(palette.textPrimary)
+            .padding(.horizontal, VikuSpacing.md)
+            .padding(.vertical, VikuSpacing.sm)
+            .background(palette.fieldBackground, in: Capsule())
+        }
+        .menuOrder(.fixed)
+        .accessibilityLabel(Text("Kanban board", bundle: .module))
+        .accessibilityValue(boardTitle(current))
+        .accessibilityIdentifier("kanban.boardSelector")
+    }
+
+    private func boardTitle(_ view: KanbanViewSummary) -> Text {
+        if view.title.isEmpty {
+            Text("Untitled board", bundle: .module)
+        } else {
+            Text(verbatim: view.title)
         }
     }
 
@@ -113,7 +171,14 @@ public struct KanbanBoardView: View {
                 retry: { Task { await viewModel.refresh() } },
             )
         case .loaded:
-            if !viewModel.hasSnapshot {
+            if viewModel.boardCatalog?.isEmpty == true {
+                VikuStatusView(
+                    systemImage: "rectangle.split.3x1",
+                    title: String(localized: "No Kanban boards", bundle: .module),
+                    message: String(localized: "Refresh to check for boards.", bundle: .module),
+                    retry: { Task { await viewModel.refresh() } },
+                )
+            } else if !viewModel.hasSnapshot {
                 VikuStatusView(
                     systemImage: "icloud.and.arrow.down",
                     title: String(localized: "Board unavailable", bundle: .module),
@@ -132,7 +197,7 @@ public struct KanbanBoardView: View {
                         .foregroundStyle(palette.textSecondary)
                         .padding(.horizontal, VikuSpacing.md)
                 }
-                board
+                board.id(viewModel.viewID)
             }
         }
     }
@@ -146,7 +211,8 @@ public struct KanbanBoardView: View {
     }
 
     private var board: some View {
-        KanbanHorizontalScroll {
+        let activeViewID = viewModel.viewID
+        return KanbanHorizontalScroll {
             HStack(alignment: .top, spacing: VikuSpacing.md) {
                 ForEach(viewModel.buckets) { bucket in
                     KanbanColumnView(
@@ -159,11 +225,20 @@ public struct KanbanBoardView: View {
                         onRefresh: { await viewModel.refresh() },
                         onSelectTask: onSelectTask,
                         taskContextMenu: taskContextMenu,
-                        onToggleDone: { task in Task { await viewModel.toggleDone(task) } },
-                        onDropTaskID: { taskID in
-                            await viewModel.moveTask(taskID: taskID, to: bucket)
+                        onToggleDone: { task in
+                            Task {
+                                guard viewModel.viewID == activeViewID else { return }
+                                await viewModel.toggleDone(task)
+                            }
                         },
-                        onAddTask: { title in await viewModel.createTask(title: title, in: bucket) },
+                        onDropTaskID: { taskID in
+                            guard viewModel.viewID == activeViewID else { return false }
+                            return await viewModel.moveTask(taskID: taskID, to: bucket)
+                        },
+                        onAddTask: { title in
+                            guard viewModel.viewID == activeViewID else { return false }
+                            return await viewModel.createTask(title: title, in: bucket)
+                        },
                     )
                 }
             }
