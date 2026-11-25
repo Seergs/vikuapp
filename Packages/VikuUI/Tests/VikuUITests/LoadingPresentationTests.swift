@@ -27,6 +27,18 @@ struct LoadingPresentationTests {
         #expect(!presentation.isVisible)
     }
 
+    @Test func `a delayed reveal stays visible for a full second`() {
+        let start = ContinuousClock.now
+        var presentation = LoadingPresentation()
+        presentation.setLoading(true, now: start)
+        presentation.advance(now: start.advanced(by: .milliseconds(1200)))
+        presentation.setLoading(false, now: start.advanced(by: .milliseconds(1300)))
+        #expect(presentation.isVisible)
+        #expect(presentation.nextUpdate == start.advanced(by: .milliseconds(2200)))
+        presentation.advance(now: start.advanced(by: .milliseconds(2200)))
+        #expect(!presentation.isVisible)
+    }
+
     @Test func `slow completion hides spinner immediately after its minimum`() {
         let start = ContinuousClock.now
         var presentation = LoadingPresentation()

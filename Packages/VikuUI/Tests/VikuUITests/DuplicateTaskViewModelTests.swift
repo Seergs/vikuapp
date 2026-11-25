@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 import VikunjaCore
 @testable import VikuUI
@@ -84,6 +85,50 @@ struct DuplicateTaskViewModelTests {
 
         #expect(viewModel.loadState == .loaded)
         #expect(viewModel.projects.map(\.id) == [3, 1])
+    }
+
+    @Test
+    func `the source project stays visible if loading fails and a retry preserves the draft`() async {
+        let sourceProject = Project(id: 7, title: "Release")
+        let projectRepository = FakeProjectRepository()
+        projectRepository.fetchError = .network("offline")
+        let viewModel = makeViewModel(
+            source: makeSource(), sourceProject: sourceProject, projectRepository: projectRepository,
+        )
+        viewModel.title = "Release follow-up"
+
+        #expect(viewModel.selectedProject?.id == sourceProject.id)
+        await viewModel.load()
+
+        #expect(viewModel.selectedProject?.title == "Release")
+        #expect(viewModel.canSave)
+        guard case .failure = viewModel.loadState else {
+            Issue.record("Expected the project load failure to be surfaced")
+            return
+        }
+
+        projectRepository.fetchError = nil
+        projectRepository.projects = [sourceProject]
+        await viewModel.load()
+
+        #expect(viewModel.loadState == .loaded)
+        #expect(viewModel.title == "Release follow-up")
+        #expect(viewModel.selectedProject?.id == sourceProject.id)
+    }
+
+    @Test
+    func `duplicate accepts a locally created project from the picker`() async throws {
+        let projectRepository = FakeProjectRepository()
+        let destination = Project(id: .local(UUID()), title: "Draft project")
+        projectRepository.projects = [destination]
+        let viewModel = makeViewModel(source: makeSource(), projectRepository: projectRepository)
+        await viewModel.load()
+        viewModel.selectedProjectID = destination.id
+
+        let created = try #require(await viewModel.duplicate())
+
+        #expect(created.task.projectID == destination.id)
+        #expect(created.project.id == destination.id)
     }
 
     @Test

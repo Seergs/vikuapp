@@ -39,6 +39,16 @@ struct TaskDetailPage {
         XCTAssertEqual(XCTWaiter.wait(for: [updated], timeout: 5), .completed, file: file, line: line)
     }
 
+    func openDuplicateComposer(file: StaticString = #filePath, line: UInt = #line) -> DuplicateTaskPage {
+        let more = app.buttons["taskDetail.more"]
+        XCTAssertTrue(more.waitForExistence(timeout: 5), file: file, line: line)
+        more.tap()
+        let duplicate = app.buttons["Duplicate Task"]
+        XCTAssertTrue(duplicate.waitForExistence(timeout: 5), file: file, line: line)
+        duplicate.tap()
+        return DuplicateTaskPage(app: app)
+    }
+
     func completeTask(file: StaticString = #filePath, line: UInt = #line) {
         XCTAssertTrue(completion.waitForExistence(timeout: 5), file: file, line: line)
         XCTAssertEqual(completion.label, "Mark as Done", file: file, line: line)
