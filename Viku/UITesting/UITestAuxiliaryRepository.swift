@@ -163,7 +163,7 @@ actor UITestAuxiliaryRepository: AuthServiceProtocol, LabelRepositoryProtocol, U
         let filter = UITestFixtures.savedFilterProject
         guard id == filter.savedFilterID else { throw VikunjaError.notFound }
         return SavedFilterDetail(
-            id: id, title: filter.title, description: filter.description,
+            id: id, title: filter.title, description: filter.description ?? "",
             isFavorite: filter.isFavorite, query: "",
         )
     }
