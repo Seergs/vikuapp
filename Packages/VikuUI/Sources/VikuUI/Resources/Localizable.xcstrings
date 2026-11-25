@@ -961,6 +961,22 @@
         }
       }
     },
+    "Choose Project": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose Project"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elegir proyecto"
+          }
+        }
+      }
+    },
     "Complete": {
       "localizations": {
         "es": {
@@ -987,6 +1003,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Copiado a"
+          }
+        }
+      }
+    },
+    "Copy labels": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy labels"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar etiquetas"
+          }
+        }
+      }
+    },
+    "Copy relations": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy relations"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar relaciones"
           }
         }
       }
@@ -1257,6 +1305,22 @@
         }
       }
     },
+    "High": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "High"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alta"
+          }
+        }
+      }
+    },
     "Hours": {
       "localizations": {
         "es": {
@@ -1287,6 +1351,22 @@
         }
       }
     },
+    "Low": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Low"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Baja"
+          }
+        }
+      }
+    },
     "Mark as Completed": {
       "localizations": {
         "es": {
@@ -1303,6 +1383,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Marcar como pendientes"
+          }
+        }
+      }
+    },
+    "Medium": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medium"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Media"
           }
         }
       }
@@ -1439,6 +1535,22 @@
         }
       }
     },
+    "Priority": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Priority"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prioridad"
+          }
+        }
+      }
+    },
     "Quantity": {
       "localizations": {
         "es": {
@@ -1519,6 +1631,22 @@
         }
       }
     },
+    "Remove Priority": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove Priority"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar prioridad"
+          }
+        }
+      }
+    },
     "Remove Reminder": {
       "localizations": {
         "es": {
@@ -1545,6 +1673,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reprogramar"
+          }
+        }
+      }
+    },
+    "Retry": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retry"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reintentar"
           }
         }
       }
@@ -1635,6 +1779,22 @@
         }
       }
     },
+    "Task title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Task title"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Título de la tarea"
+          }
+        }
+      }
+    },
     "That time has already passed: %@": {
       "localizations": {
         "es": {
@@ -1717,6 +1877,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Actualizando…"
+          }
+        }
+      }
+    },
+    "Urgent": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Urgent"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Urgente"
           }
         }
       }

@@ -213,10 +213,7 @@ private struct FieldLabel: View {
     }
 }
 
-/// The collapsed "Parent Project" row: shows the current selection, or
-/// "None" (a root-level project, the default) — unlike `QuickAddSheetView`'s
-/// `ProjectField`, `nil` here is a real, already-made choice rather than a
-/// placeholder for one still pending.
+/// Shows the selected parent. "None" creates a root-level project.
 private struct ParentProjectField: View {
     let project: Project?
     let action: () -> Void

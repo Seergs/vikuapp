@@ -2,54 +2,18 @@ import SwiftUI
 import VikuDesignSystem
 import VikunjaCore
 
-/// The "duplicate task" sheet, opened from a task's overflow menu
-/// (`TaskDetailView`) or context menu (Today, a project's task list). Same
-/// compact bottom-sheet language as `QuickAddSheetView` in Features/Tasks
-/// (shared controls from `VikuDesignSystem`'s `TaskFormControls`),
-/// pre-filled from the source task: an editable title (defaulting to
-/// `"… (copy)"`), project, and priority, plus "Copy labels" / "Copy
-/// relations" toggles when the source has either. Confirming creates the
-/// duplicate, calls the optional `onDuplicated` callback, and dismisses.
-/// Lives in `VikuUI` rather than `Features/Tasks` so every feature that lists
-/// tasks can offer it without
-/// importing another feature.
+/// Presents a pre-filled task composer from any feature that offers duplication.
 public struct DuplicateTaskSheetView: View {
-    @State private var viewModel: DuplicateTaskViewModel
-    /// Called with the created task and its project right before the sheet
-    /// dismisses, so the presenting screen can navigate to it. Optional — a
-    /// caller that just wants the copy made can leave it off.
-    private let onDuplicated: ((VikunjaTask, Project) -> Void)?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.vikuPalette) private var palette
-    @State private var isShowingProjectPicker = false
     @FocusState private var isTitleFocused: Bool
+    @State private var viewModel: DuplicateTaskViewModel
+    @State private var submission = TaskComposerSubmission()
+    @State private var isShowingProjectPicker = false
+    @State private var projectLoadAttempt = 0
 
-    /// A single content-sized detent, grown only for the copy toggles and
-    /// the error banner — same reasoning as `QuickAddSheetView.detentHeight`.
-    private var detentHeight: CGFloat {
-        var height = Self.baseHeight
-        if viewModel.hasLabelsToCopy {
-            height += Self.toggleRowHeight
-        }
-        if viewModel.hasRelationsToCopy {
-            height += Self.toggleRowHeight
-        }
-        if viewModel.saveErrorMessage != nil {
-            height += Self.errorBannerHeight
-        }
-        return height
-    }
+    private let onDuplicated: ((VikunjaTask, Project) -> Void)?
 
-    /// Takes a factory rather than an already-built view model: this sheet is
-    /// presented from a host's `.sheet(isPresented:)`, whose content
-    /// closure SwiftUI can re-invoke independently of this view's own
-    /// identity (see `ConnectionsListView`'s `init` doc comment in Settings
-    /// for the full mechanism — the same one that silently reset
-    /// `TaskDetailView` itself before `AppDestinations.swift` got this
-    /// treatment). Building the view model inside `@State`'s `init` means
-    /// SwiftUI only uses `makeViewModel()`'s result the first time this
-    /// sheet's identity is created, keeping that instance (and whatever the
-    /// user has typed) across any later re-invocation.
     public init(
         makeViewModel: @escaping () -> DuplicateTaskViewModel,
         onDuplicated: ((VikunjaTask, Project) -> Void)? = nil,
@@ -59,106 +23,89 @@ public struct DuplicateTaskSheetView: View {
     }
 
     public var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: VikuSpacing.md) {
-                TextField("Task title", text: $viewModel.title)
-                    .font(VikuFont.body)
-                    .focused($isTitleFocused)
-                    .submitLabel(.done)
-                    .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
-                    .padding(.vertical, VikuSpacing.sm + VikuSpacing.xxs)
-                    .background(
-                        palette.fieldBackground,
-                        in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous),
-                    )
+        TaskComposerSheet(submission: submission) {
+            TextField(String(localized: "Task title", bundle: .module), text: $viewModel.title, axis: .vertical)
+                .textFieldStyle(.plain)
+                .font(VikuFont.title3)
+                .foregroundStyle(palette.textPrimary)
+                .lineLimit(1 ... 3)
+                .focused($isTitleFocused)
+                .disabled(submission.isSubmitting)
+                .accessibilityIdentifier("duplicateTask.title")
 
-                projectSection
+            actions
 
-                PriorityChipRow(selection: $viewModel.priority)
+            if viewModel.hasLabelsToCopy || viewModel.hasRelationsToCopy {
+                copyOptions
+            }
 
-                if viewModel.hasLabelsToCopy {
-                    Toggle("Copy labels", isOn: $viewModel.copyLabels)
-                        .font(VikuFont.subheadline)
-                }
-                if viewModel.hasRelationsToCopy {
-                    Toggle("Copy relations", isOn: $viewModel.copyRelations)
-                        .font(VikuFont.subheadline)
-                }
-
-                if let message = viewModel.saveErrorMessage {
-                    SaveErrorBanner(message: message)
-                        .transition(.opacity.combined(with: .move(edge: .top)))
+            if case let .failure(message) = viewModel.loadState {
+                VStack(alignment: .leading, spacing: VikuSpacing.sm) {
+                    Text(verbatim: message)
+                        .font(VikuFont.footnote)
+                        .foregroundStyle(palette.textSecondary)
+                    Button(String(localized: "Retry", bundle: .module)) {
+                        projectLoadAttempt += 1
+                    }
+                    .disabled(submission.isSubmitting)
                 }
             }
-            .tint(palette.brand)
-            .padding(.horizontal, VikuSpacing.md)
-            .padding(.top, VikuSpacing.md)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .animation(.spring(response: 0.35, dampingFraction: 0.86), value: viewModel.saveErrorMessage)
-            .navigationTitle(Text("Duplicate Task", bundle: .module))
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "Cancel", bundle: .module)) { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    if viewModel.isSaving {
-                        ProgressView()
-                    } else {
-                        Button(String(localized: "Duplicate", bundle: .module)) {
-                            Task {
-                                if let result = await viewModel.duplicate() {
-                                    onDuplicated?(result.task, result.project)
-                                    dismiss()
-                                }
-                            }
-                        }
-                        .fontWeight(.bold)
-                        .disabled(!viewModel.canSave)
-                    }
-                }
+
+            if let message = viewModel.saveErrorMessage {
+                SaveErrorBanner(message: message)
             }
         }
-        .presentationDetents([.height(detentHeight)])
-        .presentationCornerRadius(VikuRadius.lg + VikuSpacing.sm)
+        .tint(palette.brand)
         .sheet(isPresented: $isShowingProjectPicker) {
             ProjectPickerSheet(
-                title: "Choose Project",
+                title: String(localized: "Choose Project", bundle: .module),
                 projects: viewModel.projects,
-                selectedProjectID: viewModel.selectedProjectID.map(EntityID.remote),
+                selectedProjectID: viewModel.selectedProjectID,
             ) { project in
-                viewModel.selectedProjectID = project?.id.remoteValue
+                viewModel.selectedProjectID = project?.id
             }
             .vikuNativeSheetAppearance()
         }
-        .task {
-            isTitleFocused = true
-            await viewModel.load()
-        }
+        .task { isTitleFocused = true }
+        .task(id: projectLoadAttempt) { await viewModel.load() }
     }
 
-    @ViewBuilder
-    private var projectSection: some View {
-        switch viewModel.loadState {
-        case let .failure(message):
-            Text(message)
-                .font(VikuFont.footnote)
-                .foregroundStyle(palette.textSecondary)
-        case .loading, .idle:
-            ProgressView()
-        case .loaded:
-            VStack(alignment: .leading, spacing: VikuSpacing.sm - VikuSpacing.xxs) {
-                FieldLabel("Project")
-                ProjectField(project: viewModel.selectedProject) {
-                    isShowingProjectPicker = true
-                }
+    private var actions: some View {
+        TaskComposerActions(
+            submission: submission,
+            canSubmit: viewModel.canSave,
+            submitIcon: "checkmark",
+            submitLabel: Text("Duplicate Task", bundle: .module),
+            submitIdentifier: "duplicateTask.submit",
+            submit: {
+                guard viewModel.canSave else { return }
+                submission.submit(
+                    operation: { await viewModel.duplicate() },
+                    onSuccess: { result in
+                        onDuplicated?(result.task, result.project)
+                        dismiss()
+                    },
+                )
+            },
+            fields: {
+                TaskComposerProjectButton(project: viewModel.selectedProject) { isShowingProjectPicker = true }
+                    .disabled(viewModel.projects.isEmpty)
+                    .accessibilityIdentifier("duplicateTask.project")
+                TaskComposerPriorityMenu(priority: viewModel.priority) { viewModel.priority = $0 }
+            },
+        )
+    }
+
+    private var copyOptions: some View {
+        VStack(alignment: .leading, spacing: VikuSpacing.sm) {
+            if viewModel.hasLabelsToCopy {
+                Toggle("Copy labels", isOn: $viewModel.copyLabels)
+            }
+            if viewModel.hasRelationsToCopy {
+                Toggle("Copy relations", isOn: $viewModel.copyRelations)
             }
         }
+        .font(VikuFont.subheadline)
+        .disabled(submission.isSubmitting)
     }
-
-    private static let baseHeight: CGFloat = 300
-    private static let toggleRowHeight: CGFloat = 44
-    private static let errorBannerHeight: CGFloat = 66
 }

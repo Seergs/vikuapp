@@ -14,9 +14,7 @@ import VikunjaCore
 /// row (which dismisses); the "Cancel" toolbar button closes without
 /// changing anything.
 public struct ProjectPickerSheet: View {
-    /// Caller-supplied, opaque display text (see `FieldLabel`'s doc comment
-    /// on `TaskFormControls.swift`): each caller's feature owns and
-    /// localizes its own title, this sheet just renders it verbatim.
+    /// The caller owns and localizes the title. The sheet renders it verbatim.
     private let title: String
     private let projects: [Project]
     private let selectedProjectID: EntityID?

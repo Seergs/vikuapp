@@ -20,7 +20,7 @@ import VikunjaCore
 @Observable
 public final class DuplicateTaskViewModel {
     public var title: String
-    public var selectedProjectID: Int?
+    public var selectedProjectID: EntityID?
     public var priority: VikunjaTask.Priority
     public var copyLabels: Bool = true
     public var copyRelations: Bool = true
@@ -41,10 +41,6 @@ public final class DuplicateTaskViewModel {
     /// List hosts offer navigation through the toast; detail hosts already push the copy.
     private let toastOpensTask: Bool
 
-    public var isLoading: Bool {
-        loadState == .loading
-    }
-
     /// Whether the source task carries anything the matching toggle would
     /// copy — the sheet hides a toggle that would do nothing.
     public var hasLabelsToCopy: Bool {
@@ -63,7 +59,8 @@ public final class DuplicateTaskViewModel {
 
     public var selectedProject: Project? {
         guard let selectedProjectID else { return nil }
-        return projects.first { $0.id.remoteValue == selectedProjectID }
+        return projects.first { $0.id == selectedProjectID }
+            ?? (sourceProject.id == selectedProjectID ? sourceProject : nil)
     }
 
     public init(
@@ -80,7 +77,7 @@ public final class DuplicateTaskViewModel {
         self.source = source
         self.sourceProject = sourceProject
         self.title = Self.copyTitle(of: source.title)
-        self.selectedProjectID = source.projectID.remoteValue
+        self.selectedProjectID = source.projectID
         self.priority = source.priority
         self.taskRepository = taskRepository
         self.labelRepository = labelRepository
@@ -96,15 +93,21 @@ public final class DuplicateTaskViewModel {
             loadState = .loading
         }
         do {
-            projects = try await projectRepository.fetchProjects()
+            let loadedProjects = try await projectRepository.fetchProjects()
                 .filter { !$0.isArchived }
                 .realProjectsOnly()
                 .sorted { $0.position < $1.position }
+            guard !Task.isCancelled else { return }
+            projects = loadedProjects
             loadState = .loaded
         } catch let error as VikunjaError {
-            loadState = .failure(error.displayMessage)
+            if !Task.isCancelled {
+                loadState = .failure(error.displayMessage)
+            }
         } catch {
-            loadState = .failure(error.localizedDescription)
+            if !Task.isCancelled {
+                loadState = .failure(error.localizedDescription)
+            }
         }
     }
 
@@ -127,7 +130,7 @@ public final class DuplicateTaskViewModel {
                     description: source.description,
                     dueDate: source.dueDate,
                     priority: priority,
-                    projectID: .remote(selectedProjectID),
+                    projectID: selectedProjectID,
                 ),
             )
             if copyLabels {
@@ -137,7 +140,7 @@ public final class DuplicateTaskViewModel {
                 await attachRelations(to: created.id)
             }
             hapticPresenter.play(.success)
-            let destination = project(withID: created.projectID.remoteValue ?? selectedProjectID)
+            let destination = projects.first { $0.id == created.projectID } ?? selectedProject ?? sourceProject
             toastPresenter.show(
                 String(localized: "Task duplicated", bundle: .module),
                 style: .success,
@@ -151,14 +154,6 @@ public final class DuplicateTaskViewModel {
             saveErrorMessage = error.localizedDescription
             return nil
         }
-    }
-
-    /// The project the created task landed in — from the loaded list when
-    /// available, otherwise the source task's own project (which the caller
-    /// passed in and is the default selection), so there's always something
-    /// to navigate to.
-    private func project(withID id: Int) -> Project {
-        projects.first { $0.id.remoteValue == id } ?? sourceProject
     }
 
     /// Best-effort: a label that fails to attach is skipped rather than

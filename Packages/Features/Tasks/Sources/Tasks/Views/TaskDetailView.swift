@@ -205,6 +205,7 @@ public struct TaskDetailView: View {
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
+                    .accessibilityIdentifier("taskDetail.more")
                 }
             }
             .navigationTitle(Text("Task Details", bundle: .module))

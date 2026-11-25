@@ -1,81 +1,6 @@
 import SwiftUI
 import VikunjaCore
 
-// The small building blocks shared by the compact task sheets
-// (`QuickAddSheetView` in Features/Tasks, `DuplicateTaskSheetView` in VikuUI)
-// so they stay visually identical — a field-group label, the collapsed
-// "Project" row that opens a picker, the priority chip row, and the
-// save-error banner. Public because those sheets live in different modules
-// (Tasks, VikuUI) that both already depend on VikuDesignSystem.
-
-/// A field-group caption ("Project", "Priority", ...).
-///
-/// `title` is treated as opaque, already-resolved display text, not a
-/// catalog key: callers outside this module pass their own feature's
-/// strings, and a `Text(_:bundle: .module)` lookup here would always
-/// resolve against VikuDesignSystem's own catalog, never the caller's.
-/// A caller that owns its string localizes it first (e.g.
-/// `String(localized: "Priority", bundle: .module)` for a string this
-/// module owns) and hands the resolved value in.
-public struct FieldLabel: View {
-    let title: String
-
-    @Environment(\.vikuPalette) private var palette
-
-    public init(_ title: String) {
-        self.title = title
-    }
-
-    public var body: some View {
-        Text(verbatim: title)
-            .font(VikuFont.footnote)
-            .fontWeight(.semibold)
-            .foregroundStyle(palette.textSecondary)
-    }
-}
-
-/// The collapsed "Project" row: shows the current selection (or a
-/// placeholder when none is chosen yet) and runs `action` — typically
-/// opening a `ProjectPickerSheet` — on tap.
-public struct ProjectField: View {
-    let project: Project?
-    let action: () -> Void
-
-    @Environment(\.vikuPalette) private var palette
-
-    public init(project: Project?, action: @escaping () -> Void) {
-        self.project = project
-        self.action = action
-    }
-
-    public var body: some View {
-        Button(action: action) {
-            HStack(spacing: VikuSpacing.sm) {
-                if let project {
-                    ProjectPickerIcon(hexColor: project.hexColor)
-                    Text(project.title)
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(Color.primary)
-                } else {
-                    Text("Choose project", bundle: .module)
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(palette.textTertiary)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(palette.textTertiary)
-            }
-            .padding(.horizontal, VikuSpacing.md - VikuSpacing.xxs)
-            .padding(.vertical, VikuSpacing.sm + VikuSpacing.xs)
-            .background(palette.fieldBackground, in: RoundedRectangle(cornerRadius: VikuRadius.sm, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
-}
-
 public struct PriorityOption: Identifiable, Sendable {
     public let priority: VikunjaTask.Priority
     public let label: String
@@ -85,8 +10,7 @@ public struct PriorityOption: Identifiable, Sendable {
         priority
     }
 
-    /// The four pickable priorities shown as chips (the sheets don't offer
-    /// `.unset`/`.doNow`).
+    /// Priorities with distinct colors for task title shortcuts.
     public static let all: [PriorityOption] = [
         PriorityOption(
             priority: .low,
@@ -109,58 +33,6 @@ public struct PriorityOption: Identifiable, Sendable {
             color: VikuColor.Priority.urgent,
         ),
     ]
-}
-
-/// The horizontal priority chip row. `selection` is a binding so tapping the
-/// active chip clears it back to `.unset`.
-public struct PriorityChipRow: View {
-    @Binding var selection: VikunjaTask.Priority
-
-    public init(selection: Binding<VikunjaTask.Priority>) {
-        _selection = selection
-    }
-
-    public var body: some View {
-        VStack(alignment: .leading, spacing: VikuSpacing.sm - VikuSpacing.xxs) {
-            FieldLabel(String(localized: "Priority", bundle: .module))
-            HStack(spacing: VikuSpacing.sm) {
-                ForEach(PriorityOption.all) { option in
-                    PriorityChip(option: option, isSelected: selection == option.priority) {
-                        selection = selection == option.priority ? .unset : option.priority
-                    }
-                }
-            }
-        }
-    }
-}
-
-private struct PriorityChip: View {
-    let option: PriorityOption
-    let isSelected: Bool
-    let action: () -> Void
-
-    @Environment(\.vikuPalette) private var palette
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: VikuSpacing.xs) {
-                Image(systemName: "flag")
-                    .font(.system(size: 11))
-                Text(verbatim: option.label)
-                    .font(.system(size: 13.5, weight: .semibold))
-            }
-            .foregroundStyle(isSelected ? option.color : palette.textTertiary)
-            .padding(.horizontal, VikuSpacing.sm + VikuSpacing.xs)
-            .padding(.vertical, VikuSpacing.xs + VikuSpacing.xxs)
-            .background(
-                Capsule().fill(isSelected ? option.color.opacity(0.14) : palette.fieldBackground),
-            )
-            .overlay(
-                Capsule().strokeBorder(isSelected ? option.color : Color.clear, lineWidth: 1.5),
-            )
-        }
-        .buttonStyle(.plain)
-    }
 }
 
 /// Same tinted-card language as `TaskDetailView`'s `BlockedBanner` — a red
