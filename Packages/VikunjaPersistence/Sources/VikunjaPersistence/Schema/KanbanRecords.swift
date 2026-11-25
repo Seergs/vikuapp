@@ -1,5 +1,13 @@
 import Foundation
 import GRDB
+import VikunjaCore
+
+struct KanbanViewCatalogRecord: Codable, Equatable, Sendable, FetchableRecord, PersistableRecord {
+    static let databaseTableName = "kanbanViewCatalog"
+    let projectLocalID: UUID
+    let accountID: UUID
+    let views: [KanbanViewSummary]
+}
 
 struct KanbanViewRecord: Codable, Equatable, Sendable, FetchableRecord, PersistableRecord {
     static let databaseTableName = "kanbanView"

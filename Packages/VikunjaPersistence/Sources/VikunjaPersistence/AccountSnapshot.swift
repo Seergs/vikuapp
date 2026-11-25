@@ -15,6 +15,7 @@ struct AccountSnapshot: Equatable, Sendable {
     let reminders: [TaskReminderRecord]
     let memberships: [VirtualProjectTaskRecord]
     let relations: [TaskRelationRecord]
+    let kanbanCatalogs: [KanbanViewCatalogRecord]
     let kanbanViews: [KanbanViewRecord]
     let kanbanBuckets: [KanbanBucketRecord]
     let kanbanAssignments: [KanbanAssignmentRecord]
@@ -28,6 +29,7 @@ struct AccountSnapshot: Equatable, Sendable {
             []
         }
         self.kanbanViews = try KanbanViewRecord.filter(Column("accountID") == accountID).fetchAll(db)
+        self.kanbanCatalogs = try KanbanViewCatalogRecord.filter(Column("accountID") == accountID).fetchAll(db)
         self.kanbanBuckets = try KanbanBucketRecord.filter(Column("accountID") == accountID).fetchAll(db)
         self.kanbanAssignments = try KanbanAssignmentRecord.filter(Column("accountID") == accountID).fetchAll(db)
         self.projects = try ProjectRecord.filter(Column("accountID") == accountID).fetchAll(db)
@@ -81,6 +83,7 @@ struct AccountSnapshot: Equatable, Sendable {
         try insert(memberships, db: db)
         try insert(relations, db: db)
         try insert(kanbanViews, db: db)
+        try insert(kanbanCatalogs, db: db)
         try insert(kanbanBuckets, db: db)
         try insert(kanbanAssignments, db: db)
         try insert(syncStates, db: db)

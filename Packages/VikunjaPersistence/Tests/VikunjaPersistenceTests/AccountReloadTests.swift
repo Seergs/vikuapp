@@ -202,10 +202,18 @@ struct AccountReloadTests {
             relationRepository: FakeTaskRelationRepository(), accountID: fixture.account.id,
             bucketRepository: fixture.factory.boardRepository, capabilityProvider: KanbanCapabilities(),
         )
-        try await engine.pullKanban(projectID: .remote(1))
+        let first = KanbanViewSummary(id: 10, title: "Sprint")
+        let second = KanbanViewSummary(id: 11, title: "Support")
+        let undisplayed = KanbanViewSummary(id: 12, title: "Backlog")
+        let secondBoard = KanbanDownload(
+            viewID: 11, mode: "manual", filterQuery: "", defaultBucketID: nil, doneBucketID: nil, buckets: [],
+        )
+        await fixture.factory.boardRepository.setCatalog([second, first, undisplayed], extraBoards: [secondBoard])
+        try await engine.refreshKanban(projectID: 1, viewID: first.id)
+        try await engine.refreshKanban(projectID: 1, viewID: second.id)
         let before = try await fixture.snapshot()
         #expect(before.comments.isEmpty)
-        #expect(before.kanbanViews.count == 1)
+        #expect(Set(before.kanbanViews.map(\.remoteID)) == [10, 11])
         await fixture.factory.boardRepository.fail()
         await #expect(throws: VikunjaError.offline) {
             try await fixture.coordinator.reloadFromServer(accountID: fixture.account.id)
@@ -217,9 +225,16 @@ struct AccountReloadTests {
         try await fixture.coordinator.reloadFromServer(accountID: fixture.account.id)
         let after = try await fixture.snapshot()
         #expect(after.comments.map(\.comment) == ["Server comment"])
-        #expect(after.kanbanViews.count == 1)
-        #expect(after.kanbanViews.first?.lastCompletePullAt != nil)
+        #expect(Set(after.kanbanViews.map(\.remoteID)) == [10, 11])
+        #expect(after.kanbanViews.allSatisfy { $0.lastCompletePullAt != nil })
+        #expect(after.kanbanCatalogs.first?.views == [second, first, undisplayed])
         #expect(after.mutations.isEmpty)
+
+        await fixture.factory.boardRepository.setCatalog([first, undisplayed])
+        try await fixture.coordinator.reloadFromServer(accountID: fixture.account.id)
+        let afterDeletion = try await fixture.snapshot()
+        #expect(afterDeletion.kanbanViews.map(\.remoteID) == [10])
+        #expect(afterDeletion.kanbanCatalogs.first?.views == [first, undisplayed])
     }
 
     @Test func `reload cancels an existing sync before it can upload the queue`() async throws {

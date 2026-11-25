@@ -119,24 +119,61 @@ public actor SyncEngine {
         )
     }
 
-    /// Explicit demand-load. A failed download never enters the database transaction.
-    public func pullKanban(projectID: EntityID) async throws {
-        guard let bucketRepository, await capabilityProvider.supports(.apiV2) else { return }
-        let project = try await localStore.read { db in
-            try ProjectRecord.fetchAll(db).first {
-                $0.accountID == self.accountID && (projectID == .local($0.localID)
-                    || $0.remoteID.map(EntityID.remote) == projectID)
+    func refreshKanban(projectID: EntityID, viewID: Int?) async throws {
+        guard let catalog = try await pullKanbanCatalog(projectID: projectID) else { return }
+        guard let view = catalog.first(where: { $0.id == viewID }) ?? catalog.first else { return }
+        do {
+            try await pullKanban(projectID: projectID, viewID: view.id)
+        } catch VikunjaError.notFound {
+            guard let updated = try await pullKanbanCatalog(projectID: projectID),
+                  !updated.contains(where: { $0.id == view.id }) else { throw VikunjaError.notFound }
+            if let fallback = updated.first {
+                try await pullKanban(projectID: projectID, viewID: fallback.id)
             }
         }
-        guard let project, let remoteID = project.remoteID, remoteID > 0 else { throw VikunjaError.notFound }
-        let existingView = try await localStore.read { db in
-            try KanbanViewRecord.filter(Column("accountID") == self.accountID)
-                .filter(Column("projectLocalID") == project.localID).order(Column("remoteID")).fetchOne(db)
+    }
+
+    /// A complete list is authoritative. Keep queued intent even when its view disappears.
+    func pullKanbanCatalog(projectID: EntityID) async throws -> [KanbanViewSummary]? {
+        guard let bucketRepository, await capabilityProvider.supports(.apiV2) else { return nil }
+        let project = try await kanbanProject(id: projectID)
+        guard let remoteID = project.remoteID, remoteID > 0 else { throw VikunjaError.notFound }
+        let views = try await bucketRepository.fetchKanbanViews(projectID: remoteID)
+        try await localStore.write { db in
+            guard let current = try ProjectRecord.fetchOne(db, key: project.localID),
+                  current.accountID == self.accountID, current.remoteID == remoteID
+            else { throw VikunjaError.notFound }
+            let catalog = KanbanViewCatalogRecord(
+                projectLocalID: project.localID, accountID: self.accountID, views: views,
+            )
+            try catalog.save(db)
+            try KanbanViewRecord.filter(Column("projectLocalID") == project.localID)
+                .filter(!views.map(\.id).contains(Column("remoteID"))).deleteAll(db)
         }
+        return views
+    }
+
+    private func kanbanProject(id: EntityID) async throws -> ProjectRecord {
+        guard let project = try await localStore.read({ db in
+            try ProjectRecord.filter(Column("accountID") == self.accountID).fetchAll(db).first {
+                id == .local($0.localID) || $0.remoteID.map(EntityID.remote) == id
+            }
+        }) else { throw VikunjaError.notFound }
+        return project
+    }
+
+    /// Explicit demand-load. A failed download never enters the database transaction.
+    public func pullKanban(projectID: EntityID, viewID: Int? = nil) async throws {
+        guard let bucketRepository, await capabilityProvider.supports(.apiV2) else { return }
+        let project = try await kanbanProject(id: projectID)
+        guard let remoteID = project.remoteID, remoteID > 0 else { throw VikunjaError.notFound }
         let readState = try await localStore.read { db in
             try KanbanReadState(accountID: self.accountID, projectID: project.localID, db: db)
         }
-        let download = try await bucketRepository.downloadBoard(projectID: remoteID, viewID: existingView?.remoteID)
+        let download = try await bucketRepository.downloadBoard(projectID: remoteID, viewID: viewID)
+        guard viewID == nil || download.viewID == viewID else {
+            throw VikunjaError.decoding("Mismatched Kanban view")
+        }
         try await localStore.write { db in
             // The project may have disappeared while the network request was running.
             guard let current = try ProjectRecord.fetchOne(db, key: project.localID),

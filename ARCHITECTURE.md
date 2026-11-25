@@ -856,6 +856,19 @@ pickers. Test palette derivation and environment scoping in VikuDesignSystem;
 validate materials on device with the keyboard, all detents, and accessibility
 appearance settings because package tests do not verify Liquid Glass compositing.
 
+## Project Kanban views
+
+Project Kanban keeps a local catalog in server display order, separate from each
+board's downloaded columns, assignments, and positions. Opening Kanban refreshes
+the catalog and downloads the selected view on demand. A view without a
+downloaded snapshot remains selectable offline. Account reload refreshes the
+catalog and rebuilds snapshots only for previously downloaded views that still
+exist. An authoritative catalog can remove a board snapshot while preserving
+queued task intent.
+
+Kanban refreshes are keyed by project and view within the account worker.
+Assignments are per view and completion belongs to the shared task.
+
 ## Kanban task ordering
 
 Project board downloads carry task positions scoped to the downloaded view in

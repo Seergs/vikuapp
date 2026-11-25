@@ -2207,6 +2207,36 @@ struct URLSessionAPIClientTests {
     """#
 
     @Test
+    func `the Kanban catalog follows all pages and sorts only Kanban views by server position`() async throws {
+        let fixture = try Data(Self.fixture("project-views").utf8)
+        let envelope = try #require(JSONSerialization.jsonObject(with: fixture) as? [String: Any])
+        let items = try #require(envelope["items"] as? [[String: Any]])
+        var secondView = items[1]
+        secondView["id"] = 27
+        secondView["title"] = "Support"
+        secondView["position"] = 1.5
+        func page(_ number: Int, items: [[String: Any]]) throws -> String {
+            var page = envelope
+            page["items"] = items
+            page["page"] = number
+            page["total"] = 3
+            page["total_pages"] = 2
+            page["per_page"] = 2
+            return try #require(String(data: JSONSerialization.data(withJSONObject: page), encoding: .utf8))
+        }
+        let (session, capture) = try MockURLProtocol.makeSession(responses: [
+            (200, page(1, items: items)), (200, page(2, items: [secondView])),
+        ])
+        let client = try URLSessionAPIClient(baseURL: #require(URL(string: "https://vikunja.example.com")), session: session)
+        let views = try await VikunjaBucketRepository(client: client).fetchKanbanViews(projectID: 6)
+
+        #expect(views == [
+            KanbanViewSummary(id: 27, title: "Support"), KanbanViewSummary(id: 11, title: "Kanban"),
+        ])
+        #expect(await capture.requests.compactMap { $0.url?.query } == ["page=1", "page=2"])
+    }
+
+    @Test
     func `fetch buckets resolves the kanban view then unwraps buckets with their tasks`() async throws {
         let (session, capture) = try MockURLProtocol.makeSession(responses: [
             (200, Self.fixture("project-views")),

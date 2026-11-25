@@ -11,7 +11,7 @@ public protocol SyncTriggering: Sendable {
 
 public enum SyncScope: Hashable, Sendable {
     /// Upload queued changes before downloading the board.
-    case kanban(projectID: EntityID)
+    case kanban(projectID: EntityID, viewID: Int? = nil)
     case account
     /// Also refresh the task's comment thread; attachment metadata refreshes separately on demand.
     case task(EntityID)
@@ -29,13 +29,6 @@ public enum SyncScope: Hashable, Sendable {
 
     public var uploadTaskID: EntityID? {
         if case let .taskUpload(id) = self {
-            return id
-        }
-        return nil
-    }
-
-    public var kanbanProjectID: EntityID? {
-        if case let .kanban(id) = self {
             return id
         }
         return nil

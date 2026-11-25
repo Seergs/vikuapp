@@ -1,4 +1,6 @@
 public protocol BucketRepositoryProtocol: Sendable {
+    /// All Kanban views of the project, in server display order.
+    func fetchKanbanViews(projectID: Int) async throws -> [KanbanViewSummary]
     /// Absolute per-view position write, separate from bucket membership.
     func setTaskPosition(taskID: Int, viewID: Int, position: Double) async throws -> TaskViewPosition
     func downloadBoard(projectID: Int, viewID: Int?) async throws -> KanbanDownload

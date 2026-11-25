@@ -55,6 +55,10 @@ private actor FilterBoardRemote: BucketRepositoryProtocol {
         )
     }
 
+    func fetchKanbanViews(projectID: Int) async throws -> [KanbanViewSummary] {
+        [KanbanViewSummary(id: 7, title: "Board")]
+    }
+
     func fetchBuckets(projectID: Int) async throws -> [KanbanBucket] {
         try await downloadBoard(projectID: projectID, viewID: nil).buckets
     }

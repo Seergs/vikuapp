@@ -14,13 +14,17 @@ public actor SyncCoordinator {
     private let tokenProvider: @Sendable (InstanceAccount) -> @Sendable () async throws -> String?
     private var observationTask: Task<Void, Never>?
 
+    private struct BoardRefreshFailures: Error {
+        let errors: [SyncScope: any Error]
+    }
+
     private struct Work {
         let task: Task<Void, Error>
         var includesAccountPass = false
         var needsAnotherPass = false
         var requestedThreads: Set<EntityID> = []
-        var requestedBoards: Set<EntityID> = []
-        var pendingBoards: Set<EntityID> = []
+        var requestedBoards: Set<SyncScope> = []
+        var pendingBoards: Set<SyncScope> = []
         var pendingThreads: Set<EntityID> = []
         var priorityUploads: Set<EntityID> = []
     }
@@ -149,6 +153,10 @@ public actor SyncCoordinator {
                     task.cancel()
                 }
             }
+        } catch let failure as BoardRefreshFailures {
+            if let error = failure.errors[scope] {
+                throw error
+            }
         } catch {
             if task.isCancelled {
                 throw CancellationError()
@@ -209,8 +217,8 @@ public actor SyncCoordinator {
             if let id = scope.commentTaskID, work.requestedThreads.insert(id).inserted {
                 work.pendingThreads.insert(id)
             }
-            if let id = scope.kanbanProjectID, work.requestedBoards.insert(id).inserted {
-                work.pendingBoards.insert(id)
+            if case .kanban = scope, work.requestedBoards.insert(scope).inserted {
+                work.pendingBoards.insert(scope)
             }
             workByAccount[accountID] = work
             return work.task
@@ -232,9 +240,9 @@ public actor SyncCoordinator {
             work.requestedThreads.insert(id)
             work.pendingThreads.insert(id)
         }
-        if let id = scope.kanbanProjectID {
-            work.requestedBoards.insert(id)
-            work.pendingBoards.insert(id)
+        if case .kanban = scope {
+            work.requestedBoards.insert(scope)
+            work.pendingBoards.insert(scope)
         }
         workByAccount[accountID] = work
         return task
@@ -267,7 +275,7 @@ public actor SyncCoordinator {
 
     private func runOwned(accountID: UUID) async throws {
         var failure: (any Error)?
-        var boardFailures: [EntityID: any Error] = [:]
+        var boardFailures: [SyncScope: any Error] = [:]
         var threadFailures: [EntityID: any Error] = [:]
         while true {
             try Task.checkCancellation()
@@ -310,8 +318,11 @@ public actor SyncCoordinator {
             }
             break
         }
-        if let failure = failure ?? threadFailures.values.first ?? boardFailures.values.first {
+        if let failure = failure ?? threadFailures.values.first {
             throw failure
+        }
+        if !boardFailures.isEmpty {
+            throw BoardRefreshFailures(errors: boardFailures)
         }
     }
 
@@ -336,18 +347,19 @@ public actor SyncCoordinator {
     }
 
     private func pullPendingBoards(
-        _ account: InstanceAccount, previousFailures: [EntityID: any Error],
-    ) async -> [EntityID: any Error] {
+        _ account: InstanceAccount, previousFailures: [SyncScope: any Error],
+    ) async -> [SyncScope: any Error] {
         let boards = workByAccount[account.id]?.pendingBoards ?? []
         workByAccount[account.id]?.pendingBoards = []
         var failures = previousFailures
-        for id in boards {
+        for scope in boards {
             guard !Task.isCancelled else { break }
+            guard case let .kanban(projectID, viewID) = scope else { continue }
             do {
-                try await makeEngine(account).pullKanban(projectID: id)
-                failures[id] = nil
-            } catch { failures[id] = error }
-            workByAccount[account.id]?.requestedBoards.remove(id)
+                try await makeEngine(account).refreshKanban(projectID: projectID, viewID: viewID)
+                failures[scope] = nil
+            } catch { failures[scope] = error }
+            workByAccount[account.id]?.requestedBoards.remove(scope)
         }
         return failures
     }

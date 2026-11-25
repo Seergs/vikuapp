@@ -60,6 +60,22 @@ enum DatabaseMigrations {
                 table.column("processStartedAt", .text)
             }
         }
+        migrator.registerMigration("createKanbanViewCatalog", migrate: createKanbanViewCatalog)
+    }
+
+    private static func createKanbanViewCatalog(_ db: Database) throws {
+        try db.create(table: "kanbanViewCatalog") { table in
+            table.column("projectLocalID", .text).notNull()
+            table.column("accountID", .text).notNull()
+            table.column("views", .text).notNull()
+            table.primaryKey(["projectLocalID"])
+            table.foreignKey(
+                ["projectLocalID", "accountID"],
+                references: "project",
+                columns: ["localID", "accountID"],
+                onDelete: .cascade,
+            )
+        }
     }
 
     private static func createTaskAttachmentMetadata(_ db: Database) throws {
