@@ -45,8 +45,49 @@ struct OfflineProjectRepositoryTests {
         let repository = OfflineProjectRepository(
             localStore: store, accountID: accountID,
             syncRequester: TestSyncRequester(engine: engine, reachability: reachability),
+            reachability: reachability,
         )
         return Fixture(repository: repository, store: store, network: network)
+    }
+
+    @Test(arguments: [true, false])
+    func `only an online create has provisional list ordering before upload`(online: Bool) async throws {
+        let accountID = UUID()
+        let store = try LocalStore(directory: temporaryDirectory())
+        let network = FakeProjectRepository()
+        network.createdPosition = 720_896
+        let reachability = FakeReachabilityMonitor(isReachable: online)
+        let repository = OfflineProjectRepository(
+            localStore: store, accountID: accountID,
+            syncRequester: NoopKanbanSyncRequester(), reachability: reachability,
+        )
+        let engine = SyncEngine(
+            localStore: store, projectRepository: network,
+            labelRepository: FakeLabelRepository(), taskRepository: FakeTaskRepository(),
+            relationRepository: FakeTaskRelationRepository(), accountID: accountID,
+        )
+
+        let created = try await repository.create(Project(id: 0, title: "New"))
+        #expect(created.position == 0)
+        #expect((created.pendingOnlineCreationAt != nil) == online)
+        #expect(network.createdProjects.isEmpty)
+
+        network.createError = VikunjaError.offline
+        await #expect(throws: VikunjaError.offline) { try await engine.drainProjectMutations() }
+        network.createError = CancellationError()
+        await #expect(throws: CancellationError.self) { try await engine.drainProjectMutations() }
+        let pending = try await repository.fetchProject(id: created.id)
+        #expect(pending == created)
+        network.createError = nil
+        try await engine.drainProjectMutations()
+
+        let confirmed = try await repository.fetchProject(id: created.id)
+        #expect(network.createdProjects.map(\.position) == [0])
+        #expect(network.fetchProjectsCallCount == 0)
+        #expect(confirmed.position == 720_896)
+        #expect(confirmed.pendingOnlineCreationAt == nil)
+        #expect(confirmed.id.remoteValue != nil)
+        #expect(confirmed.displayID == created.displayID)
     }
 
     @Test

@@ -1100,7 +1100,7 @@ public actor SyncEngine {
             hexColor: payload.hexColor,
         )
         let created = try await projectRepository.create(project)
-        try await applyPushResult(created, deleting: item)
+        try await applyProjectPushResult(created, submittedPosition: payload.position, completing: item)
         return .pushed
     }
 
@@ -1135,7 +1135,7 @@ public actor SyncEngine {
             hexColor: payload.hexColor,
         )
         let updated = try await projectRepository.update(project)
-        try await applyPushResult(updated, deleting: item)
+        try await applyProjectPushResult(updated, submittedPosition: payload.position, completing: item)
         return .pushed
     }
 
@@ -1160,19 +1160,28 @@ public actor SyncEngine {
     /// removes the drained queue item. Shared because the two operations'
     /// post-success bookkeeping is otherwise identical — `create` is simply
     /// the case where `remoteID` was `nil` beforehand.
-    private func applyPushResult(_ project: Project, deleting item: MutationQueueRecord) async throws {
+    private func applyProjectPushResult(
+        _ project: Project, submittedPosition: Double, completing item: MutationQueueRecord,
+    ) async throws {
         guard let remoteID = project.id.remoteValue else {
             preconditionFailure("SyncEngine: a pushed create/update's response must carry a resolved remote id")
         }
         try await localStore.write { db in
+            var confirmedPosition: Double?
             if var row = try ProjectRecord.fetchOne(db, key: item.targetLocalID) {
                 row.remoteID = remoteID
                 row.serverUpdatedAt = project.updated
+                row.pendingOnlineCreationAt = nil
+                // An explicit move queued during the request owns the local position.
+                if row.position == submittedPosition {
+                    row.position = project.position
+                    confirmedPosition = project.position
+                }
                 try row.save(db)
             } else if item.operation == .create {
                 try Self.enqueueCompensatingDelete(item, remoteID: remoteID, db: db)
             }
-            try Self.completePush(item, updatedAt: project.updated, db: db)
+            try Self.completePush(item, updatedAt: project.updated, projectPosition: confirmedPosition, db: db)
         }
     }
 
@@ -1896,7 +1905,8 @@ public actor SyncEngine {
     /// awaiting the server. Preserve that newer intent and rebase it on our
     /// own successful response; a completed create becomes an update.
     private static func completePush(
-        _ sent: MutationQueueRecord, updatedAt: Date?, task: VikunjaTask? = nil, db: Database,
+        _ sent: MutationQueueRecord, updatedAt: Date?, task: VikunjaTask? = nil,
+        projectPosition: Double? = nil, db: Database,
     ) throws {
         guard var current = try MutationQueueRecord.fetchOne(db, key: sent.id) else { return }
         guard current.payload != sent.payload || current.operation != sent.operation else {
@@ -1909,6 +1919,9 @@ public actor SyncEngine {
         if current.entityType == .project,
            var payload = try decode(ProjectCreateOrUpdatePayload.self, from: current.payload) {
             payload.baseUpdatedAt = updatedAt
+            if let projectPosition {
+                payload.position = projectPosition
+            }
             current.payload = try encodePayload(payload)
         }
         if current.entityType == .task,

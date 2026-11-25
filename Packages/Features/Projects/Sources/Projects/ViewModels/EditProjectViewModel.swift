@@ -74,13 +74,11 @@ public final class EditProjectViewModel {
         saveErrorMessage = nil
         defer { isSaving = false }
         do {
-            let updated = try await repository.update(
-                Project(
-                    id: project.id,
-                    title: title.trimmingCharacters(in: .whitespacesAndNewlines),
-                    parentProjectID: parentProjectID,
-                    hexColor: hexColor,
-                ),
+            let updated = try await repository.editProject(
+                id: project.id,
+                title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+                hexColor: hexColor,
+                parentProjectID: parentProjectID,
             )
             toastPresenter.show(String(localized: "Project updated", bundle: .module), style: .success)
             return updated

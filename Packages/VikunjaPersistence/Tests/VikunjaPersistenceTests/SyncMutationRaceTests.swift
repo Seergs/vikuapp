@@ -40,11 +40,12 @@ struct SyncMutationRaceTests {
         let engine = fixture.engine
         let remote = fixture.remote
         let store = fixture.store
+        remote.createdPosition = 720_896
         let original = try await repository.create(Project(id: .local(UUID()), title: "Original"))
         remote.beforeCreateResponse = {
-            var edited = original
-            edited.title = "Edited during upload"
-            _ = try await repository.update(edited)
+            _ = try await repository.editProject(
+                id: original.id, title: "Edited during upload", hexColor: "", parentProjectID: nil,
+            )
         }
         try await engine.drainProjectMutations()
         let queue = try await store.read { db in try MutationQueueRecord.fetchAll(db) }
@@ -52,6 +53,7 @@ struct SyncMutationRaceTests {
         try await engine.drainProjectMutations()
         #expect(remote.createdProjects.count == 1)
         #expect(remote.updatedProjects.map(\.title) == ["Edited during upload"])
+        #expect(remote.updatedProjects.map(\.position) == [720_896])
         #expect(try await repository.fetchProject(id: original.id).title == "Edited during upload")
         #expect(try await store.read { db in try MutationQueueRecord.fetchAll(db).isEmpty })
     }

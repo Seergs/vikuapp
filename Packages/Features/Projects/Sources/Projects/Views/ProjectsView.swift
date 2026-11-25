@@ -12,6 +12,7 @@ struct ProjectsView: View {
     @Bindable var viewModel: ProjectsListViewModel
     @Environment(AppRouter.self) private var router
     @Environment(\.vikuPalette) private var palette
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let makeCreateProjectViewModel: (EntityID?) -> CreateProjectViewModel
     let makeEditProjectViewModel: (Project) -> EditProjectViewModel
     let makeRenameFilterViewModel: (Project) -> RenameFilterViewModel
@@ -159,21 +160,23 @@ struct ProjectsView: View {
                 }
 
                 if !viewModel.rootNodes.isEmpty {
+                    let rows = Self.flatten(viewModel.rootNodes, expandedProjectIDs: expandedProjectIDs)
                     Section {
-                        ForEach(Self.flatten(viewModel.rootNodes, expandedProjectIDs: expandedProjectIDs)) { row in
+                        ForEach(rows) { row in
                             ProjectRow(
                                 project: row.node.project,
                                 taskSummary: row.node.id.remoteValue.flatMap { viewModel.taskSummaries[$0] },
                                 level: row.level,
                                 hasChildren: !row.node.children.isEmpty,
-                                isExpanded: expandedProjectIDs.contains(row.node.id),
+                                isExpanded: expandedProjectIDs.contains(row.id),
                                 onSelect: { router.push(ProjectsRoute.projectOverview(row.node)) },
-                                onToggleExpand: { toggleExpanded(row.node.id) },
+                                onToggleExpand: { toggleExpanded(row.id) },
                                 onEdit: { editingProject = $0 },
                                 onDelete: { projectPendingDelete = row.node },
                                 onAddSubproject: { subprojectParentProject = row.node.project },
                             )
                         }
+                        .animation(reduceMotion ? nil : .snappy, value: rows.map(\.id))
                     } header: {
                         Text("My Projects", bundle: .module)
                             .vikuSectionHeader()
@@ -198,7 +201,7 @@ struct ProjectsView: View {
     }
 
     private func toggleExpanded(_ id: EntityID) {
-        withAnimation(.snappy) {
+        withAnimation(reduceMotion ? nil : .snappy) {
             if expandedProjectIDs.contains(id) {
                 expandedProjectIDs.remove(id)
             } else {
@@ -214,7 +217,7 @@ struct ProjectsView: View {
     ) -> [ProjectDisplayRow] {
         nodes.flatMap { node -> [ProjectDisplayRow] in
             var rows = [ProjectDisplayRow(node: node, level: level)]
-            if expandedProjectIDs.contains(node.id) {
+            if expandedProjectIDs.contains(node.project.displayID) {
                 rows += flatten(node.children, level: level + 1, expandedProjectIDs: expandedProjectIDs)
             }
             return rows
@@ -226,7 +229,7 @@ private struct ProjectDisplayRow: Identifiable {
     let node: ProjectNode
     let level: Int
     var id: EntityID {
-        node.id
+        node.project.displayID
     }
 }
 

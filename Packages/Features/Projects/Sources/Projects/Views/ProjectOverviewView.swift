@@ -682,7 +682,7 @@ private struct SubprojectScrollRow: View {
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: VikuSpacing.sm) {
-                ForEach(subprojects) { node in
+                ForEach(subprojects, id: \.project.displayID) { node in
                     SubprojectCard(node: node, taskSummary: taskSummaries[node.id]) { onSelect(node) }
                 }
             }

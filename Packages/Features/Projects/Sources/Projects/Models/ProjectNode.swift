@@ -18,6 +18,19 @@ public struct ProjectNode: Identifiable, Hashable, Sendable {
         self.children = children
     }
 
+    static func precedesAmongSiblings(_ lhs: Project, _ rhs: Project) -> Bool {
+        switch (lhs.pendingOnlineCreationAt, rhs.pendingOnlineCreationAt) {
+        case (.some, .none): return false
+        case (.none, .some): return true
+        case let (lhsDate?, rhsDate?) where lhsDate != rhsDate: return lhsDate < rhsDate
+        default:
+            if lhs.position != rhs.position {
+                return lhs.position < rhs.position
+            }
+            return lhs.id < rhs.id
+        }
+    }
+
     public func hash(into hasher: inout Hasher) {
         hasher.combine(project)
         hasher.combine(children)
