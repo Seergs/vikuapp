@@ -29,6 +29,68 @@ struct KanbanLifecycleTests {
         #expect(condition())
     }
 
+    @Test func `selection keeps the exact uncached board offline and falls back after deletion`() async {
+        let repository = FakeBucketRepository()
+        let sprint = KanbanViewSummary(id: 11, title: "Sprint")
+        let support = KanbanViewSummary(id: 7, title: "Support")
+        repository.catalog = [sprint, support]
+        repository.boardSnapshots[11] = [KanbanBucket(id: 101, title: "Sprint backlog")]
+        let sync = TestScreenSync()
+        sync.refreshError = .offline
+        let viewModel = model(repository, sync: sync)
+
+        await viewModel.start()
+        #expect(viewModel.viewID == sprint.id)
+        #expect(viewModel.buckets.map(\.id) == [101])
+
+        await viewModel.start(preferredViewID: support.id)
+        #expect(sync.scopes.last == .kanban(projectID: 1, viewID: support.id))
+        #expect(viewModel.viewID == support.id)
+        #expect(viewModel.loadState == .loaded)
+        #expect(!viewModel.hasSnapshot)
+        #expect(viewModel.buckets.isEmpty)
+
+        sync.refreshError = nil
+        sync.onRefresh = {
+            repository.catalog = [sprint]
+        }
+        await viewModel.refresh()
+        #expect(viewModel.viewID == sprint.id)
+        #expect(viewModel.buckets.map(\.id) == [101])
+        #expect(viewModel.boardCatalog == [sprint])
+    }
+
+    @Test func `a late failed refresh leaves the new board visible`() async {
+        let repository = FakeBucketRepository()
+        repository.catalog = [
+            KanbanViewSummary(id: 11, title: "Sprint"), KanbanViewSummary(id: 7, title: "Support"),
+        ]
+        repository.boardSnapshots = [
+            11: [KanbanBucket(id: 101, title: "Sprint backlog")],
+            7: [KanbanBucket(id: 202, title: "Support inbox")],
+        ]
+        let sync = TestScreenSync()
+        let toast = FakeToastPresenter()
+        let viewModel = model(repository, sync: sync, toast: toast)
+        let (release, allowResponse) = AsyncStream<Void>.makeStream()
+        sync.onRefresh = {
+            if sync.scopes.last == .kanban(projectID: 1, viewID: 11) {
+                for await _ in release {}
+                throw VikunjaError.unauthorized
+            }
+        }
+        let first = Task { await viewModel.start(preferredViewID: 11) }
+        await waitUntil { !sync.scopes.isEmpty }
+        await viewModel.start(preferredViewID: 7)
+        allowResponse.finish()
+        await first.value
+
+        #expect(viewModel.viewID == 7)
+        #expect(viewModel.buckets.map(\.id) == [202])
+        #expect(!viewModel.isRefreshing)
+        #expect(toast.shownMessages.isEmpty)
+    }
+
     @Test func `online board capabilities allow movements while preventing ambiguous task creation`() async {
         let repository = FakeBucketRepository()
         repository.supportsTaskCreation = false

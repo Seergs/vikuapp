@@ -9,6 +9,8 @@ final class FakeBucketRepository: KanbanBoardRepositoryProtocol, KanbanTaskOrder
     }
 
     var buckets: [KanbanBucket] = []
+    var catalog: [KanbanViewSummary]?
+    var boardSnapshots: [Int: [KanbanBucket]] = [:]
     var fetchError: VikunjaError?
     var moveError: VikunjaError?
     var afterMove: (@MainActor () -> Void)?
@@ -34,6 +36,10 @@ final class FakeBucketRepository: KanbanBoardRepositoryProtocol, KanbanTaskOrder
 
     private(set) var reorderedTasks: [RecordedOrder] = []
 
+    func fetchBoardCatalog(projectID: EntityID) async throws -> [KanbanViewSummary]? {
+        catalog
+    }
+
     func reorderTask(
         taskID: EntityID, projectID: EntityID, viewID: Int, bucketID: Int, placement: KanbanTaskPlacement,
     ) async throws {
@@ -58,6 +64,13 @@ final class FakeBucketRepository: KanbanBoardRepositoryProtocol, KanbanTaskOrder
         }
         if waitingForProject {
             return .waitingForProject
+        }
+        if let viewID, catalog != nil {
+            guard let buckets = boardSnapshots[viewID] else { return .unavailable }
+            return .available(KanbanBoard(
+                viewID: viewID, buckets: buckets, defaultBucketID: buckets.first?.id,
+                supportsWrites: supportsWrites, lastPulledAt: Date(timeIntervalSince1970: 1_700_000_000),
+            ))
         }
         guard hasSnapshot else { return .unavailable }
         return .available(KanbanBoard(
