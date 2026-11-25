@@ -160,7 +160,12 @@ actor UITestAuxiliaryRepository: AuthServiceProtocol, LabelRepositoryProtocol, U
     }
 
     func fetchFilter(id: Int) async throws -> SavedFilterDetail {
-        throw UITestFixtureError.unsupported("fetchFilter")
+        let filter = UITestFixtures.savedFilterProject
+        guard id == filter.savedFilterID else { throw VikunjaError.notFound }
+        return SavedFilterDetail(
+            id: id, title: filter.title, description: filter.description,
+            isFavorite: filter.isFavorite, query: "",
+        )
     }
 
     func renameFilter(id: Int, title: String) async throws -> SavedFilterDetail {
