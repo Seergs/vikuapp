@@ -2,6 +2,18 @@ name: UI Tests
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '17 8 * * *' # 08:17 UTC / 02:17 America/Mexico_City
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui-tests-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  RESULT_BUNDLE: TestResults/UI.xcresult
 
 jobs:
   ui-tests:
@@ -12,24 +24,56 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_26.2.app
+        id: xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.2.app
+          xcodebuild -version
 
       - name: Run UI tests
+        id: tests
         run: |
           xcodebuild test \
             -project Viku.xcodeproj \
             -scheme VikuUITests \
             -configuration Debug \
             -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.2' \
+            -testLanguage en \
+            -testRegion US \
             -parallel-testing-enabled NO \
-            -resultBundlePath TestResults/UI.xcresult \
+            -resultBundlePath "$RESULT_BUNDLE" \
             -skipMacroValidation \
             CODE_SIGNING_ALLOWED=NO
 
-      - name: Upload tests results
+      - name: Summarize UI tests
+        if: always()
+        env:
+          XCODE_OUTCOME: ${{ steps.xcode.outcome }}
+          TEST_OUTCOME: ${{ steps.tests.outcome }}
+        run: |
+          {
+            echo '## Viku UI tests'
+            echo
+            echo "- Trigger: $GITHUB_EVENT_NAME"
+            echo '- Environment: macOS 26, Xcode 26.2, iPhone 17 (iOS 26.2), en-US, Debug'
+            echo "- Select Xcode: $XCODE_OUTCOME"
+            echo "- Run UI tests: $TEST_OUTCOME"
+            if [[ -d "$RESULT_BUNDLE" ]] &&
+               report=$(xcrun xcresulttool get test-results summary --path "$RESULT_BUNDLE") &&
+               counts=$(jq -er '
+                 "- Executed: \(.totalTestCount - .skippedTests)\n- Passed: \(.passedTests)\n- Failed: \(.failedTests)\n- Skipped: \(.skippedTests)\n- Expected failures: \(.expectedFailures)"
+               ' <<< "$report"); then
+              echo "$counts"
+              echo '- Details and attachments: `ui-tests-results` artifact'
+            else
+              echo '- Test counts unavailable. See the job logs for setup, build, or test diagnostics.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: ui-tests-results
-          path: TestResults/UI.xcresult
+          path: ${{ env.RESULT_BUNDLE }}
           if-no-files-found: warn
+          retention-days: 14
