@@ -19,6 +19,7 @@ private actor MovingKanbanRemote: BucketRepositoryProtocol {
     var readHook: (@Sendable () async throws -> Void)?
     var failure: VikunjaError?
     var recurring = false
+    var hasSecondBoard = false
     private(set) var moved: [Int] = []
     private(set) var created: [Int] = []
 
@@ -64,6 +65,10 @@ private actor MovingKanbanRemote: BucketRepositoryProtocol {
         recurring = true
     }
 
+    func enableSecondBoard() {
+        hasSecondBoard = true
+    }
+
     func setPlacement(_ bucketID: Int) {
         placements[100] = bucketID
         tasks[100]?.isDone = bucketID == 22
@@ -74,6 +79,15 @@ private actor MovingKanbanRemote: BucketRepositoryProtocol {
     }
 
     func downloadBoard(projectID: Int, viewID: Int?) async throws -> KanbanDownload {
+        if viewID == 11, hasSecondBoard {
+            return KanbanDownload(
+                viewID: 11, mode: "manual", filterQuery: "", defaultBucketID: 30, doneBucketID: 32,
+                buckets: [
+                    KanbanBucket(id: 30, title: "Inbox", tasks: tasks.values.filter { !$0.isDone }),
+                    KanbanBucket(id: 32, title: "Closed", isDoneBucket: true, tasks: tasks.values.filter(\.isDone)),
+                ],
+            )
+        }
         let buckets = availableBuckets.map { id in
             KanbanBucket(
                 id: id,
@@ -105,7 +119,9 @@ private actor MovingKanbanRemote: BucketRepositoryProtocol {
 
     func createTask(_ task: VikunjaTask, bucketID: Int, projectID: Int) async throws -> VikunjaTask {
         created.append(bucketID)
-        let result = VikunjaTask(id: .remote(500), title: task.title, isDone: task.isDone, projectID: task.projectID)
+        let result = VikunjaTask(
+            id: .remote(500), title: task.title, isDone: task.isDone || bucketID == 22, projectID: task.projectID,
+        )
         placements[500] = bucketID
         tasks[500] = result
         positions[500] = 400 // The authoritative download may correct provisional creation order.
@@ -114,6 +130,17 @@ private actor MovingKanbanRemote: BucketRepositoryProtocol {
     }
 
     func moveTask(taskID: Int, toBucketID: Int, projectID: Int, viewID: Int?) async throws -> VikunjaTask {
+        if viewID == 11, hasSecondBoard {
+            moved.append(toBucketID)
+            var task = try #require(tasks[taskID])
+            task.isDone = toBucketID == 32
+            if task.isDone {
+                placements[taskID] = 22
+            }
+            task.updated = Date()
+            tasks[taskID] = task
+            return task
+        }
         #expect(viewID == 10)
         moved.append(toBucketID)
         if let failure {
@@ -232,6 +259,63 @@ struct KanbanMovementTests {
             Issue.record("Missing board"); return []
         }
         return board.buckets.first { $0.id == bucketID }?.tasks.map(\.id) ?? []
+    }
+
+    @Test func `moving to done refreshes the other cached board with the same task`() async throws {
+        let fixture = try await fixture()
+        await fixture.remote.enableSecondBoard()
+        try await fixture.engine.pullKanban(projectID: 1, viewID: 11)
+        _ = try await move(fixture, to: 22)
+        guard case let .available(optimistic) = try await fixture.board.fetchBoard(projectID: 1, viewID: 11)
+        else { Issue.record("Missing second board"); return }
+        #expect(optimistic.buckets.first { $0.id == 32 }?.tasks.map(\.isDone) == [true])
+        try await fixture.engine.drainTaskMutations()
+
+        guard case let .available(support) = try await fixture.board.fetchBoard(projectID: 1, viewID: 11)
+        else { Issue.record("Missing second board"); return }
+        #expect(support.buckets.first { $0.id == 30 }?.tasks.isEmpty == true)
+        #expect(support.buckets.first { $0.id == 32 }?.tasks.map(\.isDone) == [true])
+        #expect(try await fixture.store.read { try TaskRecord.fetchCount($0) } == 1)
+    }
+
+    @Test func `moving an unsubmitted task in another view preserves both intents`() async throws {
+        let fixture = try await fixture()
+        await fixture.remote.enableSecondBoard()
+        try await fixture.engine.pullKanban(projectID: 1, viewID: 11)
+        let local = try await fixture.board.createTask(title: "Draft", projectID: 1, viewID: 10, bucketID: 20)
+        _ = try await fixture.board.setCompletion(taskID: local.id, projectID: 1, viewID: 10, isDone: true)
+        _ = try await fixture.board.moveTask(taskID: local.id, projectID: 1, viewID: 11, bucketID: 30)
+
+        let pending = try await queue(fixture)
+        let creation = try #require(pending.first { $0.operation == .create })
+        let move = try #require(pending.first { $0.operation == .moveBucket })
+        let creationPayload = try KanbanLocalMutations.decode(TaskCreateOrUpdatePayload.self, item: creation)
+        let movePayload = try KanbanLocalMutations.decode(KanbanMovePayload.self, item: move)
+        #expect(creationPayload.kanbanDestination == KanbanCreationDestination(viewID: 10, bucketID: 22))
+        #expect(movePayload.viewID == 11)
+        #expect(movePayload.bucketID == 30)
+        #expect(!movePayload.isDone)
+
+        try await fixture.engine.drainTaskMutations()
+        #expect(await fixture.remote.created == [22])
+        #expect(await fixture.remote.moved == [30])
+        #expect(try await queue(fixture).isEmpty)
+        #expect(try await fixture.tasks.fetchTask(id: 500).isDone == false)
+    }
+
+    @Test func `moves around a completion on another board replay in order`() async throws {
+        let fixture = try await fixture()
+        await fixture.remote.enableSecondBoard()
+        try await fixture.engine.pullKanban(projectID: 1, viewID: 11)
+        _ = try await move(fixture, to: 21)
+        _ = try await fixture.board.moveTask(taskID: 100, projectID: 1, viewID: 11, bucketID: 32)
+        _ = try await move(fixture, to: 21)
+
+        try await fixture.engine.drainTaskMutations()
+
+        #expect(await fixture.remote.moved == [21, 32, 21])
+        #expect(try await fixture.tasks.fetchTask(id: 100).isDone == false)
+        #expect(try await queue(fixture).isEmpty)
     }
 
     @Test func `moving into a populated column keeps view order before and after acknowledgement`() async throws {
@@ -466,6 +550,21 @@ struct KanbanMovementTests {
         #expect(pending.first?.failureMessage != nil)
         #expect(pending.first?.action == .moveBucket)
         #expect(try await location(fixture) == 22)
+    }
+
+    @Test func `a new placement can resolve an unconfirmed completion move`() async throws {
+        let fixture = try await fixture()
+        await fixture.remote.setFailure(.server(message: "Unavailable", statusCode: 503))
+        try await move(fixture, to: 22)
+        try await fixture.engine.drainTaskMutations()
+
+        await fixture.remote.setFailure(nil)
+        try await move(fixture, to: 21)
+        try await fixture.engine.drainTaskMutations()
+
+        #expect(await fixture.remote.moved == [22, 21])
+        #expect(try await location(fixture) == 21)
+        #expect(try await queue(fixture).isEmpty)
     }
 
     @Test func `deletion during movement does not leave orphaned work`() async throws {

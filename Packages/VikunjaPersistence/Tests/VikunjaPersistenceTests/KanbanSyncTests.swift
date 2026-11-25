@@ -196,7 +196,7 @@ struct KanbanSyncTests {
         #expect(await remote.requestedViews == [11, 10])
     }
 
-    @Test func `deleted board falls back and preserves pending creation`() async throws {
+    @Test func `deleted board falls back and its pending creation can be redirected`() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let store = try LocalStore(directory: directory)
         let accountID = UUID()
@@ -215,16 +215,23 @@ struct KanbanSyncTests {
 
         await remote.setCatalog([support], extraBoards: [supportBoard])
         try await sync.refreshKanban(projectID: 1, viewID: 10)
-
         #expect(try await repository.fetchBoardCatalog(projectID: 1) == [support])
         #expect(try await repository.fetchBoard(projectID: 1, viewID: 10) == .unavailable)
         #expect(await remote.requestedViews == [10, 11])
-        let queued = try await store.read { try MutationQueueRecord.fetchAll($0) }
-        #expect(queued.map(\.operation) == [.create])
-        let tasks = OfflineTaskRepository(
+        try await sync.drainTaskMutations()
+
+        let item = try #require(try await store.read { try MutationQueueRecord.fetchAll($0).first })
+        #expect(item.needsConflictResolution)
+        let operationID = try #require(item.id)
+        let recovery = OfflineKanbanCreationRecovery(
             localStore: store, accountID: accountID, syncRequester: NoopKanbanSyncRequester(),
         )
-        #expect(try await tasks.fetchTask(id: task.id).title == "Keep this draft")
+        #expect(try await recovery.recoveryBuckets(operationID: operationID).map(\.id) == [30])
+        try await recovery.retryCreation(operationID: operationID, bucketID: 30)
+        guard case let .available(fallback) = try await repository.fetchBoard(projectID: 1, viewID: nil)
+        else { Issue.record("Expected fallback board"); return }
+        #expect(fallback.buckets[0].tasks.map(\.id) == [task.id])
+        #expect(fallback.buckets[0].tasks.map(\.title) == ["Keep this draft"])
     }
 
     @Test func `download refresh failure and empty snapshot`() async throws {

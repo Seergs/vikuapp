@@ -31,6 +31,7 @@ private struct KanbanMoveFailureContext {
     let projectID: Int
     let remoteID: Int
     let fallbackBucketID: Int
+    let touchesDoneBucket: Bool
 }
 
 private struct KanbanMoveSubmissionContext {
@@ -40,6 +41,7 @@ private struct KanbanMoveSubmissionContext {
     let projectID: Int
     let remoteID: Int
     let source: KanbanBucket
+    let touchesDoneBucket: Bool
 }
 
 extension SyncEngine {
@@ -77,9 +79,15 @@ extension SyncEngine {
         guard let projectID else { return .deferred }
         // This read has no side effects. Network failures here remain safe to retry.
         // A remote change between this read and the PUT still follows the server's write ordering.
-        let snapshot = try await repository.downloadBoard(projectID: projectID, viewID: payload.viewID)
+        let snapshot: KanbanDownload
+        do {
+            snapshot = try await repository.downloadBoard(projectID: projectID, viewID: payload.viewID)
+        } catch VikunjaError.notFound {
+            try await failKanbanMove(item, reason: .rejected)
+            return .skipped
+        }
         guard snapshot.mode == "manual", snapshot.filterQuery.isEmpty,
-              snapshot.buckets.contains(where: { $0.id == payload.bucketID }),
+              let destination = snapshot.buckets.first(where: { $0.id == payload.bucketID }),
               let source = snapshot.buckets.first(where: { $0.tasks.contains { $0.id == .remote(remoteID) } }) else {
             try await failKanbanMove(item, reason: .rejected)
             return .skipped
@@ -93,6 +101,9 @@ extension SyncEngine {
                 item: item,
                 payload: payload,
             )
+            if payload.changesCompletion == true || source.isDoneBucket || destination.isDoneBucket {
+                await refreshOtherCachedKanbanBoards(after: payload)
+            }
             return .skipped
         }
         return try await submitKanbanMove(KanbanMoveSubmissionContext(
@@ -102,6 +113,7 @@ extension SyncEngine {
             projectID: projectID,
             remoteID: remoteID,
             source: source,
+            touchesDoneBucket: payload.changesCompletion == true || source.isDoneBucket || destination.isDoneBucket,
         ))
     }
 
@@ -119,6 +131,9 @@ extension SyncEngine {
                 )
             }
             try await applyKanbanMove(response, item: context.item, payload: context.payload)
+            if context.touchesDoneBucket {
+                await refreshOtherCachedKanbanBoards(after: context.payload)
+            }
             return .pushed
         } catch {
             try checkSyncInterruption(error)
@@ -131,8 +146,22 @@ extension SyncEngine {
                     projectID: context.projectID,
                     remoteID: context.remoteID,
                     fallbackBucketID: context.source.id,
+                    touchesDoneBucket: context.touchesDoneBucket,
                 ),
             )
+        }
+    }
+
+    /// Done is shared. Only the server can confirm the resulting membership in other views.
+    private func refreshOtherCachedKanbanBoards(after move: KanbanMovePayload) async {
+        let ids = try? await localStore.read { db in
+            try KanbanViewRecord.filter(Column("accountID") == self.accountID)
+                .filter(Column("projectLocalID") == move.projectLocalID)
+                .filter(Column("remoteID") != move.viewID)
+                .filter(Column("lastCompletePullAt") != nil).fetchAll(db).map(\.remoteID)
+        }
+        for id in ids ?? [] where !Task.isCancelled {
+            try? await pullKanban(projectID: .local(move.projectLocalID), viewID: id)
         }
     }
 
@@ -162,6 +191,9 @@ extension SyncEngine {
                 payload: context.payload,
                 allowInFlight: true,
             )
+            if context.touchesDoneBucket {
+                await refreshOtherCachedKanbanBoards(after: context.payload)
+            }
             return .skipped
         }
         try await failKanbanMove(
@@ -207,15 +239,7 @@ extension SyncEngine {
             if let baseline {
                 let sent = try KanbanLocalMutations.decode(KanbanMovePayload.self, item: item)
                 let queued = try MutationQueueRecord.filter(Column("targetLocalID") == item.targetLocalID).fetchAll(db)
-                for var next in queued
-                    where next.operation == .moveBucket && next.id != item.id && next.status == .pending {
-                    var payload = try KanbanLocalMutations.decode(KanbanMovePayload.self, item: next)
-                    if payload.viewID == sent.viewID {
-                        payload.baselineBucketID = baseline
-                        next.payload = try KanbanLocalMutations.encode(payload)
-                        try next.update(db)
-                    }
-                }
+                try Self.rebaseNextMove(in: queued, after: item, viewID: sent.viewID, bucketID: baseline, db: db)
             }
         }
     }
@@ -255,27 +279,21 @@ extension SyncEngine {
 
             let related = try MutationQueueRecord.filter(Column("accountID") == self.accountID)
                 .filter(Column("targetLocalID") == item.targetLocalID).fetchAll(db)
-            var newerMoves = [MutationQueueRecord]()
-            for var next in related where next.id != current.id && next.operation == .moveBucket
-                && next.status != .inFlight {
-                var nextPayload = try KanbanLocalMutations.decode(KanbanMovePayload.self, item: next)
-                guard nextPayload.viewID == payload.viewID else { continue }
-                if (next.id ?? 0) > (current.id ?? 0) {
-                    nextPayload.baselineBucketID = bucketID
-                    next.payload = try KanbanLocalMutations.encode(nextPayload)
-                    try next.update(db)
-                    newerMoves.append(next)
-                }
+            try Self.rebaseNextMove(in: related, after: current, viewID: payload.viewID, bucketID: bucketID, db: db)
+            let hasNewerMoveOnThisBoard = try related.contains {
+                guard $0.operation == .moveBucket, ($0.id ?? 0) > (current.id ?? 0) else { return false }
+                return try KanbanLocalMutations.decode(KanbanMovePayload.self, item: $0).viewID == payload.viewID
             }
 
-            if newerMoves.isEmpty {
+            if !hasNewerMoveOnThisBoard {
                 if var assignment = try KanbanAssignmentRecord.filter(Column("viewLocalID") == view.localID)
                     .filter(Column("taskLocalID") == task.localID).fetchOne(db) {
                     assignment.bucketLocalID = destination.localID
                     try assignment.update(db)
                 }
                 let hasQueuedUpdate = related.contains {
-                    [.update, .setCompletion, .setDueDate].contains($0.operation) && $0.status != .inFlight
+                    $0.id != current.id && [.update, .moveBucket, .setCompletion, .setDueDate]
+                        .contains($0.operation) && $0.status != .inFlight
                 }
                 if !hasQueuedUpdate {
                     task.isDone = serverTask.isDone
@@ -322,17 +340,27 @@ extension SyncEngine {
                 }
                 try row.update(db)
             }
-            for var next in others where next.operation == .moveBucket && next.status != .inFlight {
-                var body = try KanbanLocalMutations.decode(KanbanMovePayload.self, item: next)
-                if body.viewID == payload.viewID, let actualBucket {
-                    body.baselineBucketID = actualBucket
-                    next.payload = try KanbanLocalMutations.encode(body)
-                    try next.update(db)
-                }
+            if let actualBucket {
+                try Self.rebaseNextMove(
+                    in: others, after: item, viewID: payload.viewID, bucketID: actualBucket, db: db,
+                )
             }
             try current.delete(db)
             try Self.rebaseTaskBulkIntents(after: item, task: response, db: db)
         }
+    }
+
+    /// A move in another view can change this task's placement before a later move here.
+    private static func rebaseNextMove(
+        in queue: [MutationQueueRecord], after item: MutationQueueRecord, viewID: Int, bucketID: Int, db: Database,
+    ) throws {
+        let following = queue.filter { $0.operation == .moveBucket && ($0.id ?? 0) > (item.id ?? 0) }
+        guard var next = following.min(by: { ($0.id ?? 0) < ($1.id ?? 0) }), next.status != .inFlight else { return }
+        var payload = try KanbanLocalMutations.decode(KanbanMovePayload.self, item: next)
+        guard payload.viewID == viewID else { return }
+        payload.baselineBucketID = bucketID
+        next.payload = try KanbanLocalMutations.encode(payload)
+        try next.update(db)
     }
 }
 
