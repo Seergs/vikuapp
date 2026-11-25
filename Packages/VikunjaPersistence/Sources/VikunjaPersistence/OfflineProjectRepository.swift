@@ -9,11 +9,16 @@ public actor OfflineProjectRepository: ProjectRepositoryProtocol {
     private let localStore: LocalStore
     private let accountID: UUID
     private let syncRequester: SyncRequesting
+    private let reachability: (any ReachabilityMonitoring)?
 
-    public init(localStore: LocalStore, accountID: UUID, syncRequester: SyncRequesting) {
+    public init(
+        localStore: LocalStore, accountID: UUID, syncRequester: SyncRequesting,
+        reachability: (any ReachabilityMonitoring)? = nil,
+    ) {
         self.localStore = localStore
         self.accountID = accountID
         self.syncRequester = syncRequester
+        self.reachability = reachability
     }
 
     public func fetchProjects() async throws -> [Project] {
@@ -44,6 +49,7 @@ public actor OfflineProjectRepository: ProjectRepositoryProtocol {
 
     public func create(_ project: Project) async throws -> Project {
         let localID = UUID()
+        let pendingOnlineCreationAt = await reachability?.isReachable == true ? Date() : nil
         try await localStore.write { db in
             let rows = try Self.accountRows(self.accountID, db: db)
             let parentLocalID = project.parentProjectID.flatMap { Self.resolveLocalID(matching: $0, in: rows) }
@@ -59,6 +65,7 @@ public actor OfflineProjectRepository: ProjectRepositoryProtocol {
                 position: project.position,
                 hexColor: project.hexColor,
                 serverUpdatedAt: nil,
+                pendingOnlineCreationAt: pendingOnlineCreationAt,
             ).insert(db)
             let payload = ProjectCreateOrUpdatePayload(
                 title: project.title,
@@ -83,9 +90,28 @@ public actor OfflineProjectRepository: ProjectRepositoryProtocol {
     }
 
     public func update(_ project: Project) async throws -> Project {
+        try await updateProject(id: project.id) { $0 = project }
+    }
+
+    public func editProject(
+        id: EntityID, title: String, hexColor: String, parentProjectID: EntityID?,
+    ) async throws -> Project {
+        try await updateProject(id: id) { project in
+            project.title = title
+            project.hexColor = hexColor
+            project.parentProjectID = parentProjectID
+        }
+    }
+
+    private func updateProject(
+        id: EntityID, change: @Sendable (inout Project) -> Void,
+    ) async throws -> Project {
         try await localStore.write { db in
             let rows = try Self.accountRows(self.accountID, db: db)
-            guard var row = Self.findRow(matching: project.id, in: rows) else { throw VikunjaError.notFound }
+            guard var row = Self.findRow(matching: id, in: rows) else { throw VikunjaError.notFound }
+            let rowsByLocalID = Dictionary(uniqueKeysWithValues: rows.map { ($0.localID, $0) })
+            var project = Self.project(from: row, rowsByLocalID: rowsByLocalID)
+            change(&project)
             let parentLocalID = project.parentProjectID.flatMap { Self.resolveLocalID(matching: $0, in: rows) }
             row.title = project.title
             row.description = project.description
@@ -119,7 +145,7 @@ public actor OfflineProjectRepository: ProjectRepositoryProtocol {
             ), db: db)
         }
         await triggerDrainIfOnline()
-        return try await readProject(id: project.id)
+        return try await readProject(id: id)
     }
 
     public func delete(id: EntityID) async throws {
@@ -192,6 +218,8 @@ public actor OfflineProjectRepository: ProjectRepositoryProtocol {
             position: row.position,
             hexColor: row.hexColor,
             updated: row.serverUpdatedAt,
+            localID: row.localID,
+            pendingOnlineCreationAt: row.pendingOnlineCreationAt,
         )
     }
 

@@ -994,6 +994,7 @@ final class AppContainer {
             localStore: localStore,
             accountID: account.id,
             syncRequester: accountSync(for: account),
+            reachability: reachabilityMonitor,
         )
     }
 

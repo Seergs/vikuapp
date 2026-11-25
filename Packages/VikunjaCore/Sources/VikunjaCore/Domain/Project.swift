@@ -14,6 +14,10 @@ public struct Project: Identifiable, Hashable, Sendable {
     /// created one). Not for display — it's sync bookkeeping, read by
     /// whatever persists this project locally.
     public var updated: Date?
+    /// The cache identity survives the transition from a local to a server ID.
+    public let localID: UUID?
+    /// Set while an online creation is waiting for its server position.
+    public let pendingOnlineCreationAt: Date?
 
     public init(
         id: EntityID,
@@ -25,6 +29,8 @@ public struct Project: Identifiable, Hashable, Sendable {
         position: Double = 0,
         hexColor: String = "",
         updated: Date? = nil,
+        localID: UUID? = nil,
+        pendingOnlineCreationAt: Date? = nil,
     ) {
         self.id = id
         self.title = title
@@ -35,6 +41,12 @@ public struct Project: Identifiable, Hashable, Sendable {
         self.position = position
         self.hexColor = hexColor
         self.updated = updated
+        self.localID = localID
+        self.pendingOnlineCreationAt = pendingOnlineCreationAt
+    }
+
+    public var displayID: EntityID {
+        localID.map(EntityID.local) ?? id
     }
 
     public var kind: ProjectKind {

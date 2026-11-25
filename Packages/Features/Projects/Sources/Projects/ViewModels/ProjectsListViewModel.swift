@@ -212,7 +212,7 @@ public final class ProjectsListViewModel {
     }
 
     /// Builds the parent/child tree for every non-archived project, ordered
-    /// by `position` within each level. Guards against a cyclic
+    /// by position within each level, with pending online creations last. Guards against a cyclic
     /// `parentProjectID` (malformed server data) by never revisiting a
     /// project id on the same branch.
     static func tree(from projects: [Project]) -> [ProjectNode] {
@@ -221,7 +221,7 @@ public final class ProjectsListViewModel {
 
         func nodes(withParentID parentID: EntityID?, excluding ancestorIDs: Set<EntityID>) -> [ProjectNode] {
             (childrenByParentID[parentID] ?? [])
-                .sorted { $0.position < $1.position }
+                .sorted(by: ProjectNode.precedesAmongSiblings)
                 .compactMap { project in
                     guard !ancestorIDs.contains(project.id) else { return nil }
                     let children = nodes(withParentID: project.id, excluding: ancestorIDs.union([project.id]))

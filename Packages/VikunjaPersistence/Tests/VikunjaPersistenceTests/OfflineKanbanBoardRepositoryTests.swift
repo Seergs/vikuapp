@@ -213,11 +213,10 @@ struct OfflineKanbanBoardRepositoryTests {
         let accountID = UUID()
         let projectID = UUID()
         try db.write { db in
-            try ProjectRecord(
-                localID: projectID, accountID: accountID, remoteID: 1, title: "Existing", description: nil,
-                isArchived: false, isFavorite: false, parentProjectLocalID: nil, position: 0,
-                hexColor: "", serverUpdatedAt: nil,
-            ).insert(db)
+            try db.execute(sql: """
+            INSERT INTO project (localID, accountID, remoteID, title, isArchived, isFavorite, position, hexColor)
+            VALUES (?, ?, 1, 'Existing', 0, 0, 0, '')
+            """, arguments: [projectID, accountID])
             try TaskRecord(
                 localID: UUID(), accountID: accountID, remoteID: 1, title: "Keep me", description: nil,
                 isDone: false, dueDate: nil, priority: 0, projectLocalID: projectID, serverUpdatedAt: nil,

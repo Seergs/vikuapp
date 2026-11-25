@@ -20,6 +20,7 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
     var beforeFetchResponse: (@Sendable () async -> Void)?
     var onFetchProjects: (@Sendable () -> Void)?
     var beforeCreateResponse: (@Sendable () async throws -> Void)?
+    var createdPosition: Double?
     var beforeUpdateResponse: (@Sendable () async throws -> Void)?
     var beforeDeleteResponse: (@Sendable () async throws -> Void)?
 
@@ -42,9 +43,8 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
     }
 
     /// Simulates the server assigning a real id and `updated` timestamp —
-    /// `SyncEngine.applyPushResult` requires both to be present. Also adds
-    /// it to `projects`, like a real server would list it back on the very
-    /// next `fetchProjects()` call.
+    /// Adds it to `projects`, as a real server would list it on the next
+    /// `fetchProjects()` call.
     func create(_ project: Project) async throws -> Project {
         if let createError {
             throw createError
@@ -52,7 +52,10 @@ final class FakeProjectRepository: ProjectRepositoryProtocol, @unchecked Sendabl
         createdProjects.append(project)
         let remoteID = nextRemoteID
         nextRemoteID += 1
-        let created = Self.withServerAssigned(project, id: .remote(remoteID))
+        var created = Self.withServerAssigned(project, id: .remote(remoteID))
+        if let createdPosition {
+            created.position = createdPosition
+        }
         projects.append(created)
         try await beforeCreateResponse?()
         return created

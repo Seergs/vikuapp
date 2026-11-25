@@ -48,11 +48,10 @@ struct DatabaseMigrationsTests {
             kind: .related, otherTaskRemoteID: 6, otherProjectRemoteID: 1, title: "Other", isDone: false,
         )
         try database.write { db in
-            try ProjectRecord(
-                localID: projectID, accountID: accountID, remoteID: 1, title: "Project", description: nil,
-                isArchived: false, isFavorite: false, parentProjectLocalID: nil, position: 0,
-                hexColor: "", serverUpdatedAt: nil,
-            ).insert(db)
+            try db.execute(sql: """
+            INSERT INTO project (localID, accountID, remoteID, title, isArchived, isFavorite, position, hexColor)
+            VALUES (?, ?, 1, 'Project', 0, 0, 70, '')
+            """, arguments: [projectID, accountID])
             try TaskRecord(
                 localID: taskID, accountID: accountID, remoteID: 5, title: "Task", description: nil,
                 isDone: false, dueDate: nil, priority: 0, projectLocalID: projectID, serverUpdatedAt: nil,
@@ -60,6 +59,9 @@ struct DatabaseMigrationsTests {
             try relation.insert(db)
         }
         try migrator.migrate(database)
+        let project = try #require(database.read { try ProjectRecord.fetchOne($0, key: projectID) })
+        #expect(project.position == 70)
+        #expect(project.pendingOnlineCreationAt == nil)
         #expect(try database.read { try TaskRelationRecord.fetchOne($0) } == relation)
         let columns = try database.read { db in
             try db.indexes(on: "taskRelation")

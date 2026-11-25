@@ -1,3 +1,4 @@
+import Foundation
 @testable import Projects
 import Testing
 import VikunjaCore
@@ -78,6 +79,27 @@ struct ProjectsListViewModelTests {
         await viewModel.load()
 
         #expect(viewModel.rootNodes.map(\.project.title) == ["First", "Second", "Third"])
+    }
+
+    @Test
+    func `an online creation stays last among its siblings until its server position arrives`() throws {
+        let localID = UUID()
+        let sibling = Project(id: 3, title: "Manually moved", parentProjectID: 1, position: 900_000)
+        let parent = Project(id: 1, title: "Parent")
+        let offline = Project(id: .local(UUID()), title: "Offline", parentProjectID: 1)
+        let pending = Project(
+            id: .local(localID), title: "New", parentProjectID: 1,
+            localID: localID, pendingOnlineCreationAt: Date(),
+        )
+        let before = try #require(ProjectsListViewModel.tree(from: [pending, parent, sibling, offline]).first)
+        #expect(before.children.map(\.project.id) == [offline.id, sibling.id, pending.id])
+
+        let confirmed = Project(
+            id: 11, title: "New", parentProjectID: 1, position: 720_896, localID: localID,
+        )
+        let after = try #require(ProjectsListViewModel.tree(from: [confirmed, parent, sibling, offline]).first)
+        #expect(after.children.map(\.project.id) == [offline.id, confirmed.id, sibling.id])
+        #expect(after.children[1].project.displayID == before.children[2].project.displayID)
     }
 
     @Test

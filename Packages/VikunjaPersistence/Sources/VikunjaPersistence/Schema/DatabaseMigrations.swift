@@ -61,6 +61,11 @@ enum DatabaseMigrations {
             }
         }
         migrator.registerMigration("createKanbanViewCatalog", migrate: createKanbanViewCatalog)
+        migrator.registerMigration("addProjectPendingOnlineCreationAt") { db in
+            try db.alter(table: "project") { table in
+                table.add(column: "pendingOnlineCreationAt", .datetime)
+            }
+        }
     }
 
     private static func createKanbanViewCatalog(_ db: Database) throws {

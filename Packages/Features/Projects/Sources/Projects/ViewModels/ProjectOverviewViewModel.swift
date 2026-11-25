@@ -365,7 +365,7 @@ public final class ProjectOverviewViewModel {
         )
     }
 
-    /// This project's current direct children, straight from the server —
+    /// This project's current direct children from the project repository —
     /// mirrors `ProjectsListViewModel.tree(from:)`'s own filtering (drop
     /// archived, order by position) but only one level deep, since this
     /// screen only ever shows direct children as "Subprojects" cards.
@@ -378,7 +378,7 @@ public final class ProjectOverviewViewModel {
         guard project.kind == .project else { return [] }
         return try await repository.fetchProjects()
             .filter { !$0.isArchived && $0.parentProjectID == project.id }
-            .sorted { $0.position < $1.position }
+            .sorted(by: ProjectNode.precedesAmongSiblings)
             .map { ProjectNode(project: $0) }
     }
 
@@ -661,8 +661,9 @@ public final class ProjectOverviewViewModel {
     /// that round trip. Guards against double-adding in case `load()` already
     /// refreshed by the time this runs.
     public func addSubproject(_ project: Project) {
-        guard !subprojects.contains(where: { $0.id == project.id }) else { return }
+        guard !subprojects.contains(where: { $0.project.displayID == project.displayID }) else { return }
         subprojects.append(ProjectNode(project: project))
+        subprojects.sort { ProjectNode.precedesAmongSiblings($0.project, $1.project) }
         subprojectTaskSummaries[project.id] = TaskSummary(done: 0, total: 0)
     }
 

@@ -17,6 +17,7 @@ struct ProjectRecord: Codable, Equatable, Sendable {
     var position: Double
     var hexColor: String
     var serverUpdatedAt: Date?
+    var pendingOnlineCreationAt: Date?
 }
 
 extension ProjectRecord: FetchableRecord, PersistableRecord {
