@@ -103,6 +103,38 @@ struct ProjectsListViewModelTests {
     }
 
     @Test
+    func `a pending online project can be revealed after confirmation failure or loss of connection`() {
+        let localID = UUID()
+        let id = EntityID.local(localID)
+        let parent = Project(id: 1, title: "Parent")
+        let pending = Project(
+            id: id, title: "New", parentProjectID: parent.id, localID: localID, pendingOnlineCreationAt: Date(),
+        )
+        let tree = ProjectsListViewModel.tree(from: [parent, pending])
+        let key = SyncItemKey(kind: .project, id: id)
+        let expected = [parent.displayID, id]
+
+        #expect(ProjectNode.revealPath(to: id, in: tree, isOnline: true, syncStatuses: [key: .pending]) == nil)
+        #expect(ProjectNode.revealPath(to: id, in: tree, isOnline: false, syncStatuses: [key: .pending]) == expected)
+        #expect(ProjectNode.revealPath(to: id, in: tree, isOnline: true, syncStatuses: [key: .failed]) == expected)
+
+        let confirmed = Project(id: 2, title: "New", parentProjectID: parent.id, position: 100, localID: localID)
+        let confirmedTree = ProjectsListViewModel.tree(from: [parent, confirmed])
+        #expect(ProjectNode.revealPath(to: id, in: confirmedTree, isOnline: true, syncStatuses: [:]) == expected)
+    }
+
+    @Test
+    func `an offline creation is ready to reveal immediately even if connectivity returns`() {
+        let id = EntityID.local(UUID())
+        let project = Project(id: id, title: "Offline")
+        let tree = ProjectsListViewModel.tree(from: [project])
+        let statuses = [SyncItemKey(kind: .project, id: id): SyncItemStatus.pending]
+
+        #expect(ProjectNode.revealPath(to: id, in: tree, isOnline: false, syncStatuses: statuses) == [id])
+        #expect(ProjectNode.revealPath(to: id, in: tree, isOnline: true, syncStatuses: statuses) == [id])
+    }
+
+    @Test
     func `load excludes archived projects`() async {
         let repository = FakeProjectRepository()
         repository.projects = [

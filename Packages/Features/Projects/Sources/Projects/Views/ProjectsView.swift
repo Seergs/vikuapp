@@ -13,6 +13,8 @@ struct ProjectsView: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.vikuPalette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.vikuIsOnline) private var isOnline
+    @Environment(\.pendingSyncStatuses) private var pendingSyncStatuses
     let makeCreateProjectViewModel: (EntityID?) -> CreateProjectViewModel
     let makeEditProjectViewModel: (Project) -> EditProjectViewModel
     let makeRenameFilterViewModel: (Project) -> RenameFilterViewModel
@@ -22,15 +24,15 @@ struct ProjectsView: View {
     @State private var editingProject: Project?
     @State private var renamingFilterProject: Project?
     @State private var subprojectParentProject: Project?
+    @State private var createdProject: ProjectRevealRequest?
+    @State private var projectToReveal: ProjectRevealRequest?
+    @State private var projectToHighlight: EntityID?
+    @State private var highlightedProjectID: EntityID?
+
+    private static let revealScrollDuration: TimeInterval = 0.3
 
     var body: some View {
-        // `List` stays the root container across every load state — not just
-        // `.loaded` — so the container backing the large title never swaps
-        // out for a plain centered `VStack` mid-transition (which used to
-        // drop the "Projects" title down the screen) and so the
-        // `.refreshable` task, owned by this `List`, never gets torn down
-        // and cancelled by a state change mid-refresh.
-        content
+        projectList
             .projectsListStyle()
             // Let the last project's expand button scroll above the global quick-add overlay.
             .contentMargins(.bottom, VikuSpacing.xxl * 2, for: .scrollContent)
@@ -53,12 +55,9 @@ struct ProjectsView: View {
                     .accessibilityIdentifier("projects.create")
                 }
             }
-            .sheet(isPresented: $isShowingCreateProject, onDismiss: {
-                Task { await viewModel.load() }
-            }, content: {
-                CreateProjectSheetView(makeViewModel: { makeCreateProjectViewModel(nil) })
-                    .vikuNativeSheetAppearance()
-            })
+            .sheet(isPresented: $isShowingCreateProject, onDismiss: revealCreatedProject) {
+                createProjectSheet(parentID: nil)
+            }
             .sheet(item: $editingProject, onDismiss: {
                 Task { await viewModel.load() }
             }, content: { project in
@@ -71,12 +70,9 @@ struct ProjectsView: View {
                 RenameFilterSheetView(makeViewModel: { makeRenameFilterViewModel(project) })
                     .vikuNativeSheetAppearance()
             })
-            .sheet(item: $subprojectParentProject, onDismiss: {
-                Task { await viewModel.load() }
-            }, content: { parentProject in
-                CreateProjectSheetView(makeViewModel: { makeCreateProjectViewModel(parentProject.id) })
-                    .vikuNativeSheetAppearance()
-            })
+            .sheet(item: $subprojectParentProject, onDismiss: revealCreatedProject) { parentProject in
+                createProjectSheet(parentID: parentProject.id)
+            }
             .confirmationDialog(
                 Text(verbatim: deleteConfirmationMessage),
                 isPresented: Binding(
@@ -106,9 +102,76 @@ struct ProjectsView: View {
             }
             .task { await viewModel.start() }
             .task { await viewModel.observeLocalChanges() }
+            .task(id: projectToReveal) {
+                guard let request = projectToReveal, let deadline = request.deadline else { return }
+                try? await Task.sleep(for: .seconds(max(0, deadline.timeIntervalSinceNow)))
+                guard !Task.isCancelled, projectToReveal == request else { return }
+                projectToReveal = nil
+            }
+            .task(id: projectToHighlight) {
+                guard let id = projectToHighlight else { return }
+                if !reduceMotion {
+                    // Let the row enter the viewport with its normal background before changing its opacity.
+                    try? await Task.sleep(for: .seconds(Self.revealScrollDuration))
+                }
+                guard !Task.isCancelled, projectToHighlight == id else { return }
+                highlightedProjectID = id
+                projectToHighlight = nil
+            }
+            .task(id: highlightedProjectID) {
+                guard highlightedProjectID != nil else { return }
+                try? await Task.sleep(for: .seconds(2))
+                guard !Task.isCancelled else { return }
+                highlightedProjectID = nil
+            }
+            .onDisappear {
+                projectToReveal = nil
+                projectToHighlight = nil
+                highlightedProjectID = nil
+            }
     }
 
-    private var content: some View {
+    private var projectList: some View {
+        ScrollViewReader { proxy in
+            let request = projectToReveal
+            let revealPath: [EntityID]? = request.flatMap { request in
+                guard !request.isExpired, viewModel.displayLoadState == .loaded else { return nil }
+                return ProjectNode.revealPath(
+                    to: request.id, in: viewModel.rootNodes, isOnline: isOnline, syncStatuses: pendingSyncStatuses,
+                )
+            }
+            let expandedIDs = expandedProjectIDs.union(revealPath?.dropLast() ?? [])
+            content(expandedIDs: expandedIDs)
+                .onChange(of: revealPath) { _, path in
+                    guard let request, request == projectToReveal, !request.isExpired, let path else { return }
+                    expandedProjectIDs.formUnion(path.dropLast())
+                    projectToReveal = nil
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: Self.revealScrollDuration)) {
+                        proxy.scrollTo(request.id, anchor: .center)
+                    }
+                    projectToHighlight = request.id
+                }
+        }
+    }
+
+    private func createProjectSheet(parentID: EntityID?) -> some View {
+        CreateProjectSheetView(
+            makeViewModel: { makeCreateProjectViewModel(parentID) },
+            onCreated: { createdProject = ProjectRevealRequest(project: $0) },
+        )
+        .vikuNativeSheetAppearance()
+    }
+
+    private func revealCreatedProject() {
+        guard let createdProject else { return }
+        self.createdProject = nil
+        projectToReveal = createdProject.isExpired ? nil : createdProject
+        Task { await viewModel.load() }
+    }
+
+    private func content(expandedIDs: Set<EntityID>) -> some View {
+        // Keep the same list across load states to stabilize the large title
+        // and keep the list's refresh task alive during reloads.
         List {
             switch viewModel.displayLoadState {
             case .idle, .loading:
@@ -160,30 +223,45 @@ struct ProjectsView: View {
                 }
 
                 if !viewModel.rootNodes.isEmpty {
-                    let rows = Self.flatten(viewModel.rootNodes, expandedProjectIDs: expandedProjectIDs)
-                    Section {
-                        ForEach(rows) { row in
-                            ProjectRow(
-                                project: row.node.project,
-                                taskSummary: row.node.id.remoteValue.flatMap { viewModel.taskSummaries[$0] },
-                                level: row.level,
-                                hasChildren: !row.node.children.isEmpty,
-                                isExpanded: expandedProjectIDs.contains(row.id),
-                                onSelect: { router.push(ProjectsRoute.projectOverview(row.node)) },
-                                onToggleExpand: { toggleExpanded(row.id) },
-                                onEdit: { editingProject = $0 },
-                                onDelete: { projectPendingDelete = row.node },
-                                onAddSubproject: { subprojectParentProject = row.node.project },
-                            )
-                        }
-                        .animation(reduceMotion ? nil : .snappy, value: rows.map(\.id))
-                    } header: {
-                        Text("My Projects", bundle: .module)
-                            .vikuSectionHeader()
-                    }
-                    .listRowBackground(palette.cardBackground)
+                    projectSection(expandedIDs: expandedIDs)
                 }
             }
+        }
+    }
+
+    private func projectSection(expandedIDs: Set<EntityID>) -> some View {
+        let rows = Self.flatten(viewModel.rootNodes, expandedProjectIDs: expandedIDs)
+        return Section {
+            ForEach(rows) { row in
+                let isHighlighted = highlightedProjectID == row.id
+                ProjectRow(
+                    project: row.node.project,
+                    taskSummary: row.node.id.remoteValue.flatMap { viewModel.taskSummaries[$0] },
+                    level: row.level,
+                    hasChildren: !row.node.children.isEmpty,
+                    isExpanded: expandedIDs.contains(row.id),
+                    onSelect: { router.push(ProjectsRoute.projectOverview(row.node)) },
+                    onToggleExpand: { toggleExpanded(row.id) },
+                    onEdit: { editingProject = $0 },
+                    onDelete: { projectPendingDelete = row.node },
+                    onAddSubproject: { subprojectParentProject = row.node.project },
+                )
+                .listRowBackground(
+                    palette.cardBackground.overlay {
+                        Rectangle()
+                            .fill(palette.brand)
+                            .opacity(isHighlighted ? 0.18 : 0)
+                            .animation(
+                                reduceMotion ? nil : .easeInOut(duration: isHighlighted ? 0.4 : 0.7),
+                                value: isHighlighted,
+                            )
+                    },
+                )
+            }
+            .animation(reduceMotion ? nil : .snappy, value: rows.map(\.id))
+        } header: {
+            Text("My Projects", bundle: .module)
+                .vikuSectionHeader()
         }
     }
 
@@ -222,6 +300,20 @@ struct ProjectsView: View {
             }
             return rows
         }
+    }
+}
+
+private struct ProjectRevealRequest: Equatable {
+    let id: EntityID
+    let deadline: Date?
+
+    init(project: Project) {
+        self.id = project.displayID
+        self.deadline = project.pendingOnlineCreationAt?.addingTimeInterval(1.5)
+    }
+
+    var isExpired: Bool {
+        deadline.map { $0 <= .now } ?? false
     }
 }
 

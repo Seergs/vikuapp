@@ -5,8 +5,13 @@ struct UITestApp {
     let app = XCUIApplication()
 
     @discardableResult
-    func launch(preservingPreferences: Bool = false, slowReachability: Bool = false) -> TodayPage {
+    func launch(
+        preservingPreferences: Bool = false,
+        slowReachability: Bool = false,
+        additionalArguments: [String] = [],
+    ) -> TodayPage {
         app.launchArguments = ["-UITesting", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+            + additionalArguments
         if preservingPreferences {
             app.launchArguments.append("-UITestPreservePreferences")
         }
