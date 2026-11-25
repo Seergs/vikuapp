@@ -111,6 +111,12 @@
         }
       }
     },
+    "Show List": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Show List" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Ver lista" } }
+      }
+    },
     "Board unavailable": {
       "localizations": {
         "en": {

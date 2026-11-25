@@ -191,6 +191,7 @@ struct ProjectOverviewView: View {
                 viewModel: kanbanViewModel, boardSelection: boardSelection,
                 searchText: searchText, onSelectTask: onSelectTask,
                 onBoardResolved: boardResolved,
+                onShowList: viewModel.project.kind == .project ? { modeSelection.wrappedValue = .list } : nil,
                 taskContextMenu: { task in
                     let boardID = kanbanViewModel.viewID
                     return taskContextMenu(for: task, orderingActions: kanbanOrderingActions(for: task)) {

@@ -21,6 +21,21 @@ struct KanbanViewRecord: Codable, Equatable, Sendable, FetchableRecord, Persista
     var defaultBucketID: Int?
     var doneBucketID: Int?
     var lastCompletePullAt: Date?
+    /// Bucket remote IDs mapped to canonical local task IDs in server response order.
+    /// A legacy snapshot has no membership map and still reads its saved assignments.
+    var automaticMembership: [Int: [UUID]]?
+    var needsMembershipRefresh = false
+
+    static func markAutomaticMembershipForRefresh(
+        accountID: UUID, projectIDs: Set<UUID>, db: Database,
+    ) throws {
+        guard !projectIDs.isEmpty else { return }
+        try filter(Column("accountID") == accountID)
+            .filter(projectIDs.contains(Column("projectLocalID")))
+            .filter(Column("mode") == "filter" && Column("lastCompletePullAt") != nil)
+            .filter(Column("needsMembershipRefresh") == false)
+            .updateAll(db, Column("needsMembershipRefresh").set(to: true))
+    }
 }
 
 struct KanbanBucketRecord: Codable, Equatable, Sendable, FetchableRecord, PersistableRecord {

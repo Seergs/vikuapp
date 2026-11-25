@@ -66,6 +66,14 @@ enum DatabaseMigrations {
                 table.add(column: "pendingOnlineCreationAt", .datetime)
             }
         }
+        migrator.registerMigration("addAutomaticKanbanMembership", migrate: addAutomaticKanbanMembership)
+    }
+
+    private static func addAutomaticKanbanMembership(_ db: Database) throws {
+        try db.alter(table: "kanbanView") { table in
+            table.add(column: "automaticMembership", .text)
+            table.add(column: "needsMembershipRefresh", .boolean).notNull().defaults(to: false)
+        }
     }
 
     private static func createKanbanViewCatalog(_ db: Database) throws {

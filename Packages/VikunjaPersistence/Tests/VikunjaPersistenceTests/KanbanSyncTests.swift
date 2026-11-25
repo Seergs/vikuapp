@@ -165,6 +165,62 @@ struct KanbanSyncTests {
         return id
     }
 
+    @Test func `automatic snapshot keeps overlapping cards in server order after reopening`() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try LocalStore(directory: directory)
+        let accountID = UUID()
+        _ = try await project(store, accountID: accountID)
+        let shared = VikunjaTask(id: 100, title: "High priority", projectID: 1)
+        let other = VikunjaTask(id: 101, title: "Second task", projectID: 1)
+        let download = KanbanDownload(
+            viewID: 10, mode: "filter", filterQuery: "", defaultBucketID: nil, doneBucketID: nil,
+            buckets: [
+                KanbanBucket(id: 0, title: "Open", tasks: [shared, other]),
+                KanbanBucket(id: 1, title: "High Priority", tasks: [other, shared]),
+                KanbanBucket(id: 2, title: "Done"),
+            ],
+            taskPositions: [100: 10, 101: 20],
+        )
+        let remote = KanbanDownloadFake(download)
+        let sync = engine(store, accountID: accountID, remote: remote)
+        try await sync.pullKanban(projectID: 1, viewID: 10)
+        let reopened = try LocalStore(directory: directory)
+        let repository = OfflineKanbanBoardRepository(
+            localStore: reopened, accountID: accountID, syncRequester: NoopKanbanSyncRequester(),
+        )
+        let original = try await repository.fetchBoard(projectID: 1, viewID: 10)
+        guard case let .available(snapshot) = original else {
+            Issue.record("Expected an automatic board from the reopened database"); return
+        }
+        #expect(snapshot.buckets.map(\.id) == [0, 1, 2])
+        #expect(snapshot.buckets.map { $0.tasks.map(\.id) } == [[100, 101], [101, 100], []])
+        #expect(snapshot.buckets[0].tasks.first == snapshot.buckets[1].tasks.last)
+        #expect(try await reopened.read { try TaskRecord.fetchCount($0) } == 2)
+        #expect(!snapshot.supportsWrites)
+        #expect(!snapshot.supportsTaskCreation)
+
+        await remote.set(KanbanDownload(
+            viewID: 10, mode: "filter", filterQuery: "", defaultBucketID: nil, doneBucketID: nil,
+            buckets: [KanbanBucket(id: 0, title: "Invalid", tasks: [shared, shared])],
+        ))
+        await #expect(throws: VikunjaError.self) { try await sync.pullKanban(projectID: 1, viewID: 10) }
+        #expect(try await repository.fetchBoard(projectID: 1, viewID: 10) == original)
+
+        await remote.set(KanbanDownload(
+            viewID: 10, mode: "filter", filterQuery: "", defaultBucketID: nil, doneBucketID: nil,
+            buckets: [
+                KanbanBucket(id: 0, title: "Open", tasks: [other]),
+                KanbanBucket(id: 1, title: "High Priority", tasks: [shared]),
+            ],
+        ))
+        try await sync.pullKanban(projectID: 1, viewID: 10)
+        guard case let .available(refreshed) = try await repository.fetchBoard(projectID: 1, viewID: 10) else {
+            Issue.record("Expected refreshed columns"); return
+        }
+        #expect(refreshed.buckets.map { $0.tasks.map(\.id) } == [[101], [100]])
+    }
+
     @Test func `catalog is available offline and downloads only the requested board`() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let store = try LocalStore(directory: directory)

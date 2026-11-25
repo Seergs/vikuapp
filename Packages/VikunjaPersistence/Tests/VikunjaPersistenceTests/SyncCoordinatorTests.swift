@@ -374,6 +374,76 @@ struct SyncCoordinatorTests {
         #expect(try await store.pendingSyncOperations(accountID: account.id).isEmpty)
     }
 
+    @Test func `reconnection confirms completion and retries a failed automatic membership refresh`() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try LocalStore(directory: directory)
+        let accountStore = FakeAccountStore()
+        let factory = FakeInstanceClientFactory()
+        let reachability = CoordinatorReachabilityMonitor()
+        let account = try makeAccount(host: "automatic-board.example.com")
+        try await accountStore.addAccount(account, token: "token")
+        factory.projectRepository(for: account.baseURL).projects = [Project(id: 1, title: "Work")]
+        let task = VikunjaTask(id: 100, title: "High priority", projectID: 1, updated: Date())
+        let remoteTasks = factory.taskRepository(for: account.baseURL)
+        remoteTasks.tasks = [task]
+        let remoteBoard = factory.boardRepository
+        await remoteBoard.set(automaticCompletionBoard(task))
+        let coordinator = SyncCoordinator(
+            localStore: store, accountStore: accountStore, clientFactory: factory,
+            reachability: reachability, tokenProvider: { _ in { "token" } },
+        )
+        let board = OfflineKanbanBoardRepository(
+            localStore: store, accountID: account.id, syncRequester: NoopKanbanSyncRequester(),
+        )
+        try await coordinator.refresh(accountID: account.id, scope: .account)
+        try await coordinator.refresh(accountID: account.id, scope: .kanban(projectID: 1, viewID: 10))
+        await reachability.setReachable(false)
+        let local = OfflineTaskRepository(
+            localStore: store, accountID: account.id, syncRequester: NoopKanbanSyncRequester(),
+        )
+        _ = try await local.setCompletion(taskIDs: [100], isDone: true)
+        #expect(remoteTasks.completionCalls.isEmpty)
+        await remoteBoard.fail()
+        await coordinator.start()
+        await reachability.waitForSubscription()
+        await reachability.setReachable(true)
+        await waitUntil { await remoteBoard.calls == 2 }
+        await coordinator.waitForCurrentWork()
+        await stopObserving(coordinator, reachability)
+
+        #expect(await remoteBoard.calls == 2)
+        #expect(remoteTasks.completionCalls.count == 1)
+        #expect(try await store.pendingSyncOperations(accountID: account.id).isEmpty)
+        guard case let .available(cached) = try await board.fetchBoard(projectID: 1, viewID: 10) else {
+            Issue.record("Expected the last complete board after the failed pull"); return
+        }
+        #expect(cached.buckets.map { $0.tasks.map(\.id) } == [[100], [100], []])
+        #expect(cached.buckets[0].tasks.first?.isDone == true)
+
+        let confirmed = try #require(remoteTasks.tasks.first)
+        await remoteBoard.set(automaticCompletionBoard(confirmed))
+        try await coordinator.refresh(accountID: account.id, scope: .account)
+        guard case let .available(refreshed) = try await board.fetchBoard(projectID: 1, viewID: 10) else {
+            Issue.record("Expected reconciled membership"); return
+        }
+        #expect(refreshed.buckets.map { $0.tasks.map(\.id) } == [[], [100], [100]])
+        try await coordinator.refresh(accountID: account.id, scope: .account)
+        #expect(await remoteBoard.calls == 3)
+        #expect(remoteTasks.completionCalls.count == 1)
+    }
+
+    private func automaticCompletionBoard(_ task: VikunjaTask) -> KanbanDownload {
+        KanbanDownload(
+            viewID: 10, mode: "filter", filterQuery: "", defaultBucketID: nil, doneBucketID: nil,
+            buckets: [
+                KanbanBucket(id: 0, title: "Open", tasks: task.isDone ? [] : [task]),
+                KanbanBucket(id: 1, title: "High Priority", tasks: [task]),
+                KanbanBucket(id: 2, title: "Done", tasks: task.isDone ? [task] : []),
+            ],
+        )
+    }
+
     @Test(arguments: [SyncScope.account, .task(.remote(5)), .comments(.remote(5))])
     func `offline refresh leaves local changes pending and reconnect sends them`(scope: SyncScope) async throws {
         let store = try LocalStore(directory: temporaryDirectory())
