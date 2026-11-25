@@ -88,6 +88,10 @@ private actor PositionRemote: BucketRepositoryProtocol {
         return TaskViewPosition(taskID: taskID, viewID: viewID, position: positions[taskID] ?? position)
     }
 
+    func fetchKanbanViews(projectID: Int) async throws -> [KanbanViewSummary] {
+        [KanbanViewSummary(id: 10, title: "Board")]
+    }
+
     func fetchBuckets(projectID: Int) async throws -> [KanbanBucket] {
         try await downloadBoard(projectID: projectID, viewID: 10).buckets
     }

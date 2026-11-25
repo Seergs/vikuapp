@@ -95,6 +95,10 @@ private actor MovingKanbanRemote: BucketRepositoryProtocol {
         return result
     }
 
+    func fetchKanbanViews(projectID: Int) async throws -> [KanbanViewSummary] {
+        [KanbanViewSummary(id: 10, title: "Board")]
+    }
+
     func fetchBuckets(projectID: Int) async throws -> [KanbanBucket] {
         try await downloadBoard(projectID: projectID, viewID: nil).buckets
     }

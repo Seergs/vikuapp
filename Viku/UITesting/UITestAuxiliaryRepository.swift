@@ -129,6 +129,10 @@ actor UITestAuxiliaryRepository: AuthServiceProtocol, LabelRepositoryProtocol, U
         throw UITestFixtureError.unsupported("downloadBoard")
     }
 
+    func fetchKanbanViews(projectID: Int) async throws -> [KanbanViewSummary] {
+        []
+    }
+
     func fetchBuckets(projectID: Int) async throws -> [KanbanBucket] {
         []
     }

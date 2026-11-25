@@ -29,13 +29,18 @@ extension SyncEngine {
             try Task.checkCancellation()
             try await pullComments(taskID: .local(id))
         }
-        for id in Set(original.kanbanViews.map(\.projectLocalID)) {
+        let cachedBoards = Dictionary(grouping: original.kanbanViews, by: \.projectLocalID)
+        let projectsWithKanban = Set(cachedBoards.keys).union(original.kanbanCatalogs.map(\.projectLocalID))
+        for id in projectsWithKanban {
             try Task.checkCancellation()
             let stillExists = try await localStore.read { db in
                 try ProjectRecord.fetchOne(db, key: id) != nil
             }
-            if stillExists {
-                try await pullKanban(projectID: .local(id))
+            guard stillExists, let catalog = try await pullKanbanCatalog(projectID: .local(id)) else { continue }
+            let cachedViewIDs = Set((cachedBoards[id] ?? []).map(\.remoteID))
+            for view in catalog where cachedViewIDs.contains(view.id) {
+                try Task.checkCancellation()
+                try await pullKanban(projectID: .local(id), viewID: view.id)
             }
         }
         try Task.checkCancellation()

@@ -20,8 +20,25 @@ public struct OfflineKanbanBoardRepository: KanbanBoardRepositoryProtocol {
 
     public func hasCachedKanbanSupport() async throws -> Bool {
         try await localStore.read { db in
-            try KanbanViewRecord.filter(Column("accountID") == accountID)
-                .filter(Column("lastCompletePullAt") != nil).fetchCount(db) > 0
+            if try KanbanViewRecord.filter(Column("accountID") == accountID)
+                .filter(Column("lastCompletePullAt") != nil).fetchCount(db) > 0 {
+                return true
+            }
+            return try KanbanViewCatalogRecord.filter(Column("accountID") == accountID)
+                .fetchAll(db).contains { !$0.views.isEmpty }
+        }
+    }
+
+    public func fetchBoardCatalog(projectID: EntityID) async throws -> [KanbanViewSummary]? {
+        try await localStore.read { db in
+            guard let project = try Self.project(id: projectID, accountID: accountID, db: db) else { return nil }
+            return try KanbanViewCatalogRecord.fetchOne(db, key: project.localID)?.views
+        }
+    }
+
+    private static func project(id: EntityID, accountID: UUID, db: Database) throws -> ProjectRecord? {
+        try ProjectRecord.filter(Column("accountID") == accountID).fetchAll(db).first {
+            id == .local($0.localID) || $0.remoteID.map(EntityID.remote) == id
         }
     }
 
@@ -57,15 +74,12 @@ public struct OfflineKanbanBoardRepository: KanbanBoardRepositoryProtocol {
     ) async throws -> VikunjaTask {
         let createdOnline = await reachability?.isReachable ?? false
         let created = try await localStore.write { db in
-            let project = try ProjectRecord.filter(Column("accountID") == accountID).fetchAll(db).first {
-                projectID == .local($0.localID) || $0.remoteID.map(EntityID.remote) == projectID
-            }
             guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                  let project, let remoteID = project.remoteID, remoteID > 0, !project.isArchived,
+                  let project = try Self.project(id: projectID, accountID: accountID, db: db),
+                  let remoteID = project.remoteID, remoteID > 0, !project.isArchived,
                   let view = try KanbanViewRecord.filter(Column("projectLocalID") == project.localID)
                   .filter(Column("remoteID") == viewID).fetchOne(db),
-                  view.lastCompletePullAt != nil, view.mode == "manual",
-                  view.filterQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  KanbanLocalMutations.supports(view),
                   let bucket = try KanbanBucketRecord.filter(Column("viewLocalID") == view.localID)
                   .filter(Column("remoteID") == bucketID).fetchOne(db)
             else { throw VikunjaError.notFound }
@@ -133,15 +147,21 @@ public struct OfflineKanbanBoardRepository: KanbanBoardRepositoryProtocol {
 
     public func fetchBoard(projectID: EntityID, viewID: Int?) async throws -> KanbanBoardSnapshot {
         try await localStore.read { db in
-            let project = try ProjectRecord.filter(Column("accountID") == accountID).fetchAll(db).first {
-                projectID == .local($0.localID) || $0.remoteID.map(EntityID.remote) == projectID
-            }
-            guard let project else { return .unavailable }
+            guard let project = try Self.project(id: projectID, accountID: accountID, db: db)
+            else { return .unavailable }
             guard project.remoteID != nil else { return .waitingForProject }
-            guard let view = try KanbanViewRecord.filter(Column("accountID") == accountID)
+            let catalog = try KanbanViewCatalogRecord.fetchOne(db, key: project.localID)?.views
+            if let catalog, catalog.isEmpty {
+                return .unavailable
+            }
+            let selectedID = viewID ?? catalog?.first?.id
+            var query = KanbanViewRecord.filter(Column("accountID") == accountID)
                 .filter(Column("projectLocalID") == project.localID)
-                .order(Column("remoteID")).fetchAll(db).first(where: { viewID == nil || $0.remoteID == viewID }),
-                let pulledAt = view.lastCompletePullAt
+            if let selectedID {
+                query = query.filter(Column("remoteID") == selectedID)
+            }
+            guard let view = try query.order(Column("remoteID")).fetchOne(db),
+                  let pulledAt = view.lastCompletePullAt
             else { return .unavailable }
 
             let records = try KanbanBucketRecord.filter(Column("viewLocalID") == view.localID)
@@ -166,8 +186,7 @@ public struct OfflineKanbanBoardRepository: KanbanBoardRepositoryProtocol {
             }
             return .available(KanbanBoard(
                 viewID: view.remoteID, buckets: buckets, defaultBucketID: view.defaultBucketID,
-                supportsWrites: view.mode == "manual"
-                    && view.filterQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                supportsWrites: KanbanLocalMutations.supports(view),
                 lastPulledAt: pulledAt,
             ))
         }

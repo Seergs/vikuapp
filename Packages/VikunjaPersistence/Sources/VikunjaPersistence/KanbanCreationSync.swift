@@ -84,7 +84,7 @@ extension SyncEngine {
         } catch {
             try checkSyncInterruption(error)
             if (error as? VikunjaError)?.isBucketCapacityError == true {
-                try await handleFullCreation(item, task: task)
+                try await handleFullCreation(item, task: task, viewID: destination.viewID)
                 return .skipped
             }
             let failure: KanbanCreationFailure = switch error {
@@ -97,7 +97,7 @@ extension SyncEngine {
         }
     }
 
-    private func handleFullCreation(_ item: MutationQueueRecord, task: VikunjaTask) async throws {
+    private func handleFullCreation(_ item: MutationQueueRecord, task: VikunjaTask, viewID: Int) async throws {
         let notify = try await localStore.write { db in
             guard var current = try MutationQueueRecord.fetchOne(db, key: item.id),
                   current.accountID == self.accountID,
@@ -124,7 +124,7 @@ extension SyncEngine {
             await onKanbanCreationRejected(accountID)
         }
         // Refresh capacity after rejection. Failed downloads retain the prior usable board.
-        try? await pullKanban(projectID: task.projectID)
+        try? await pullKanban(projectID: task.projectID, viewID: viewID)
     }
 
     private func claimKanbanCreation(

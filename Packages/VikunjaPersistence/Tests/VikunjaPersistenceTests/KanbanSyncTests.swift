@@ -5,8 +5,12 @@ import VikunjaCore
 
 actor KanbanDownloadFake: BucketRepositoryProtocol {
     var result: KanbanDownload
+    private var extraBoards: [Int: KanbanDownload] = [:]
+    private var catalog: [KanbanViewSummary]?
+    private var boardFailures: [Int: VikunjaError] = [:]
     var failure: VikunjaError?
     private(set) var calls = 0
+    private(set) var requestedViews: [Int?] = []
     var delay = false
     private(set) var creationCalls = 0
     private var acceptsCreations = false
@@ -29,6 +33,22 @@ actor KanbanDownloadFake: BucketRepositoryProtocol {
         self.result = result; failure = nil
     }
 
+    func setCatalog(_ catalog: [KanbanViewSummary], extraBoards: [KanbanDownload] = []) {
+        self.catalog = catalog
+        self.extraBoards = Dictionary(uniqueKeysWithValues: extraBoards.map { ($0.viewID, $0) })
+    }
+
+    func failBoard(_ viewID: Int, error: VikunjaError) {
+        boardFailures[viewID] = error
+    }
+
+    func fetchKanbanViews(projectID: Int) async throws -> [KanbanViewSummary] {
+        if let failure {
+            throw failure
+        }
+        return catalog ?? [KanbanViewSummary(id: result.viewID, title: "Board")]
+    }
+
     func fail() {
         failure = .offline
     }
@@ -39,13 +59,19 @@ actor KanbanDownloadFake: BucketRepositoryProtocol {
 
     func downloadBoard(projectID: Int, viewID: Int?) async throws -> KanbanDownload {
         calls += 1
+        requestedViews.append(viewID)
         if delay {
             try await Task.sleep(for: .milliseconds(100))
         }
         if let failure {
             throw failure
         }
-        return result
+        guard let viewID, viewID != result.viewID else { return result }
+        if let error = boardFailures[viewID] {
+            throw error
+        }
+        guard let board = extraBoards[viewID] else { throw VikunjaError.notFound }
+        return board
     }
 
     func fetchBuckets(projectID: Int) async throws -> [KanbanBucket] {
@@ -137,6 +163,68 @@ struct KanbanSyncTests {
             ).insert(db)
         }
         return id
+    }
+
+    @Test func `catalog is available offline and downloads only the requested board`() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let store = try LocalStore(directory: directory)
+        let accountID = UUID()
+        _ = try await project(store, accountID: accountID)
+        let task = VikunjaTask(id: 100, title: "Shared task", projectID: 1)
+        let remote = KanbanDownloadFake(board([task], positions: [100: 20]))
+        let catalog = [KanbanViewSummary(id: 11, title: "Support"), KanbanViewSummary(id: 10, title: "Sprint")]
+        await remote.setCatalog(catalog, extraBoards: [board([task], bucketID: 30, viewID: 11, positions: [100: 40])])
+        let sync = engine(store, accountID: accountID, remote: remote)
+        try await sync.refreshKanban(projectID: 1, viewID: nil)
+
+        let offline = try LocalStore(directory: directory)
+        let repository = OfflineKanbanBoardRepository(
+            localStore: offline, accountID: accountID, syncRequester: NoopKanbanSyncRequester(),
+        )
+        #expect(try await repository.fetchBoardCatalog(projectID: 1) == catalog)
+        #expect(try await repository.fetchBoard(projectID: 1, viewID: 10) == .unavailable)
+        #expect(await remote.requestedViews == [11])
+
+        try await sync.refreshKanban(projectID: 1, viewID: 10)
+        guard case let .available(support) = try await repository.fetchBoard(projectID: 1, viewID: 11),
+              case let .available(sprint) = try await repository.fetchBoard(projectID: 1, viewID: 10)
+        else { Issue.record("Expected both cached boards"); return }
+        #expect(support.buckets.map(\.id) == [30])
+        #expect(sprint.buckets.map(\.id) == [20])
+        #expect(support.buckets[0].tasks.map(\.id) == sprint.buckets[0].tasks.map(\.id))
+        #expect(try await store.read { try TaskRecord.fetchCount($0) } == 1)
+        #expect(await remote.requestedViews == [11, 10])
+    }
+
+    @Test func `deleted board falls back and preserves pending creation`() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let store = try LocalStore(directory: directory)
+        let accountID = UUID()
+        _ = try await project(store, accountID: accountID)
+        let remote = KanbanDownloadFake(board([]))
+        let sprint = KanbanViewSummary(id: 10, title: "Sprint")
+        let support = KanbanViewSummary(id: 11, title: "Support")
+        let supportBoard = board([], bucketID: 30, viewID: 11)
+        await remote.setCatalog([sprint, support], extraBoards: [supportBoard])
+        let sync = engine(store, accountID: accountID, remote: remote)
+        try await sync.refreshKanban(projectID: 1, viewID: 10)
+        let repository = OfflineKanbanBoardRepository(
+            localStore: store, accountID: accountID, syncRequester: NoopKanbanSyncRequester(),
+        )
+        let task = try await repository.createTask(title: "Keep this draft", projectID: 1, viewID: 10, bucketID: 20)
+
+        await remote.setCatalog([support], extraBoards: [supportBoard])
+        try await sync.refreshKanban(projectID: 1, viewID: 10)
+
+        #expect(try await repository.fetchBoardCatalog(projectID: 1) == [support])
+        #expect(try await repository.fetchBoard(projectID: 1, viewID: 10) == .unavailable)
+        #expect(await remote.requestedViews == [10, 11])
+        let queued = try await store.read { try MutationQueueRecord.fetchAll($0) }
+        #expect(queued.map(\.operation) == [.create])
+        let tasks = OfflineTaskRepository(
+            localStore: store, accountID: accountID, syncRequester: NoopKanbanSyncRequester(),
+        )
+        #expect(try await tasks.fetchTask(id: task.id).title == "Keep this draft")
     }
 
     @Test func `download refresh failure and empty snapshot`() async throws {

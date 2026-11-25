@@ -449,6 +449,35 @@ struct SyncCoordinatorTests {
         #expect(factory.projectRepository(for: account.baseURL).fetchProjectsCallCount == 1)
     }
 
+    @Test func `overlapping refreshes for two boards keep their results separate`() async throws {
+        let store = try LocalStore(directory: temporaryDirectory())
+        let accountStore = FakeAccountStore()
+        let factory = FakeInstanceClientFactory()
+        let account = try makeAccount(host: "multiboard.example.com")
+        try await accountStore.addAccount(account, token: "test")
+        factory.projectRepository(for: account.baseURL).projects = [Project(id: 1, title: "Work")]
+        await factory.boardRepository.setCatalog([
+            KanbanViewSummary(id: 10, title: "Sprint"), KanbanViewSummary(id: 11, title: "Support"),
+        ])
+        await factory.boardRepository.failBoard(11, error: .unauthorized)
+        await factory.boardRepository.slowDown()
+        let coordinator = SyncCoordinator(
+            localStore: store, accountStore: accountStore, clientFactory: factory,
+            reachability: CoordinatorReachabilityMonitor(), tokenProvider: { _ in { nil } },
+        )
+        let first = Task {
+            try await coordinator.refresh(accountID: account.id, scope: .kanban(projectID: 1, viewID: 10))
+        }
+        await waitUntil(timeout: 10) { await factory.boardRepository.calls == 1 }
+        try #require(await factory.boardRepository.calls == 1)
+        await #expect(throws: VikunjaError.unauthorized) {
+            try await coordinator.refresh(accountID: account.id, scope: .kanban(projectID: 1, viewID: 11))
+        }
+        try await first.value
+        let requests = await factory.boardRepository.requestedViews
+        #expect(requests == [10, 11])
+    }
+
     @Test(.timeLimit(.minutes(1)))
     func `start syncs every saved account once reachability is already up`() async throws {
         let store = try LocalStore(directory: temporaryDirectory())

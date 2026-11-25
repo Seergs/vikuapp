@@ -5,16 +5,23 @@ import VikunjaCore
 /// shipped in this app before, so unlike every other v2-migrated resource
 /// there is no v1 counterpart and no `...Switch` wrapper — gating happens at
 /// the call site via `CapabilityProvider.supports(.apiV2)` instead.
-///
-/// Every method takes only a `projectID`; `kanbanView(projectID:)` resolves
-/// the project's Kanban-kind view internally on each call rather than
-/// caching it, since these are user-initiated actions (open board, drag a
-/// card, add a task), not a hot loop.
 final class VikunjaBucketRepository: BucketRepositoryProtocol {
     private let client: APIClient
 
     init(client: APIClient) {
         self.client = client
+    }
+
+    func fetchKanbanViews(projectID: Int) async throws -> [KanbanViewSummary] {
+        let views: [ProjectViewDTO] = try await client.sendAllPagesV2 {
+            VikunjaEndpoints.projectViewsV2(projectID: projectID, page: $0)
+        }
+        guard Set(views.map(\.id)).count == views.count else {
+            throw VikunjaError.decoding("Duplicate project view")
+        }
+        return views.filter { $0.viewKind == "kanban" }
+            .sorted { ($0.position ?? 0, $0.id) < ($1.position ?? 0, $1.id) }
+            .map { KanbanViewSummary(id: $0.id, title: $0.title ?? "") }
     }
 
     func fetchBuckets(projectID: Int) async throws -> [KanbanBucket] {

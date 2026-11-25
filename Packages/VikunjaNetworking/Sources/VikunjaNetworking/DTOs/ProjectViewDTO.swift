@@ -7,6 +7,8 @@ struct ProjectViewDTO: Decodable {
     let filter: JSONValue?
     let defaultBucketId: Int?
     let id: Int
+    let title: String?
+    let position: Double?
     let viewKind: String
     /// The id of the view's done bucket, if one is configured. Vikunja v2
     /// tracks "is this the done bucket" on the view, not on the bucket
@@ -18,6 +20,8 @@ struct ProjectViewDTO: Decodable {
         case filter
         case defaultBucketId = "default_bucket_id"
         case id
+        case title
+        case position
         case viewKind = "view_kind"
         case doneBucketId = "done_bucket_id"
     }

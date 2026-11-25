@@ -88,6 +88,10 @@ private actor CreationRemote: BucketRepositoryProtocol {
         throw VikunjaError.notFound
     }
 
+    func fetchKanbanViews(projectID: Int) async throws -> [KanbanViewSummary] {
+        [KanbanViewSummary(id: 10, title: "Board")]
+    }
+
     func fetchBuckets(projectID: Int) async throws -> [KanbanBucket] {
         []
     }
