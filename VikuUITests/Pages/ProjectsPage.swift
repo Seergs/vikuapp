@@ -22,6 +22,21 @@ struct ProjectsPage {
         XCTAssertEqual(projectRow(title).count, 1, file: file, line: line)
     }
 
+    func assertProjectInViewport(
+        _ title: String,
+        minimumTopMarginFraction: CGFloat = 0,
+        file: StaticString = #filePath,
+        line: UInt = #line,
+    ) {
+        let row = projectRow(title).firstMatch
+        XCTAssertTrue(row.wait(for: \.isHittable, toEqual: true, timeout: 10), file: file, line: line)
+        let top = app.navigationBars["Projects"].frame.maxY
+        let bottom = app.tabBars.firstMatch.frame.minY
+        let frame = row.frame
+        XCTAssertGreaterThanOrEqual(frame.minY, top + (bottom - top) * minimumTopMarginFraction, file: file, line: line)
+        XCTAssertLessThanOrEqual(frame.maxY, bottom, file: file, line: line)
+    }
+
     func assertProjectAbsent(_ title: String, file: StaticString = #filePath, line: UInt = #line) {
         XCTAssertTrue(projectRow(title).firstMatch.waitForNonExistence(timeout: 5), file: file, line: line)
     }

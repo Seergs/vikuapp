@@ -31,6 +31,33 @@ public struct ProjectNode: Identifiable, Hashable, Sendable {
         }
     }
 
+    static func revealPath(
+        to id: EntityID,
+        in nodes: [ProjectNode],
+        isOnline: Bool,
+        syncStatuses: [SyncItemKey: SyncItemStatus],
+    ) -> [EntityID]? {
+        func path(in nodes: [ProjectNode]) -> [EntityID]? {
+            for node in nodes {
+                let displayID = node.project.displayID
+                if displayID == id {
+                    let status = syncStatuses[SyncItemKey(kind: .project, id: node.id)]
+                    // An online creation's local ordering is provisional until its push completes.
+                    guard node.project.pendingOnlineCreationAt == nil || !isOnline || status == .failed else {
+                        return nil
+                    }
+                    return [displayID]
+                }
+                if let childPath = path(in: node.children) {
+                    return [displayID] + childPath
+                }
+            }
+            return nil
+        }
+
+        return path(in: nodes)
+    }
+
     public func hash(into hasher: inout Hasher) {
         hasher.combine(project)
         hasher.combine(children)

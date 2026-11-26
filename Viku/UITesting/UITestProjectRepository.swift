@@ -9,6 +9,17 @@ actor UITestProjectRepository: ProjectRepositoryProtocol {
         UITestFixtures.savedFilterProject,
     ]
     private var nextID = 100
+    private let delaysProjectCreation: Bool
+
+    init() {
+        let delaysProjectCreation = ProcessInfo.processInfo.arguments.contains("-UITestSlowProjectCreation")
+        self.delaysProjectCreation = delaysProjectCreation
+        if ProcessInfo.processInfo.arguments.contains("-UITestLongProjectList") {
+            projects += (3 ... 32).map {
+                Project(id: .remote($0), title: "UI Test Project \($0)", position: delaysProjectCreation ? Double($0) : 0)
+            }
+        }
+    }
 
     func fetchProjects() async throws -> [Project] {
         projects
@@ -20,10 +31,13 @@ actor UITestProjectRepository: ProjectRepositoryProtocol {
     }
 
     func create(_ project: Project) async throws -> Project {
+        if delaysProjectCreation {
+            try await Task.sleep(for: .seconds(6))
+        }
         let created = Project(
             id: .remote(nextID), title: project.title, description: project.description,
             isArchived: project.isArchived, isFavorite: project.isFavorite, parentProjectID: project.parentProjectID,
-            position: project.position, hexColor: project.hexColor, updated: Date(),
+            position: delaysProjectCreation ? 18.5 : project.position, hexColor: project.hexColor, updated: Date(),
         )
         nextID += 1
         projects.append(created)
