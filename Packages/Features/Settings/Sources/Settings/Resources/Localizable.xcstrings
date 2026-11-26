@@ -1469,12 +1469,12 @@
         }
       }
     },
-    "Dark" : {
+    "Viku Dark" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Oscuro"
+            "value" : "Viku Oscuro"
           }
         }
       }
@@ -1829,12 +1829,12 @@
         }
       }
     },
-    "Light" : {
+    "Viku Light" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Claro"
+            "value" : "Viku Claro"
           }
         }
       }
@@ -2905,6 +2905,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Pantalla principal"
+          }
+        }
+      }
+    },
+    "The theme changes buttons, checkboxes, and accents. Your project and label colors stay the same." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El tema cambia botones, casillas y acentos. Los colores de tus proyectos y etiquetas no cambian."
+          }
+        }
+      }
+    },
+    "Theme %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tema %@"
           }
         }
       }

@@ -33,13 +33,23 @@ public final class ThemeCenter: AppThemeStoring {
         defaults.set(theme.rawValue, forKey: Self.defaultsKey)
     }
 
+    public var colorScheme: ColorScheme? {
+        theme.colorScheme
+    }
+
+    public var palette: VikuPalette {
+        theme.palette
+    }
+}
+
+public extension AppTheme {
     /// The value to hand `.preferredColorScheme(_:)`: `nil` lets the view
     /// hierarchy follow the system setting, matching `.system`. Every other
     /// theme pins its own scheme, since each has a literal (non-adaptive)
     /// palette: `.warm`/`.forest` are light-scheme variants, the rest are
     /// dark-scheme variants.
-    public var colorScheme: ColorScheme? {
-        switch theme {
+    var colorScheme: ColorScheme? {
+        switch self {
         case .system: nil
         case .light: .light
         case .dark: .dark
@@ -48,9 +58,9 @@ public final class ThemeCenter: AppThemeStoring {
         }
     }
 
-    /// The value to hand `@Environment(\.vikuPalette)`.
-    public var palette: VikuPalette {
-        switch theme {
+    /// Shared by the live appearance and the theme picker.
+    var palette: VikuPalette {
+        switch self {
         case .system, .light, .dark: .standard
         case .warm: .warm
         case .nord: .nord

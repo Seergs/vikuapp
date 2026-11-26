@@ -15,10 +15,16 @@ final class AppearanceTests: XCTestCase {
         XCUIDevice.shared.appearance = .light
         application.launch().assertFixtureVisible()
         let appearance = AppPage(app: application.app).showSettings().openAppearance()
+        appearance.assertNoteAbovePreviews()
+        appearance.assertTwoColumns()
         appearance.assertRenderedAppearance(dark: false, name: "Initial automatic appearance")
+        appearance.assertThemePreviews()
+        appearance.assertSelectionRing(.automatic)
 
         appearance.select(.dark)
         appearance.assertRenderedAppearance(dark: true, name: "Dark before explicit light override")
+        appearance.assertThemePreviews()
+        appearance.assertSelectionRing(.dark)
         appearance.select(.light)
         appearance.assertRenderedAppearance(dark: false, name: "Explicit light appearance")
         appearance.select(.dark)
