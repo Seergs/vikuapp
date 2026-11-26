@@ -7,8 +7,8 @@ extension AppTheme {
     var displayName: String {
         switch self {
         case .system: String(localized: "Automatic", bundle: .module)
-        case .light: String(localized: "Light", bundle: .module)
-        case .dark: String(localized: "Dark", bundle: .module)
+        case .light: String(localized: "Viku Light", bundle: .module)
+        case .dark: String(localized: "Viku Dark", bundle: .module)
         case .warm: String(localized: "Warm", bundle: .module)
         case .nord: String(localized: "Nord", bundle: .module)
         case .solarized: String(localized: "Solarized", bundle: .module)
