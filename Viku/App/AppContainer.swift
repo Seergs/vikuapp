@@ -201,6 +201,7 @@ final class AppContainer {
         defaults: UserDefaults = .standard,
         reachabilityMonitor: ReachabilityMonitoring = NWPathReachabilityMonitor(),
         isUITesting: Bool = false,
+        appIconBadgePreference: AppIconBadgePreference = AppIconBadgePreference(),
     ) {
         self.isUITesting = isUITesting
         self.defaults = defaults
@@ -221,7 +222,7 @@ final class AppContainer {
         self.currentUserStore = CurrentUserStore(defaults: defaults)
         self.projectTaskSummaryStore = ProjectTaskSummaryStore(defaults: defaults)
         self.homeSelectionStore = HomeSelectionStore(defaults: defaults)
-        self.appIconBadgeCenter = Self.makeAppIconBadgeCenter(defaults: defaults, isUITesting: isUITesting)
+        self.appIconBadgeCenter = AppIconBadgeCenter(defaults: defaults, sharedPreference: appIconBadgePreference)
         self.serverVersionStore = ServerVersionStore(defaults: defaults)
         self.taskSortStore = TaskSortCenter(defaults: defaults)
         self.whatsNewSeenVersionStore = WhatsNewSeenVersionStore(defaults: defaults)
@@ -260,13 +261,6 @@ final class AppContainer {
             contentProvider: BundledWhatsNewContentProvider(),
             seenVersionStore: whatsNewSeenVersionStore,
         )
-    }
-
-    private static func makeAppIconBadgeCenter(defaults: UserDefaults, isUITesting: Bool) -> AppIconBadgeCenter {
-        let suiteName = isUITesting
-            ? "\(VikuWidgetConfig.appGroupIdentifier).uitesting"
-            : VikuWidgetConfig.appGroupIdentifier
-        return AppIconBadgeCenter(defaults: defaults, sharedPreference: AppIconBadgePreference(suiteName: suiteName))
     }
 
     /// Opens the shared offline database, preferring the App Group
